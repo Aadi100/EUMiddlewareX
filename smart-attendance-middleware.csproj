@@ -1,0 +1,427 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\EntityFramework.6.5.1\build\EntityFramework.props" Condition="Exists('packages\EntityFramework.6.5.1\build\EntityFramework.props')" />
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{01A88B72-F31B-43CD-BD82-719CECC1634B}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>smart_attendance_middleware</RootNamespace>
+    <AssemblyName>smart-attendance-middleware</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>favicon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AxInterop.FPCLOCK_SVRLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>obj\x86\Debug\AxInterop.FPCLOCK_SVRLib.dll</HintPath>
+    </Reference>
+    <Reference Include="AxInterop.FPREADERLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>obj\x86\Debug\AxInterop.FPREADERLib.dll</HintPath>
+    </Reference>
+    <Reference Include="AxInterop.FP_CLOCKLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>obj\x86\Debug\AxInterop.FP_CLOCKLib.dll</HintPath>
+    </Reference>
+    <Reference Include="BouncyCastle.Cryptography, Version=2.0.0.0, Culture=neutral, PublicKeyToken=072edcf4a5328938, processorArchitecture=MSIL">
+      <HintPath>packages\BouncyCastle.Cryptography.2.4.0\lib\net461\BouncyCastle.Cryptography.dll</HintPath>
+    </Reference>
+    <Reference Include="CuoreUI, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\CuoreUI.Winforms.2025.8.27\lib\net472\CuoreUI.dll</HintPath>
+    </Reference>
+    <Reference Include="Eagle, Version=1.0.8734.30319, Culture=neutral, PublicKeyToken=29c6297630be05eb, processorArchitecture=MSIL">
+      <HintPath>packages\Eagle.CLRv4.Core.1.0.8734.30319\lib\net40\Eagle.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>packages\EntityFramework.6.5.1\lib\net45\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>packages\EntityFramework.6.5.1\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+    </Reference>
+    <Reference Include="Interop.FPCLOCK_SVRLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>obj\x86\Debug\Interop.FPCLOCK_SVRLib.dll</HintPath>
+    </Reference>
+    <Reference Include="Interop.FPREADERLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>obj\x86\Debug\Interop.FPREADERLib.dll</HintPath>
+    </Reference>
+    <Reference Include="Interop.FP_CLOCKLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>obj\x86\Debug\Interop.FP_CLOCKLib.dll</HintPath>
+    </Reference>
+    <Reference Include="itextsharp, Version=5.5.13.4, Culture=neutral, PublicKeyToken=8354ae6d2174ddca, processorArchitecture=MSIL">
+      <HintPath>packages\iTextSharp.5.5.13.4\lib\net461\itextsharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.Core, Version=1.0.3485.44, Culture=neutral, PublicKeyToken=2a8ab48044d2601e, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.Web.WebView2.1.0.3485.44\lib\net462\Microsoft.Web.WebView2.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.WinForms, Version=1.0.3485.44, Culture=neutral, PublicKeyToken=2a8ab48044d2601e, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.Web.WebView2.1.0.3485.44\lib\net462\Microsoft.Web.WebView2.WinForms.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.Wpf, Version=1.0.3485.44, Culture=neutral, PublicKeyToken=2a8ab48044d2601e, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.Web.WebView2.1.0.3485.44\lib\net462\Microsoft.Web.WebView2.Wpf.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="SQLitePCLRaw.core, Version=1.1.14.520, Culture=neutral, PublicKeyToken=1488e028ca7ab535, processorArchitecture=MSIL">
+      <HintPath>packages\SQLitePCLRaw.core.1.1.14\lib\net45\SQLitePCLRaw.core.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.SQLite, Version=1.0.119.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
+      <HintPath>packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\lib\net46\System.Data.SQLite.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Data.SQLite.EF6, Version=1.0.119.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
+      <HintPath>packages\System.Data.SQLite.EF6.1.0.119.0\lib\net46\System.Data.SQLite.EF6.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Data.SQLite.Linq, Version=1.0.119.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
+      <HintPath>packages\System.Data.SQLite.Linq.1.0.119.0\lib\net46\System.Data.SQLite.Linq.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Data.SQLite.SEE.License, Version=1.0.119.0, Culture=neutral, PublicKeyToken=0a9a2a02614f8a52, processorArchitecture=MSIL">
+      <HintPath>packages\Stub.System.Data.SQLite.SEE.NetFramework.1.0.119.0\lib\net40\System.Data.SQLite.SEE.License.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Net.WebSockets, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Net.WebSockets.4.3.0\lib\net46\System.Net.WebSockets.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AttendanceServerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AttendanceServerForm.Designer.cs">
+      <DependentUpon>AttendanceServerForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Classes\AttendanceSimulator.cs" />
+    <Compile Include="Classes\CommonUtils.cs" />
+    <Compile Include="Classes\DatabaseQueueManager.cs" />
+    <Compile Include="Classes\DbTaskPriority.cs" />
+    <Compile Include="Classes\HttpHandler.cs" />
+    <Compile Include="Classes\aiChatLogger.cs" />
+    <Compile Include="Classes\AppSession.cs" />
+    <Compile Include="Classes\AttendanceLogSyncService.cs" />
+    <Compile Include="Classes\AttendanceServerThreadManager.cs" />
+    <Compile Include="Classes\AttendenceServerFunctions.cs" />
+    <Compile Include="Classes\DeviceFunctions.cs" />
+    <Compile Include="Classes\DeviceService.cs" />
+    <Compile Include="Classes\EmailBackupService.cs" />
+    <Compile Include="Classes\LogSyncService.cs" />
+    <Compile Include="Classes\NetworkHelper.cs" />
+    <Compile Include="Classes\OcxFpreaderInvoker.cs" />
+    <Compile Include="Classes\OcxThreadInvoker.cs" />
+    <Compile Include="Classes\DeviceOperations.cs" />
+    <Compile Include="Classes\LogHelper.cs" />
+    <Compile Include="Classes\DeviceConnector.cs" />
+    <Compile Include="Classes\ConnectionStatusChecker.cs" />
+    <Compile Include="Classes\DatabaseHelper.cs" />
+    <Compile Include="Classes\PeriodicMaintenanceService.cs" />
+    <Compile Include="Classes\PrivilegedAttendanceLogger.cs" />
+    <Compile Include="Classes\Processor.cs" />
+    <Compile Include="Classes\ServerThreadInvoker.cs" />
+    <Compile Include="Classes\ServiceManager.cs" />
+    <Compile Include="Classes\SimulationEvents.cs" />
+    <Compile Include="Classes\StaffAttendance.cs" />
+    <Compile Include="SimulatorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SimulatorForm.Designer.cs">
+      <DependentUpon>SimulatorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\ToastNotificationForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Classes\WebSocketManager.cs" />
+    <Compile Include="Controls\CircularLoader.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="FacePopupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FacePopupForm.Designer.cs">
+      <DependentUpon>FacePopupForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Fingerprint.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Fingerprint.Designer.cs">
+      <DependentUpon>Fingerprint.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\LoaderPopupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UserSetup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UserSetup.Designer.cs">
+      <DependentUpon>UserSetup.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Dashboard.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Dashboard.Designer.cs">
+      <DependentUpon>Dashboard.cs</DependentUpon>
+    </Compile>
+    <Compile Include="DeviceManager.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DeviceManager.Designer.cs">
+      <DependentUpon>DeviceManager.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AddNewDevice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AddNewDevice.Designer.cs">
+      <DependentUpon>AddNewDevice.cs</DependentUpon>
+    </Compile>
+    <Compile Include="AddNewUser.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AddNewUser.Designer.cs">
+      <DependentUpon>AddNewUser.cs</DependentUpon>
+    </Compile>
+    <Compile Include="EditUser.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="EditUser.Designer.cs">
+      <DependentUpon>EditUser.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GateAccessForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GateAccessForm.Designer.cs">
+      <DependentUpon>GateAccessForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Login.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Login.Designer.cs">
+      <DependentUpon>Login.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MissingFingerprints.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MissingFingerprints.Designer.cs">
+      <DependentUpon>MissingFingerprints.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Resource1.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resource1.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="AddNewDevice.resx">
+      <DependentUpon>AddNewDevice.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="AddNewUser.resx">
+      <DependentUpon>AddNewUser.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="AttendanceServerForm.resx">
+      <DependentUpon>AttendanceServerForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Dashboard.resx">
+      <DependentUpon>Dashboard.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="DeviceManager.resx">
+      <DependentUpon>DeviceManager.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="EditUser.resx">
+      <DependentUpon>EditUser.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FacePopupForm.resx">
+      <DependentUpon>FacePopupForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Fingerprint.resx">
+      <DependentUpon>Fingerprint.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SimulatorForm.resx">
+      <DependentUpon>SimulatorForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UserSetup.resx">
+      <DependentUpon>UserSetup.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GateAccessForm.resx">
+      <DependentUpon>GateAccessForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Login.resx">
+      <DependentUpon>Login.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MissingFingerprints.resx">
+      <DependentUpon>MissingFingerprints.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <EmbeddedResource Include="Resource1.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resource1.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <None Include="SERVICES.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+    <None Include="Resources\Vectoricn_.png" />
+    <None Include="Resources\internet-disconnected.png" />
+    <None Include="Resources\inertnet-connected.png" />
+    <None Include="Resources\fitness-marvel-disconnected.png" />
+    <None Include="Resources\fitness-marvel-connected.png" />
+    <None Include="Resources\device-disconnected.png" />
+    <None Include="Resources\device-connected.png" />
+    <None Include="Resources\txt_place_holder.png" />
+    <None Include="Resources\top_pannel.png" />
+    <None Include="Resources\logo.png" />
+    <None Include="Resources\fitness_marvel_text.png" />
+    <None Include="Resources\face_logo.png" />
+    <None Include="Resources\btn_user_management.png" />
+    <None Include="Resources\btn_exit.png" />
+    <None Include="Resources\btn_Device_Setup.png" />
+    <None Include="Resources\btn_device_manager.png" />
+    <None Include="Resources\btn_create_cccount.png" />
+    <None Include="Resources\btn_connected.png" />
+    <None Include="Resources\btn_connect.png" />
+    <Content Include="favicon.ico" />
+    <None Include="Resources\ailogs.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Resources\aceess denide note.mp3" />
+    <Content Include="Resources\btn_setup.png" />
+    <None Include="Resources\check-in note.mp3" />
+    <None Include="Resources\checkout note.mp3" />
+    <Content Include="Resources\create_button.png" />
+    <Content Include="Resources\Create_user_screen.png" />
+    <Content Include="Resources\Dashboard Screen %281%29.png" />
+    <Content Include="Resources\Dashboard Screen.png" />
+    <None Include="Resources\device-offline.png" />
+    <None Include="Resources\device-connected %281%29.png" />
+    <None Include="Resources\device startup welcome note.mp3" />
+    <Content Include="Resources\Frame 2 %281%29.png" />
+    <Content Include="Resources\Frame 2.png" />
+    <Content Include="Resources\Group 51 %281%29.png" />
+    <Content Include="Resources\Group 61 %283%29.png" />
+    <Content Include="Resources\Group 73.png" />
+    <None Include="Resources\icon_facede-tection.png" />
+    <None Include="Resources\heart-beat-anomaly.gif" />
+    <None Include="Resources\icn_device.png" />
+    <None Include="Resources\icn_wifi-disconnected.png" />
+    <None Include="Resources\icn-device-disconnected.png" />
+    <None Include="Resources\icn-device.png" />
+    <None Include="Resources\icn-fm-cloud-disconnected.png" />
+    <None Include="Resources\icn-fm-cloud.png" />
+    <None Include="Resources\icn-wifi-disconnected.png" />
+    <None Include="Resources\icn-wifi.png" />
+    <Content Include="Resources\Icon_Transparent_Blue.png" />
+    <Content Include="Resources\input_placeholder.png" />
+    <None Include="Resources\invalid card.mp3" />
+    <Content Include="Resources\large-btn-bg.png" />
+    <Content Include="Resources\login.png" />
+    <None Include="Resources\new test image.png" />
+    <None Include="Resources\txt_place_holder_api.png" />
+    <None Include="Resources\middleware ui.jpg" />
+    <None Include="Resources\Main Scene %281%29.gif" />
+    <None Include="Resources\user-scan.gif" />
+    <Content Include="Resources\user_create_screen.png" />
+    <Content Include="Resources\user_login_screen.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets" Condition="Exists('packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.Web.WebView2.1.0.3485.44\build\Microsoft.Web.WebView2.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Web.WebView2.1.0.3485.44\build\Microsoft.Web.WebView2.targets'))" />
+    <Error Condition="!Exists('packages\Harpy.CLRv4.1.0.8734.30319\build\net40\Harpy.CLRv4.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Harpy.CLRv4.1.0.8734.30319\build\net40\Harpy.CLRv4.targets'))" />
+    <Error Condition="!Exists('packages\EntityFramework.6.5.1\build\EntityFramework.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\EntityFramework.6.5.1\build\EntityFramework.props'))" />
+    <Error Condition="!Exists('packages\EntityFramework.6.5.1\build\EntityFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\EntityFramework.6.5.1\build\EntityFramework.targets'))" />
+  </Target>
+  <Import Project="packages\Microsoft.Web.WebView2.1.0.3485.44\build\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.3485.44\build\Microsoft.Web.WebView2.targets')" />
+  <Import Project="packages\Harpy.CLRv4.1.0.8734.30319\build\net40\Harpy.CLRv4.targets" Condition="Exists('packages\Harpy.CLRv4.1.0.8734.30319\build\net40\Harpy.CLRv4.targets')" />
+  <Import Project="packages\EntityFramework.6.5.1\build\EntityFramework.targets" Condition="Exists('packages\EntityFramework.6.5.1\build\EntityFramework.targets')" />
+</Project>
