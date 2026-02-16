@@ -832,7 +832,7 @@ public sealed class ConnectionStatusChecker
                     try
                     {
                         await _wsManager.ConnectionStatusAsync();
-                        LogHelper.Log("Subscription check: Ping sent");
+                        LogHelper.Log("Ping");
                     }
                     catch (Exception ex)
                     {
@@ -850,7 +850,6 @@ public sealed class ConnectionStatusChecker
 
             if (isPongRecent)
             {
-                LogHelper.Log("Subscription check: Valid - Recent pong received");
                 // Reset reconnection attempts when connection is healthy
                 reconnectionAttempts = 0;
                 return true;

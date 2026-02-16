@@ -4,6 +4,7 @@ using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Media;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -16,10 +17,11 @@ namespace smart_attendance_middleware
         public DatabaseHelper _dbHelper;
         public WebSocketManager _wsManager;
         private Processor _processor;
-
+        private HttpHandler _httpHandler;
         public AttendenceServerFunctions(DatabaseHelper dbHelper)
         {
-            _dbHelper = dbHelper;
+            _dbHelper = dbHelper ?? new DatabaseHelper();
+            _httpHandler = new HttpHandler(_dbHelper);
         }
 
         public AttendenceServerFunctions(WebSocketManager wsManager)
@@ -27,15 +29,23 @@ namespace smart_attendance_middleware
             _dbHelper = new DatabaseHelper();
             _wsManager = wsManager;
 
-            // Only create processor if WebSocketManager was provided
             if (_wsManager != null)
             {
                 _processor = new Processor(_dbHelper, _wsManager, this);
+                // Ensure HttpHandler has a Processor to process responses
+                _httpHandler = new HttpHandler(_dbHelper, _processor);
+            }
+            else
+            {
+                _httpHandler = new HttpHandler(_dbHelper);
             }
         }
 
         public AttendenceServerFunctions()
         {
+            _dbHelper = new DatabaseHelper();
+            // HttpHandler without Processor for now; will be re-created when WS is set
+            _httpHandler = new HttpHandler(_dbHelper);
         }
 
         // Method to set the WebSocketManager if needed after construction
@@ -55,6 +65,9 @@ namespace smart_attendance_middleware
             {
                 _processor = new Processor(_dbHelper, _wsManager, this);
                 LogHelper.Log("[AttendenceServerFunctions] Processor created with WebSocketManager");
+
+                // Recreate HttpHandler with Processor so it can process attendance/member responses
+                _httpHandler = new HttpHandler(_dbHelper, _processor);
             }
         }
 
@@ -161,45 +174,7 @@ namespace smart_attendance_middleware
                             LogHelper.Log("[AttendanceProcess][Debounce] No open session for checkout; passing to handler.");
                         }
                     }
-                    //else if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
-                    //{
-                    //    // Compare against last check-out time (if any)
-                    //    DateTime? lastCheckOut = _dbHelper.GetLastCheckOutTimeForMember(memberId.Value);
-                    //    if (lastCheckOut.HasValue)
-                    //    {
-                    //        var diff = deviceTime - lastCheckOut.Value;
-                    //        if (diff.TotalSeconds < debounceSeconds)
-                    //        {
-                    //            LogHelper.Log($"[AttendanceProcess][Debounce] CHECK-IN ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
-                    //            return; // exit early
-                    //        }
-                    //    }
-                    //}
-
-                    //else if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
-                    //{
-                    //    // If session is completed (no open log), do NOT apply debounce for check-in
-                    //    int openLogId = _dbHelper.GetOpenAttendanceLogId(memberId.Value);
-                    //    if (openLogId <= 0)
-                    //    {
-                    //        LogHelper.Log($"[AttendanceProcess][Debounce] CHECK-IN debounce skipped (session completed; no open log). Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
-                    //    }
-                    //    else
-                    //    {
-                    //        // There is an open session; optional debounce behavior (keep your existing logic if you still want it)
-                    //        DateTime? lastCheckOut = _dbHelper.GetLastCheckOutTimeForMember(memberId.Value);
-                    //        if (lastCheckOut.HasValue)
-                    //        {
-                    //            var diff = deviceTime - lastCheckOut.Value;
-                    //            if (diff.TotalSeconds < debounceSeconds)
-                    //            {
-                    //                LogHelper.Log($"[AttendanceProcess][Debounce] CHECK-IN ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
-                    //                return;
-                    //            }
-                    //        }
-                    //    }
-                    //}
-
+                    
                     else if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
                     {
                         int openLogId = _dbHelper.GetOpenAttendanceLogId(memberId.Value);
@@ -291,77 +266,104 @@ namespace smart_attendance_middleware
         }
 
 
-        // Separate method to log attendance to server
-        //private async Task LogAttendanceToServer(AttendanceEventResult result)
-        //{
-        //    if (result == null) return;
-
-        //    try
-        //    {
-        //        // Use the class member _wsManager instead of getting it from ApplicationState
-        //        if (_wsManager == null)
-        //        {
-        //            LogHelper.Log("[LogAttendanceToServer] WebSocketManager is not initialized in this class instance.");
-        //            return;
-        //        }
-
-        //        // Determine whether this is a check-in or check-out based on the action
-        //        if (result.Action.ToLower() == "check-in")
-        //        {
-        //            await _wsManager.LogAttendanceAsync(result.MemberId, result.EventTime, null);
-        //            LogHelper.Log($"[LogAttendanceToServer] CHECK-IN sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
-        //        }
-        //        else if (result.Action.ToLower() == "check-out")
-        //        {
-        //            DateTime? checkInTime = null;
-        //            await DatabaseQueueManager.EnterDbWriteLockAsync("GetPairedCheckInTime", DbTaskPriority.Low);
-        //            try
-        //            {
-        //                checkInTime = _dbHelper.GetPairedCheckInTime(result.MemberId, result.EventTime);
-        //            }
-        //            finally
-        //            {
-        //                DatabaseQueueManager.ReleaseDbWriteLock("GetPairedCheckInTime");
-        //            }
-        //            await _wsManager.LogAttendanceAsync(result.MemberId, checkInTime, result.EventTime);
-        //            LogHelper.Log($"[LogAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} with Check-In at {(checkInTime.HasValue ? checkInTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")} and Check-Out at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        LogHelper.Log($"[LogAttendanceToServer] Error: {ex.Message}");
-        //    }
-        //}
-
-
         private async Task LogAttendanceToServer(AttendanceEventResult result)
         {
             if (result == null) return;
 
             try
             {
-                // Use the class member _wsManager instead of getting it from ApplicationState
-                if (_wsManager == null)
+                if (_httpHandler == null)
                 {
-                    LogHelper.Log("[LogAttendanceToServer] WebSocketManager is not initialized in this class instance.");
+                    LogHelper.Log("[LogAttendanceToServer] HttpHandler not initialized.");
                     return;
                 }
 
-                // Determine whether this is a check-in or check-out based on the action
-                if (result.Action.ToLower() == "check-in")
+                int enrollmentId = result.EnrollmentId;
+                if (enrollmentId <= 0)
                 {
-                    await _wsManager.LogAttendanceAsync(result.MemberId, result.EventTime, null);
-                    LogHelper.Log($"[LogAttendanceToServer] CHECK-IN sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
+                    LogHelper.Log($"[LogAttendanceToServer] Cannot log to server: Invalid enrollment ID for Member={result.MemberId}");
+                    return;
                 }
-                else if (result.Action.ToLower() == "check-out")
+
+                // Read GMT offset from settings (e.g., "+05", "-03", "+05:30")
+                var gmtSetting = _dbHelper.GetSetting("GMT");
+
+                // Resolve attendance ID by action-specific timestamp under DB lock
+                string resolvedId = null;
+                await DatabaseQueueManager.EnterDbWriteLockAsync("ResolveAttendanceIdForMember", DbTaskPriority.High);
+                try
                 {
+                    if (result.Action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolvedId = _dbHelper.GetAttendanceIdForMember(result.MemberId, result.EventTime, null);
+                    }
+                    else if (result.Action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolvedId = _dbHelper.GetAttendanceIdForMember(result.MemberId, null, result.EventTime);
+                    }
+                    else
+                    {
+                        LogHelper.Log($"[LogAttendanceToServer] Unsupported action '{result.Action}'");
+                        return;
+                    }
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("ResolveAttendanceIdForMember");
+                }
+
+                if (string.IsNullOrEmpty(resolvedId))
+                {
+                    LogHelper.Log($"[LogAttendanceToServer] Cannot log to server: No attendance ID for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
+                    return;
+                }
+
+                // Build UTC (+00) strings from local device times
+                string checkInStr = null;
+                string checkOutStr = null;
+
+                if (result.Action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Convert local EventTime (under configured GMT) to UTC and format with "+00"
+                    checkInStr = CommonUtils.FormatWithGmt(result.EventTime, gmtSetting);
+
+                    await _httpHandler.PostAttendanceRecordAsync(
+                        enrollmentId,
+                        checkinTime: checkInStr,
+                        checkoutTime: null,
+                        id: resolvedId
+                    );
+
+                    LogHelper.Log($"[LogAttendanceToServer] CHECK-IN sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss} (normalized to UTC +00)");
+                }
+                else if (result.Action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Get paired check-in time under DB lock
                     DateTime? checkInTime = null;
-                    using (await DatabaseQueueManager.EnterDbWriteLockAsync("GetPairedCheckInTime", DbTaskPriority.Low))
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("GetPairedCheckInTime", DbTaskPriority.High);
+                    try
                     {
                         checkInTime = _dbHelper.GetPairedCheckInTime(result.MemberId, result.EventTime);
                     }
-                    await _wsManager.LogAttendanceAsync(result.MemberId, checkInTime, result.EventTime);
-                    LogHelper.Log($"[LogAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} with Check-In at {(checkInTime.HasValue ? checkInTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")} and Check-Out at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
+                    finally
+                    {
+                        DatabaseQueueManager.ReleaseDbWriteLock("GetPairedCheckInTime");
+                    }
+
+                    if (checkInTime.HasValue)
+                    {
+                        checkInStr = CommonUtils.FormatWithGmt(checkInTime.Value, gmtSetting);
+                    }
+                    checkOutStr = CommonUtils.FormatWithGmt(result.EventTime, gmtSetting);
+
+                    await _httpHandler.PostAttendanceRecordAsync(
+                        enrollmentId,
+                        checkinTime: checkInStr,
+                        checkoutTime: checkOutStr,
+                        id: resolvedId
+                    );
+
+                    LogHelper.Log($"[LogAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} (normalized to UTC +00)");
                 }
             }
             catch (Exception ex)
@@ -369,113 +371,6 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"[LogAttendanceToServer] Error: {ex.Message}");
             }
         }
-
-        //private async Task<AttendanceEventResult> HandleAttendanceEvent(int machineNo, int enrollmentId, DateTime deviceTime)
-        //{
-        //    try
-        //    {
-        //        string action = _dbHelper.GetDeviceAttendanceAction(machineNo);
-        //        if (action == null)
-        //        {
-        //            LogHelper.Log($"[AttendanceProcess] Unknown MachineNo {machineNo}. Ignored.");
-        //            return null;
-        //        }
-
-        //        int? memberId = _dbHelper.GetMemberIdByEnrollment(enrollmentId);
-        //        if (!memberId.HasValue)
-        //        {
-        //            LogHelper.Log($"[AttendanceProcess] EnrollmentID {enrollmentId} not linked to any member. Ignored.");
-        //            return null;
-        //        }
-
-        //        string deviceTimeStr = deviceTime.ToString("yyyy-MM-dd HH:mm:ss");
-
-        //        // Duplicate + sync check (exact timestamp match)
-        //        // Requires DatabaseHelper.CheckAttendanceDuplicateAndSynced(memberId, deviceTime, action)
-        //        var dup = _dbHelper.CheckAttendanceDuplicateAndSynced(memberId.Value, deviceTime, action);
-        //        if (dup.exists)
-        //        {
-        //            if (dup.synced)
-        //            {
-        //                // Already processed and acknowledged by cloud – suppress entirely.
-        //                LogHelper.Log($"[AttendanceProcess] Suppressed re-streamed {action} (already synced) Member={memberId} Time={deviceTimeStr}");
-        //                return null;
-        //            }
-        //            else
-        //            {
-        //                // This avoids double entries but allows cloud sync to complete.
-        //                LogHelper.Log($"[AttendanceProcess] Duplicate {action} detected for Member={memberId} at {deviceTimeStr}, Ignoring.");
-        //                return null; // Changed to null to avoid double sending; handled in Process method
-        //            }
-        //        }
-
-        //        // Unified gate (today + previous-day open session logic) only for non-duplicates
-        //        bool gate = _dbHelper.CanProcessAttendance(memberId.Value, deviceTime, action);
-
-        //        if (action == "check-in")
-        //        {
-        //            // gate == true means no open session -> allow insert
-        //            if (!gate)
-        //            {
-        //                LogHelper.Log($"[AttendanceProcess] Duplicate/open CHECK-IN blocked for Member={memberId} at {deviceTimeStr}");
-        //                return null;
-        //            }
-
-        //            await DatabaseQueueManager.EnterDbWriteLockAsync("InsertAttendanceLog", DbTaskPriority.Medium);
-        //            try
-        //            {
-        //                int logId = _dbHelper.InsertAttendanceLog(memberId.Value, deviceTimeStr);
-        //                LogHelper.Log($"[AttendanceProcess] CHECK-IN stored Member={memberId} LogID={logId} Time={deviceTimeStr}");
-        //            }
-        //            finally
-        //            {
-        //                DatabaseQueueManager.ReleaseDbWriteLock("InsertAttendanceLog");
-        //            }
-        //        }
-        //        else if (action == "check-out")
-        //        {
-        //            // gate == true means there IS an open session -> allow checkout update
-        //            if (gate)
-        //            {
-        //                await DatabaseQueueManager.EnterDbWriteLockAsync("UpdateAttendanceLogForCheckOut", DbTaskPriority.Medium);
-        //                try
-        //                {
-        //                    _dbHelper.UpdateAttendanceLogForCheckOut(memberId.Value, deviceTimeStr);
-        //                    LogHelper.Log($"[AttendanceProcess] CHECK-OUT applied Member={memberId} Time={deviceTimeStr}");
-        //                }
-        //                finally
-        //                {
-        //                    DatabaseQueueManager.ReleaseDbWriteLock("UpdateAttendanceLogForCheckOut");
-        //                }
-        //            }
-        //            else
-        //            {
-        //                LogHelper.Log($"[AttendanceProcess] CHECK-OUT ignored for Member={memberId} at {deviceTimeStr} (no open session)");
-        //                return null;
-        //            }
-        //        }
-        //        else
-        //        {
-        //            LogHelper.Log($"[AttendanceProcess] Unsupported action '{action}' for MachineNo={machineNo}. Ignored.");
-        //            return null;
-        //        }
-
-        //        return new AttendanceEventResult
-        //        {
-        //            Success = true,
-        //            MemberId = memberId.Value,
-        //            EnrollmentId = enrollmentId,
-        //            Action = action,
-        //            EventTime = deviceTime
-        //        };
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        LogHelper.Log($"[AttendanceProcess][ERROR] {ex.Message}");
-        //        return null;
-        //    }
-
-        //}
 
         private async Task<AttendanceEventResult> HandleAttendanceEvent(int machineNo, int enrollmentId, DateTime deviceTime)
         {
@@ -528,10 +423,15 @@ namespace smart_attendance_middleware
                         return null;
                     }
 
-                    using (await DatabaseQueueManager.EnterDbWriteLockAsync("InsertAttendanceLog", DbTaskPriority.Medium))
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("InsertAttendanceLog", DbTaskPriority.Medium);
+                    try
                     {
                         int logId = _dbHelper.InsertAttendanceLog(memberId.Value, deviceTimeStr);
                         LogHelper.Log($"[AttendanceProcess] CHECK-IN stored Member={memberId} LogID={logId} Time={deviceTimeStr}");
+                    }
+                    finally
+                    {
+                        DatabaseQueueManager.ReleaseDbWriteLock("InsertAttendanceLog");
                     }
                 }
                 else if (action == "check-out")
@@ -539,10 +439,15 @@ namespace smart_attendance_middleware
                     // gate == true means there IS an open session -> allow checkout update
                     if (gate)
                     {
-                        using (await DatabaseQueueManager.EnterDbWriteLockAsync("UpdateAttendanceLogForCheckOut", DbTaskPriority.Medium))
+                        await DatabaseQueueManager.EnterDbWriteLockAsync("UpdateAttendanceLogForCheckOut", DbTaskPriority.Medium);
+                        try
                         {
                             _dbHelper.UpdateAttendanceLogForCheckOut(memberId.Value, deviceTimeStr);
                             LogHelper.Log($"[AttendanceProcess] CHECK-OUT applied Member={memberId} Time={deviceTimeStr}");
+                        }
+                        finally
+                        {
+                            DatabaseQueueManager.ReleaseDbWriteLock("UpdateAttendanceLogForCheckOut");
                         }
                     }
                     else
@@ -556,6 +461,7 @@ namespace smart_attendance_middleware
                     LogHelper.Log($"[AttendanceProcess] Unsupported action '{action}' for MachineNo={machineNo}. Ignored.");
                     return null;
                 }
+
 
                 return new AttendanceEventResult
                 {
@@ -642,10 +548,10 @@ namespace smart_attendance_middleware
                 {
                     try
                     {
-                        var timer = new Timer { Interval = 2000 }; // 2 seconds
+                        var timer = new System.Windows.Forms.Timer { Interval = 2000 }; // 2 seconds
                         timer.Tick += (s, e) =>
                         {
-                            var t = (Timer)s;
+                            var t = (System.Windows.Forms.Timer)s;
                             t.Stop();
                             t.Dispose();
                             showAction();
@@ -695,58 +601,5 @@ namespace smart_attendance_middleware
             }
         }
 
-        // Modified to only handle check-ins with attendee ID as parameter
-        public async System.Threading.Tasks.Task ManualCheckInAsync(int attendeeId)
-        {
-            if (_wsManager == null)
-            {
-                LogHelper.Log("[ManualCheckIn] WebSocketManager not initialized.");
-                MessageBox.Show("WebSocket connection not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            DateTime now = DateTime.Parse("2025-12-29 22:40:06");
-
-            try
-            {
-                LogHelper.Log(string.Format("[ManualCheckIn] Sending CHECK-IN attendeeId={0} at {1:yyyy-MM-dd HH:mm:ss}", attendeeId, now));
-                await _wsManager.LogAttendanceAsync(attendeeId, now, null);
-                LogHelper.Log(string.Format("[ManualCheckIn] CHECK-IN sent attendeeId={0}", attendeeId));
-               
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log(string.Format("[ManualCheckIn][ERROR] {0}", ex.Message));
-                MessageBox.Show(string.Format("Error logging attendance: {0}", ex.Message),
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        // New function to handle check-outs only with attendee ID as parameter
-        public async System.Threading.Tasks.Task ManualCheckOutAsync(int attendeeId)
-        {
-            if (_wsManager == null)
-            {
-                LogHelper.Log("[ManualCheckOut] WebSocketManager not initialized.");
-                MessageBox.Show("WebSocket connection not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            DateTime now = DateTime.Now;
-
-            try
-            {
-                LogHelper.Log(string.Format("[ManualCheckOut] Sending CHECK-OUT attendeeId={0} at {1:yyyy-MM-dd HH:mm:ss}", attendeeId, now));
-                await _wsManager.LogAttendanceAsync(attendeeId, null, now);
-                LogHelper.Log(string.Format("[ManualCheckOut] CHECK-OUT sent attendeeId={0}", attendeeId));
-              
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log(string.Format("[ManualCheckOut][ERROR] {0}", ex.Message));
-                MessageBox.Show(string.Format("Error logging attendance: {0}", ex.Message),
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
     }
 }

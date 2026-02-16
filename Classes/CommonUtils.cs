@@ -1,4 +1,4 @@
-using smart_attendance_middleware.Services;
+﻿using smart_attendance_middleware.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,11 +9,13 @@ using System.Net.Mail;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Configuration;
+using System.Net.NetworkInformation;
 
 namespace smart_attendance_middleware.Classes
 {
     public static class CommonUtils
     {
+
         /// <summary>
         /// Copies a file even if the source is currently in-use by another process (shared read/write).
         /// Returns the destination path on success; otherwise null.
@@ -360,6 +362,121 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
+        /// <summary>
+        /// Parses a GMT offset string into a TimeSpan.
+        /// Accepts "+HH", "-HH", "+HH:mm", "-HH:mm".
+        /// Returns TimeSpan.Zero on invalid input.
+        /// </summary>
+        public static TimeSpan ParseGmtOffset(string gmtSetting)
+        {
+            if (string.IsNullOrWhiteSpace(gmtSetting))
+                return TimeSpan.Zero;
+
+            // Normalize and validate leading sign
+            var s = gmtSetting.Trim();
+            if (s.Length < 2 || (s[0] != '+' && s[0] != '-'))
+                return TimeSpan.Zero;
+
+            // Try "+HH:mm" or "-HH:mm" by stripping the '+'
+            TimeSpan ts;
+            var candidate = s[0] == '+' ? s.Substring(1) : s.Substring(1); // remove sign for TryParse
+            if (TimeSpan.TryParse(candidate, out ts))
+            {
+                return s[0] == '-' ? TimeSpan.FromTicks(-ts.Ticks) : ts;
+            }
+
+            // Fallback for "+HH" or "-HH"
+            if (s.Length == 3)
+            {
+                int hours;
+                if (int.TryParse(s.Substring(1, 2), out hours))
+                {
+                    return s[0] == '-' ? TimeSpan.FromHours(-hours) : TimeSpan.FromHours(hours);
+                }
+            }
+
+            return TimeSpan.Zero;
+        }
+
+        /// <summary>
+        /// Treats the input DateTime as local wall-clock under the provided GMT offset,
+        /// converts to UTC (GMT 0), and formats as "yyyy-MM-dd HH:mm:ss.fff+00".
+        /// </summary>
+        public static string FormatWithGmt(DateTime localTime, string gmtOffset)
+        {
+            // Convert local (under given offset) to UTC
+            var offset = ParseGmtOffset(gmtOffset); 
+            var utc = localTime - offset;
+
+            // Always format with UTC suffix "+00"
+            return utc.ToString("yyyy-MM-dd HH:mm:ss.fff") + "+00";
+        }
+
+        /// <summary>
+        /// Parses an ISO 8601 datetime string (with or without offset) and converts it to local time.
+        /// Returns true when parsing succeeded. Outputs the local DateTime and formatted string "yyyy-MM-dd HH:mm:ss".
+        /// </summary>
+        public static bool TryParseIsoToLocal(string iso, out DateTime localTime, out string formatted)
+        {
+            localTime = default(DateTime);
+            formatted = null;
+
+            if (string.IsNullOrWhiteSpace(iso))
+                return false;
+
+            // Prefer DateTimeOffset to respect the provided offset
+            DateTimeOffset dto;
+            if (DateTimeOffset.TryParse(iso, out dto))
+            {
+                localTime = dto.ToLocalTime().DateTime;
+                formatted = localTime.ToString("yyyy-MM-dd HH:mm:ss");
+                return true;
+            }
+
+            // Fallback to DateTime
+            DateTime dt;
+            if (DateTime.TryParse(iso, out dt))
+            {
+                if (dt.Kind == DateTimeKind.Utc)
+                    dt = dt.ToLocalTime();
+                else if (dt.Kind == DateTimeKind.Unspecified)
+                    dt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeZoneInfo.Local);
+
+                localTime = dt;
+                formatted = localTime.ToString("yyyy-MM-dd HH:mm:ss");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Converts an ISO 8601 datetime string (e.g., "2026-02-06T04:45:44.298Z") to "yyyy-MM-dd HH:mm:ss-00".
+        /// Ensures UTC representation and removes milliseconds. Returns null if parsing fails.
+        /// </summary>
+        public static string FormatSyncedAtUtcCompact(string iso)
+        {
+            if (string.IsNullOrWhiteSpace(iso))
+                return null;
+
+            // Respect provided offset (Z or +/-HH:mm)
+            if (DateTimeOffset.TryParse(iso, out var dto))
+            {
+                var utc = dto.ToUniversalTime();
+                return utc.ToString("yyyy-MM-dd HH:mm:ss") + "-00";
+            }
+
+            // Fallback: try DateTime, normalize to UTC
+            if (DateTime.TryParse(iso, out var dt))
+            {
+                var utc = dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                utc = utc.ToUniversalTime();
+                return utc.ToString("yyyy-MM-dd HH:mm:ss") + "-00";
+            }
+
+            return null;
+        }
+
         private static string CreateTempWorkDir(string prefix)
         {
             string dir = Path.Combine(Path.GetTempPath(), prefix, Guid.NewGuid().ToString("N"));
@@ -381,5 +498,51 @@ namespace smart_attendance_middleware.Classes
                 try { LogHelper.Log($"Failed deleting temp directory '{dir}': {ex.Message}"); } catch { }
             }
         }
+
+        public static async Task<bool> IsDeviceReachableAsync(string ipAddress, int maxAttempts, CancellationToken token)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress) || maxAttempts <= 0)
+                return false;
+
+            using (var ping = new Ping())
+            {
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
+                {
+                    if (token.IsCancellationRequested) return false;
+
+                    try
+                    {
+                        try { LogHelper.Log($"🔄 Pinging device {ipAddress}, attempt {attempt}"); } catch { }
+                        var reply = await ping.SendPingAsync(ipAddress, 2000).ConfigureAwait(false); // 2s timeout
+
+                        if (reply.Status == IPStatus.Success)
+                        {
+                            try { LogHelper.Log($"✅ Device {ipAddress} is reachable"); } catch { }
+                            return true;
+                        }
+                        else
+                        {
+                            try { LogHelper.Log($"⚠️ Ping attempt {attempt} failed for device {ipAddress}: {reply.Status}"); } catch { }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        try { LogHelper.Log($"❌ Error pinging device {ipAddress}: {ex.Message}"); } catch { }
+                    }
+
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return false;
+        }
+
     }
 }

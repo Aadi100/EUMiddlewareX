@@ -62,12 +62,15 @@
             this.lbl_saving_status = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.btn_load = new System.Windows.Forms.Button();
+            this.chk_isstaff = new System.Windows.Forms.CheckBox();
             this.pnl_device.SuspendLayout();
             this.SuspendLayout();
             // 
             // pnl_device
             // 
             this.pnl_device.BackColor = System.Drawing.Color.White;
+            this.pnl_device.Controls.Add(this.chk_isstaff);
+            this.pnl_device.Controls.Add(this.btn_load);
             this.pnl_device.Controls.Add(this.txt_password);
             this.pnl_device.Controls.Add(this.lbl_password);
             this.pnl_device.Controls.Add(this.label4);
@@ -185,7 +188,8 @@
             this.cmb_device_type.FormattingEnabled = true;
             this.cmb_device_type.Items.AddRange(new object[] {
             "Check-in",
-            "Check-out"});
+            "Check-out",
+            "Check-in/Check-out"});
             this.cmb_device_type.Location = new System.Drawing.Point(124, 110);
             this.cmb_device_type.Name = "cmb_device_type";
             this.cmb_device_type.Size = new System.Drawing.Size(166, 28);
@@ -430,21 +434,32 @@
             // 
             // btn_load
             // 
-            this.btn_load.Location = new System.Drawing.Point(834, 23);
+            this.btn_load.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_load.Location = new System.Drawing.Point(640, 21);
             this.btn_load.Name = "btn_load";
-            this.btn_load.Size = new System.Drawing.Size(75, 23);
+            this.btn_load.Size = new System.Drawing.Size(94, 27);
             this.btn_load.TabIndex = 5;
-            this.btn_load.Text = "Load";
+            this.btn_load.Text = "Load Preset";
             this.btn_load.UseVisualStyleBackColor = true;
             this.btn_load.Click += new System.EventHandler(this.btn_load_Click);
+            // 
+            // chk_isstaff
+            // 
+            this.chk_isstaff.AutoSize = true;
+            this.chk_isstaff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_isstaff.Location = new System.Drawing.Point(17, 329);
+            this.chk_isstaff.Name = "chk_isstaff";
+            this.chk_isstaff.Size = new System.Drawing.Size(56, 21);
+            this.chk_isstaff.TabIndex = 48;
+            this.chk_isstaff.Text = "Staff";
+            this.chk_isstaff.UseVisualStyleBackColor = true;
             // 
             // AddNewDevice
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.ClientSize = new System.Drawing.Size(761, 536);
-            this.Controls.Add(this.btn_load);
+            this.ClientSize = new System.Drawing.Size(766, 536);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.pnl_device);
             this.Controls.Add(this.lbl_saving_status);
@@ -497,5 +512,6 @@
         private System.Windows.Forms.TextBox txt_password;
         private System.Windows.Forms.Label lbl_password;
         private System.Windows.Forms.Button btn_load;
+        private System.Windows.Forms.CheckBox chk_isstaff;
     }
 }

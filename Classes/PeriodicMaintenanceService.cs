@@ -494,10 +494,15 @@ namespace smart_attendance_middleware.Classes
                 // Database deletes under short lock
                 try
                 {
-                    using (await DatabaseQueueManager.EnterDbWriteLockAsync("LogClearOperation_DBDelete", DbTaskPriority.Low))
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("LogClearOperation_DBDelete", DbTaskPriority.Low);
+                    try
                     {
                         _dbHelper.DeleteAllGLogs();
                         _dbHelper.DeleteAllStaffGLogs(); // if implemented
+                    }
+                    finally
+                    {
+                        DatabaseQueueManager.ReleaseDbWriteLock("LogClearOperation_DBDelete");
                     }
                     LogHelper.Log("✅ Successfully cleared GLog and StaffGLog data from the database");
                 }
@@ -511,11 +516,16 @@ namespace smart_attendance_middleware.Classes
                 {
                     try
                     {
-                        using (await DatabaseQueueManager.EnterDbWriteLockAsync("LogClearOperation_UpdateLastClearTime", DbTaskPriority.Low))
+                        await DatabaseQueueManager.EnterDbWriteLockAsync("LogClearOperation_UpdateLastClearTime", DbTaskPriority.Low);
+                        try
                         {
                             string currentTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                             _dbHelper.SaveSetting(LAST_CLEAR_TIME_KEY, currentTime);
                             LogHelper.Log($"💾 Updated last clear time: {currentTime}");
+                        }
+                        finally
+                        {
+                            DatabaseQueueManager.ReleaseDbWriteLock("LogClearOperation_UpdateLastClearTime");
                         }
                         LogHelper.Log("🎯 Log clear operation completed");
                     }
@@ -728,11 +738,16 @@ namespace smart_attendance_middleware.Classes
                 };
 
                 // Write settings under short lock
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("FetchDeviceSyncStatus_Save", DbTaskPriority.Low))
+                await DatabaseQueueManager.EnterDbWriteLockAsync("FetchDeviceSyncStatus_Save", DbTaskPriority.Low);
+                try
                 {
                     _dbHelper.SaveSetting("MembersSynced", completelySyncedMembers.ToString());
                     _dbHelper.SaveSetting("PendingBiometricJobs", pendingBiometricJobs.ToString());
                     _dbHelper.SaveSetting("MissingFingerprints", missingFingerprints.ToString());
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("FetchDeviceSyncStatus_Save");
                 }
 
                 AppSession.SyncStatus = result;

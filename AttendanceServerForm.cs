@@ -382,15 +382,6 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            // For 10600-11000: mark attendance in a .txt file and do not forward
-            if (enroll >= 10600 && enroll <= 11000)
-            {
-                LogHelper.Log($"[AttendanceServer] ForwardAttendanceData redirected to TXT (Enroll={enroll} in 10600-11000).");
-                MarkAttendanceInTextFile(devId, ip, enroll, time);
-                return;
-            }
-
-
             var record = new AttendenceServerFunctions.AttendanceRecord
             {
                 DevID = devId,
@@ -401,11 +392,6 @@ namespace smart_attendance_middleware
             _attendanceFunctions.Process(record);
         }
 
-
-        private void MarkAttendanceInTextFile(int devId, string ip, int enroll, DateTime time)
-        {
-            PrivilegedAttendanceLogger.Mark(devId, ip, enroll, time);
-        }
 
         // Device event
         private void axFPCLOCK_Svr1_OnReceiveGLogData(object sender, _DFPCLOCK_SvrEvents_OnReceiveGLogDataEvent e)

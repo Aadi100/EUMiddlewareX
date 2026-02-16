@@ -74,28 +74,6 @@ namespace smart_attendance_middleware
             this.label9 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
-            this.pnl_privilege = new System.Windows.Forms.Panel();
-            this.tab_privilege = new System.Windows.Forms.TabControl();
-            this.tabPage3 = new System.Windows.Forms.TabPage();
-            this.lst_mempriv = new System.Windows.Forms.ListView();
-            this.label40 = new System.Windows.Forms.Label();
-            this.txt_scanid = new System.Windows.Forms.TextBox();
-            this.btn_delpriv = new System.Windows.Forms.Button();
-            this.listView1 = new System.Windows.Forms.ListView();
-            this.label38 = new System.Windows.Forms.Label();
-            this.label39 = new System.Windows.Forms.Label();
-            this.btn_enrollpriv = new System.Windows.Forms.Button();
-            this.btn_addfacepriv = new System.Windows.Forms.Button();
-            this.txt_prvname = new System.Windows.Forms.TextBox();
-            this.txt_privId = new System.Windows.Forms.TextBox();
-            this.tabPage4 = new System.Windows.Forms.TabPage();
-            this.pnl_privattend = new System.Windows.Forms.Panel();
-            this.lst_privattendence = new System.Windows.Forms.ListView();
-            this.btn_filterprv = new System.Windows.Forms.Button();
-            this.date_priv = new System.Windows.Forms.DateTimePicker();
-            this.txt_privnames = new System.Windows.Forms.TextBox();
-            this.label54 = new System.Windows.Forms.Label();
-            this.label55 = new System.Windows.Forms.Label();
             this.pnl_staffhandling = new System.Windows.Forms.Panel();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label41 = new System.Windows.Forms.Label();
@@ -110,50 +88,8 @@ namespace smart_attendance_middleware
             this.txt_stffid = new System.Windows.Forms.TextBox();
             this.label51 = new System.Windows.Forms.Label();
             this.label52 = new System.Windows.Forms.Label();
-            this.pnl_staffManagement = new System.Windows.Forms.Panel();
-            this.tab_staffmanagment = new System.Windows.Forms.TabControl();
-            this.tabPage1 = new System.Windows.Forms.TabPage();
-            this.pnl_staffdevices = new System.Windows.Forms.Panel();
-            this.lst_staffdevices = new System.Windows.Forms.ListView();
-            this.label32 = new System.Windows.Forms.Label();
-            this.staff_btnEditDevice = new System.Windows.Forms.Button();
-            this.label31 = new System.Windows.Forms.Label();
-            this.staff_btnAddDevice = new System.Windows.Forms.Button();
-            this.label30 = new System.Windows.Forms.Label();
-            this.staff_txtPassword = new System.Windows.Forms.TextBox();
-            this.label29 = new System.Windows.Forms.Label();
-            this.staff_cmbMachineNo = new System.Windows.Forms.ComboBox();
-            this.label28 = new System.Windows.Forms.Label();
-            this.staff_txtLocation = new System.Windows.Forms.TextBox();
-            this.label27 = new System.Windows.Forms.Label();
-            this.staff_txtTimeZone = new System.Windows.Forms.TextBox();
-            this.label8 = new System.Windows.Forms.Label();
-            this.staff_txtPort = new System.Windows.Forms.TextBox();
-            this.label26 = new System.Windows.Forms.Label();
-            this.staff_txtDeviceIP = new System.Windows.Forms.TextBox();
-            this.label25 = new System.Windows.Forms.Label();
-            this.staff_txtDeviceSerial = new System.Windows.Forms.TextBox();
-            this.label24 = new System.Windows.Forms.Label();
-            this.staff_cmbDeviceType = new System.Windows.Forms.ComboBox();
-            this.staff_DeviceId = new System.Windows.Forms.TextBox();
-            this.staff_txtDepartment = new System.Windows.Forms.TextBox();
-            this.staff_btnDeleteDevice = new System.Windows.Forms.Button();
-            this.tabPage2 = new System.Windows.Forms.TabPage();
-            this.pnl_staffattendence = new System.Windows.Forms.Panel();
-            this.lbl_fetching = new System.Windows.Forms.Label();
-            this.btn_downloadpdf = new System.Windows.Forms.Button();
-            this.label35 = new System.Windows.Forms.Label();
-            this.btn_FetchAttendence = new System.Windows.Forms.Button();
-            this.staff_txtFilterId = new System.Windows.Forms.TextBox();
-            this.staff_dtpFilterDate = new System.Windows.Forms.DateTimePicker();
-            this.staff_cmbFilterDeviceType = new System.Windows.Forms.ComboBox();
-            this.staff_btnFilter = new System.Windows.Forms.Button();
-            this.staff_lvAttendance = new System.Windows.Forms.ListView();
-            this.label36 = new System.Windows.Forms.Label();
-            this.label37 = new System.Windows.Forms.Label();
             this.panel2 = new System.Windows.Forms.Panel();
             this.btn_setupmanage = new System.Windows.Forms.Label();
-            this.btn_privilegememb = new System.Windows.Forms.Label();
             this.btn_attendencemanagment = new System.Windows.Forms.Label();
             this.btn_staffmanagment = new System.Windows.Forms.Label();
             this.btn_userManagement = new System.Windows.Forms.Label();
@@ -180,9 +116,12 @@ namespace smart_attendance_middleware
             this.label6 = new System.Windows.Forms.Label();
             this.pnl_attendence = new System.Windows.Forms.Panel();
             this.tab_attendence = new System.Windows.Forms.TabControl();
-            this.tab_member = new System.Windows.Forms.TabPage();
+            this.tab_members = new System.Windows.Forms.TabPage();
+            this.txt_memb_name = new System.Windows.Forms.TextBox();
+            this.flt_members = new System.Windows.Forms.Button();
+            this.lst_members = new System.Windows.Forms.ListView();
+            this.tab_memberAttendence = new System.Windows.Forms.TabPage();
             this.panel5 = new System.Windows.Forms.Panel();
-            this.label3 = new System.Windows.Forms.Label();
             this.txt_membername = new System.Windows.Forms.TextBox();
             this.date_member = new System.Windows.Forms.DateTimePicker();
             this.btn_filter_member = new System.Windows.Forms.Button();
@@ -192,10 +131,12 @@ namespace smart_attendance_middleware
             this.date_manualdoor = new System.Windows.Forms.DateTimePicker();
             this.btn_filter_manualdoor = new System.Windows.Forms.Button();
             this.lst_manualdoor = new System.Windows.Forms.ListView();
-            this.label47 = new System.Windows.Forms.Label();
             this.label48 = new System.Windows.Forms.Label();
             this.pnl_setup = new System.Windows.Forms.Panel();
             this.subpnl_setup = new System.Windows.Forms.Panel();
+            this.btn_attendence_sim = new System.Windows.Forms.Button();
+            this.btn_settime = new System.Windows.Forms.Button();
+            this.btn_disableuser = new System.Windows.Forms.Button();
             this.btn_enableuser = new System.Windows.Forms.Button();
             this.btn_getdb = new System.Windows.Forms.Button();
             this.btn_getinfo = new System.Windows.Forms.Button();
@@ -205,22 +146,23 @@ namespace smart_attendance_middleware
             this.btn_savedebounce = new System.Windows.Forms.Button();
             this.label42 = new System.Windows.Forms.Label();
             this.label43 = new System.Windows.Forms.Label();
-            this.btn_disableuser = new System.Windows.Forms.Button();
+            this.pnl_staffsManagment = new System.Windows.Forms.Panel();
+            this.tab_staff = new System.Windows.Forms.TabControl();
+            this.tab_staffmembers = new System.Windows.Forms.TabPage();
+            this.txt_staff = new System.Windows.Forms.TextBox();
+            this.btn_stafffilter = new System.Windows.Forms.Button();
+            this.lst_staffs = new System.Windows.Forms.ListView();
+            this.tab_staffattendence = new System.Windows.Forms.TabPage();
+            this.panel8 = new System.Windows.Forms.Panel();
+            this.txt_staffname = new System.Windows.Forms.TextBox();
+            this.date_staffattendence = new System.Windows.Forms.DateTimePicker();
+            this.btn_filterattendencestaff = new System.Windows.Forms.Button();
+            this.lst_staffattendence = new System.Windows.Forms.ListView();
+            this.lbl_staffmanagment = new System.Windows.Forms.Label();
             this.pnl_deviceManager.SuspendLayout();
             this.pnl_device.SuspendLayout();
-            this.pnl_privilege.SuspendLayout();
-            this.tab_privilege.SuspendLayout();
-            this.tabPage3.SuspendLayout();
-            this.tabPage4.SuspendLayout();
-            this.pnl_privattend.SuspendLayout();
             this.pnl_staffhandling.SuspendLayout();
             this.panel1.SuspendLayout();
-            this.pnl_staffManagement.SuspendLayout();
-            this.tab_staffmanagment.SuspendLayout();
-            this.tabPage1.SuspendLayout();
-            this.pnl_staffdevices.SuspendLayout();
-            this.tabPage2.SuspendLayout();
-            this.pnl_staffattendence.SuspendLayout();
             this.panel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.pnl_APIkey.SuspendLayout();
@@ -230,13 +172,19 @@ namespace smart_attendance_middleware
             this.panel3.SuspendLayout();
             this.pnl_attendence.SuspendLayout();
             this.tab_attendence.SuspendLayout();
-            this.tab_member.SuspendLayout();
+            this.tab_members.SuspendLayout();
+            this.tab_memberAttendence.SuspendLayout();
             this.panel5.SuspendLayout();
             this.tab_manualdoor.SuspendLayout();
             this.panel6.SuspendLayout();
             this.pnl_setup.SuspendLayout();
             this.subpnl_setup.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.num_debounce)).BeginInit();
+            this.pnl_staffsManagment.SuspendLayout();
+            this.tab_staff.SuspendLayout();
+            this.tab_staffmembers.SuspendLayout();
+            this.tab_staffattendence.SuspendLayout();
+            this.panel8.SuspendLayout();
             this.SuspendLayout();
             // 
             // btn_add_device
@@ -258,7 +206,7 @@ namespace smart_attendance_middleware
             this.pnl_deviceManager.Controls.Add(this.label1);
             this.pnl_deviceManager.Location = new System.Drawing.Point(186, 0);
             this.pnl_deviceManager.Name = "pnl_deviceManager";
-            this.pnl_deviceManager.Size = new System.Drawing.Size(700, 1046);
+            this.pnl_deviceManager.Size = new System.Drawing.Size(700, 576);
             this.pnl_deviceManager.TabIndex = 0;
             this.pnl_deviceManager.Paint += new System.Windows.Forms.PaintEventHandler(this.panel1_Paint);
             // 
@@ -326,7 +274,7 @@ namespace smart_attendance_middleware
             this.txt_password.BackColor = System.Drawing.Color.White;
             this.txt_password.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.txt_password.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_password.Location = new System.Drawing.Point(91, 358);
+            this.txt_password.Location = new System.Drawing.Point(122, 359);
             this.txt_password.Name = "txt_password";
             this.txt_password.PasswordChar = '*';
             this.txt_password.Size = new System.Drawing.Size(72, 16);
@@ -337,7 +285,7 @@ namespace smart_attendance_middleware
             // 
             this.lbl_password.AutoSize = true;
             this.lbl_password.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbl_password.Location = new System.Drawing.Point(18, 358);
+            this.lbl_password.Location = new System.Drawing.Point(11, 358);
             this.lbl_password.Name = "lbl_password";
             this.lbl_password.Size = new System.Drawing.Size(69, 17);
             this.lbl_password.TabIndex = 49;
@@ -415,7 +363,8 @@ namespace smart_attendance_middleware
             this.cmb_device_type.FormattingEnabled = true;
             this.cmb_device_type.Items.AddRange(new object[] {
             "Check-in",
-            "Check-out"});
+            "Check-out",
+            "Check-in/Check-out"});
             this.cmb_device_type.Location = new System.Drawing.Point(123, 212);
             this.cmb_device_type.Name = "cmb_device_type";
             this.cmb_device_type.Size = new System.Drawing.Size(135, 21);
@@ -757,237 +706,15 @@ namespace smart_attendance_middleware
             this.label1.TabIndex = 0;
             this.label1.Text = "Smart Access Manager";
             // 
-            // pnl_privilege
-            // 
-            this.pnl_privilege.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.pnl_privilege.Controls.Add(this.tab_privilege);
-            this.pnl_privilege.Controls.Add(this.label54);
-            this.pnl_privilege.Controls.Add(this.label55);
-            this.pnl_privilege.Location = new System.Drawing.Point(1638, 1020);
-            this.pnl_privilege.Name = "pnl_privilege";
-            this.pnl_privilege.Size = new System.Drawing.Size(660, 479);
-            this.pnl_privilege.TabIndex = 84;
-            this.pnl_privilege.Visible = false;
-            // 
-            // tab_privilege
-            // 
-            this.tab_privilege.Controls.Add(this.tabPage3);
-            this.tab_privilege.Controls.Add(this.tabPage4);
-            this.tab_privilege.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tab_privilege.Location = new System.Drawing.Point(8, 71);
-            this.tab_privilege.Name = "tab_privilege";
-            this.tab_privilege.SelectedIndex = 0;
-            this.tab_privilege.Size = new System.Drawing.Size(649, 405);
-            this.tab_privilege.TabIndex = 83;
-            // 
-            // tabPage3
-            // 
-            this.tabPage3.Controls.Add(this.lst_mempriv);
-            this.tabPage3.Controls.Add(this.label40);
-            this.tabPage3.Controls.Add(this.txt_scanid);
-            this.tabPage3.Controls.Add(this.btn_delpriv);
-            this.tabPage3.Controls.Add(this.listView1);
-            this.tabPage3.Controls.Add(this.label38);
-            this.tabPage3.Controls.Add(this.label39);
-            this.tabPage3.Controls.Add(this.btn_enrollpriv);
-            this.tabPage3.Controls.Add(this.btn_addfacepriv);
-            this.tabPage3.Controls.Add(this.txt_prvname);
-            this.tabPage3.Controls.Add(this.txt_privId);
-            this.tabPage3.Location = new System.Drawing.Point(4, 27);
-            this.tabPage3.Name = "tabPage3";
-            this.tabPage3.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage3.Size = new System.Drawing.Size(641, 374);
-            this.tabPage3.TabIndex = 0;
-            this.tabPage3.Text = "Add Members";
-            this.tabPage3.UseVisualStyleBackColor = true;
-            // 
-            // lst_mempriv
-            // 
-            this.lst_mempriv.HideSelection = false;
-            this.lst_mempriv.Location = new System.Drawing.Point(6, 61);
-            this.lst_mempriv.Name = "lst_mempriv";
-            this.lst_mempriv.Size = new System.Drawing.Size(623, 310);
-            this.lst_mempriv.TabIndex = 18;
-            this.lst_mempriv.UseCompatibleStateImageBehavior = false;
-            // 
-            // label40
-            // 
-            this.label40.AutoSize = true;
-            this.label40.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label40.Location = new System.Drawing.Point(218, 10);
-            this.label40.Name = "label40";
-            this.label40.Size = new System.Drawing.Size(53, 17);
-            this.label40.TabIndex = 17;
-            this.label40.Text = "Card Id";
-            // 
-            // txt_scanid
-            // 
-            this.txt_scanid.Location = new System.Drawing.Point(221, 30);
-            this.txt_scanid.Name = "txt_scanid";
-            this.txt_scanid.Size = new System.Drawing.Size(100, 24);
-            this.txt_scanid.TabIndex = 16;
-            this.txt_scanid.TextChanged += new System.EventHandler(this.txt_scanid_TextChanged);
-            // 
-            // btn_delpriv
-            // 
-            this.btn_delpriv.Location = new System.Drawing.Point(519, 33);
-            this.btn_delpriv.Name = "btn_delpriv";
-            this.btn_delpriv.Size = new System.Drawing.Size(75, 23);
-            this.btn_delpriv.TabIndex = 15;
-            this.btn_delpriv.Text = "Delete";
-            this.btn_delpriv.UseVisualStyleBackColor = true;
-            this.btn_delpriv.Click += new System.EventHandler(this.btn_delpriv_Click);
-            // 
-            // listView1
-            // 
-            this.listView1.HideSelection = false;
-            this.listView1.Location = new System.Drawing.Point(5, 61);
-            this.listView1.Name = "listView1";
-            this.listView1.Size = new System.Drawing.Size(624, 307);
-            this.listView1.TabIndex = 14;
-            this.listView1.UseCompatibleStateImageBehavior = false;
-            // 
-            // label38
-            // 
-            this.label38.AutoSize = true;
-            this.label38.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label38.Location = new System.Drawing.Point(112, 11);
-            this.label38.Name = "label38";
-            this.label38.Size = new System.Drawing.Size(45, 17);
-            this.label38.TabIndex = 13;
-            this.label38.Text = "Name";
-            // 
-            // label39
-            // 
-            this.label39.AutoSize = true;
-            this.label39.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label39.Location = new System.Drawing.Point(15, 11);
-            this.label39.Name = "label39";
-            this.label39.Size = new System.Drawing.Size(21, 17);
-            this.label39.TabIndex = 12;
-            this.label39.Text = "ID";
-            // 
-            // btn_enrollpriv
-            // 
-            this.btn_enrollpriv.Location = new System.Drawing.Point(438, 32);
-            this.btn_enrollpriv.Name = "btn_enrollpriv";
-            this.btn_enrollpriv.Size = new System.Drawing.Size(75, 23);
-            this.btn_enrollpriv.TabIndex = 11;
-            this.btn_enrollpriv.Text = "Enroll";
-            this.btn_enrollpriv.UseVisualStyleBackColor = true;
-            this.btn_enrollpriv.Click += new System.EventHandler(this.btn_enrollpriv_Click);
-            // 
-            // btn_addfacepriv
-            // 
-            this.btn_addfacepriv.Location = new System.Drawing.Point(327, 32);
-            this.btn_addfacepriv.Name = "btn_addfacepriv";
-            this.btn_addfacepriv.Size = new System.Drawing.Size(105, 24);
-            this.btn_addfacepriv.TabIndex = 10;
-            this.btn_addfacepriv.Text = "Add Face";
-            this.btn_addfacepriv.UseVisualStyleBackColor = true;
-            this.btn_addfacepriv.Click += new System.EventHandler(this.btn_addfacepriv_Click);
-            // 
-            // txt_prvname
-            // 
-            this.txt_prvname.Location = new System.Drawing.Point(115, 31);
-            this.txt_prvname.Name = "txt_prvname";
-            this.txt_prvname.Size = new System.Drawing.Size(100, 24);
-            this.txt_prvname.TabIndex = 9;
-            this.txt_prvname.TextChanged += new System.EventHandler(this.txt_prvname_TextChanged);
-            // 
-            // txt_privId
-            // 
-            this.txt_privId.Location = new System.Drawing.Point(9, 31);
-            this.txt_privId.Name = "txt_privId";
-            this.txt_privId.Size = new System.Drawing.Size(100, 24);
-            this.txt_privId.TabIndex = 8;
-            this.txt_privId.TextChanged += new System.EventHandler(this.txt_privId_TextChanged);
-            // 
-            // tabPage4
-            // 
-            this.tabPage4.Controls.Add(this.pnl_privattend);
-            this.tabPage4.Controls.Add(this.btn_filterprv);
-            this.tabPage4.Controls.Add(this.date_priv);
-            this.tabPage4.Controls.Add(this.txt_privnames);
-            this.tabPage4.Location = new System.Drawing.Point(4, 27);
-            this.tabPage4.Name = "tabPage4";
-            this.tabPage4.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage4.Size = new System.Drawing.Size(641, 374);
-            this.tabPage4.TabIndex = 1;
-            this.tabPage4.Text = "Attendence";
-            this.tabPage4.UseVisualStyleBackColor = true;
-            // 
-            // pnl_privattend
-            // 
-            this.pnl_privattend.Controls.Add(this.lst_privattendence);
-            this.pnl_privattend.Location = new System.Drawing.Point(0, 35);
-            this.pnl_privattend.Name = "pnl_privattend";
-            this.pnl_privattend.Size = new System.Drawing.Size(648, 343);
-            this.pnl_privattend.TabIndex = 3;
-            // 
-            // lst_privattendence
-            // 
-            this.lst_privattendence.HideSelection = false;
-            this.lst_privattendence.Location = new System.Drawing.Point(2, 0);
-            this.lst_privattendence.Name = "lst_privattendence";
-            this.lst_privattendence.Size = new System.Drawing.Size(639, 339);
-            this.lst_privattendence.TabIndex = 0;
-            this.lst_privattendence.UseCompatibleStateImageBehavior = false;
-            // 
-            // btn_filterprv
-            // 
-            this.btn_filterprv.Location = new System.Drawing.Point(317, 7);
-            this.btn_filterprv.Name = "btn_filterprv";
-            this.btn_filterprv.Size = new System.Drawing.Size(75, 23);
-            this.btn_filterprv.TabIndex = 2;
-            this.btn_filterprv.Text = "Filter";
-            this.btn_filterprv.UseVisualStyleBackColor = true;
-            this.btn_filterprv.Click += new System.EventHandler(this.btn_filterprv_Click);
-            // 
-            // date_priv
-            // 
-            this.date_priv.Location = new System.Drawing.Point(111, 6);
-            this.date_priv.Name = "date_priv";
-            this.date_priv.Size = new System.Drawing.Size(200, 24);
-            this.date_priv.TabIndex = 1;
-            // 
-            // txt_privnames
-            // 
-            this.txt_privnames.Location = new System.Drawing.Point(3, 6);
-            this.txt_privnames.Name = "txt_privnames";
-            this.txt_privnames.Size = new System.Drawing.Size(100, 24);
-            this.txt_privnames.TabIndex = 0;
-            // 
-            // label54
-            // 
-            this.label54.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label54.ForeColor = System.Drawing.Color.DimGray;
-            this.label54.Location = new System.Drawing.Point(5, 38);
-            this.label54.Name = "label54";
-            this.label54.Size = new System.Drawing.Size(507, 43);
-            this.label54.TabIndex = 57;
-            this.label54.Text = "Add, update, or remove privillege members.";
-            // 
-            // label55
-            // 
-            this.label55.AutoSize = true;
-            this.label55.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label55.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label55.Location = new System.Drawing.Point(3, 6);
-            this.label55.Name = "label55";
-            this.label55.Size = new System.Drawing.Size(193, 26);
-            this.label55.TabIndex = 56;
-            this.label55.Text = "Privilege Members";
-            // 
             // pnl_staffhandling
             // 
             this.pnl_staffhandling.BackColor = System.Drawing.Color.WhiteSmoke;
             this.pnl_staffhandling.Controls.Add(this.panel1);
             this.pnl_staffhandling.Controls.Add(this.label51);
             this.pnl_staffhandling.Controls.Add(this.label52);
-            this.pnl_staffhandling.Location = new System.Drawing.Point(1619, 529);
+            this.pnl_staffhandling.Location = new System.Drawing.Point(892, 600);
             this.pnl_staffhandling.Name = "pnl_staffhandling";
-            this.pnl_staffhandling.Size = new System.Drawing.Size(672, 479);
+            this.pnl_staffhandling.Size = new System.Drawing.Size(700, 576);
             this.pnl_staffhandling.TabIndex = 6;
             this.pnl_staffhandling.Visible = false;
             // 
@@ -1006,7 +733,7 @@ namespace smart_attendance_middleware
             this.panel1.Controls.Add(this.txt_stffid);
             this.panel1.Location = new System.Drawing.Point(6, 66);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(660, 410);
+            this.panel1.Size = new System.Drawing.Size(691, 503);
             this.panel1.TabIndex = 58;
             // 
             // label41
@@ -1041,7 +768,7 @@ namespace smart_attendance_middleware
             this.lst_stff.HideSelection = false;
             this.lst_stff.Location = new System.Drawing.Point(8, 79);
             this.lst_stff.Name = "lst_stff";
-            this.lst_stff.Size = new System.Drawing.Size(649, 317);
+            this.lst_stff.Size = new System.Drawing.Size(680, 420);
             this.lst_stff.TabIndex = 6;
             this.lst_stff.UseCompatibleStateImageBehavior = false;
             // 
@@ -1121,434 +848,10 @@ namespace smart_attendance_middleware
             this.label52.TabIndex = 56;
             this.label52.Text = "Staff Management";
             // 
-            // pnl_staffManagement
-            // 
-            this.pnl_staffManagement.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.pnl_staffManagement.Controls.Add(this.tab_staffmanagment);
-            this.pnl_staffManagement.Controls.Add(this.label36);
-            this.pnl_staffManagement.Controls.Add(this.label37);
-            this.pnl_staffManagement.Location = new System.Drawing.Point(902, 1014);
-            this.pnl_staffManagement.Name = "pnl_staffManagement";
-            this.pnl_staffManagement.Size = new System.Drawing.Size(660, 479);
-            this.pnl_staffManagement.TabIndex = 0;
-            this.pnl_staffManagement.Visible = false;
-            this.pnl_staffManagement.Paint += new System.Windows.Forms.PaintEventHandler(this.pnl_staffManagement_Paint);
-            // 
-            // tab_staffmanagment
-            // 
-            this.tab_staffmanagment.Controls.Add(this.tabPage1);
-            this.tab_staffmanagment.Controls.Add(this.tabPage2);
-            this.tab_staffmanagment.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tab_staffmanagment.Location = new System.Drawing.Point(8, 71);
-            this.tab_staffmanagment.Name = "tab_staffmanagment";
-            this.tab_staffmanagment.SelectedIndex = 0;
-            this.tab_staffmanagment.Size = new System.Drawing.Size(649, 405);
-            this.tab_staffmanagment.TabIndex = 83;
-            // 
-            // tabPage1
-            // 
-            this.tabPage1.Controls.Add(this.pnl_staffdevices);
-            this.tabPage1.Location = new System.Drawing.Point(4, 27);
-            this.tabPage1.Name = "tabPage1";
-            this.tabPage1.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage1.Size = new System.Drawing.Size(641, 374);
-            this.tabPage1.TabIndex = 0;
-            this.tabPage1.Text = "Devices";
-            this.tabPage1.UseVisualStyleBackColor = true;
-            // 
-            // pnl_staffdevices
-            // 
-            this.pnl_staffdevices.Controls.Add(this.lst_staffdevices);
-            this.pnl_staffdevices.Controls.Add(this.label32);
-            this.pnl_staffdevices.Controls.Add(this.staff_btnEditDevice);
-            this.pnl_staffdevices.Controls.Add(this.label31);
-            this.pnl_staffdevices.Controls.Add(this.staff_btnAddDevice);
-            this.pnl_staffdevices.Controls.Add(this.label30);
-            this.pnl_staffdevices.Controls.Add(this.staff_txtPassword);
-            this.pnl_staffdevices.Controls.Add(this.label29);
-            this.pnl_staffdevices.Controls.Add(this.staff_cmbMachineNo);
-            this.pnl_staffdevices.Controls.Add(this.label28);
-            this.pnl_staffdevices.Controls.Add(this.staff_txtLocation);
-            this.pnl_staffdevices.Controls.Add(this.label27);
-            this.pnl_staffdevices.Controls.Add(this.staff_txtTimeZone);
-            this.pnl_staffdevices.Controls.Add(this.label8);
-            this.pnl_staffdevices.Controls.Add(this.staff_txtPort);
-            this.pnl_staffdevices.Controls.Add(this.label26);
-            this.pnl_staffdevices.Controls.Add(this.staff_txtDeviceIP);
-            this.pnl_staffdevices.Controls.Add(this.label25);
-            this.pnl_staffdevices.Controls.Add(this.staff_txtDeviceSerial);
-            this.pnl_staffdevices.Controls.Add(this.label24);
-            this.pnl_staffdevices.Controls.Add(this.staff_cmbDeviceType);
-            this.pnl_staffdevices.Controls.Add(this.staff_DeviceId);
-            this.pnl_staffdevices.Controls.Add(this.staff_txtDepartment);
-            this.pnl_staffdevices.Controls.Add(this.staff_btnDeleteDevice);
-            this.pnl_staffdevices.Location = new System.Drawing.Point(3, 3);
-            this.pnl_staffdevices.Name = "pnl_staffdevices";
-            this.pnl_staffdevices.Size = new System.Drawing.Size(630, 355);
-            this.pnl_staffdevices.TabIndex = 6;
-            // 
-            // lst_staffdevices
-            // 
-            this.lst_staffdevices.HideSelection = false;
-            this.lst_staffdevices.Location = new System.Drawing.Point(8, 168);
-            this.lst_staffdevices.Name = "lst_staffdevices";
-            this.lst_staffdevices.Size = new System.Drawing.Size(618, 184);
-            this.lst_staffdevices.TabIndex = 80;
-            this.lst_staffdevices.UseCompatibleStateImageBehavior = false;
-            this.lst_staffdevices.SelectedIndexChanged += new System.EventHandler(this.lst_staffdevices_SelectedIndexChanged);
-            // 
-            // label32
-            // 
-            this.label32.AutoSize = true;
-            this.label32.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label32.Location = new System.Drawing.Point(148, 108);
-            this.label32.Name = "label32";
-            this.label32.Size = new System.Drawing.Size(82, 17);
-            this.label32.TabIndex = 78;
-            this.label32.Text = "Department";
-            // 
-            // staff_btnEditDevice
-            // 
-            this.staff_btnEditDevice.Location = new System.Drawing.Point(306, 123);
-            this.staff_btnEditDevice.Name = "staff_btnEditDevice";
-            this.staff_btnEditDevice.Size = new System.Drawing.Size(80, 28);
-            this.staff_btnEditDevice.TabIndex = 11;
-            this.staff_btnEditDevice.Text = "Edit";
-            this.staff_btnEditDevice.Click += new System.EventHandler(this.staff_btnEditDevice_Click_1);
-            // 
-            // label31
-            // 
-            this.label31.AutoSize = true;
-            this.label31.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label31.Location = new System.Drawing.Point(10, 105);
-            this.label31.Name = "label31";
-            this.label31.Size = new System.Drawing.Size(69, 17);
-            this.label31.TabIndex = 77;
-            this.label31.Text = "Password";
-            // 
-            // staff_btnAddDevice
-            // 
-            this.staff_btnAddDevice.Location = new System.Drawing.Point(475, 123);
-            this.staff_btnAddDevice.Name = "staff_btnAddDevice";
-            this.staff_btnAddDevice.Size = new System.Drawing.Size(80, 28);
-            this.staff_btnAddDevice.TabIndex = 13;
-            this.staff_btnAddDevice.Text = "Add";
-            this.staff_btnAddDevice.Click += new System.EventHandler(this.staff_btnAddDevice_Click_1);
-            // 
-            // label30
-            // 
-            this.label30.AutoSize = true;
-            this.label30.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label30.Location = new System.Drawing.Point(436, 58);
-            this.label30.Name = "label30";
-            this.label30.Size = new System.Drawing.Size(83, 17);
-            this.label30.TabIndex = 76;
-            this.label30.Text = "Machine No";
-            // 
-            // staff_txtPassword
-            // 
-            this.staff_txtPassword.Location = new System.Drawing.Point(11, 125);
-            this.staff_txtPassword.Name = "staff_txtPassword";
-            this.staff_txtPassword.PasswordChar = '*';
-            this.staff_txtPassword.Size = new System.Drawing.Size(120, 24);
-            this.staff_txtPassword.TabIndex = 9;
-            // 
-            // label29
-            // 
-            this.label29.AutoSize = true;
-            this.label29.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label29.Location = new System.Drawing.Point(292, 61);
-            this.label29.Name = "label29";
-            this.label29.Size = new System.Drawing.Size(62, 17);
-            this.label29.TabIndex = 75;
-            this.label29.Text = "Location";
-            // 
-            // staff_cmbMachineNo
-            // 
-            this.staff_cmbMachineNo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.staff_cmbMachineNo.Items.AddRange(new object[] {
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "10"});
-            this.staff_cmbMachineNo.Location = new System.Drawing.Point(435, 78);
-            this.staff_cmbMachineNo.Name = "staff_cmbMachineNo";
-            this.staff_cmbMachineNo.Size = new System.Drawing.Size(120, 26);
-            this.staff_cmbMachineNo.TabIndex = 8;
-            // 
-            // label28
-            // 
-            this.label28.AutoSize = true;
-            this.label28.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label28.Location = new System.Drawing.Point(148, 58);
-            this.label28.Name = "label28";
-            this.label28.Size = new System.Drawing.Size(76, 17);
-            this.label28.TabIndex = 74;
-            this.label28.Text = "Time Zone";
-            // 
-            // staff_txtLocation
-            // 
-            this.staff_txtLocation.Location = new System.Drawing.Point(295, 78);
-            this.staff_txtLocation.Name = "staff_txtLocation";
-            this.staff_txtLocation.Size = new System.Drawing.Size(120, 24);
-            this.staff_txtLocation.TabIndex = 7;
-            // 
-            // label27
-            // 
-            this.label27.AutoSize = true;
-            this.label27.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label27.Location = new System.Drawing.Point(10, 58);
-            this.label27.Name = "label27";
-            this.label27.Size = new System.Drawing.Size(34, 17);
-            this.label27.TabIndex = 73;
-            this.label27.Text = "Port";
-            // 
-            // staff_txtTimeZone
-            // 
-            this.staff_txtTimeZone.Location = new System.Drawing.Point(151, 78);
-            this.staff_txtTimeZone.Name = "staff_txtTimeZone";
-            this.staff_txtTimeZone.Size = new System.Drawing.Size(120, 24);
-            this.staff_txtTimeZone.TabIndex = 6;
-            // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label8.Location = new System.Drawing.Point(8, 7);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(68, 17);
-            this.label8.TabIndex = 72;
-            this.label8.Text = "Device ID";
-            // 
-            // staff_txtPort
-            // 
-            this.staff_txtPort.Location = new System.Drawing.Point(11, 78);
-            this.staff_txtPort.Name = "staff_txtPort";
-            this.staff_txtPort.Size = new System.Drawing.Size(120, 24);
-            this.staff_txtPort.TabIndex = 5;
-            // 
-            // label26
-            // 
-            this.label26.AutoSize = true;
-            this.label26.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label26.Location = new System.Drawing.Point(432, 7);
-            this.label26.Name = "label26";
-            this.label26.Size = new System.Drawing.Size(67, 17);
-            this.label26.TabIndex = 79;
-            this.label26.Text = "Device IP";
-            // 
-            // staff_txtDeviceIP
-            // 
-            this.staff_txtDeviceIP.Location = new System.Drawing.Point(431, 28);
-            this.staff_txtDeviceIP.Name = "staff_txtDeviceIP";
-            this.staff_txtDeviceIP.Size = new System.Drawing.Size(120, 24);
-            this.staff_txtDeviceIP.TabIndex = 4;
-            // 
-            // label25
-            // 
-            this.label25.AutoSize = true;
-            this.label25.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label25.Location = new System.Drawing.Point(288, 7);
-            this.label25.Name = "label25";
-            this.label25.Size = new System.Drawing.Size(91, 17);
-            this.label25.TabIndex = 71;
-            this.label25.Text = "Device Serial";
-            // 
-            // staff_txtDeviceSerial
-            // 
-            this.staff_txtDeviceSerial.Location = new System.Drawing.Point(291, 28);
-            this.staff_txtDeviceSerial.Name = "staff_txtDeviceSerial";
-            this.staff_txtDeviceSerial.Size = new System.Drawing.Size(120, 24);
-            this.staff_txtDeviceSerial.TabIndex = 3;
-            // 
-            // label24
-            // 
-            this.label24.AutoSize = true;
-            this.label24.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label24.Location = new System.Drawing.Point(154, 7);
-            this.label24.Name = "label24";
-            this.label24.Size = new System.Drawing.Size(87, 17);
-            this.label24.TabIndex = 70;
-            this.label24.Text = "Device Type";
-            // 
-            // staff_cmbDeviceType
-            // 
-            this.staff_cmbDeviceType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.staff_cmbDeviceType.Items.AddRange(new object[] {
-            "Check_In",
-            "Check_Out",
-            "Check_In/Check_Out"});
-            this.staff_cmbDeviceType.Location = new System.Drawing.Point(151, 28);
-            this.staff_cmbDeviceType.Name = "staff_cmbDeviceType";
-            this.staff_cmbDeviceType.Size = new System.Drawing.Size(120, 26);
-            this.staff_cmbDeviceType.TabIndex = 2;
-            // 
-            // staff_DeviceId
-            // 
-            this.staff_DeviceId.Location = new System.Drawing.Point(11, 29);
-            this.staff_DeviceId.Name = "staff_DeviceId";
-            this.staff_DeviceId.Size = new System.Drawing.Size(120, 24);
-            this.staff_DeviceId.TabIndex = 1;
-            // 
-            // staff_txtDepartment
-            // 
-            this.staff_txtDepartment.Location = new System.Drawing.Point(151, 125);
-            this.staff_txtDepartment.Name = "staff_txtDepartment";
-            this.staff_txtDepartment.Size = new System.Drawing.Size(120, 24);
-            this.staff_txtDepartment.TabIndex = 10;
-            // 
-            // staff_btnDeleteDevice
-            // 
-            this.staff_btnDeleteDevice.Location = new System.Drawing.Point(389, 123);
-            this.staff_btnDeleteDevice.Name = "staff_btnDeleteDevice";
-            this.staff_btnDeleteDevice.Size = new System.Drawing.Size(80, 28);
-            this.staff_btnDeleteDevice.TabIndex = 12;
-            this.staff_btnDeleteDevice.Text = "Delete";
-            this.staff_btnDeleteDevice.Click += new System.EventHandler(this.staff_btnDeleteDevice_Click_1);
-            // 
-            // tabPage2
-            // 
-            this.tabPage2.Controls.Add(this.pnl_staffattendence);
-            this.tabPage2.Location = new System.Drawing.Point(4, 27);
-            this.tabPage2.Name = "tabPage2";
-            this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage2.Size = new System.Drawing.Size(641, 374);
-            this.tabPage2.TabIndex = 1;
-            this.tabPage2.Text = "Attendence";
-            this.tabPage2.UseVisualStyleBackColor = true;
-            // 
-            // pnl_staffattendence
-            // 
-            this.pnl_staffattendence.Controls.Add(this.lbl_fetching);
-            this.pnl_staffattendence.Controls.Add(this.btn_downloadpdf);
-            this.pnl_staffattendence.Controls.Add(this.label35);
-            this.pnl_staffattendence.Controls.Add(this.btn_FetchAttendence);
-            this.pnl_staffattendence.Controls.Add(this.staff_txtFilterId);
-            this.pnl_staffattendence.Controls.Add(this.staff_dtpFilterDate);
-            this.pnl_staffattendence.Controls.Add(this.staff_cmbFilterDeviceType);
-            this.pnl_staffattendence.Controls.Add(this.staff_btnFilter);
-            this.pnl_staffattendence.Controls.Add(this.staff_lvAttendance);
-            this.pnl_staffattendence.Location = new System.Drawing.Point(4, 1);
-            this.pnl_staffattendence.Name = "pnl_staffattendence";
-            this.pnl_staffattendence.Size = new System.Drawing.Size(640, 377);
-            this.pnl_staffattendence.TabIndex = 84;
-            // 
-            // lbl_fetching
-            // 
-            this.lbl_fetching.AutoSize = true;
-            this.lbl_fetching.Location = new System.Drawing.Point(6, 352);
-            this.lbl_fetching.Name = "lbl_fetching";
-            this.lbl_fetching.Size = new System.Drawing.Size(0, 18);
-            this.lbl_fetching.TabIndex = 89;
-            // 
-            // btn_downloadpdf
-            // 
-            this.btn_downloadpdf.Location = new System.Drawing.Point(492, 35);
-            this.btn_downloadpdf.Name = "btn_downloadpdf";
-            this.btn_downloadpdf.Size = new System.Drawing.Size(88, 28);
-            this.btn_downloadpdf.TabIndex = 6;
-            this.btn_downloadpdf.Text = "PDF Download";
-            this.btn_downloadpdf.Click += new System.EventHandler(this.btn_downloadpdf_Click);
-            // 
-            // label35
-            // 
-            this.label35.AutoSize = true;
-            this.label35.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label35.Location = new System.Drawing.Point(15, 15);
-            this.label35.Name = "label35";
-            this.label35.Size = new System.Drawing.Size(54, 17);
-            this.label35.TabIndex = 88;
-            this.label35.Text = "Staff ID";
-            // 
-            // btn_FetchAttendence
-            // 
-            this.btn_FetchAttendence.Location = new System.Drawing.Point(408, 5);
-            this.btn_FetchAttendence.Name = "btn_FetchAttendence";
-            this.btn_FetchAttendence.Size = new System.Drawing.Size(80, 28);
-            this.btn_FetchAttendence.TabIndex = 5;
-            this.btn_FetchAttendence.Text = "Fetch";
-            this.btn_FetchAttendence.Click += new System.EventHandler(this.btn_FetchAttendence_Click);
-            // 
-            // staff_txtFilterId
-            // 
-            this.staff_txtFilterId.Location = new System.Drawing.Point(18, 35);
-            this.staff_txtFilterId.Name = "staff_txtFilterId";
-            this.staff_txtFilterId.Size = new System.Drawing.Size(100, 24);
-            this.staff_txtFilterId.TabIndex = 1;
-            // 
-            // staff_dtpFilterDate
-            // 
-            this.staff_dtpFilterDate.Location = new System.Drawing.Point(128, 35);
-            this.staff_dtpFilterDate.Name = "staff_dtpFilterDate";
-            this.staff_dtpFilterDate.Size = new System.Drawing.Size(140, 24);
-            this.staff_dtpFilterDate.TabIndex = 2;
-            // 
-            // staff_cmbFilterDeviceType
-            // 
-            this.staff_cmbFilterDeviceType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.staff_cmbFilterDeviceType.Items.AddRange(new object[] {
-            "All",
-            "Check_In",
-            "Check_Out",
-            "Check_In/Check_Out"});
-            this.staff_cmbFilterDeviceType.Location = new System.Drawing.Point(278, 35);
-            this.staff_cmbFilterDeviceType.Name = "staff_cmbFilterDeviceType";
-            this.staff_cmbFilterDeviceType.Size = new System.Drawing.Size(120, 26);
-            this.staff_cmbFilterDeviceType.TabIndex = 3;
-            // 
-            // staff_btnFilter
-            // 
-            this.staff_btnFilter.Location = new System.Drawing.Point(408, 35);
-            this.staff_btnFilter.Name = "staff_btnFilter";
-            this.staff_btnFilter.Size = new System.Drawing.Size(80, 28);
-            this.staff_btnFilter.TabIndex = 4;
-            this.staff_btnFilter.Text = "Filter";
-            this.staff_btnFilter.Click += new System.EventHandler(this.staff_btnFilter_Click_1);
-            // 
-            // staff_lvAttendance
-            // 
-            this.staff_lvAttendance.FullRowSelect = true;
-            this.staff_lvAttendance.GridLines = true;
-            this.staff_lvAttendance.HideSelection = false;
-            this.staff_lvAttendance.Location = new System.Drawing.Point(9, 69);
-            this.staff_lvAttendance.Name = "staff_lvAttendance";
-            this.staff_lvAttendance.Size = new System.Drawing.Size(618, 271);
-            this.staff_lvAttendance.TabIndex = 86;
-            this.staff_lvAttendance.UseCompatibleStateImageBehavior = false;
-            this.staff_lvAttendance.View = System.Windows.Forms.View.Details;
-            // 
-            // label36
-            // 
-            this.label36.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label36.ForeColor = System.Drawing.Color.DimGray;
-            this.label36.Location = new System.Drawing.Point(5, 38);
-            this.label36.Name = "label36";
-            this.label36.Size = new System.Drawing.Size(507, 43);
-            this.label36.TabIndex = 57;
-            this.label36.Text = "Add, update, or remove staff users.";
-            // 
-            // label37
-            // 
-            this.label37.AutoSize = true;
-            this.label37.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label37.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label37.Location = new System.Drawing.Point(3, 6);
-            this.label37.Name = "label37";
-            this.label37.Size = new System.Drawing.Size(190, 26);
-            this.label37.TabIndex = 56;
-            this.label37.Text = "Staff Management";
-            // 
             // panel2
             // 
             this.panel2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(23)))), ((int)(((byte)(49)))));
             this.panel2.Controls.Add(this.btn_setupmanage);
-            this.panel2.Controls.Add(this.btn_privilegememb);
             this.panel2.Controls.Add(this.btn_attendencemanagment);
             this.panel2.Controls.Add(this.btn_staffmanagment);
             this.panel2.Controls.Add(this.btn_userManagement);
@@ -1565,7 +868,7 @@ namespace smart_attendance_middleware
             this.btn_setupmanage.BackColor = System.Drawing.Color.Transparent;
             this.btn_setupmanage.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btn_setupmanage.ForeColor = System.Drawing.Color.White;
-            this.btn_setupmanage.Location = new System.Drawing.Point(0, 385);
+            this.btn_setupmanage.Location = new System.Drawing.Point(0, 357);
             this.btn_setupmanage.Name = "btn_setupmanage";
             this.btn_setupmanage.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.btn_setupmanage.Size = new System.Drawing.Size(191, 46);
@@ -1573,20 +876,6 @@ namespace smart_attendance_middleware
             this.btn_setupmanage.Text = "Setup Managment";
             this.btn_setupmanage.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.btn_setupmanage.Click += new System.EventHandler(this.btn_setupmanage_Click);
-            // 
-            // btn_privilegememb
-            // 
-            this.btn_privilegememb.BackColor = System.Drawing.Color.Transparent;
-            this.btn_privilegememb.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_privilegememb.ForeColor = System.Drawing.Color.White;
-            this.btn_privilegememb.Location = new System.Drawing.Point(-2, 343);
-            this.btn_privilegememb.Name = "btn_privilegememb";
-            this.btn_privilegememb.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.btn_privilegememb.Size = new System.Drawing.Size(191, 46);
-            this.btn_privilegememb.TabIndex = 6;
-            this.btn_privilegememb.Text = "Privilege Members";
-            this.btn_privilegememb.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.btn_privilegememb.Click += new System.EventHandler(this.btn_privilegememb_Click);
             // 
             // btn_attendencemanagment
             // 
@@ -1639,7 +928,7 @@ namespace smart_attendance_middleware
             this.btn_apiKey.BackColor = System.Drawing.Color.Transparent;
             this.btn_apiKey.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btn_apiKey.ForeColor = System.Drawing.Color.White;
-            this.btn_apiKey.Location = new System.Drawing.Point(-4, 154);
+            this.btn_apiKey.Location = new System.Drawing.Point(0, 154);
             this.btn_apiKey.Name = "btn_apiKey";
             this.btn_apiKey.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.btn_apiKey.Size = new System.Drawing.Size(191, 46);
@@ -1683,9 +972,9 @@ namespace smart_attendance_middleware
             this.pnl_APIkey.Controls.Add(this.panel4);
             this.pnl_APIkey.Controls.Add(this.label33);
             this.pnl_APIkey.Controls.Add(this.label34);
-            this.pnl_APIkey.Location = new System.Drawing.Point(902, 12);
+            this.pnl_APIkey.Location = new System.Drawing.Point(892, 0);
             this.pnl_APIkey.Name = "pnl_APIkey";
-            this.pnl_APIkey.Size = new System.Drawing.Size(703, 486);
+            this.pnl_APIkey.Size = new System.Drawing.Size(700, 576);
             this.pnl_APIkey.TabIndex = 4;
             this.pnl_APIkey.Visible = false;
             // 
@@ -1748,11 +1037,12 @@ namespace smart_attendance_middleware
             // 
             // btnSaveAPI
             // 
+            this.btnSaveAPI.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSaveAPI.Location = new System.Drawing.Point(264, 249);
             this.btnSaveAPI.Name = "btnSaveAPI";
             this.btnSaveAPI.Size = new System.Drawing.Size(113, 32);
             this.btnSaveAPI.TabIndex = 39;
-            this.btnSaveAPI.Text = "Test and Save";
+            this.btnSaveAPI.Text = "Save";
             this.btnSaveAPI.UseVisualStyleBackColor = true;
             this.btnSaveAPI.Click += new System.EventHandler(this.btnSaveAPI_Click_1);
             // 
@@ -1785,9 +1075,9 @@ namespace smart_attendance_middleware
             this.pnl_UserManagement.Controls.Add(this.panel3);
             this.pnl_UserManagement.Controls.Add(this.label5);
             this.pnl_UserManagement.Controls.Add(this.label6);
-            this.pnl_UserManagement.Location = new System.Drawing.Point(902, 522);
+            this.pnl_UserManagement.Location = new System.Drawing.Point(1610, 0);
             this.pnl_UserManagement.Name = "pnl_UserManagement";
-            this.pnl_UserManagement.Size = new System.Drawing.Size(703, 486);
+            this.pnl_UserManagement.Size = new System.Drawing.Size(700, 576);
             this.pnl_UserManagement.TabIndex = 5;
             this.pnl_UserManagement.Visible = false;
             // 
@@ -1878,76 +1168,109 @@ namespace smart_attendance_middleware
             // 
             this.pnl_attendence.BackColor = System.Drawing.Color.WhiteSmoke;
             this.pnl_attendence.Controls.Add(this.tab_attendence);
-            this.pnl_attendence.Controls.Add(this.label47);
             this.pnl_attendence.Controls.Add(this.label48);
-            this.pnl_attendence.Location = new System.Drawing.Point(1611, 12);
+            this.pnl_attendence.Location = new System.Drawing.Point(2326, 601);
             this.pnl_attendence.Name = "pnl_attendence";
-            this.pnl_attendence.Size = new System.Drawing.Size(660, 479);
+            this.pnl_attendence.Size = new System.Drawing.Size(703, 575);
             this.pnl_attendence.TabIndex = 4;
             this.pnl_attendence.Visible = false;
             // 
             // tab_attendence
             // 
-            this.tab_attendence.Controls.Add(this.tab_member);
+            this.tab_attendence.Controls.Add(this.tab_members);
+            this.tab_attendence.Controls.Add(this.tab_memberAttendence);
             this.tab_attendence.Controls.Add(this.tab_manualdoor);
             this.tab_attendence.Location = new System.Drawing.Point(8, 71);
             this.tab_attendence.Name = "tab_attendence";
             this.tab_attendence.SelectedIndex = 0;
-            this.tab_attendence.Size = new System.Drawing.Size(649, 405);
+            this.tab_attendence.Size = new System.Drawing.Size(692, 497);
             this.tab_attendence.TabIndex = 83;
             // 
-            // tab_member
+            // tab_members
             // 
-            this.tab_member.Controls.Add(this.panel5);
-            this.tab_member.Location = new System.Drawing.Point(4, 22);
-            this.tab_member.Name = "tab_member";
-            this.tab_member.Padding = new System.Windows.Forms.Padding(3);
-            this.tab_member.Size = new System.Drawing.Size(641, 379);
-            this.tab_member.TabIndex = 0;
-            this.tab_member.Text = "Member";
-            this.tab_member.UseVisualStyleBackColor = true;
+            this.tab_members.Controls.Add(this.txt_memb_name);
+            this.tab_members.Controls.Add(this.flt_members);
+            this.tab_members.Controls.Add(this.lst_members);
+            this.tab_members.Location = new System.Drawing.Point(4, 22);
+            this.tab_members.Name = "tab_members";
+            this.tab_members.Size = new System.Drawing.Size(684, 471);
+            this.tab_members.TabIndex = 2;
+            this.tab_members.Text = "Members";
+            this.tab_members.UseVisualStyleBackColor = true;
+            // 
+            // txt_memb_name
+            // 
+            this.txt_memb_name.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_memb_name.Location = new System.Drawing.Point(7, 9);
+            this.txt_memb_name.Name = "txt_memb_name";
+            this.txt_memb_name.Size = new System.Drawing.Size(188, 23);
+            this.txt_memb_name.TabIndex = 89;
+            // 
+            // flt_members
+            // 
+            this.flt_members.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.flt_members.Location = new System.Drawing.Point(201, 7);
+            this.flt_members.Name = "flt_members";
+            this.flt_members.Size = new System.Drawing.Size(80, 28);
+            this.flt_members.TabIndex = 91;
+            this.flt_members.Text = "Filter";
+            // 
+            // lst_members
+            // 
+            this.lst_members.FullRowSelect = true;
+            this.lst_members.GridLines = true;
+            this.lst_members.HideSelection = false;
+            this.lst_members.Location = new System.Drawing.Point(7, 41);
+            this.lst_members.Name = "lst_members";
+            this.lst_members.Size = new System.Drawing.Size(669, 427);
+            this.lst_members.TabIndex = 92;
+            this.lst_members.UseCompatibleStateImageBehavior = false;
+            this.lst_members.View = System.Windows.Forms.View.Details;
+            // 
+            // tab_memberAttendence
+            // 
+            this.tab_memberAttendence.Controls.Add(this.panel5);
+            this.tab_memberAttendence.Location = new System.Drawing.Point(4, 22);
+            this.tab_memberAttendence.Name = "tab_memberAttendence";
+            this.tab_memberAttendence.Padding = new System.Windows.Forms.Padding(3);
+            this.tab_memberAttendence.Size = new System.Drawing.Size(684, 471);
+            this.tab_memberAttendence.TabIndex = 0;
+            this.tab_memberAttendence.Text = "Attendence";
+            this.tab_memberAttendence.UseVisualStyleBackColor = true;
             // 
             // panel5
             // 
-            this.panel5.Controls.Add(this.label3);
             this.panel5.Controls.Add(this.txt_membername);
             this.panel5.Controls.Add(this.date_member);
             this.panel5.Controls.Add(this.btn_filter_member);
             this.panel5.Controls.Add(this.lst_member);
             this.panel5.Location = new System.Drawing.Point(0, 1);
             this.panel5.Name = "panel5";
-            this.panel5.Size = new System.Drawing.Size(640, 377);
+            this.panel5.Size = new System.Drawing.Size(684, 467);
             this.panel5.TabIndex = 85;
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label3.Location = new System.Drawing.Point(15, 15);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(59, 17);
-            this.label3.TabIndex = 88;
-            this.label3.Text = "Member";
             // 
             // txt_membername
             // 
-            this.txt_membername.Location = new System.Drawing.Point(18, 35);
+            this.txt_membername.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_membername.Location = new System.Drawing.Point(9, 9);
             this.txt_membername.Name = "txt_membername";
-            this.txt_membername.Size = new System.Drawing.Size(100, 20);
+            this.txt_membername.Size = new System.Drawing.Size(100, 23);
             this.txt_membername.TabIndex = 82;
             this.txt_membername.TextChanged += new System.EventHandler(this.txt_membername_TextChanged);
             // 
             // date_member
             // 
-            this.date_member.Location = new System.Drawing.Point(128, 35);
+            this.date_member.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.date_member.Location = new System.Drawing.Point(115, 9);
             this.date_member.Name = "date_member";
-            this.date_member.Size = new System.Drawing.Size(140, 20);
+            this.date_member.Size = new System.Drawing.Size(140, 23);
             this.date_member.TabIndex = 83;
             this.date_member.ValueChanged += new System.EventHandler(this.date_member_ValueChanged);
             // 
             // btn_filter_member
             // 
-            this.btn_filter_member.Location = new System.Drawing.Point(274, 30);
+            this.btn_filter_member.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_filter_member.Location = new System.Drawing.Point(261, 6);
             this.btn_filter_member.Name = "btn_filter_member";
             this.btn_filter_member.Size = new System.Drawing.Size(80, 28);
             this.btn_filter_member.TabIndex = 85;
@@ -1959,9 +1282,9 @@ namespace smart_attendance_middleware
             this.lst_member.FullRowSelect = true;
             this.lst_member.GridLines = true;
             this.lst_member.HideSelection = false;
-            this.lst_member.Location = new System.Drawing.Point(9, 69);
+            this.lst_member.Location = new System.Drawing.Point(9, 40);
             this.lst_member.Name = "lst_member";
-            this.lst_member.Size = new System.Drawing.Size(618, 294);
+            this.lst_member.Size = new System.Drawing.Size(669, 424);
             this.lst_member.TabIndex = 86;
             this.lst_member.UseCompatibleStateImageBehavior = false;
             this.lst_member.View = System.Windows.Forms.View.Details;
@@ -1973,7 +1296,7 @@ namespace smart_attendance_middleware
             this.tab_manualdoor.Location = new System.Drawing.Point(4, 22);
             this.tab_manualdoor.Name = "tab_manualdoor";
             this.tab_manualdoor.Padding = new System.Windows.Forms.Padding(3);
-            this.tab_manualdoor.Size = new System.Drawing.Size(641, 379);
+            this.tab_manualdoor.Size = new System.Drawing.Size(684, 471);
             this.tab_manualdoor.TabIndex = 1;
             this.tab_manualdoor.Text = "Manual Door ";
             this.tab_manualdoor.UseVisualStyleBackColor = true;
@@ -1985,22 +1308,24 @@ namespace smart_attendance_middleware
             this.panel6.Controls.Add(this.lst_manualdoor);
             this.panel6.Location = new System.Drawing.Point(3, 0);
             this.panel6.Name = "panel6";
-            this.panel6.Size = new System.Drawing.Size(640, 377);
+            this.panel6.Size = new System.Drawing.Size(675, 465);
             this.panel6.TabIndex = 84;
             // 
             // date_manualdoor
             // 
-            this.date_manualdoor.Location = new System.Drawing.Point(9, 37);
+            this.date_manualdoor.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.date_manualdoor.Location = new System.Drawing.Point(9, 6);
             this.date_manualdoor.Name = "date_manualdoor";
-            this.date_manualdoor.Size = new System.Drawing.Size(140, 20);
+            this.date_manualdoor.Size = new System.Drawing.Size(140, 23);
             this.date_manualdoor.TabIndex = 83;
             this.date_manualdoor.ValueChanged += new System.EventHandler(this.date_manualdoor_ValueChanged);
             // 
             // btn_filter_manualdoor
             // 
-            this.btn_filter_manualdoor.Location = new System.Drawing.Point(155, 35);
+            this.btn_filter_manualdoor.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_filter_manualdoor.Location = new System.Drawing.Point(155, 4);
             this.btn_filter_manualdoor.Name = "btn_filter_manualdoor";
-            this.btn_filter_manualdoor.Size = new System.Drawing.Size(80, 28);
+            this.btn_filter_manualdoor.Size = new System.Drawing.Size(79, 25);
             this.btn_filter_manualdoor.TabIndex = 85;
             this.btn_filter_manualdoor.Text = "Filter";
             this.btn_filter_manualdoor.Click += new System.EventHandler(this.btn_filter_manualdoor_Click);
@@ -2010,34 +1335,24 @@ namespace smart_attendance_middleware
             this.lst_manualdoor.FullRowSelect = true;
             this.lst_manualdoor.GridLines = true;
             this.lst_manualdoor.HideSelection = false;
-            this.lst_manualdoor.Location = new System.Drawing.Point(9, 69);
+            this.lst_manualdoor.Location = new System.Drawing.Point(9, 35);
             this.lst_manualdoor.Name = "lst_manualdoor";
-            this.lst_manualdoor.Size = new System.Drawing.Size(618, 304);
+            this.lst_manualdoor.Size = new System.Drawing.Size(663, 430);
             this.lst_manualdoor.TabIndex = 86;
             this.lst_manualdoor.UseCompatibleStateImageBehavior = false;
             this.lst_manualdoor.View = System.Windows.Forms.View.Details;
             this.lst_manualdoor.SelectedIndexChanged += new System.EventHandler(this.lst_manualdoor_SelectedIndexChanged);
-            // 
-            // label47
-            // 
-            this.label47.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label47.ForeColor = System.Drawing.Color.DimGray;
-            this.label47.Location = new System.Drawing.Point(5, 38);
-            this.label47.Name = "label47";
-            this.label47.Size = new System.Drawing.Size(507, 43);
-            this.label47.TabIndex = 57;
-            this.label47.Text = "Add, update, or remove users with role-based access for this device.";
             // 
             // label48
             // 
             this.label48.AutoSize = true;
             this.label48.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label48.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label48.Location = new System.Drawing.Point(3, 3);
+            this.label48.Location = new System.Drawing.Point(3, 26);
             this.label48.Name = "label48";
-            this.label48.Size = new System.Drawing.Size(255, 26);
+            this.label48.Size = new System.Drawing.Size(225, 26);
             this.label48.TabIndex = 56;
-            this.label48.Text = "Attendence Management";
+            this.label48.Text = "Member Management";
             // 
             // pnl_setup
             // 
@@ -2045,15 +1360,17 @@ namespace smart_attendance_middleware
             this.pnl_setup.Controls.Add(this.subpnl_setup);
             this.pnl_setup.Controls.Add(this.label42);
             this.pnl_setup.Controls.Add(this.label43);
-            this.pnl_setup.Location = new System.Drawing.Point(2297, 477);
+            this.pnl_setup.Location = new System.Drawing.Point(1610, 600);
             this.pnl_setup.Name = "pnl_setup";
-            this.pnl_setup.Size = new System.Drawing.Size(703, 486);
+            this.pnl_setup.Size = new System.Drawing.Size(703, 576);
             this.pnl_setup.TabIndex = 85;
             this.pnl_setup.Visible = false;
             // 
             // subpnl_setup
             // 
             this.subpnl_setup.BackColor = System.Drawing.Color.White;
+            this.subpnl_setup.Controls.Add(this.btn_attendence_sim);
+            this.subpnl_setup.Controls.Add(this.btn_settime);
             this.subpnl_setup.Controls.Add(this.btn_disableuser);
             this.subpnl_setup.Controls.Add(this.btn_enableuser);
             this.subpnl_setup.Controls.Add(this.btn_getdb);
@@ -2064,8 +1381,41 @@ namespace smart_attendance_middleware
             this.subpnl_setup.Controls.Add(this.btn_savedebounce);
             this.subpnl_setup.Location = new System.Drawing.Point(20, 80);
             this.subpnl_setup.Name = "subpnl_setup";
-            this.subpnl_setup.Size = new System.Drawing.Size(662, 392);
+            this.subpnl_setup.Size = new System.Drawing.Size(680, 489);
             this.subpnl_setup.TabIndex = 2;
+            // 
+            // btn_attendence_sim
+            // 
+            this.btn_attendence_sim.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_attendence_sim.Location = new System.Drawing.Point(271, 133);
+            this.btn_attendence_sim.Name = "btn_attendence_sim";
+            this.btn_attendence_sim.Size = new System.Drawing.Size(113, 32);
+            this.btn_attendence_sim.TabIndex = 51;
+            this.btn_attendence_sim.Text = "Simulator";
+            this.btn_attendence_sim.UseVisualStyleBackColor = true;
+            this.btn_attendence_sim.Click += new System.EventHandler(this.btn_attendence_sim_Click);
+            // 
+            // btn_settime
+            // 
+            this.btn_settime.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_settime.Location = new System.Drawing.Point(152, 133);
+            this.btn_settime.Name = "btn_settime";
+            this.btn_settime.Size = new System.Drawing.Size(113, 32);
+            this.btn_settime.TabIndex = 50;
+            this.btn_settime.Text = "Set Time";
+            this.btn_settime.UseVisualStyleBackColor = true;
+            this.btn_settime.Click += new System.EventHandler(this.btn_settime_Click);
+            // 
+            // btn_disableuser
+            // 
+            this.btn_disableuser.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_disableuser.Location = new System.Drawing.Point(391, 87);
+            this.btn_disableuser.Name = "btn_disableuser";
+            this.btn_disableuser.Size = new System.Drawing.Size(113, 32);
+            this.btn_disableuser.TabIndex = 49;
+            this.btn_disableuser.Text = "Disable";
+            this.btn_disableuser.UseVisualStyleBackColor = true;
+            this.btn_disableuser.Click += new System.EventHandler(this.btn_disableuser_Click);
             // 
             // btn_enableuser
             // 
@@ -2085,7 +1435,7 @@ namespace smart_attendance_middleware
             this.btn_getdb.Name = "btn_getdb";
             this.btn_getdb.Size = new System.Drawing.Size(113, 32);
             this.btn_getdb.TabIndex = 47;
-            this.btn_getdb.Text = "Get";
+            this.btn_getdb.Text = "Get Details";
             this.btn_getdb.UseVisualStyleBackColor = true;
             this.btn_getdb.Click += new System.EventHandler(this.btn_getdb_Click);
             // 
@@ -2160,31 +1510,158 @@ namespace smart_attendance_middleware
             this.label43.TabIndex = 0;
             this.label43.Text = "Setup Managment";
             // 
-            // btn_disableuser
+            // pnl_staffsManagment
             // 
-            this.btn_disableuser.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_disableuser.Location = new System.Drawing.Point(391, 87);
-            this.btn_disableuser.Name = "btn_disableuser";
-            this.btn_disableuser.Size = new System.Drawing.Size(113, 32);
-            this.btn_disableuser.TabIndex = 49;
-            this.btn_disableuser.Text = "Disable";
-            this.btn_disableuser.UseVisualStyleBackColor = true;
-            this.btn_disableuser.Click += new System.EventHandler(this.btn_disableuser_Click);
+            this.pnl_staffsManagment.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.pnl_staffsManagment.Controls.Add(this.tab_staff);
+            this.pnl_staffsManagment.Controls.Add(this.lbl_staffmanagment);
+            this.pnl_staffsManagment.Location = new System.Drawing.Point(2323, 0);
+            this.pnl_staffsManagment.Name = "pnl_staffsManagment";
+            this.pnl_staffsManagment.Size = new System.Drawing.Size(703, 575);
+            this.pnl_staffsManagment.TabIndex = 84;
+            this.pnl_staffsManagment.Visible = false;
+            // 
+            // tab_staff
+            // 
+            this.tab_staff.Controls.Add(this.tab_staffmembers);
+            this.tab_staff.Controls.Add(this.tab_staffattendence);
+            this.tab_staff.Location = new System.Drawing.Point(8, 75);
+            this.tab_staff.Name = "tab_staff";
+            this.tab_staff.SelectedIndex = 0;
+            this.tab_staff.Size = new System.Drawing.Size(692, 497);
+            this.tab_staff.TabIndex = 83;
+            // 
+            // tab_staffmembers
+            // 
+            this.tab_staffmembers.Controls.Add(this.txt_staff);
+            this.tab_staffmembers.Controls.Add(this.btn_stafffilter);
+            this.tab_staffmembers.Controls.Add(this.lst_staffs);
+            this.tab_staffmembers.Location = new System.Drawing.Point(4, 22);
+            this.tab_staffmembers.Name = "tab_staffmembers";
+            this.tab_staffmembers.Size = new System.Drawing.Size(684, 471);
+            this.tab_staffmembers.TabIndex = 2;
+            this.tab_staffmembers.Text = "Staffs";
+            this.tab_staffmembers.UseVisualStyleBackColor = true;
+            // 
+            // txt_staff
+            // 
+            this.txt_staff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_staff.Location = new System.Drawing.Point(7, 9);
+            this.txt_staff.Name = "txt_staff";
+            this.txt_staff.Size = new System.Drawing.Size(188, 23);
+            this.txt_staff.TabIndex = 89;
+            this.txt_staff.TextChanged += new System.EventHandler(this.txt_staff_TextChanged_1);
+            // 
+            // btn_stafffilter
+            // 
+            this.btn_stafffilter.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_stafffilter.Location = new System.Drawing.Point(201, 7);
+            this.btn_stafffilter.Name = "btn_stafffilter";
+            this.btn_stafffilter.Size = new System.Drawing.Size(80, 28);
+            this.btn_stafffilter.TabIndex = 91;
+            this.btn_stafffilter.Text = "Filter";
+            this.btn_stafffilter.Click += new System.EventHandler(this.btn_stafffilter_Click_1);
+            // 
+            // lst_staffs
+            // 
+            this.lst_staffs.FullRowSelect = true;
+            this.lst_staffs.GridLines = true;
+            this.lst_staffs.HideSelection = false;
+            this.lst_staffs.Location = new System.Drawing.Point(7, 41);
+            this.lst_staffs.Name = "lst_staffs";
+            this.lst_staffs.Size = new System.Drawing.Size(669, 427);
+            this.lst_staffs.TabIndex = 92;
+            this.lst_staffs.UseCompatibleStateImageBehavior = false;
+            this.lst_staffs.View = System.Windows.Forms.View.Details;
+            this.lst_staffs.SelectedIndexChanged += new System.EventHandler(this.lst_staffs_SelectedIndexChanged);
+            // 
+            // tab_staffattendence
+            // 
+            this.tab_staffattendence.Controls.Add(this.panel8);
+            this.tab_staffattendence.Location = new System.Drawing.Point(4, 22);
+            this.tab_staffattendence.Name = "tab_staffattendence";
+            this.tab_staffattendence.Padding = new System.Windows.Forms.Padding(3);
+            this.tab_staffattendence.Size = new System.Drawing.Size(684, 471);
+            this.tab_staffattendence.TabIndex = 0;
+            this.tab_staffattendence.Text = "Attendence";
+            this.tab_staffattendence.UseVisualStyleBackColor = true;
+            // 
+            // panel8
+            // 
+            this.panel8.Controls.Add(this.txt_staffname);
+            this.panel8.Controls.Add(this.date_staffattendence);
+            this.panel8.Controls.Add(this.btn_filterattendencestaff);
+            this.panel8.Controls.Add(this.lst_staffattendence);
+            this.panel8.Location = new System.Drawing.Point(0, 1);
+            this.panel8.Name = "panel8";
+            this.panel8.Size = new System.Drawing.Size(684, 467);
+            this.panel8.TabIndex = 85;
+            // 
+            // txt_staffname
+            // 
+            this.txt_staffname.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_staffname.Location = new System.Drawing.Point(9, 9);
+            this.txt_staffname.Name = "txt_staffname";
+            this.txt_staffname.Size = new System.Drawing.Size(100, 23);
+            this.txt_staffname.TabIndex = 82;
+            this.txt_staffname.TextChanged += new System.EventHandler(this.txt_staffname_TextChanged_1);
+            // 
+            // date_staffattendence
+            // 
+            this.date_staffattendence.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.date_staffattendence.Location = new System.Drawing.Point(115, 9);
+            this.date_staffattendence.Name = "date_staffattendence";
+            this.date_staffattendence.Size = new System.Drawing.Size(140, 23);
+            this.date_staffattendence.TabIndex = 83;
+            this.date_staffattendence.ValueChanged += new System.EventHandler(this.date_staffattendence_ValueChanged_1);
+            // 
+            // btn_filterattendencestaff
+            // 
+            this.btn_filterattendencestaff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_filterattendencestaff.Location = new System.Drawing.Point(261, 6);
+            this.btn_filterattendencestaff.Name = "btn_filterattendencestaff";
+            this.btn_filterattendencestaff.Size = new System.Drawing.Size(80, 28);
+            this.btn_filterattendencestaff.TabIndex = 85;
+            this.btn_filterattendencestaff.Text = "Filter";
+            this.btn_filterattendencestaff.Click += new System.EventHandler(this.btn_filterattendencestaff_Click_1);
+            // 
+            // lst_staffattendence
+            // 
+            this.lst_staffattendence.FullRowSelect = true;
+            this.lst_staffattendence.GridLines = true;
+            this.lst_staffattendence.HideSelection = false;
+            this.lst_staffattendence.Location = new System.Drawing.Point(9, 40);
+            this.lst_staffattendence.Name = "lst_staffattendence";
+            this.lst_staffattendence.Size = new System.Drawing.Size(669, 424);
+            this.lst_staffattendence.TabIndex = 86;
+            this.lst_staffattendence.UseCompatibleStateImageBehavior = false;
+            this.lst_staffattendence.View = System.Windows.Forms.View.Details;
+            this.lst_staffattendence.SelectedIndexChanged += new System.EventHandler(this.lst_staffattendence_SelectedIndexChanged);
+            // 
+            // lbl_staffmanagment
+            // 
+            this.lbl_staffmanagment.AutoSize = true;
+            this.lbl_staffmanagment.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbl_staffmanagment.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.lbl_staffmanagment.Location = new System.Drawing.Point(3, 26);
+            this.lbl_staffmanagment.Name = "lbl_staffmanagment";
+            this.lbl_staffmanagment.Size = new System.Drawing.Size(190, 26);
+            this.lbl_staffmanagment.TabIndex = 56;
+            this.lbl_staffmanagment.Text = "Staff Management";
             // 
             // DeviceManager
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.ClientSize = new System.Drawing.Size(885, 575);
+            this.ClientSize = new System.Drawing.Size(3041, 1181);
+            this.Controls.Add(this.pnl_staffsManagment);
             this.Controls.Add(this.pnl_setup);
-            this.Controls.Add(this.pnl_privilege);
             this.Controls.Add(this.pnl_staffhandling);
             this.Controls.Add(this.pnl_attendence);
-            this.Controls.Add(this.pnl_UserManagement);
             this.Controls.Add(this.pnl_APIkey);
+            this.Controls.Add(this.pnl_UserManagement);
             this.Controls.Add(this.panel2);
-            this.Controls.Add(this.pnl_staffManagement);
             this.Controls.Add(this.pnl_deviceManager);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
@@ -2195,27 +1672,10 @@ namespace smart_attendance_middleware
             this.pnl_deviceManager.PerformLayout();
             this.pnl_device.ResumeLayout(false);
             this.pnl_device.PerformLayout();
-            this.pnl_privilege.ResumeLayout(false);
-            this.pnl_privilege.PerformLayout();
-            this.tab_privilege.ResumeLayout(false);
-            this.tabPage3.ResumeLayout(false);
-            this.tabPage3.PerformLayout();
-            this.tabPage4.ResumeLayout(false);
-            this.tabPage4.PerformLayout();
-            this.pnl_privattend.ResumeLayout(false);
             this.pnl_staffhandling.ResumeLayout(false);
             this.pnl_staffhandling.PerformLayout();
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
-            this.pnl_staffManagement.ResumeLayout(false);
-            this.pnl_staffManagement.PerformLayout();
-            this.tab_staffmanagment.ResumeLayout(false);
-            this.tabPage1.ResumeLayout(false);
-            this.pnl_staffdevices.ResumeLayout(false);
-            this.pnl_staffdevices.PerformLayout();
-            this.tabPage2.ResumeLayout(false);
-            this.pnl_staffattendence.ResumeLayout(false);
-            this.pnl_staffattendence.PerformLayout();
             this.panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.pnl_APIkey.ResumeLayout(false);
@@ -2229,7 +1689,9 @@ namespace smart_attendance_middleware
             this.pnl_attendence.ResumeLayout(false);
             this.pnl_attendence.PerformLayout();
             this.tab_attendence.ResumeLayout(false);
-            this.tab_member.ResumeLayout(false);
+            this.tab_members.ResumeLayout(false);
+            this.tab_members.PerformLayout();
+            this.tab_memberAttendence.ResumeLayout(false);
             this.panel5.ResumeLayout(false);
             this.panel5.PerformLayout();
             this.tab_manualdoor.ResumeLayout(false);
@@ -2239,6 +1701,14 @@ namespace smart_attendance_middleware
             this.subpnl_setup.ResumeLayout(false);
             this.subpnl_setup.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.num_debounce)).EndInit();
+            this.pnl_staffsManagment.ResumeLayout(false);
+            this.pnl_staffsManagment.PerformLayout();
+            this.tab_staff.ResumeLayout(false);
+            this.tab_staffmembers.ResumeLayout(false);
+            this.tab_staffmembers.PerformLayout();
+            this.tab_staffattendence.ResumeLayout(false);
+            this.panel8.ResumeLayout(false);
+            this.panel8.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -2288,7 +1758,6 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.ComboBox cmb_connectionType;
         private System.Windows.Forms.Button btn_remove_device;
         private System.Windows.Forms.Button btnSave;
-        private System.Windows.Forms.Button btnCancle;
         private System.Windows.Forms.Panel pnl_APIkey;
         private System.Windows.Forms.Panel panel4;
         private System.Windows.Forms.Label btnApiPaste;
@@ -2314,64 +1783,21 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.TextBox txt_password;
         private System.Windows.Forms.Label lbl_password;
         private System.Windows.Forms.Button btn_format;
-        private Panel pnl_staffManagement;
-        private TabControl tab_staffmanagment;
-        private TabPage tabPage1;
-        private Panel pnl_staffdevices;
-        private ListView lst_staffdevices;
-        private Label label32;
-        private Button staff_btnEditDevice;
-        private Label label31;
-        private Button staff_btnAddDevice;
-        private Label label30;
-        private TextBox staff_txtPassword;
-        private Label label29;
-        private ComboBox staff_cmbMachineNo;
-        private Label label28;
-        private TextBox staff_txtLocation;
-        private Label label27;
-        private TextBox staff_txtTimeZone;
-        private Label label8;
-        private TextBox staff_txtPort;
-        private Label label26;
-        private TextBox staff_txtDeviceIP;
-        private Label label25;
-        private TextBox staff_txtDeviceSerial;
-        private Label label24;
-        private ComboBox staff_cmbDeviceType;
-        private TextBox staff_DeviceId;
-        private TextBox staff_txtDepartment;
-        private Button staff_btnDeleteDevice;
-        private TabPage tabPage2;
-        private Panel pnl_staffattendence;
-        private Label label35;
-        private Button btn_FetchAttendence;
-        private TextBox staff_txtFilterId;
-        private DateTimePicker staff_dtpFilterDate;
-        private ComboBox staff_cmbFilterDeviceType;
-        private Button staff_btnFilter;
-        private ListView staff_lvAttendance;
-        private Label label36;
-        private Label label37;
         private Label btn_attendencemanagment;
         private Panel pnl_attendence;
         private TabControl tab_attendence;
-        private TabPage tab_member;
+        private TabPage tab_memberAttendence;
         private TabPage tab_manualdoor;
         private Panel panel6;
         private DateTimePicker date_manualdoor;
         private Button btn_filter_manualdoor;
         private ListView lst_manualdoor;
-        private Label label47;
         private Label label48;
         private Panel panel5;
-        private Label label3;
         private TextBox txt_membername;
         private DateTimePicker date_member;
         private Button btn_filter_member;
         private ListView lst_member;
-        private Button btn_downloadpdf;
-        private Label lbl_fetching;
         private Panel pnl_staffhandling;
         private Label label51;
         private Label label52;
@@ -2384,29 +1810,6 @@ namespace smart_attendance_middleware
         private Button btn_image;
         private ListView lst_stff;
         private Button btn_deletestff;
-        private Label btn_privilegememb;
-        private Panel pnl_privilege;
-        private TabControl tab_privilege;
-        private Label label54;
-        private Label label55;
-        private TabPage tabPage3;
-        private Button btn_delpriv;
-        private ListView listView1;
-        private Label label38;
-        private Label label39;
-        private Button btn_enrollpriv;
-        private Button btn_addfacepriv;
-        private TextBox txt_prvname;
-        private TextBox txt_privId;
-        private TabPage tabPage4;
-        private Label label40;
-        private TextBox txt_scanid;
-        private ListView lst_mempriv;
-        private Button btn_filterprv;
-        private DateTimePicker date_priv;
-        private TextBox txt_privnames;
-        private Panel pnl_privattend;
-        private ListView lst_privattendence;
         private Label label41;
         private TextBox txt_staffcardid;
         private Panel pnl_setup;
@@ -2422,5 +1825,25 @@ namespace smart_attendance_middleware
         private Button btn_getdb;
         private Button btn_enableuser;
         private Button btn_disableuser;
+        private Button btn_settime;
+        private TabPage tab_members;
+        private TextBox txt_memb_name;
+        private Button flt_members;
+        private ListView lst_members;
+        private Button btn_attendence_sim;
+        private Button btnCancle;
+        private Panel pnl_staffsManagment;
+        private TabControl tab_staff;
+        private TabPage tab_staffmembers;
+        private TextBox txt_staff;
+        private Button btn_stafffilter;
+        private ListView lst_staffs;
+        private TabPage tab_staffattendence;
+        private Panel panel8;
+        private TextBox txt_staffname;
+        private DateTimePicker date_staffattendence;
+        private Button btn_filterattendencestaff;
+        private ListView lst_staffattendence;
+        private Label lbl_staffmanagment;
     }
 }

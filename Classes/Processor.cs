@@ -1,15 +1,11 @@
 ﻿using smart_attendance_middleware.UI;
 using System.Drawing;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using smart_attendance_middleware;
 using smart_attendance_middleware.Classes;
 using smart_attendance_middleware.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.NetworkInformation;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -20,10 +16,6 @@ namespace smart_attendance_middleware
     {
         private readonly DatabaseHelper _dbHelper;
         private readonly WebSocketManager _wsManager;
-        private readonly Timer _timer;
-        private int _attempts = 0;
-        private readonly int[] _intervals = { 2000, 4000, 8000, 16000, 60000 };
-        private ToolStripStatusLabel _statusLabel;
         private DeviceFunctions _deviceFunctions;
         private AttendenceServerFunctions attendenceServerFunctions;
 
@@ -32,8 +24,6 @@ namespace smart_attendance_middleware
             _dbHelper = dbHelper;
             _wsManager = wsManager;
             _deviceFunctions = deviceFunctions;
-            _timer = new Timer { Interval = _intervals[0] };
-            _timer.Tick += CheckInternetStatus;
         }
 
         public Processor(DatabaseHelper dbHelper, WebSocketManager wsManager, AttendenceServerFunctions attendenceServerFunctions)
@@ -52,87 +42,54 @@ namespace smart_attendance_middleware
         {
             switch (eventType)
             {
-                case "notification.member_created":
-                    SyncUserFromCloud(data);
-                    _ = Task.Run(async () =>
+
+                case "attendance_updated":
+                    HandleAttendanceUpdated(data);
+                    break;
+
+                case "user_created":
+                    var userData = data["user"] as JObject;
+                    if (userData != null)
                     {
-                        await HandleMemberFaceImage(data);
-                        HandleMemberCreation();
-                    });
-                    _ = update_session();
-                    ShowMemberNotification(data, "Member Created", "A new member has been created.");
-
-                    break;
-
-                case "notification.member_updated":
-                    _ = Task.Run(async () =>
-                    {
-                        await _deviceFunctions.StatusSync(data);
-                        SyncUserFromCloud(data);
-                        await HandleMemberFaceImage(data);
-                        await HandleUpdateMember(data);
-
-                    });
-                    _ = update_session();
-                    ShowMemberNotification(data, "Member Updated", "Member details have been updated.");
-
-
-
-                    break;
-                case "notification.member_deleted":
-                    HandleDeletedMember(data);
-                    _ = update_session();
-                    ShowMemberNotification(data, "Member Deleted", "A member has been removed.");
-
-
-
-                    break;
-
-                case "gym.attendance":
-                    HandleAttendance(data);
-                    ShowMemberNotification(data, "Attendance Updated", "A member's attendance has been updated.");
-                    break;
-
-
-                case "notification.status":
-                    _ = Task.Run(async () =>
-                    {
-                        await _deviceFunctions.StatusSync(data);
-                        HandleStatusChange(data);
-                    });
-                    ShowMemberNotification(data, "Member Status Changed", "A member's status has been changed.");
-
-                    break;
-
-                case "member.all":
-                    _ = Task.Run(async () =>
-                    {
-                        await _deviceFunctions.StatusSync(data);
-                        if (data["version"] != null)
+                        SyncUserFromCloud(userData);
+                        _ = Task.Run(async () =>
                         {
-                            var version = data["version"]?.ToString();
-                            _dbHelper.SaveSetting("VersionTimestamp", version);
-                            LogHelper.Log($"💾 Saved VersionTimestamp: {version}");
-                        }
-                        HandleAllMembers(data);
-                    });
+                            await HandleMemberFaceImage(userData);
+                            HandleMemberCreation();
+                        });
+                        ShowMemberNotification(userData, "User Created", "A new user has been created.");
+                    }
                     break;
 
-                case "member.get":
-                    HandleSingleMember(data);
+                case "user_updated":
+                    var userDataUpd = data["user"] as JObject;
+                    if (userDataUpd != null)
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            await _deviceFunctions.StatusSync(userDataUpd);
+                            SyncUserFromCloud(userDataUpd);
+                            await HandleMemberFaceImage(userDataUpd);
+                            await HandleUpdateMember(userDataUpd);
+                        });
+                        ShowMemberNotification(userDataUpd, "User Updated", "User details have been updated.");
+                    }
                     break;
 
-                case "client-command:response":
-                    HandleGenericResponse(data);
-                    break;
+                //case "notification.member_deleted":
+                //    HandleDeletedMember(data);
+                //    ShowMemberNotification(data, "Member Deleted", "A member has been removed.");
+                //    break;
 
-                case "member.attendance.response":
-                    HandleAttendanceResponse(data);
-                    break;
+                //case "notification.status":
+                //    _ = Task.Run(async () =>
+                //    {
+                //        await _deviceFunctions.StatusSync(data);
+                //        HandleStatusChange(data);
+                //    });
+                //    ShowMemberNotification(data, "Member Status Changed", "A member's status has been changed.");
 
-                case "member.status.set":
-                    HandleMemberStatusResponse(data);
-                    break;
+                //    break;
 
                 default:
                     LogHelper.Log($"⚠️ Unhandled event type: {eventType}");
@@ -140,25 +97,98 @@ namespace smart_attendance_middleware
             }
         }
 
+
+        /// <summary>
+        /// Central entry point for handling all HTTP events.
+        /// Routes each event type to the appropriate internal method.
+        /// </summary>
+        public async Task HandleHttpEvent(string eventType, JObject data)
+        {
+            switch (eventType)
+            {
+                case "attendance.response":
+                    var records = data["records"] as JArray;
+                    ShowMemberNotification(data, "Attendance Response", "Attendance response received from server.");
+                    if (records != null && records.Count > 0)
+                        HandleHttpAttendanceResponseBulk(data);
+                    else
+                        HandleHttpAttendanceResponseSingle(data);
+                    break;
+
+                case "member.all":
+                    var membersArray = data["members"] as JArray;
+                    if (membersArray == null)
+                    {
+                        LogHelper.Log("❌ 'members' array not found in HTTP response for 'member.all'.");
+                        return;
+                    }
+
+                    // StatusSync and HandleAllMembers expect a JObject with a "members" property.
+                    // The incoming 'data' object already has the correct structure.
+                    await _deviceFunctions.StatusSync(data);
+
+                    // Save synced_at from the root
+                    if (data["synced_at"] != null)
+                    {
+                        var lastSyncIso = data["synced_at"]?.ToString();
+                        var lastSync = CommonUtils.FormatSyncedAtUtcCompact(lastSyncIso) ?? lastSyncIso;
+                        _dbHelper.SaveSetting("last_sync", lastSync);
+                        LogHelper.Log($"💾 Saved last_sync: {lastSync}");
+                    }
+
+                    await HandleHttpAllMembers(data);
+                    break;
+
+                default:
+                    LogHelper.Log($"⚠️ Unhandled HTTP event type: {eventType}");
+                    break;
+            }
+        }
+
         /// <summary>
         /// Inserts or updates a member from cloud data. Deletes if marked as 'Deleted'. Assigned machine id.
         /// </summary>
-
         public async void SyncUserFromCloud(JObject member)
         {
             try
             {
-                int memberId = (int)member["id"];
-                string status = (string)member["status"];
-                int? enrollmentId = member["enrollment_id"]?.Type != JTokenType.Null ? (int?)member["enrollment_id"] : null;
-
-                if (status == "Deleted" || status == "Expired")
+                // Route staff to a dedicated handler BEFORE any int parsing
+                bool isStaff = member["is_staff"]?.Type != JTokenType.Null && member["is_staff"]?.Value<bool>() == true;
+                if (isStaff)
                 {
-                    // Direct DB delete without global write lock
+                    // Staff IDs are GUIDs; avoid int casts
+                    LogHelper.Log($"ℹ️ Routing staff member to SyncStaffFromCloud.");
+                    SyncStaffFromCloud(member);
+                    return;
+                }
+
+                // Safely parse memberId (must be integer for members)
+                if (member["id"] == null || member["id"].Type != JTokenType.Integer)
+                {
+                    LogHelper.Log("⚠️ Member 'id' is missing or not an integer. Skipping non-staff record.");
+                    return;
+                }
+                int memberId = member["id"].Value<int>();
+
+                string status = member["status"]?.Value<string>() ?? string.Empty;
+
+                int? enrollmentId = null;
+                if (member["enrollment_id"] != null && member["enrollment_id"].Type == JTokenType.Integer)
+                    enrollmentId = member["enrollment_id"].Value<int>();
+
+                // If face == false, ensure picture is null so no image processing occurs
+                bool hasFace = member["face"]?.Type != JTokenType.Null && member["face"]?.Value<bool>() == true;
+                if (!hasFace && member["picture"] != null)
+                {
+                    member["picture"] = JValue.CreateNull();
+                }
+
+                if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
+                    status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
+                {
                     _dbHelper.DeleteMemberById(memberId);
                     LogHelper.Log($"🗑 Deleted member {memberId} from local DB.");
 
-                    // Non-DB work outside (face image deletion)
                     _ = Task.Run(async () =>
                     {
                         try
@@ -177,7 +207,6 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                // Direct upsert without global write lock
                 _dbHelper.UpsertMember(member);
                 LogHelper.Log($"✅ Synced user {memberId} with enrollment_id {enrollmentId}.");
             }
@@ -187,6 +216,48 @@ namespace smart_attendance_middleware
             }
         }
 
+        // Dedicated staff handler: upsert into Staff table and normalize picture by face flag
+        private async void SyncStaffFromCloud(JObject staff)
+        {
+            try
+            {
+                string staffId = staff["id"]?.ToString();
+                string status = staff["status"]?.Value<string>() ?? string.Empty;
+
+                bool hasFace = staff["face"]?.Type != JTokenType.Null && staff["face"]?.Value<bool>() == true;
+                if (!hasFace && staff["picture"] != null)
+                {
+                    staff["picture"] = JValue.CreateNull();
+                }
+
+                LogHelper.Log($"👤 Handling staff member {staffId} (status={status})");
+
+                if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
+                    status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Face deletion API expects int memberId; skip for staff GUIDs
+                    _ = Task.Run(() =>
+                    {
+                        LogHelper.Log($"ℹ️ Skipping face image delete for staff {staffId} (non-integer ID).");
+                        return Task.CompletedTask;
+                    });
+
+                    // Delete staff by string ID in DB helper (ensure DeleteStaffById accepts string)
+                    _dbHelper.DeleteStaffById(staffId);
+
+                    LogHelper.Log($"🗑️ Staff {staffId} marked as {status}.");
+                    return;
+                }
+
+                // Persist staff to Staff table and compute device sync placeholders
+                _dbHelper.UpsertStaff(staff);
+                LogHelper.Log($"✅ Synced staff {staffId}.");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ SyncStaffFromCloud error: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// Handles member face image management before member creation using WebSocketManager functionality.
@@ -274,97 +345,28 @@ namespace smart_attendance_middleware
         }
 
 
-
         /// <summary>
-        /// Deletes a member from the local database.
+        /// Handles attendance update events from WebSocket, only processing manual updates.
         /// </summary>
-        public async void DeleteUserFromDb(int memberId)
+        private async void HandleAttendanceUpdated(JObject data)
         {
             try
             {
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("DeleteUserFromDb", DbTaskPriority.High))
-                {
-                    _dbHelper.DeleteMemberById(memberId);
-                    LogHelper.Log($"🗑 Deleted member {memberId} from local DB.");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ DeleteUserFromDb error: {ex.Message}");
-            }
-        }
+                var attendance = data["attendance"] as JObject;
+                if (attendance == null) return;
 
-        private async void HandleAttendance(JObject data)
-        {
-            try
-            {
-                LogHelper.Log($"📍 Attendance update received: {data.ToString(Formatting.None)}");
-
-                var isManual = data["is_manual"]?.Value<bool>() ?? false;
+                bool isManual = attendance["is_manual"]?.Value<bool>() ?? false;
                 if (!isManual)
                 {
-                    LogHelper.Log("ℹ️ Skipping attendance update (is_manual is false or not present).");
+                    LogHelper.Log("ℹ️ Skipping non-manual attendance update.");
                     return;
                 }
 
-                int memberId = data["member_id"]?.Value<int>() ?? 0;
-                string attendanceId = data["attendance_id"]?.Value<string>();
-                string checkOutStr = data["check_out"]?.Value<string>();
+                string attendanceId = attendance["id"]?.ToString();
+                int memberId = attendance["member"]?["id"]?.Value<int>() ?? 0;
 
-                if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
-                {
-                    LogHelper.Log("⚠️ Invalid manual attendance payload (missing member_id or attendance_id). Skipping.");
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(checkOutStr))
-                {
-                    LogHelper.Log($"ℹ️ Manual attendance has no check-out for member {memberId}, AttendanceId {attendanceId}. Nothing to update.");
-                    return;
-                }
-
-                DateTime checkOutTime;
-                if (!DateTime.TryParse(checkOutStr, out checkOutTime))
-                {
-                    LogHelper.Log($"⚠️ Invalid check-out format: '{checkOutStr}'. Skipping update for member {memberId}, AttendanceId {attendanceId}.");
-                    return;
-                }
-
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendance_Write", DbTaskPriority.High))
-                {
-                    _dbHelper.UpdateAttendanceLogForCheckOut(memberId, checkOutStr);
-
-                    bool syncUpdated = _dbHelper.UpdateAttendanceLogSyncStatus(
-                        memberId,
-                        attendanceId,
-                        checkInTime: null,
-                        checkOutTime: checkOutTime,
-                        checkIn: null,
-                        checkOut: true
-                    );
-
-                    if (syncUpdated)
-                        LogHelper.Log($"✅ Manual checkout synced for member {memberId}, AttendanceId {attendanceId}, time {checkOutTime:yyyy-MM-dd HH:mm:ss}");
-                    else
-                        LogHelper.Log($"ℹ️ No sync flag change needed (row not found or already synced): member {memberId}, AttendanceId {attendanceId}");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ Error handling manual attendance: {ex.Message}");
-            }
-        }
-
-        public async void HandleAttendanceResponse(JObject data)
-        {
-            try
-            {
-                LogHelper.Log($"📍 Attendance response received: {data.ToString()}");
-                string attendanceId = data["id"]?.ToString();
-                int memberId = data["member_id"].Value<int>();
-
-                string checkInStr = data["check_in"]?.ToString();
-                string checkOutStr = data["check_out"]?.ToString();
+                string checkInStr = attendance["check_in"]?.ToString();
+                string checkOutStr = attendance["check_out"]?.ToString();
 
                 bool hasCheckIn = !string.IsNullOrWhiteSpace(checkInStr);
                 bool hasCheckOut = !string.IsNullOrWhiteSpace(checkOutStr);
@@ -372,12 +374,13 @@ namespace smart_attendance_middleware
                 bool anyUpdateDone = false;
                 DateTime when;
 
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceResponse_Write", DbTaskPriority.High))
+                await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceUpdated_Write", DbTaskPriority.High);
+                try
                 {
                     if (hasCheckIn && DateTime.TryParse(checkInStr, out when))
                     {
-                        LogHelper.Log($"Processed attendance log for member {memberId} with check-in at {when:yyyy-MM-dd HH:mm:ss} and AttendanceId {attendanceId}");
-                        bool checkInSyncUpdated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                        LogHelper.Log($"Processed manual attendance update for member {memberId} with check-in at {when:yyyy-MM-dd HH:mm:ss} and AttendanceId {attendanceId}");
+                        bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
                             memberId,
                             attendanceId,
                             checkInTime: when,
@@ -385,16 +388,16 @@ namespace smart_attendance_middleware
                             checkIn: true,
                             checkOut: null
                         );
-                        LogHelper.Log(checkInSyncUpdated
+                        LogHelper.Log(updated
                             ? $"✅ Updated sync status for check-in: Member {memberId}, AttendanceId {attendanceId}"
                             : $"ℹ️ No change for check-in sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                        anyUpdateDone |= checkInSyncUpdated;
+                        anyUpdateDone |= updated;
                     }
 
                     if (hasCheckOut && DateTime.TryParse(checkOutStr, out when))
                     {
-                        LogHelper.Log($"Updated attendance log for member {memberId} with check-out at {when:yyyy-MM-dd HH:mm:ss} using AttendanceId {attendanceId}");
-                        bool checkOutSyncUpdated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                        LogHelper.Log($"Updated manual attendance update for member {memberId} with check-out at {when:yyyy-MM-dd HH:mm:ss} using AttendanceId {attendanceId}");
+                        bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
                             memberId,
                             attendanceId,
                             checkInTime: null,
@@ -402,22 +405,25 @@ namespace smart_attendance_middleware
                             checkIn: null,
                             checkOut: true
                         );
-                        LogHelper.Log(checkOutSyncUpdated
+                        LogHelper.Log(updated
                             ? $"✅ Updated sync status for check-out: Member {memberId}, AttendanceId {attendanceId}"
                             : $"ℹ️ No change for check-out sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                        anyUpdateDone |= checkOutSyncUpdated;
+                        anyUpdateDone |= updated;
                     }
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("HandleAttendanceUpdated_Write");
                 }
 
                 if (anyUpdateDone)
-                    LogHelper.Log($"✅ Attendance sync completed for member {memberId}, AttendanceId {attendanceId}");
+                    LogHelper.Log($"✅ Manual attendance update sync completed for member {memberId}, AttendanceId {attendanceId}");
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"❌ HandleAttendanceResponse error: {ex.Message}");
+                LogHelper.Log($"❌ HandleAttendanceUpdated error: {ex.Message}");
             }
         }
-
 
 
 
@@ -445,7 +451,8 @@ namespace smart_attendance_middleware
                 bool shouldEnable = newStatus == "active";
 
                 // DB write only for status update
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("HandleStatusChange_UpdateStatus", DbTaskPriority.High))
+                await DatabaseQueueManager.EnterDbWriteLockAsync("HandleStatusChange_UpdateStatus", DbTaskPriority.High);
+                try
                 {
                     bool statusUpdated = _dbHelper.UpdateMemberStatus(memberId, shouldEnable ? "Active" : "Inactive");
                     if (!statusUpdated)
@@ -453,6 +460,10 @@ namespace smart_attendance_middleware
                         LogHelper.Log($"⚠️ Failed to update status for member {memberId}");
                         return;
                     }
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("HandleStatusChange_UpdateStatus");
                 }
 
                 // DB reads and network I/O outside lock
@@ -600,13 +611,18 @@ namespace smart_attendance_middleware
                 }
 
                 // DB cleanup under lock
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("HandleDeletedMember_Cleanup", DbTaskPriority.High))
+                await DatabaseQueueManager.EnterDbWriteLockAsync("HandleDeletedMember_Cleanup", DbTaskPriority.High);
+                try
                 {
                     _dbHelper.DeleteMemberById(memberId);
                     bool logsDeleted = _dbHelper.DeleteMemberLogs(memberId);
                     LogHelper.Log(logsDeleted
                         ? $"✅ Successfully deleted logs for member {memberId}"
                         : $"ℹ️ No logs found to delete for member {memberId}");
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("HandleDeletedMember_Cleanup");
                 }
 
                 // Face image deletion outside lock
@@ -673,202 +689,11 @@ namespace smart_attendance_middleware
             }
         }
 
-        /// <summary>
-        /// Handles bulk member data returned from the cloud.
-        /// </summary>
-        
-        private async void HandleAllMembers(JObject data)
-        {
-            try
-            {
-                LogHelper.Log($"📦 Received all members data (paginated): {data.ToString()}");
-
-                var membersArray = data["members"] as JArray;
-                if (membersArray == null)
-                {
-                    LogHelper.Log("❌ 'members' array not found in response.");
-                    return;
-                }
-
-                int upsertedOrSynced = 0;
-                int deletedOrExpired = 0;
-
-                foreach (var memberObj in membersArray)
-                {
-                    try
-                    {
-                        var member = (JObject)memberObj;
-                        var status = member["status"]?.Value<string>() ?? string.Empty;
-
-                        // Reuse existing logic for delete/expire vs upsert
-                        SyncUserFromCloud(member);
-
-                        if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
-                            status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
-                        {
-                            deletedOrExpired++;
-                        }
-                        else
-                        {
-                            upsertedOrSynced++;
-                        }
-                    }
-                    catch (Exception exItem)
-                    {
-                        LogHelper.Log($"⚠️ Error processing member in bulk: {exItem.Message}");
-                    }
-                }
-
-                LogHelper.Log($"✅ {upsertedOrSynced} members synced/upserted, 🗑 {deletedOrExpired} deleted/expired.");
-
-                var version = data["version"]?.Value<long>();
-                if (version != null)
-                {
-                    try
-                    {
-                        _dbHelper.SaveSetting("VersionTimestamp", version.ToString());
-                        LogHelper.Log($"💾 Saved VersionTimestamp: {version}");
-                    }
-                    catch (Exception exVer)
-                    {
-                        LogHelper.Log($"⚠️ Failed to save VersionTimestamp: {exVer.Message}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ HandleAllMembers error: {ex.Message}");
-            }
-        }
-        /// <summary>
-        /// Handles single member fetch from cloud.
-        /// </summary>
-        private void HandleSingleMember(JObject data)
-        {
-            LogHelper.Log($"👤 Single member fetched: {data.ToString()}");
-            // TODO: Optional use-case for debugging or search
-        }
-
-        /// <summary>
-        /// Handles command response for client-triggered actions.
-        /// </summary>
-        private void HandleGenericResponse(JObject data)
-        {
-            LogHelper.Log($"📨 Command response received: {data.ToString()}");
-        }
 
 
-
-        //Abdul Hadi Code
-
-        //Update Status in Label in form
-        public void MonitorInternetStatus(ToolStripStatusLabel label)
-        {
-            _statusLabel = label;
-            _timer.Start();
-        }
-
-        //Loop to checK internet status
-        private void CheckInternetStatus(object sender, EventArgs e)
-        {
-            bool connected = IsInternetAvailable();
-
-            if (_statusLabel.GetCurrentParent() != null)
-            {
-                _statusLabel.GetCurrentParent().Invoke((MethodInvoker)(() =>
-                {
-                    _statusLabel.Text = $"Internet: {(connected ? "Connected" : "Disconnected")}";
-                }));
-            }
-
-            _timer.Interval = connected ? 60000 : _intervals[Math.Min(_attempts++, _intervals.Length - 1)];
-        }
-
-        //Check if internet is available
-        private bool IsInternetAvailable()
-        {
-            try { return new Ping().Send("8.8.8.8", 3000).Status == IPStatus.Success; }
-            catch { return false; }
-        }
-
-
-
-        public async Task update_session()
-        {
-            // Reads only; no global DB write lock required.
-            try
-            {
-                List<Device> devices = _dbHelper.LoadDevices();
-                if (devices != null && devices.Count > 0)
-                {
-                    AppSession.DeviceList = devices;
-                    var sb = new StringBuilder("Loaded devices:\n");
-                    foreach (var device in devices)
-                    {
-                        sb.AppendLine($"Device {device.DeviceId}:");
-                        sb.AppendLine($"  IP         : {device.DeviceIP}");
-                        sb.AppendLine($"  Port       : {device.Port}");
-                        sb.AppendLine($"  Password   : {device.Password}");
-                        sb.AppendLine($"  Machine No : {device.MachineNo}");
-                        sb.AppendLine($"  Connection Type : {device.ConnectionType}");
-                        sb.AppendLine();
-                    }
-                    LogHelper.Log(sb.ToString());
-                }
-                else
-                {
-                    LogHelper.Log("No devices found in database.");
-                }
-
-                List<Device> staffDevices = _dbHelper.LoadStaffDevices();
-                if (staffDevices != null && staffDevices.Count > 0)
-                {
-                    AppSession.StaffDeviceList = staffDevices;
-                    var sbs = new StringBuilder("Loaded staff devices:\n");
-                    foreach (var sd in staffDevices)
-                    {
-                        sbs.AppendLine($"Staff Device {sd.StaffDeviceId}:");
-                        sbs.AppendLine($"  IP         : {sd.DeviceIP}");
-                        sbs.AppendLine($"  Port       : {sd.Port}");
-                        sbs.AppendLine($"  Password   : {sd.Password}");
-                        sbs.AppendLine($"  Machine No : {sd.MachineNo}");
-                        sbs.AppendLine();
-                    }
-                    LogHelper.Log(sbs.ToString());
-                }
-                else
-                {
-                    LogHelper.Log("No staff devices found in database.");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error loading devices: {ex.Message}");
-            }
-        }
-
-        //Abdul Hadi Code
-        ///his method handles the response for setting member status.
-        private void HandleMemberStatusResponse(JObject data)
-        {
-            try
-            {
-                LogHelper.Log($"📊 Member status set response: {data.ToString(Formatting.None)}");
-
-                // Check if the response contains status information
-                var statusInfo = data["message"]?.ToString();
-                if (!string.IsNullOrEmpty(statusInfo))
-                {
-                    LogHelper.Log($"✅ Status update result: {statusInfo}");
-                }
-
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ Error handling member status response: {ex.Message}");
-            }
-        }
-
+        ///<summary>
+        /// Shows a notification for a member-related event.
+        ///</summary>
         private void ShowMemberNotification(JObject data, string title, string defaultMessage)
         {
             try
@@ -897,6 +722,392 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"⚠️ Failed to show notification: {ex.Message}");
             }
         }
+
+
+
+
+
+
+
+        ////////////////////////////////HTTP Methods//////////////////////////////////////
+
+
+        /// <summary>
+        /// Handles bulk member data returned from the cloud.
+        /// </summary>
+
+        //private async Task HandleHttpAllMembers(JObject data)
+        //{
+        //    try
+        //    {
+        //        LogHelper.Log($"📦 Received all members data : {data.ToString()}");
+
+        //        var membersArray = data["members"] as JArray;
+        //        if (membersArray == null)
+        //        {
+        //            LogHelper.Log("❌ 'members' array not found in response.");
+        //            return;
+        //        }
+
+        //        // Use reflection to call the private SaveMemberPicturesAsync method
+        //        try
+        //        {
+        //            var saveMethod = typeof(WebSocketManager).GetMethod("SaveMemberPicturesAsync",
+        //                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        //            if (saveMethod != null)
+        //            {
+        //                // The method expects a dynamic object, JObject should work if the structure is correct.
+        //                await (Task)saveMethod.Invoke(_wsManager, new object[] { data });
+        //                LogHelper.Log("🖼️ Queued member picture download process.");
+        //            }
+        //            else
+        //            {
+        //                LogHelper.Log("❌ Could not find SaveMemberPicturesAsync method to download images.");
+        //            }
+        //        }
+        //        catch (Exception exImg)
+        //        {
+        //            LogHelper.Log($"❌ Error invoking SaveMemberPicturesAsync: {exImg.Message}");
+        //        }
+
+        //        int upsertedOrSynced = 0;
+        //        int deletedOrExpired = 0;
+
+        //        foreach (var memberObj in membersArray)
+        //        {
+        //            try
+        //            {
+        //                var member = (JObject)memberObj;
+        //                var status = member["status"]?.Value<string>() ?? string.Empty;
+
+        //                // Reuse existing logic for delete/expire vs upsert
+        //                SyncUserFromCloud(member);
+
+        //                if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
+        //                    status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
+        //                {
+        //                    deletedOrExpired++;
+        //                }
+        //                else
+        //                {
+        //                    upsertedOrSynced++;
+        //                }
+        //            }
+        //            catch (Exception exItem)
+        //            {
+        //                LogHelper.Log($"⚠️ Error processing member in bulk: {exItem.Message}");
+        //            }
+        //        }
+
+        //        LogHelper.Log($"✅ {upsertedOrSynced} members synced/upserted, 🗑 {deletedOrExpired} deleted/expired.");
+
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        LogHelper.Log($"❌ HandleAllMembers error: {ex.Message}");
+        //    }
+        //}
+
+        private async Task HandleHttpAllMembers(JObject data)
+        {
+            try
+            {
+                LogHelper.Log($"📦 Received all members data : {data.ToString()}");
+
+                var membersArray = data["members"] as JArray;
+                if (membersArray == null)
+                {
+                    LogHelper.Log("❌ 'members' array not found in response.");
+                    return;
+                }
+
+                // Build a transformed payload:
+                // - Skip staff
+                // - Preserve only picture when face == true; otherwise set picture to null
+                // This ensures SaveMemberPicturesAsync only downloads images for face-enabled members.
+                var transformedMembers = new JArray();
+                foreach (var memberToken in membersArray)
+                {
+                    var member = memberToken as JObject;
+                    if (member == null) continue;
+
+                    bool hasFace = member["face"]?.Type != JTokenType.Null && member["face"]?.Value<bool>() == true;
+
+                    // Clone member to avoid mutating original input
+                    var memberClone = (JObject)member.DeepClone();
+
+                    // If face is false, nullify picture so downloader won’t process it
+                    if (!hasFace)
+                    {
+                        if (memberClone["picture"] != null)
+                            memberClone["picture"] = JValue.CreateNull();
+                    }
+
+                    transformedMembers.Add(memberClone);
+                }
+
+                // Create a new envelope for SaveMemberPicturesAsync
+                var picturesEnvelope = new JObject
+                {
+                    ["members"] = transformedMembers
+                };
+
+                // Use reflection to call the private SaveMemberPicturesAsync method
+                try
+                {
+                    var saveMethod = typeof(WebSocketManager).GetMethod(
+                        "SaveMemberPicturesAsync",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                    if (saveMethod != null)
+                    {
+                        await (Task)saveMethod.Invoke(_wsManager, new object[] { picturesEnvelope });
+                        LogHelper.Log("🖼️ Queued member picture download process for face-enabled, non-staff members.");
+                    }
+                    else
+                    {
+                        LogHelper.Log("❌ Could not find SaveMemberPicturesAsync method to download images.");
+                    }
+                }
+                catch (Exception exImg)
+                {
+                    LogHelper.Log($"❌ Error invoking SaveMemberPicturesAsync: {exImg.Message}");
+                }
+
+                int upsertedOrSynced = 0;
+                int deletedOrExpired = 0;
+
+                // Process sync/upsert/delete for non-staff members only.
+                foreach (var memberObj in transformedMembers)
+                {
+                    try
+                    {
+                        var member = (JObject)memberObj;
+                        var status = member["status"]?.Value<string>() ?? string.Empty;
+
+                        // Reuse existing logic (SyncUserFromCloud itself skips staff, but we filtered already)
+                        SyncUserFromCloud(member);
+
+                        if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
+                            status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
+                        {
+                            deletedOrExpired++;
+                        }
+                        else
+                        {
+                            upsertedOrSynced++;
+                        }
+                    }
+                    catch (Exception exItem)
+                    {
+                        LogHelper.Log($"⚠️ Error processing member in bulk: {exItem.Message}");
+                    }
+                }
+
+                LogHelper.Log($"✅ {upsertedOrSynced} members synced/upserted (non-staff), 🗑 {deletedOrExpired} deleted/expired.");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ HandleAllMembers error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles single attendance response from the cloud.
+        /// </summary>
+        /// <param name="data"></param>
+        public async void HandleHttpAttendanceResponseSingle(JObject data)
+        {
+            try
+            {
+                LogHelper.Log($"📍 Attendance single response received: {data.ToString(Newtonsoft.Json.Formatting.None)}");
+
+                string attendanceId = data["id"]?.ToString();
+                int memberId = data["member_id"]?.Value<int>() ?? 0;
+                if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
+                {
+                    LogHelper.Log("⚠️ Invalid single attendance payload (missing member_id or id).");
+                    return;
+                }
+
+                string checkInIso = data["check_in"]?.ToString();
+                string checkOutIso = data["check_out"]?.ToString();
+
+                DateTime checkInLocal; string checkInFmt;
+                DateTime checkOutLocal; string checkOutFmt;
+
+                bool hasCheckIn = CommonUtils.TryParseIsoToLocal(checkInIso, out checkInLocal, out checkInFmt);
+                bool hasCheckOut = CommonUtils.TryParseIsoToLocal(checkOutIso, out checkOutLocal, out checkOutFmt);
+
+                bool anyUpdateDone = false;
+
+                await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceResponseSingle_Write", DbTaskPriority.High);
+                try
+                {
+                    if (hasCheckIn)
+                    {
+                        LogHelper.Log($"Processed attendance log for member {memberId} with check-in at {checkInFmt} and AttendanceId {attendanceId}");
+                        bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                            memberId,
+                            attendanceId,
+                            checkInTime: checkInLocal,
+                            checkOutTime: null,
+                            checkIn: true,
+                            checkOut: null
+                        );
+                        LogHelper.Log(updated
+                            ? $"✅ Updated sync status for check-in: Member {memberId}, AttendanceId {attendanceId}"
+                            : $"ℹ️ No change for check-in sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
+                        anyUpdateDone |= updated;
+                    }
+
+                    if (hasCheckOut)
+                    {
+                        LogHelper.Log($"Updated attendance log for member {memberId} with check-out at {checkOutFmt} using AttendanceId {attendanceId}");
+                        bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                            memberId,
+                            attendanceId,
+                            checkInTime: null,
+                            checkOutTime: checkOutLocal,
+                            checkIn: null,
+                            checkOut: true
+                        );
+                        LogHelper.Log(updated
+                            ? $"✅ Updated sync status for check-out: Member {memberId}, AttendanceId {attendanceId}"
+                            : $"ℹ️ No change for check-out sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
+                        anyUpdateDone |= updated;
+                    }
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("HandleAttendanceResponseSingle_Write");
+                }
+
+                if (anyUpdateDone)
+                    LogHelper.Log($"✅ Attendance sync completed for member {memberId}, AttendanceId {attendanceId}");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ HandleAttendanceResponseSingle error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles bulk attendance response from the cloud.
+        /// <summary>
+
+        public async void HandleHttpAttendanceResponseBulk(JObject data)
+        {
+            try
+            {
+                LogHelper.Log($"📍 Attendance bulk response received: {data.ToString(Newtonsoft.Json.Formatting.None)}");
+
+                var records = data["records"] as JArray;
+                if (records == null || records.Count == 0)
+                {
+                    LogHelper.Log("⚠️ Bulk attendance response has no 'records'.");
+                    return;
+                }
+
+                bool anyUpdateDone = false;
+
+                await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceResponseBulk_Write", DbTaskPriority.High);
+                try
+                {
+                    foreach (var recToken in records)
+                    {
+                        var rec = recToken as JObject;
+                        if (rec == null) continue;
+
+                        string attendanceId = rec["id"]?.ToString();
+                        int memberId = rec["member_id"]?.Value<int>() ?? 0;
+
+                        if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
+                        {
+                            LogHelper.Log("⚠️ Invalid record (missing member_id or id). Skipping.");
+                            continue;
+                        }
+
+                        string checkInIso = rec["checkin_time"]?.ToString();
+                        string checkOutIso = rec["checkout_time"]?.ToString();
+
+                        DateTime checkInLocal; string checkInFmt;
+                        DateTime checkOutLocal; string checkOutFmt;
+
+                        bool hasCheckIn = CommonUtils.TryParseIsoToLocal(checkInIso, out checkInLocal, out checkInFmt);
+                        bool hasCheckOut = CommonUtils.TryParseIsoToLocal(checkOutIso, out checkOutLocal, out checkOutFmt);
+
+                        if (hasCheckIn)
+                        {
+                            LogHelper.Log($"Processed attendance log for member {memberId} with check-in at {checkInFmt} and AttendanceId {attendanceId}");
+                            bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                                memberId,
+                                attendanceId,
+                                checkInTime: checkInLocal,
+                                checkOutTime: null,
+                                checkIn: true,
+                                checkOut: null
+                            );
+                            LogHelper.Log(updated
+                                ? $"✅ Updated sync status for check-in: Member {memberId}, AttendanceId {attendanceId}"
+                                : $"ℹ️ No change for check-in sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
+                            anyUpdateDone |= updated;
+                        }
+
+                        if (hasCheckOut)
+                        {
+                            LogHelper.Log($"Updated attendance log for member {memberId} with check-out at {checkOutFmt} using AttendanceId {attendanceId}");
+                            bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                                memberId,
+                                attendanceId,
+                                checkInTime: null,
+                                checkOutTime: checkOutLocal,
+                                checkIn: null,
+                                checkOut: true
+                            );
+                            LogHelper.Log(updated
+                                ? $"✅ Updated sync status for check-out: Member {memberId}, AttendanceId {attendanceId}"
+                                : $"ℹ️ No change for check-out sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
+                            anyUpdateDone |= updated;
+                        }
+                    }
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("HandleAttendanceResponseBulk_Write");
+                }
+
+                if (anyUpdateDone)
+                    LogHelper.Log("✅ Attendance sync completed for one or more records in bulk response.");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ HandleAttendanceResponseBulk error: {ex.Message}");
+            }
+        }
+
+
+        //////////////////////////////////////////////////////////////////////////////////////
+
+
+        public void update_session()
+        {
+            try
+            {
+                List<Device> devices = _dbHelper.LoadDevices();
+                AppSession.DeviceList = devices;
+
+
+                List<Device> staffDevices = _dbHelper.LoadStaffDevices();
+                AppSession.StaffDeviceList = staffDevices;
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error loading devices: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
     }
-    
+
 }

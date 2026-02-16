@@ -68,7 +68,8 @@ namespace smart_attendance_middleware.Classes
         {
             try
             {
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessLogCreation", DbTaskPriority.High))
+                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessLogCreation", DbTaskPriority.High);
+                try
                 {
                     LogHelper.Log("Inserting logs for member ID: " + memberid);
                     await _dbHelper.InsertLogsForAllMembersAsync(memberid);
@@ -78,10 +79,41 @@ namespace smart_attendance_middleware.Classes
                     await VerifyAndUpdateBiometricLogsAsync(memberid);
                     LogHelper.Log("Finished verifying and updating biometric logs for member ID: " + memberid);
                 }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessLogCreation");
+                }
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"Error during log creation process: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task ProcessStaffLogCreation(string staffId)
+        {
+            try
+            {
+                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessStaffLogCreation", DbTaskPriority.High);
+                try
+                {
+                    LogHelper.Log("Inserting logs for staff ID: " + staffId);
+                    await _dbHelper.InsertLogsForAllStaffAsync(staffId);
+                    LogHelper.Log("Finished inserting logs for staff ID: " + staffId);
+
+                    LogHelper.Log("Verifying and updating biometric logs for staff ID: " + staffId);
+                    await VerifyAndUpdateStaffBiometricLogsAsync(staffId);
+                    LogHelper.Log("Finished verifying and updating biometric logs for staff ID: " + staffId);
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessStaffLogCreation");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"Error during staff log creation process: {ex.Message}");
                 throw;
             }
         }
@@ -117,104 +149,370 @@ namespace smart_attendance_middleware.Classes
         }
 
 
+        //public async Task ProcessAllEntries()
+        //{
+        //    // Start the dashboard loader with initial text
+        //    Dashboard.GlobalStartLoader("Processing unsynced biometric entries...");
+
+        //    try
+        //    {
+        //        List<LogEntry> unsyncedEntries;
+        //        List<Member> members;
+        //        List<Device> devices;
+        //        List<FingerprintData> allFingerprints;
+
+        //        // Step 1: read snapshot under short lock
+        //        unsyncedEntries = await _dbHelper.GetUnsyncedLogEntriesAsync();
+        //        if (unsyncedEntries.Count == 0)
+        //        {
+        //            LogHelper.Log("No unsynced entries found");
+        //            Dashboard.GlobalUpdateLoaderMessage("No unsynced entries found.");
+        //            return;
+        //        }
+
+        //        members = _dbHelper.GetMembers();
+        //        devices = _dbHelper.LoadDevices();
+        //        allFingerprints = _dbHelper.GetAllFingerprints();
+
+        //        // Step 2: process entries without holding DB lock
+        //        int processed = 0;
+        //        int total = unsyncedEntries.Count;
+
+        //        foreach (var entry in unsyncedEntries)
+        //        {
+        //            try
+        //            {
+        //                var member = members.FirstOrDefault(m => m.MemberID == entry.MemberID);
+        //                var device = devices.FirstOrDefault(d => d.DeviceId == entry.DeviceID);
+
+        //                if (member == null || device == null) continue;
+
+        //                LogHelper.Log($"Processing {member.Name} on {device.DeviceIP}");
+        //                Dashboard.GlobalUpdateLoaderMessage($"Processing {member.Name} on {device.DeviceId} ({processed + 1}/{total})");
+
+        //                var processResults = new Dictionary<string, bool>();
+
+        //                foreach (var biometric in entry.BiometricData)
+        //                {
+        //                    if (entry.SyncStatus.ContainsKey(biometric.Key) && entry.SyncStatus[biometric.Key]) continue;
+
+        //                    bool success = false;
+        //                    string authType = biometric.Key.ToLower();
+
+        //                    switch (biometric.Key)
+        //                    {
+        //                        case "Fingerprint":
+        //                            success = await ProcessFingerprint(entry.EnrollmentID, member, device, allFingerprints);
+        //                            await Task.Delay(1000);
+        //                            break;
+        //                        case "Face":
+        //                            success = await ProcessFace(biometric.Value, member, device);
+        //                            await Task.Delay(1000);
+        //                            break;
+        //                        case "RFID":
+        //                            success = await ProcessRFID(biometric.Value, member, device);
+        //                            await Task.Delay(1000);
+        //                            break;
+        //                    }
+
+        //                    if (success)
+        //                    {
+        //                        // Step 3: brief write under lock
+        //                        await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
+        //                        try
+        //                        {
+        //                            await _dbHelper.UpdateBiometricSyncStatus(entry.Id, biometric.Key, true);
+        //                            await _dbHelper.CheckAndUpdateMemberDeviceSyncStatus(entry.MemberID, entry.DeviceID);
+        //                        }
+        //                        finally
+        //                        {
+        //                            DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Write");
+        //                        }
+        //                    }
+
+        //                    processResults[biometric.Key] = success;
+        //                }
+
+        //                processed++;
+        //                Dashboard.GlobalUpdateLoaderMessage($"Processed {processed}/{total} entries...");
+        //                await Task.Delay(2000);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                LogHelper.Log($"Error processing entry {entry.Id}: {ex.Message}");
+        //                Dashboard.GlobalUpdateLoaderMessage($"Error on entry {entry.Id}: {ex.Message}");
+        //            }
+        //        }
+
+        //        Dashboard.GlobalUpdateLoaderMessage("Biometric processing completed.");
+        //    }
+        //    finally
+        //    {
+        //        // Always stop loader
+        //        Dashboard.GlobalStopLoader();
+        //    }
+        //}
+
         public async Task ProcessAllEntries()
         {
-            List<LogEntry> unsyncedEntries;
-            List<Member> members;
-            List<Device> devices;
-            List<FingerprintData> allFingerprints;
+            // Start the dashboard loader with initial text
+            Dashboard.GlobalStartLoader("Processing unsynced biometric entries...");
 
-            // Step 1: read snapshot under short lock
-            using (await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Read", DbTaskPriority.High))
+            try
             {
+                List<LogEntry> unsyncedEntries;
+                List<Member> members;
+                List<Device> devices;
+                List<FingerprintData> allFingerprints;
+
+                // Step 1: read snapshot under short lock - Members
                 unsyncedEntries = await _dbHelper.GetUnsyncedLogEntriesAsync();
                 if (unsyncedEntries.Count == 0)
                 {
-                    LogHelper.Log("No unsynced entries found");
-                    return;
+                    LogHelper.Log("No unsynced member entries found");
                 }
 
                 members = _dbHelper.GetMembers();
                 devices = _dbHelper.LoadDevices();
                 allFingerprints = _dbHelper.GetAllFingerprints();
-            }
 
-            // Step 2: process entries without holding DB lock
-            foreach (var entry in unsyncedEntries)
-            {
-                try
+                // Step 2: process member entries without holding DB lock
+                int processed = 0;
+                int total = unsyncedEntries.Count;
+
+                foreach (var entry in unsyncedEntries)
                 {
-                    var member = members.FirstOrDefault(m => m.MemberID == entry.MemberID);
-                    var device = devices.FirstOrDefault(d => d.DeviceId == entry.DeviceID);
-
-                    if (member == null || device == null) continue;
-
-                    LogHelper.Log($"Processing {member.Name} on {device.DeviceIP}");
-
-                    var processResults = new Dictionary<string, bool>();
-
-                    foreach (var biometric in entry.BiometricData)
+                    try
                     {
-                        if (entry.SyncStatus.ContainsKey(biometric.Key) && entry.SyncStatus[biometric.Key]) continue;
+                        var member = members.FirstOrDefault(m => m.MemberID == entry.MemberID);
+                        var device = devices.FirstOrDefault(d => d.DeviceId == entry.DeviceID);
 
-                        bool success = false;
-                        string authType = biometric.Key.ToLower();
+                        if (member == null || device == null) continue;
 
-                        switch (biometric.Key)
+                        LogHelper.Log($"Processing {member.Name} on {device.DeviceIP}");
+                        Dashboard.GlobalUpdateLoaderMessage($"Processing {member.Name} on {device.DeviceId} ({processed + 1}/{total})");
+
+                        var processResults = new Dictionary<string, bool>();
+
+                        foreach (var biometric in entry.BiometricData)
                         {
-                            case "Fingerprint":
-                                success = await ProcessFingerprint(entry.EnrollmentID, member, device, allFingerprints);
-                                await Task.Delay(1000);
-                                break;
-                            case "Face":
-                                success = await ProcessFace(biometric.Value, member, device);
-                                await Task.Delay(1000);
-                                break;
-                            case "RFID":
-                                success = await ProcessRFID(biometric.Value, member, device);
-                                await Task.Delay(1000);
-                                break;
-                        }
+                            if (entry.SyncStatus.ContainsKey(biometric.Key) && entry.SyncStatus[biometric.Key]) continue;
 
-                        if (entry.EnrollmentID > 0 && _wsManager != null)
-                        {
-                            string status = success ? "success" : "failed";
-                            string message = success
-                                ? $"{biometric.Key} enrollment successful for {member.Name}"
-                                : $"{biometric.Key} enrollment failed for {member.Name}";
-                            try
+                            bool success = false;
+
+                            switch (biometric.Key)
                             {
-                                await _wsManager.SetMemberStatusAsync(entry.EnrollmentID, authType, status, message);
+                                case "Fingerprint":
+                                    success = await ProcessFingerprint(entry.EnrollmentID, member, device, allFingerprints);
+                                    await Task.Delay(1000);
+                                    break;
+                                case "Face":
+                                    success = await ProcessFace(biometric.Value, member, device);
+                                    await Task.Delay(1000);
+                                    break;
+                                case "RFID":
+                                    success = await ProcessRFID(biometric.Value, member, device);
+                                    await Task.Delay(1000);
+                                    break;
                             }
-                            catch (Exception statusEx)
+
+                            if (success)
                             {
-                                LogHelper.Log($"Error sending status update: {statusEx.Message}");
+                                // Step 3: brief write under lock
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
+                                try
+                                {
+                                    await _dbHelper.UpdateBiometricSyncStatus(entry.Id, biometric.Key, true);
+                                    await _dbHelper.CheckAndUpdateMemberDeviceSyncStatus(entry.MemberID, entry.DeviceID);
+                                }
+                                finally
+                                {
+                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Write");
+                                }
                             }
-                        }
-                        else if (_wsManager == null)
-                        {
-                            LogHelper.Log($"⚠️ Cannot send status update - WebSocketManager is null");
+
+                            processResults[biometric.Key] = success;
                         }
 
-                        if (success)
-                        {
-                            // Step 3: brief write under lock
-                            using (await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High))
-                            {
-                                await _dbHelper.UpdateBiometricSyncStatus(entry.Id, biometric.Key, true);
-                                await _dbHelper.CheckAndUpdateMemberDeviceSyncStatus(entry.MemberID, entry.DeviceID);
-                            }
-                        }
-
-                        processResults[biometric.Key] = success;
+                        processed++;
+                        Dashboard.GlobalUpdateLoaderMessage($"Processed {processed}/{total} entries...");
+                        await Task.Delay(2000);
                     }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"Error processing entry {entry.Id}: {ex.Message}");
+                        Dashboard.GlobalUpdateLoaderMessage($"Error on entry {entry.Id}: {ex.Message}");
+                    }
+                }
 
-                    await Task.Delay(2000);
-                }
-                catch (Exception ex)
+                // ---------- Staff processing ----------
+                Dashboard.GlobalUpdateLoaderMessage("Processing unsynced staff biometric entries...");
+
+                var unsyncedStaffEntries = await _dbHelper.GetUnsyncedStaffLogEntriesAsync();
+                if (unsyncedStaffEntries.Count == 0)
                 {
-                    LogHelper.Log($"Error processing entry {entry.Id}: {ex.Message}");
+                    LogHelper.Log("[Staff] No unsynced staff entries found");
+                    Dashboard.GlobalUpdateLoaderMessage("No unsynced staff entries found.");
+                    return;
                 }
+
+                var staffs = _dbHelper.GetStaffs();                // Staff list (for names)
+                var staffDevices = _dbHelper.LoadStaffDevices();   // Staff devices snapshot
+
+                int staffProcessed = 0;
+                int staffTotal = unsyncedStaffEntries.Count;
+
+                foreach (var sEntry in unsyncedStaffEntries)
+                {
+                    try
+                    {
+                        var staff = staffs.FirstOrDefault(s => s.StaffID == sEntry.StaffID);
+                        var device = staffDevices.FirstOrDefault(d => d.StaffDeviceId == sEntry.StaffDeviceId);
+
+                        if (staff == null || device == null) continue;
+
+                        string staffName = staff.Name ?? sEntry.StaffID;
+
+                        LogHelper.Log($"[Staff] Processing {staffName} on {device.DeviceIP}");
+                        Dashboard.GlobalUpdateLoaderMessage($"[Staff] Processing {staffName} on {device.StaffDeviceId} ({staffProcessed + 1}/{staffTotal})");
+
+                        foreach (var biometric in sEntry.BiometricData)
+                        {
+                            if (sEntry.SyncStatus.ContainsKey(biometric.Key) && sEntry.SyncStatus[biometric.Key]) continue;
+
+                            bool success = false;
+
+                            switch (biometric.Key)
+                            {
+                                case "Fingerprint":
+                                    {
+                                        var fingerprint = allFingerprints.FirstOrDefault(f => f.EnrollNumber == (sEntry.EnrollmentID ?? 0));
+                                        if (fingerprint == null)
+                                        {
+                                            LogHelper.Log($"[Staff] Fingerprint data not found for {staffName} (Enrollment: {sEntry.EnrollmentID ?? 0})");
+                                            break;
+                                        }
+
+                                        success = await DeviceService.AddFingerprint(
+                                            device.DeviceIP,
+                                            device.Port,
+                                            device.MachineNo,
+                                            device.Password,
+                                            fingerprint.EnrollNumber,
+                                            fingerprint.FingerNumber,
+                                            fingerprint.Privilege,
+                                            fingerprint.TemplateData);
+
+                                        if (success)
+                                        {
+                                            bool nameSet = await DeviceService.SetUserName(
+                                                device.DeviceIP,
+                                                device.Port,
+                                                device.MachineNo,
+                                                device.Password,
+                                                fingerprint.EnrollNumber,
+                                                staffName);
+
+                                            if (!nameSet)
+                                                LogHelper.Log($"[Staff] Fingerprint enrolled but name not set for {staffName}");
+                                        }
+                                        await Task.Delay(1000);
+                                        break;
+                                    }
+                                case "Face":
+                                    {
+                                        // biometric.Value is path
+                                        success = await DeviceService.AddFace(
+                                            device.DeviceIP,
+                                            device.Port,
+                                            device.MachineNo,
+                                            device.Password,
+                                            sEntry.EnrollmentID ?? 0,
+                                            biometric.Value);
+
+                                        if (success)
+                                        {
+                                            bool nameSet = await DeviceService.SetUserName(
+                                                device.DeviceIP,
+                                                device.Port,
+                                                device.MachineNo,
+                                                device.Password,
+                                                sEntry.EnrollmentID ?? 0,
+                                                staffName);
+
+                                            if (!nameSet)
+                                                LogHelper.Log($"[Staff] Face enrolled but name not set for {staffName}");
+                                        }
+                                        await Task.Delay(1000);
+                                        break;
+                                    }
+                                case "RFID":
+                                    {
+                                        if (!long.TryParse(biometric.Value, out long rfidNumber))
+                                        {
+                                            LogHelper.Log($"[Staff] Invalid RFID format for {staffName} (RFID: {biometric.Value})");
+                                            break;
+                                        }
+
+                                        success = await DeviceService.AddRfidCard(
+                                            device.DeviceIP,
+                                            device.Port,
+                                            device.MachineNo,
+                                            device.Password,
+                                            sEntry.EnrollmentID ?? 0,
+                                            rfidNumber,
+                                            1);
+
+                                        if (success)
+                                        {
+                                            bool nameSet = await DeviceService.SetUserName(
+                                                device.DeviceIP,
+                                                device.Port,
+                                                device.MachineNo,
+                                                device.Password,
+                                                sEntry.EnrollmentID ?? 0,
+                                                staffName);
+
+                                            if (!nameSet)
+                                                LogHelper.Log($"[Staff] RFID enrolled but name not set for {staffName}");
+                                        }
+                                        await Task.Delay(1000);
+                                        break;
+                                    }
+                            }
+
+                            if (success)
+                            {
+                                // Brief write under lock to update staff sync status
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Staff_Write", DbTaskPriority.High);
+                                try
+                                {
+                                    await _dbHelper.UpdateStaffBiometricSyncStatusAsync(sEntry.Id, biometric.Key, true);
+                                }
+                                finally
+                                {
+                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Staff_Write");
+                                }
+                            }
+                        }
+
+                        staffProcessed++;
+                        Dashboard.GlobalUpdateLoaderMessage($"[Staff] Processed {staffProcessed}/{staffTotal} entries...");
+                        await Task.Delay(2000);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"[Staff] Error processing staff entry {sEntry.Id}: {ex.Message}");
+                        Dashboard.GlobalUpdateLoaderMessage($"[Staff] Error on entry {sEntry.Id}: {ex.Message}");
+                    }
+                }
+
+                Dashboard.GlobalUpdateLoaderMessage("Biometric processing completed.");
+            }
+            finally
+            {
+                // Always stop loader
+                Dashboard.GlobalStopLoader();
             }
         }
 
@@ -409,6 +707,72 @@ namespace smart_attendance_middleware.Classes
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+        private async Task VerifyAndUpdateStaffBiometricLogsAsync(string staffId)
+        {
+            try
+            {
+                LogHelper.Log($"Starting biometric log verification and update process for StaffId={staffId}...");
+
+                var changes = await _dbHelper.VerifyAndUpdateStaffLogBiometricsAsync(staffId);
+
+                var deviceArray = new System.Collections.Generic.List<object>();
+
+                foreach (var change in changes)
+                {
+                    var deviceDetails = _dbHelper.GetStaffDeviceDetails(change.DeviceId);
+                    if (deviceDetails.ip == null) continue;
+
+                    string password = "0";
+
+                    int backupNumber = 0;
+                    switch (change.BiometricType)
+                    {
+                        case "RFID": backupNumber = 11; break;
+                        case "Fingerprint": backupNumber = 0; break;
+                        case "Face": backupNumber = 50; break;
+                    }
+
+                    deviceArray.Add(new
+                    {
+                        enrollmentNumber = change.EnrollmentId,
+                        ip = deviceDetails.ip,
+                        machineNo = deviceDetails.machineNo,
+                        port = deviceDetails.port,
+                        backupNumber = backupNumber,
+                        biometricType = change.BiometricType
+                    });
+
+                    if (change.EnrollmentId.HasValue)
+                    {
+                        try
+                        {
+                            bool deleted = await DeviceService.DeleteEnrollmentData(
+                                deviceDetails.ip,
+                                deviceDetails.port,
+                                deviceDetails.machineNo,
+                                password,
+                                change.EnrollmentId.Value,
+                                deviceDetails.machineNo,
+                                backupNumber
+                            );
+
+                            LogHelper.Log($"[Staff] DeleteEnrollmentData: Staff {staffId}, StaffDevice {change.DeviceId}, EnrollmentId {change.EnrollmentId}, Type {change.BiometricType}, Result: {deleted}");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogHelper.Log($"[Staff] DeleteEnrollmentData failed for Staff {staffId}, StaffDevice {change.DeviceId}, EnrollmentId {change.EnrollmentId}, Type {change.BiometricType}: {ex.Message}");
+                        }
+                    }
+                }
+
+                LogHelper.Log($"Biometric log verification and update process completed for StaffId={staffId}.");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"Error: {ex.Message}");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
         public async Task EmptyEnrollmentDataAndDeleteLogsByDeviceId(int deviceId)
         {
             try
@@ -426,9 +790,14 @@ namespace smart_attendance_middleware.Classes
 
                 if (result)
                 {
-                    using (await DatabaseQueueManager.EnterDbWriteLockAsync("EmptyEnrollmentData_DeleteLogs", DbTaskPriority.High))
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("EmptyEnrollmentData_DeleteLogs", DbTaskPriority.High);
+                    try
                     {
                         _dbHelper.DeleteLogsByDeviceId(deviceId);
+                    }
+                    finally
+                    {
+                        DatabaseQueueManager.ReleaseDbWriteLock("EmptyEnrollmentData_DeleteLogs");
                     }
 
                     MessageBox.Show("All enrollment data and logs for this device have been cleared.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -443,6 +812,7 @@ namespace smart_attendance_middleware.Classes
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
 
         public async Task EmptyEnrollmentDataAndDeleteLogsByStaffDeviceId(int deviceId)
         {
@@ -461,9 +831,14 @@ namespace smart_attendance_middleware.Classes
 
                 if (result)
                 {
-                    using (await DatabaseQueueManager.EnterDbWriteLockAsync("EmptyStaffEnrollmentData_DeleteLogs", DbTaskPriority.High))
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("EmptyStaffEnrollmentData_DeleteLogs", DbTaskPriority.High);
+                    try
                     {
                         _dbHelper.DeleteStaffGLogsByStaffDeviceId(deviceId);
+                    }
+                    finally
+                    {
+                        DatabaseQueueManager.ReleaseDbWriteLock("EmptyStaffEnrollmentData_DeleteLogs");
                     }
 
                     LogHelper.Log($"[Staff] Cleared enrollment data and staff GLogs for staff device {deviceId} (machineNo={staffDeviceDetails.machineNo})");
@@ -482,34 +857,91 @@ namespace smart_attendance_middleware.Classes
         }
 
 
+        //public async Task ProcessUserWorkflowAsync()
+        //{
+        //    try
+        //    {
+        //        aiChatLogger.AddInfoMessage("Starting user processing workflow...");
+
+        //        // Step 0: Create logs ONLY for active members with biometrics that have no Log rows yet
+        //        //aiChatLogger.AddSyncMessage("Scanning for active members with biometrics and no logs...");
+        //        var memberIds = _dbHelper.GetActiveMemberIdsWithBiometricsAndNoLogs();
+
+        //        if (memberIds != null && memberIds.Count > 0)
+        //        {
+        //            aiChatLogger.AddInfoMessage($"Found {memberIds.Count} members needing log creation.");
+
+        //            foreach (var memberId in memberIds)
+        //            {
+        //                aiChatLogger.AddSyncMessage($"Processing enrollment logs for MemberID {memberId}...");
+        //                await ProcessLogCreation(memberId);
+        //            }
+
+        //            aiChatLogger.AddSuccessMessage("Log processing completed");
+        //        }
+        //        else
+        //        {
+        //            //aiChatLogger.AddSuccessMessage("No members found requiring log creation.");
+        //        }
+
+        //        // Step 2: Process all entries
+        //        aiChatLogger.AddSyncMessage("Enrolling biometric data to devices...");
+        //        await ProcessAllEntries();
+        //        aiChatLogger.AddSuccessMessage("Biometric enrollment completed");
+        //        aiChatLogger.AddSuccessMessage("User processing workflow completed successfully");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        aiChatLogger.AddErrorMessage($"User processing failed: {ex.Message}");
+        //        LogHelper.Log($"❌ Error in user processing: {ex.Message}");
+        //        MessageBox.Show($"Error processing users: {ex.Message}", "Error",
+        //                      MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //        throw;
+        //    }
+        //    finally
+        //    {
+        //        // After the workflow completes, trigger the device sync status update.
+        //        if (ServiceManager.PeriodicMaintenanceService != null)
+        //        {
+        //            LogHelper.Log("Triggering post-workflow device sync status update...");
+        //            await ServiceManager.PeriodicMaintenanceService.ExecuteFetchDeviceSyncStatusAsync();
+        //        }
+        //    }
+        //}
+
         public async Task ProcessUserWorkflowAsync()
         {
             try
             {
                 aiChatLogger.AddInfoMessage("Starting user processing workflow...");
 
-                // Step 0: Create logs ONLY for active members with biometrics that have no Log rows yet
-                //aiChatLogger.AddSyncMessage("Scanning for active members with biometrics and no logs...");
+                // Step 0a: Members - Create logs ONLY for active members with biometrics and no Log rows yet
                 var memberIds = _dbHelper.GetActiveMemberIdsWithBiometricsAndNoLogs();
-
                 if (memberIds != null && memberIds.Count > 0)
                 {
                     aiChatLogger.AddInfoMessage($"Found {memberIds.Count} members needing log creation.");
-
                     foreach (var memberId in memberIds)
                     {
                         aiChatLogger.AddSyncMessage($"Processing enrollment logs for MemberID {memberId}...");
                         await ProcessLogCreation(memberId);
                     }
-
-                    aiChatLogger.AddSuccessMessage("Log processing completed");
+                    aiChatLogger.AddSuccessMessage("Member log processing completed");
                 }
-                else
+
+                // Step 0b: Staff - Create logs ONLY for active staff with biometrics and no StaffLog rows yet
+                var staffIds = _dbHelper.GetActiveStaffIdsWithBiometricsAndNoLogs();
+                if (staffIds != null && staffIds.Count > 0)
                 {
-                    //aiChatLogger.AddSuccessMessage("No members found requiring log creation.");
+                    aiChatLogger.AddInfoMessage($"Found {staffIds.Count} staff needing log creation.");
+                    foreach (var staffId in staffIds)
+                    {
+                        aiChatLogger.AddSyncMessage($"Processing enrollment logs for StaffID {staffId}...");
+                        await ProcessStaffLogCreation(staffId);
+                    }
+                    aiChatLogger.AddSuccessMessage("Staff log processing completed");
                 }
 
-                // Step 2: Process all entries
+                // Step 2: Process all member entries (unsynced biometrics)
                 aiChatLogger.AddSyncMessage("Enrolling biometric data to devices...");
                 await ProcessAllEntries();
                 aiChatLogger.AddSuccessMessage("Biometric enrollment completed");
@@ -525,7 +957,6 @@ namespace smart_attendance_middleware.Classes
             }
             finally
             {
-                // After the workflow completes, trigger the device sync status update.
                 if (ServiceManager.PeriodicMaintenanceService != null)
                 {
                     LogHelper.Log("Triggering post-workflow device sync status update...");
@@ -541,11 +972,8 @@ namespace smart_attendance_middleware.Classes
             // Step 1: read snapshot under short lock
             try
             {
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("DisableInactiveUsers_Read", DbTaskPriority.High))
-                {
-                    LogHelper.Log("=== Starting Inactive User Disable Process (Reading Stage) ===");
-                    membersToProcess = _dbHelper.GetMembersAccessStatus();
-                }
+                LogHelper.Log("=== Starting Inactive User Disable Process (Reading Stage) ===");
+                membersToProcess = _dbHelper.GetMembersAccessStatus();
             }
             catch (Exception ex)
             {
@@ -650,13 +1078,18 @@ namespace smart_attendance_middleware.Classes
                 // Step 3: brief DB write under lock
                 try
                 {
-                    using (await DatabaseQueueManager.EnterDbWriteLockAsync("DisableInactiveUsers_Write", DbTaskPriority.High))
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("DisableInactiveUsers_Write", DbTaskPriority.High);
+                    try
                     {
                         bool statusUpdated = _dbHelper.UpdateMemberStatus(memberId, "Disabled");
                         if (statusUpdated)
                             LogHelper.Log($"Updated member {memberId} status to 'Disabled' in DB.");
                         else
                             LogHelper.Log($"Failed to update member {memberId} status to 'Disabled' in DB.");
+                    }
+                    finally
+                    {
+                        DatabaseQueueManager.ReleaseDbWriteLock("DisableInactiveUsers_Write");
                     }
                 }
                 catch (Exception ex)
@@ -720,12 +1153,18 @@ namespace smart_attendance_middleware.Classes
 
         private async Task EnqueuePendingJob(PendingJob job)
         {
-            using (await DatabaseQueueManager.EnterDbWriteLockAsync("EnqueuePendingJob", DbTaskPriority.High))
+            await DatabaseQueueManager.EnterDbWriteLockAsync("EnqueuePendingJob", DbTaskPriority.High);
+            try
             {
-                _dbHelper.InsertPendingJob(job);  // Insert into database instead of list
+                _dbHelper.InsertPendingJob(job); // Insert into database
+            }
+            finally
+            {
+                DatabaseQueueManager.ReleaseDbWriteLock("EnqueuePendingJob");
             }
             LogHelper.Log($"📄 Enqueued pending job: {job.Action} mId={job.MemberId} enId={job.EnrollmentId} dev={job.MachineNo}@{job.Ip}");
         }
+
 
         public async Task ProcessPendingJobsAsync()
         {
@@ -738,19 +1177,16 @@ namespace smart_attendance_middleware.Classes
                     PendingJob job = null;
 
                     // Retrieve a single pending job under global lock for DB read.
-                    using (await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessPendingJobs_Read", DbTaskPriority.High))
+                    lock (_pendingJobLock)
                     {
-                        lock (_pendingJobLock)
+                        var jobs = _dbHelper.GetAllPendingJobs();
+                        if (jobs == null || jobs.Count == 0)
                         {
-                            var jobs = _dbHelper.GetAllPendingJobs();
-                            if (jobs == null || jobs.Count == 0)
-                            {
-                                job = null;
-                            }
-                            else
-                            {
-                                job = jobs.First(); // pick the oldest (DB returns ordered by CreatedAt)
-                            }
+                            job = null;
+                        }
+                        else
+                        {
+                            job = jobs.First(); // pick the oldest (DB returns ordered by CreatedAt)
                         }
                     }
 

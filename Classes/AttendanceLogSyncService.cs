@@ -24,6 +24,8 @@ public class AttendanceLogSyncService : IDisposable
     private readonly DatabaseHelper _dbHelper;
     private readonly WebSocketManager _wsManager;
     public readonly AttendenceServerFunctions _attendenceServerFunctions;
+    public HttpHandler _httpHandler;
+    private Processor _processor; 
 
     public static event Action InitialSyncCompleted;
 
@@ -48,7 +50,15 @@ public class AttendanceLogSyncService : IDisposable
     {
         _dbHelper = new DatabaseHelper();
         _wsManager = wsManager;
+
+        // Ensure AttendenceServerFunctions builds its own processor too
         _attendenceServerFunctions = new AttendenceServerFunctions(_wsManager);
+
+        // Create a Processor for HttpHandler to process responses via PostAttendanceRecordAsync
+        _processor = new Processor(_dbHelper, _wsManager, _attendenceServerFunctions);
+
+        // Construct HttpHandler WITH Processor to avoid "Processor not initialized" errors
+        _httpHandler = new HttpHandler(_dbHelper, _processor);
     }
 
     public void Start()
@@ -248,6 +258,13 @@ public class AttendanceLogSyncService : IDisposable
 
                 try
                 {
+                    bool reachable = await CommonUtils.IsDeviceReachableAsync(device.DeviceIP, 3, token).ConfigureAwait(false);
+                    if (!reachable)
+                    {
+                        LogHelper.Log($"❌ Device {device.DeviceId} ({device.DeviceIP}) is not reachable after multiple attempts. Skipping...");
+                        continue;
+                    }
+
                     LogHelper.Log($"📥 Reading {deviceType} logs from device {device.DeviceId} ({device.DeviceIP}) - Attempt {attempt}");
 
                     int recordCount = await DeviceService.ReadAndSaveGLogData(
@@ -300,7 +317,6 @@ public class AttendanceLogSyncService : IDisposable
         {
             var failedDeviceIds = string.Join(", ", failedDevices.Select(d => d.DeviceId));
             LogHelper.Log($"❌ {deviceType} sync failed for devices: {failedDeviceIds} after all retries");
-            // Request earlier global retry instead of recursive loop restart
             _earlyRetryRequested = true;
             return false;
         }
@@ -616,7 +632,8 @@ public class AttendanceLogSyncService : IDisposable
 
                     try
                     {
-                        response = await http.SendBulkAttendanceAsync(request, token).ConfigureAwait(false);
+                        //FIXME 
+                        //response = await http.SendBulkAttendanceAsync(request, token).ConfigureAwait(false);
                     }
                     catch (TaskCanceledException)
                     {
@@ -698,52 +715,125 @@ public class AttendanceLogSyncService : IDisposable
     private async Task LogAttendanceToServerAsync(object resultObj)
     {
         if (resultObj == null) return;
+
         try
         {
-            if (_wsManager == null)
+            var type = resultObj.GetType();
+            var successProp = type.GetProperty("Success");
+            if (successProp == null || !(bool)successProp.GetValue(resultObj, null)) return;
+
+            int memberId = (int)type.GetProperty("MemberId").GetValue(resultObj, null);
+            int enrollmentId = 0;
+            var enrollmentProp = type.GetProperty("EnrollmentId");
+            if (enrollmentProp != null)
+                enrollmentId = (int)enrollmentProp.GetValue(resultObj, null);
+
+            string action = (string)type.GetProperty("Action").GetValue(resultObj, null);
+            DateTime eventTime = (DateTime)type.GetProperty("EventTime").GetValue(resultObj, null);
+
+            if (enrollmentId <= 0)
             {
-                LogHelper.Log("WebSocketManager not initialized, cannot sync attendance");
+                LogHelper.Log($"[LogAttendanceToServerAsync] Cannot log to server: Invalid enrollment ID for Member={memberId}");
                 return;
             }
 
-            var type = resultObj.GetType();
-            var success = (bool)type.GetProperty("Success").GetValue(resultObj);
-            if (!success) return;
+            // Ensure HttpHandler is ready AND wired to Processor (do not use ctor without processor)
+            if (_httpHandler == null)
+            {
+                // If _processor is not set for any reason, create it now
+                if (_processor == null)
+                {
+                    _processor = new Processor(_dbHelper, _wsManager, _attendenceServerFunctions);
+                }
+                _httpHandler = new HttpHandler(_dbHelper, _processor);
+            }
 
-            int memberId = (int)type.GetProperty("MemberId").GetValue(resultObj);
-            string action = (string)type.GetProperty("Action").GetValue(resultObj);
-            DateTime eventTime = (DateTime)type.GetProperty("EventTime").GetValue(resultObj);
+            // Read GMT offset and parse (e.g., "+05", "-03", "+05:30")
+            var gmtSetting = _dbHelper.GetSetting("GMT");
+
+            // Resolve attendance ID by action-specific timestamp under DB lock
+            string resolvedId = null;
+            await DatabaseQueueManager.EnterDbWriteLockAsync("ResolveAttendanceIdForMember", DbTaskPriority.High).ConfigureAwait(false);
+            try
+            {
+                if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
+                {
+                    resolvedId = _dbHelper.GetAttendanceIdForMember(memberId, eventTime, null);
+                }
+                else if (action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
+                {
+                    resolvedId = _dbHelper.GetAttendanceIdForMember(memberId, null, eventTime);
+                }
+                else
+                {
+                    LogHelper.Log($"[LogAttendanceToServerAsync] Unsupported action '{action}'");
+                    return;
+                }
+            }
+            finally
+            {
+                DatabaseQueueManager.ReleaseDbWriteLock("ResolveAttendanceIdForMember");
+            }
+
+            if (string.IsNullOrEmpty(resolvedId))
+            {
+                LogHelper.Log($"[LogAttendanceToServerAsync] Cannot log to server: No attendance ID for Member={memberId} at {eventTime:yyyy-MM-dd HH:mm:ss}");
+                return;
+            }
+
+            // Build strings with configured GMT offset (e.g., "yyyy-MM-dd HH:mm:ss.fff+05" or "+05:30")
+            string checkInStr = null;
+            string checkOutStr = null;
 
             if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
             {
-                await _wsManager.LogAttendanceAsync(memberId, eventTime, null).ConfigureAwait(false);
-                LogHelper.Log($"CHECK-IN sent for Member={memberId} at {eventTime:yyyy-MM-dd HH:mm:ss}");
+                checkInStr = CommonUtils.FormatWithGmt(eventTime, gmtSetting);
+
+                await _httpHandler.PostAttendanceRecordAsync(
+                    enrollmentId,
+                    checkinTime: checkInStr,
+                    checkoutTime: null,
+                    id: resolvedId
+                ).ConfigureAwait(false);
+
+                LogHelper.Log($"[LogAttendanceToServerAsync] CHECK-IN sent for Member={memberId} at {eventTime:yyyy-MM-dd HH:mm:ss} (GMT {gmtSetting})");
             }
             else if (action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
             {
+                // Get paired check-in time under DB lock
                 DateTime? checkInTime = null;
-                using (await DatabaseQueueManager.EnterDbWriteLockAsync("GetPairedCheckInTime", DbTaskPriority.Low))
+                await DatabaseQueueManager.EnterDbWriteLockAsync("GetPairedCheckInTime", DbTaskPriority.High).ConfigureAwait(false);
+                try
                 {
                     checkInTime = _dbHelper.GetPairedCheckInTime(memberId, eventTime);
                 }
-                await _wsManager.LogAttendanceAsync(memberId, checkInTime, eventTime).ConfigureAwait(false);
-                LogHelper.Log($"CHECK-OUT sent for Member={memberId} with Check-In at {(checkInTime.HasValue ? checkInTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")} and Check-Out at {eventTime:yyyy-MM-dd HH:mm:ss}");
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("GetPairedCheckInTime");
+                }
+
+                if (checkInTime.HasValue)
+                {
+                    checkInStr = CommonUtils.FormatWithGmt(checkInTime.Value, gmtSetting);
+                }
+                checkOutStr = CommonUtils.FormatWithGmt(eventTime, gmtSetting);
+
+                await _httpHandler.PostAttendanceRecordAsync(
+                    enrollmentId,
+                    checkinTime: checkInStr,
+                    checkoutTime: checkOutStr,
+                    id: resolvedId
+                ).ConfigureAwait(false);
+
+                LogHelper.Log($"[LogAttendanceToServerAsync] CHECK-OUT sent for Member={memberId} with Check-In at {(checkInTime.HasValue ? checkInTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")} and Check-Out at {eventTime:yyyy-MM-dd HH:mm:ss} (GMT {gmtSetting})");
             }
         }
         catch (Exception ex)
         {
-            LogHelper.Log($"Error calling LogAttendanceToServer: {ex.Message}");
+            LogHelper.Log($"[LogAttendanceToServerAsync] Error: {ex.Message}");
         }
     }
 
-    private sealed class AttendanceEventResult
-    {
-        public bool Success { get; set; }
-        public int MemberId { get; set; }
-        public int EnrollmentId { get; set; }
-        public string Action { get; set; }
-        public DateTime EventTime { get; set; }
-    }
 
     public void Dispose()
     {

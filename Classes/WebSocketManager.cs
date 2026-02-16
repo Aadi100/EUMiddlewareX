@@ -1,17 +1,16 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using smart_attendance_middleware.Classes;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.WebSockets;
-using System.Reflection.Emit;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+using System.Text.Json;
 
 namespace smart_attendance_middleware
 {
@@ -21,9 +20,39 @@ namespace smart_attendance_middleware
         public object Data { get; set; }
     }
 
-    public class MemberCreated { public int id; public string status; public string rfid; public DateTime created_at; }
-    public class MemberUpdated { public int id; public string status; public string rfid; public DateTime updated_at; }
-    public class MemberDeleted { public int id; public string status; public string rfid; public DateTime deleted_at; }
+    public class MemberCreated 
+    { 
+        public int id; 
+        public string name; 
+        public string status; 
+        public bool face; 
+        public string rfid; 
+        public bool fingerprint; 
+        public string package_expiry; 
+        public DateTime created_at; 
+    }
+    public class MemberUpdated 
+    { 
+        public int id; 
+        public string name; 
+        public string status; 
+        public bool face; 
+        public string rfid; 
+        public bool fingerprint; 
+        public string package_expiry; 
+        public DateTime updated_at; 
+    }
+    public class MemberDeleted 
+    { 
+        public int id; 
+        public string name; 
+        public string status; 
+        public bool face; 
+        public string rfid; 
+        public bool fingerprint; 
+        public string package_expiry; 
+        public DateTime deleted_at; 
+    }
     public class NotificationStatus { public int id; public string status; public string rfid; }
     public class AttendanceNotification
     {
@@ -36,15 +65,82 @@ namespace smart_attendance_middleware
         public string status;
     }
 
+    public class AttendanceUpdated
+    {
+        public string action { get; set; }
+        public Attendance attendance { get; set; }
+        public OldAttendance old_attendance { get; set; }
+        public string timestamp { get; set; }
+        public int gym_id { get; set; }
+        public int branch_id { get; set; }
+        public string channel { get; set; }
+    }
+
+    public class Attendance
+    {
+        public string id { get; set; }
+        public string check_in { get; set; }
+        public string check_out { get; set; }
+        public string source { get; set; }
+        public bool is_manual { get; set; }
+        public string reason { get; set; }
+        public Member member { get; set; }
+    }
+
+    public class OldAttendance
+    {
+        public string id { get; set; }
+        public bool is_manual { get; set; }
+        public object member { get; set; }
+    }
+
+    public class UserCreated
+    {
+        public string action { get; set; }
+        public Member user { get; set; }  // Reusing Member class as it has the same structure
+        public string timestamp { get; set; }
+        public int gym_id { get; set; }
+        public int branch_id { get; set; }
+        public string channel { get; set; }
+    }
+
+    public class UserUpdated
+    {
+        public string action { get; set; }
+        public Member user { get; set; }  // Reusing Member class as it has the same structure
+        public string timestamp { get; set; }
+        public int gym_id { get; set; }
+        public int branch_id { get; set; }
+        public string channel { get; set; }
+    }
+
     public class WebSocketManager
     {
-        //private const string ApiUrl = "wss://staging.smartgymstudio.com/app/gvckpce5wdrcdjwaxnxs";
-        private const string ApiUrl = "wss://api.fitnessmarvel.com/app/gvckpce5wdrcdjwaxnxs";
+        // Pusher/Soketi defaults
+        private const string DefaultHost = "ws-stg.fitnessmarvel.com";
+        private const int DefaultTlsPort = 443;
+        private const int DefaultWsPort = 6001;
+        private const string DefaultAppKey = "ab28e935c0c63b8fabb4";
+        private const string PusherProtocolVersion = "7";
+        private const string PusherClientName = "csharp";
+        private const string PusherClientVersion = "1.0.0";
+        private string _period = "";
 
         private ClientWebSocket _websocket;
         private CancellationTokenSource _cts;
-        private string _apiKey;
-        private string _gymId;
+
+        // Pusher/Soketi connection-related
+        private string _host = DefaultHost;
+        private int _port = DefaultWsPort;
+        private string _appKey = DefaultAppKey;
+        private string _jwtToken;
+        private string _socketId;
+        private int _activityTimeoutSeconds = 120;
+        private string _activeChannel;
+        private string _defaultChannel;
+        private bool _autoSubscribeOnConnect = true;
+        private bool _useTls = true;
+
         private readonly DatabaseHelper _dbHelper;
 
         public event EventHandler<string> StatusChanged;
@@ -58,27 +154,72 @@ namespace smart_attendance_middleware
         private int _version = 1;
         private bool _isPaginatedSyncInProgress = false;
         private int _lastRequestedPage = 0; // Guard to track the last page requested
-        private TaskCompletionSource<bool> _subscriptionTcs; // it is for subscription confirmation
+        private TaskCompletionSource<bool> _subscriptionTcs; // subscription confirmation
         public DateTime LastPongReceived { get; private set; } = DateTime.MinValue;
+
+        // Public accessors
+        public string SocketId => _socketId;
+        public string ActiveChannel => _activeChannel;
+        public bool IsOpen => _websocket?.State == WebSocketState.Open; // NEW
 
         public WebSocketManager(DatabaseHelper dbHelper)
         {
             _dbHelper = dbHelper ?? throw new ArgumentNullException(nameof(dbHelper));
+
+            try
+            {
+                var gymId = _dbHelper.GetSetting("GymId");
+                var jwt = _dbHelper.GetSetting("GWTToken");
+
+                _jwtToken = string.IsNullOrWhiteSpace(jwt) ? null : jwt.Trim();
+                _defaultChannel = string.IsNullOrWhiteSpace(gymId) ? null : $"private-gym.{gymId.Trim()}";
+
+                OnStatusChanged($"Settings loaded. Channel='{_defaultChannel ?? "(none)"}', JWT={(string.IsNullOrEmpty(_jwtToken) ? "(none)" : "present")}.");
+            }
+            catch (Exception ex)
+            {
+                OnErrorOccurred("Error loading WebSocket settings: " + ex.Message);
+            }
         }
 
-
-        public void Initialize(string apiKey)
+        // New configuration for Pusher/Soketi
+        public void ConfigurePusher()
         {
-            if (string.IsNullOrWhiteSpace(apiKey))
-                throw new ArgumentException("API key cannot be empty.");
+            // Always use built-in defaults
+            _host = DefaultHost;
+            _port = _useTls ? DefaultTlsPort : DefaultWsPort;
+            _appKey = DefaultAppKey;
 
-            _apiKey = apiKey;
-            var parts = apiKey.Split(':');
-            if (parts.Length != 2)
-                throw new ArgumentException("Invalid API key format. Expected: gymId:secretKey");
+            OnStatusChanged($"Pusher configured: host={_host}, port={_port}, appKey={_appKey}");
+        }
 
-            _gymId = parts[0].Trim();
-            OnStatusChanged("API key initialized.");
+        // NEW: control TLS (wss) vs cleartext (ws)
+        public void SetUseTls(bool useTls)
+        {
+            _useTls = useTls;
+            OnStatusChanged($"Transport set to {(_useTls ? "wss" : "ws")}");
+        }
+
+        public void ConfigureDefaultChannel(string channelName, bool autoSubscribeOnConnect = true)
+        {
+            if (!string.IsNullOrWhiteSpace(channelName)) _defaultChannel = channelName.Trim();
+            _autoSubscribeOnConnect = autoSubscribeOnConnect;
+            OnStatusChanged($"Default channel set to '{_defaultChannel}', autoSubscribe={_autoSubscribeOnConnect}");
+        }
+
+        public void SetSupabaseJwt(string jwtToken)
+        {
+            _jwtToken = jwtToken;
+            OnStatusChanged("JWT token set for Pusher auth.");
+        }
+
+        private Uri BuildPusherUri()
+        {
+            var scheme = _useTls ? "wss" : "ws";
+            var portPart = _useTls && _port == 443 ? "" : $":{_port}";
+            var qs = $"protocol={PusherProtocolVersion}&client={PusherClientName}&version={PusherClientVersion}";
+            var url = $"{scheme}://{_host}{portPart}/app/{_appKey}?{qs}";
+            return new Uri(url);
         }
 
         public async Task ConnectAsync()
@@ -89,10 +230,12 @@ namespace smart_attendance_middleware
                 ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, errors) => true;
 
                 _websocket = new ClientWebSocket();
+                _websocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(Math.Max(15, _activityTimeoutSeconds / 2)); // keepalive
                 _cts = new CancellationTokenSource();
 
-                OnStatusChanged("Connecting to " + ApiUrl);
-                await _websocket.ConnectAsync(new Uri(ApiUrl), _cts.Token);
+                var uri = BuildPusherUri();
+                OnStatusChanged("Connecting to " + uri);
+                await _websocket.ConnectAsync(uri, _cts.Token);
                 OnStatusChanged("WebSocket connected.");
                 LogHelper.Log("WebSocket connected.");
 
@@ -105,7 +248,8 @@ namespace smart_attendance_middleware
             }
         }
 
-        public async Task<bool> SubscribeAsync()
+        // Subscribe to a channel (supports private- channels via HTTP auth)
+        public async Task<bool> SubscribeAsync(string channelName, string jwtToken = null)
         {
             if (_websocket?.State != WebSocketState.Open)
             {
@@ -113,37 +257,197 @@ namespace smart_attendance_middleware
                 return false;
             }
 
-            if (string.IsNullOrEmpty(_gymId) || string.IsNullOrEmpty(_apiKey))
+            if (string.IsNullOrWhiteSpace(channelName))
             {
-                OnErrorOccurred("API key is not initialized.");
+                OnErrorOccurred("Channel name is required.");
                 return false;
             }
 
             _subscriptionTcs = new TaskCompletionSource<bool>();
 
-            string subscribeMsg = $"{{\"event\":\"pusher:subscribe\",\"data\":{{\"channel\":\"gym.{_gymId}\",\"auth\":\"{_apiKey}\"}}}}";
-            await SendMessageAsync(subscribeMsg);
+            string auth = null;
+            if (channelName.StartsWith("private-", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(_socketId))
+                {
+                    OnErrorOccurred("Socket ID not established yet. Wait for 'pusher:connection_established'.");
+                    return false;
+                }
 
+                var token = jwtToken ?? _jwtToken;
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    OnErrorOccurred("JWT token is required for private channel authentication.");
+                    return false;
+                }
+
+                auth = await GetPusherAuthAsync(channelName, token);
+                if (string.IsNullOrWhiteSpace(auth))
+                {
+                    OnErrorOccurred("Private channel authentication failed.");
+                    return false;
+                }
+            }
+
+            var subscribeFrame = new
+            {
+                @event = "pusher:subscribe",
+                data = new
+                {
+                    channel = channelName,
+                    auth = auth
+                }
+            };
+
+            await SendMessageAsync(JsonConvert.SerializeObject(subscribeFrame));
             OnStatusChanged("📡 Subscription request sent. Awaiting confirmation...");
 
-            // Wait for subscription confirmation or timeout after 5 seconds
-            var completedTask = await Task.WhenAny(_subscriptionTcs.Task, Task.Delay(5000));
-
+            var completedTask = await Task.WhenAny(_subscriptionTcs.Task, Task.Delay(10000));
             if (completedTask == _subscriptionTcs.Task && _subscriptionTcs.Task.Result)
             {
-                OnStatusChanged("subscription confirmed by server.");
-                LogHelper.Log("Subscription confirmed by server.");
+                _activeChannel = channelName;
+                OnStatusChanged($"Subscription confirmed by server for '{channelName}'.");
+                LogHelper.Log($"Subscription confirmed by server for '{channelName}'.");
                 return true;
             }
-            else
+
+            OnErrorOccurred("Subscription failed or timed out.");
+            return false;
+        }
+
+        public async Task<bool> ConnectAndSubscribeAsync(bool preferTls = true, int handshakeTimeoutMs = 5000, bool fallbackToCleartext = true)
+        {
+            try
             {
-                OnErrorOccurred("Subscription failed or timed out. Possibly invalid API key.");
+                if (string.IsNullOrWhiteSpace(_defaultChannel))
+                {
+                    OnErrorOccurred("Channel is required.");
+                    return false;
+                }
+
+                // Prevent auto-subscribe to avoid race with manual flow
+                ConfigureDefaultChannel(_defaultChannel, autoSubscribeOnConnect: false);
+
+                // Connect if not already open
+                if (!IsOpen)
+                {
+                    ConfigurePusher();
+
+                    if (preferTls)
+                    {
+                        // Try secure reverse-proxy first (wss:443)
+                        SetUseTls(true);
+                        OnStatusChanged("Connecting securely (wss:443)...");
+                        var tlsOk = await TryConnectAsyncSilently();
+                        if (!tlsOk && fallbackToCleartext)
+                        {
+                            OnStatusChanged("Secure connect failed; falling back to cleartext (ws:6001)...");
+                            SetUseTls(false);
+                            var wsOk = await TryConnectAsyncSilently();
+                            if (!wsOk)
+                            {
+                                OnErrorOccurred("WebSocket not open after connection attempts.");
+                                return false;
+                            }
+                        }
+                        else if (!tlsOk)
+                        {
+                            OnErrorOccurred("Secure connect failed and fallback disabled.");
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        // Prefer cleartext directly
+                        SetUseTls(false);
+                        OnStatusChanged("Connecting (ws:6001)...");
+                        var wsOk = await TryConnectAsyncSilently();
+                        if (!wsOk)
+                        {
+                            OnErrorOccurred("WebSocket not open after connection attempt.");
+                            return false;
+                        }
+                    }
+                }
+                else
+                {
+                    OnStatusChanged("WebSocket already open.");
+                }
+
+                // Wait for pusher:connection_established (socket_id required for private auth)
+                var deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(1000, handshakeTimeoutMs));
+                while (string.IsNullOrEmpty(SocketId) && DateTime.UtcNow < deadline)
+                {
+                    await Task.Delay(50);
+                }
+
+                if (string.IsNullOrEmpty(SocketId))
+                {
+                    OnErrorOccurred("Handshake did not provide socket_id within timeout.");
+                    return false;
+                }
+
+                // Subscribe
+                OnStatusChanged($"Subscribing to '{_defaultChannel}'...");
+                var isSubscribed = await SubscribeAsync(_defaultChannel);
+                if (!isSubscribed)
+                {
+                    OnErrorOccurred("Subscription failed.");
+                    return false;
+                }
+
+                OnStatusChanged($"Connected and subscribed to {_defaultChannel}.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnErrorOccurred("ConnectAndSubscribeAsync error: " + ex.Message);
                 return false;
             }
         }
 
+        // Helper: attempt connect and return success/failure without dumping exceptions to logs
+        private async Task<bool> TryConnectAsyncSilently()
+        {
+            try
+            {
+                await ConnectAsync();
+                return IsOpen;
+            }
+            catch
+            {
+                // Swallow here; detailed logging happens inside ConnectAsync already.
+                return false;
+            }
+        }
 
+        // Send application command via client event on active channel
         public async Task SendCommandAsync(string command, object payload)
+        {
+            if (_websocket?.State != WebSocketState.Open || string.IsNullOrWhiteSpace(_activeChannel))
+            {
+                OnErrorOccurred(string.IsNullOrWhiteSpace(_activeChannel) ? "No active channel. Subscribe to a channel first." : "WebSocket is not connected.");
+                return;
+            }
+
+            string payloadJson = JsonConvert.SerializeObject(payload);
+            var normalizedPayload = ParsePayload(payloadJson);
+
+            var eventData = new
+            {
+                data = new
+                {
+                    command = command,
+                    payload = normalizedPayload
+                }
+            };
+
+            await SendClientEventAsync("client-command", eventData, _activeChannel, wrapDataObject: true);
+            OnStatusChanged($"Command sent: {command}");
+        }
+        
+        // Generic client event sender (supports raw object envelope or stringified payload)
+        public async Task SendClientEventAsync(string eventName, object data, string channelName = null, bool wrapDataObject = false)
         {
             if (_websocket?.State != WebSocketState.Open)
             {
@@ -151,114 +455,67 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            string message = JsonConvert.SerializeObject(new
+            if (string.IsNullOrWhiteSpace(eventName) || !eventName.StartsWith("client-", StringComparison.OrdinalIgnoreCase))
             {
-                @event = "client-command",
-                channel = $"gym.{_gymId}",
-                data = new { command, payload }
-            });
-
-            LogHelper.Log($"[WebSocket] Sending command: {command}, Payload: {JsonConvert.SerializeObject(payload)}");
-
-            await SendMessageAsync(message);
-            OnStatusChanged("Command sent: " + message);
-        }
-
-        public async Task GetAllMembersAsync(int perPage, int version)
-        {
-            _membersPerPage = perPage;
-            _version = version;
-            _currentMemberPage = 1;
-            _lastRequestedPage = 0; // reset the guard
-            _isPaginatedSyncInProgress = true;
-            await RequestMemberPageAsync(1);
-        }
-
-        private async Task RequestMemberPageAsync(int page)
-        {
-            if (page <= _lastRequestedPage)
-            {
-                OnStatusChanged($"❗️ Page {page} already requested; skipping.");
+                OnErrorOccurred("Client events must start with 'client-'.");
                 return;
             }
 
-            _lastRequestedPage = page;
-
-            var payload = new { per_page = _membersPerPage, version = _version, page = page };
-            string requestBody = JsonConvert.SerializeObject(payload, Formatting.Indented);
-            OnStatusChanged($"📤 Sending 'member.all' with page: {page}\n{requestBody}");
-
-            await SendCommandAsync("member.all", payload);
-        }
-
-
-        public async Task GetMemberAsync(int id)
-        {
-            await SendCommandAsync("member.get", new { id });
-        }
-
-
-        public async Task LogAttendanceAsync(int attendeeId, DateTime? checkIn = null, DateTime? checkOut = null)
-        {
-            // Ensure at least one timestamp is provided.
-            if (checkIn == null && checkOut == null)
+            var channel = channelName ?? _activeChannel;
+            if (string.IsNullOrWhiteSpace(channel))
             {
-                throw new ArgumentException("At least one of checkIn or checkOut must be provided.");
+                OnErrorOccurred("No channel provided and no active channel set.");
+                return;
             }
 
+            // For server that expects nested { data: { ... } } object, do NOT stringify.
+            var frame = new
+            {
+                @event = eventName,
+                channel = channel,
+                data = wrapDataObject ? data : JsonConvert.SerializeObject(data)
+            };
+
+            await SendMessageAsync(JsonConvert.SerializeObject(frame));
+            OnStatusChanged($"Client event sent: {eventName}");
+        }
+
+        private async Task<string> GetPusherAuthAsync(string channelName, string jwtToken)
+        {
             try
             {
-                // Resolve attendance id when not supplied by caller.
-                string resolvedId = null;
-                if (string.IsNullOrWhiteSpace(resolvedId))
+                using (var client = new HttpClient())
                 {
-                    try
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwtToken);
+
+                    var form = new FormUrlEncodedContent(new Dictionary<string, string>
                     {
-                        resolvedId = _dbHelper.GetAttendanceIdForMember(attendeeId, checkIn, checkOut);
-                        // resolvedId may be null if not found — that's acceptable (will omit id in payload)
-                        if (!string.IsNullOrWhiteSpace(resolvedId))
-                            LogHelper.Log($"Resolved AttendanceId for member {attendeeId}: {resolvedId}");
-                        else
-                            LogHelper.Log($"No AttendanceId found for member {attendeeId}; sending payload without id to create new record.");
-                    }
-                    catch (Exception ex)
+                        { "socket_id", _socketId },
+                        { "channel_name", channelName }
+                    });
+
+                    // The auth endpoint is HTTPS without the WS port
+                    var authUrl = $"https://{_host}/pusher-auth";
+                    var resp = await client.PostAsync(authUrl, form);
+                    var respBody = await resp.Content.ReadAsStringAsync();
+
+                    if (!resp.IsSuccessStatusCode)
                     {
-                        // Do not fail the whole operation if lookup fails; log and continue without id.
-                        LogHelper.Log($"Error resolving AttendanceId for member {attendeeId}: {ex.Message}");
+                        OnErrorOccurred($"Auth failed ({resp.StatusCode}): {respBody}");
+                        return null;
                     }
+
+                    var json = JsonConvert.DeserializeObject<JObject>(respBody);
+                    return json?["auth"]?.ToString();
                 }
-
-                // Build the payload dynamically.
-                var payload = new Dictionary<string, object>
-        {
-            { "attendee_id", attendeeId }
-        };
-
-                if (!string.IsNullOrWhiteSpace(resolvedId))
-                {
-                    payload["id"] = resolvedId;
-                }
-
-                if (checkIn.HasValue)
-                {
-                    payload["check_in"] = checkIn.Value.ToString("yyyy-MM-dd HH:mm:ss");
-                }
-
-                if (checkOut.HasValue)
-                {
-                    payload["check_out"] = checkOut.Value.ToString("yyyy-MM-dd HH:mm:ss");
-                }
-
-                // Send the attendance command.
-                await SendCommandAsync("member.attendance", payload);
             }
             catch (Exception ex)
             {
-                OnErrorOccurred("Error logging attendance: " + ex.Message);
+                OnErrorOccurred("Auth error: " + ex.Message);
+                return null;
             }
         }
 
-       
         private async Task SendMessageAsync(string message)
         {
             try
@@ -272,7 +529,6 @@ namespace smart_attendance_middleware
             }
         }
 
-
         private async Task ReceiveLoopAsync()
         {
             var buffer = new ArraySegment<byte>(new byte[8192]);
@@ -280,16 +536,24 @@ namespace smart_attendance_middleware
             {
                 while (_websocket.State == WebSocketState.Open)
                 {
-                    var result = await _websocket.ReceiveAsync(buffer, _cts.Token);
-                    if (result.MessageType == WebSocketMessageType.Close)
+                    using (var ms = new System.IO.MemoryStream())
                     {
-                        await _websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-                        OnStatusChanged("WebSocket disconnected.");
-                    }
-                    else
-                    {
-                        string message = Encoding.UTF8.GetString(buffer.Array, 0, result.Count);
-                        ParseAndRaiseLiveUpdate(message);
+                        WebSocketReceiveResult result;
+                        do
+                        {
+                            result = await _websocket.ReceiveAsync(buffer, _cts.Token);
+                            if (result.MessageType == WebSocketMessageType.Close)
+                            {
+                                await _websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                                OnStatusChanged("WebSocket disconnected.");
+                                return;
+                            }
+
+                            ms.Write(buffer.Array, 0, result.Count);
+                        } while (!result.EndOfMessage);
+
+                        string message = Encoding.UTF8.GetString(ms.ToArray());
+                        await ParseAndRaiseLiveUpdate(message);
                     }
                 }
             }
@@ -299,235 +563,99 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void ParseAndRaiseLiveUpdate(string message)
+        private async Task ParseAndRaiseLiveUpdate(string message)
         {
-            LogHelper.Log($"[WebSocket] Received message: {message}");
             try
             {
-                // Deserialize the received JSON message into a dynamic object.
                 var msg = JsonConvert.DeserializeObject<dynamic>(message);
-                // Extract the event type and the "data" field from the received message.
                 string eventType = msg.@event;
-                string dataStr = msg.data;
-                object parsedData = null; // This will hold our final parsed data.
+                string dataStr = msg.data != null ? (msg.data.Type == JTokenType.String ? (string)msg.data : JsonConvert.SerializeObject(msg.data)) : null;
+                object parsedData = null;
 
-                // Switch based on the event type.
                 switch (eventType)
                 {
-
-                    // Handle member creation notifications.
-                    case "notification.member_created":
-                        // Parse for logging
-                        parsedData = JsonConvert.DeserializeObject<MemberCreated>(dataStr);
-                        var createdMember = (MemberCreated)parsedData;
-
-                        // Log creation
-                        LogHelper.Log($"🆕 Member created - ID: {createdMember.id}, " +
-                                    $"Status: {createdMember.status}, " +
-                                    $"RFID: {createdMember.rfid}, " +
-                                    $"Created At: {createdMember.created_at}");
-
-                        // Forward complete data
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs
+                    // Pusher/Soketi handshake
+                    case "pusher:connection_established":
+                        if (!string.IsNullOrEmpty(dataStr))
                         {
-                            EventType = eventType,
-                            Data = JObject.Parse(dataStr) // Full original data
-                        });
-                        break;
-
-                    case "notification.member_updated":
-                        // Parse for logging
-                        parsedData = JsonConvert.DeserializeObject<MemberUpdated>(dataStr);
-                        var updatedMember = (MemberUpdated)parsedData;
-
-                        // Log update
-                        LogHelper.Log($"🔄 Member updated - ID: {updatedMember.id}, " +
-                                    $"Status: {updatedMember.status}, " +
-                                    $"RFID: {updatedMember.rfid}, " +
-                                    $"Updated At: {updatedMember.updated_at}");
-
-                        // Forward complete data
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs
-                        {
-                            EventType = eventType,
-                            Data = JObject.Parse(dataStr) // Full original data
-                        });
-                        break;
-
-                    case "notification.member_deleted":
-                        // Parse for logging
-                        parsedData = JsonConvert.DeserializeObject<MemberDeleted>(dataStr);
-                        var deletedMember = (MemberDeleted)parsedData;
-
-                        // Log deletion
-                        LogHelper.Log($"🗑️ Member deleted - ID: {deletedMember.id}, " +
-                                    $"Status: {deletedMember.status}, " +
-                                    $"RFID: {deletedMember.rfid}, " +
-                                    $"Deleted At: {deletedMember.deleted_at}");
-                        // Forward complete data
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs
-                        {
-                            EventType = eventType,
-                            Data = JObject.Parse(dataStr) // Full original data
-                        });
-                        break;
-
-                    // Handle status notifications.
-                    case "notification.status":
-                        // Parse and extract only needed fields
-                        var statusData = JsonConvert.DeserializeObject<NotificationStatus>(dataStr);
-
-                        // Log only ID and status
-                        LogHelper.Log($"Member Status Update - ID: {statusData.id}, Status: {statusData.status}");
-
-                        // Forward only ID and status
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs
-                        {
-                            EventType = eventType,
-                            Data = new JObject(
-                                new JProperty("id", statusData.id),
-                                new JProperty("status", statusData.status)
-                            )
-                        });
-                        break;
-
-                    // Handle attendance notifications.
-                    case "gym.attendance":
-                        var obj = !string.IsNullOrWhiteSpace(dataStr) ? JObject.Parse(dataStr) : new JObject();
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "gym.attendance", Data = obj });
-                        break;
-
-                    // Handle responses to client commands.
-                    case "client-command:response":
-                        // Deserialize the inner response object.
-                        var inner = JsonConvert.DeserializeObject<dynamic>(dataStr);
-                        // Check if the payload's command is "member.attendance".
-                        // The response might either have a flat structure:
-                        //    inner.payload.command == "member.attendance"
-                        // or a nested structure (with an extra payload layer).
-
-                        // Handle enrollment assignment response
-                        if (inner.payload != null && inner.payload.command == "member.assign")
-                        {
-                            var responseData = JsonConvert.DeserializeObject<dynamic>(inner.data.ToString());
-                            if (responseData.status == 200)
-                            {
-                                int memberId = responseData.data.id;
-                                int? enrollmentId = responseData.data.enrollment_id;
-
-                                _dbHelper.UpdateMemberEnrollment(memberId, enrollmentId);
-                                LogHelper.Log($"🔄 Updated member {memberId} with enrollment ID {enrollmentId}");
-
-                                parsedData = new
-                                {
-                                    MemberId = memberId,
-                                    EnrollmentId = enrollmentId,
-                                    Status = "Success"
-                                };
-                                eventType = "member.assign.response";
-                                break;
-                            }
+                            var inner = JsonConvert.DeserializeObject<JObject>(dataStr);
+                            _socketId = inner?["socket_id"]?.ToString();
+                            _activityTimeoutSeconds = inner?["activity_timeout"] != null ? (int)inner["activity_timeout"] : _activityTimeoutSeconds;
+                            LastPongReceived = DateTime.Now;
+                            OnStatusChanged($"Connected. socket_id={_socketId}, activity_timeout={_activityTimeoutSeconds}s");
                         }
-                        else if (inner.payload != null && inner.payload.command == "member.attendance")
+
+                        // Auto-subscribe
+                        if (_autoSubscribeOnConnect && !string.IsNullOrWhiteSpace(_defaultChannel))
                         {
-                            // For a flat attendance response, extract the data.
-                            parsedData = inner.payload.data;
-                            eventType = "member.attendance.response";
+                            _ = SubscribeAsync(_defaultChannel);
                         }
-                        else if (inner.payload != null && inner.payload.payload != null && inner.payload.payload.command == "member.attendance")
-                        {
-                            // For a nested attendance response, extract the inner data.
-                            parsedData = inner.payload.payload.data;
-                            eventType = "member.attendance.response";
-                        }
-                        // Check if the response is for a bulk member fetch.
-                        else if (inner.payload?.command == "member.all")
-                        {
-                            var data = inner.payload.data;
-                            int currentPage = data.current_page != null ? (int)data.current_page : _currentMemberPage;
-                            int lastPage = data.last_page != null ? (int)data.last_page : currentPage;
+                        return;
 
-                            OnStatusChanged($"Received page {currentPage} of {lastPage}");
+                    case "pusher:ping":
+                        var pong = JsonConvert.SerializeObject(new { @event = "pusher:pong" });
+                        _ = SendMessageAsync(pong);
+                        OnStatusChanged("Responded to ping with pong.");
+                        return;
 
-                            _currentMemberPage = currentPage;
-                            _lastMemberPage = lastPage;
-
-                            LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member.all", Data = data });
-
-                            Task.Run(() => SaveMemberPicturesAsync(data));
-
-                            if (_isPaginatedSyncInProgress && currentPage < lastPage)
-                            {
-                                int nextPage = currentPage + 1;
-                                _ = RequestMemberPageAsync(nextPage);
-                            }
-                            else
-                            {
-                                _isPaginatedSyncInProgress = false;
-                                AllMembersSynced?.Invoke(this, EventArgs.Empty);
-                                OnStatusChanged("All members synced.");
-                            }
-                            // Return early because we've fully handled the bulk fetch.
-                            return;
-                        }
-                        // Check if the response is for a single member fetch.
-                        else if (inner.payload?.command == "member.get")
-                        {
-                            parsedData = inner.payload.data;
-                            eventType = "member.get";
-                        }
-                        else if (inner.payload?.command == "member.status.set")
-                        {
-                            // Set the event type directly
-                            eventType = "member.status.set";
-                            parsedData = inner.payload.data;
-
-                            LogHelper.Log($"📊 Member status set response received");
-
-                        }
-                        else
-                        {
-                            // For any other client-command response, use the entire inner object.
-                            parsedData = inner;
-                        }
-                        break;
-
-                    //Abdul hadi code
-                    // Handle ping messages from the server.
                     case "pusher:pong":
                         LastPongReceived = DateTime.Now;
                         parsedData = "Pong";
-                        //LogHelper.Log("Pong");
+                        LogHelper.Log("Pong");
                         break;
 
                     case "pusher_internal:subscription_succeeded":
                         _subscriptionTcs?.TrySetResult(true);
                         OnStatusChanged("Subscription confirmed by server.");
-                        return; // No need to raise LiveUpdate for internal confirmation
+                        return;
 
-                    // For any unrecognized event type, pass the raw message.
+                    case "member_created":
+                        parsedData = JsonConvert.DeserializeObject<MemberCreated>(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member_created", Data = JObject.Parse(dataStr) });
+                        break;
+
+                    case "member_updated":
+                        parsedData = JsonConvert.DeserializeObject<MemberUpdated>(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member_updated", Data = JObject.Parse(dataStr) });
+                        break;
+
+                    case "member_deleted":
+                        parsedData = JsonConvert.DeserializeObject<MemberDeleted>(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member_deleted", Data = JObject.Parse(dataStr) });
+                        break;
+
+                    case "attendance_updated":
+                        parsedData = JsonConvert.DeserializeObject<AttendanceUpdated>(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "attendance_updated", Data = JObject.Parse(dataStr) });
+                        break;
+
+                    case "user_created":
+                        parsedData = JsonConvert.DeserializeObject<UserCreated>(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "user_created", Data = JObject.Parse(dataStr) });
+                        break;
+
+                    case "user_updated":
+                        parsedData = JsonConvert.DeserializeObject<UserUpdated>(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "user_updated", Data = JObject.Parse(dataStr) });
+                        break;
+
                     default:
                         parsedData = message;
                         break;
                 }
 
-                // Raise the LiveUpdate event so that the Processor or other subscribers can handle the event.
                 LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = eventType, Data = parsedData });
             }
             catch (Exception ex)
             {
-                // If an error occurs during parsing, raise an error event.
                 OnErrorOccurred("Error parsing message: " + ex);
             }
         }
 
-
         protected virtual void OnStatusChanged(string status) => StatusChanged?.Invoke(this, status);
         protected virtual void OnErrorOccurred(string error) => ErrorOccurred?.Invoke(this, error);
 
-
-        //Abdul Hadi Code
-
+        // Heartbeat: manual ping trigger 
         public async Task ConnectionStatusAsync()
         {
             if (_websocket?.State != WebSocketState.Open)
@@ -546,36 +674,56 @@ namespace smart_attendance_middleware
             OnStatusChanged("Ping message sent.");
         }
 
-        //Abdul Hadi Code
-        // This method sets the status of a member based on their enrollment ID and authentication type.
-        public async Task SetMemberStatusAsync(int enrollmentId, string authType, string status, string message )
+
+        // Robust JSON payload parser using System.Text.Json,
+        // returns a Dictionary<string, object?> with nested dictionaries/lists normalized.
+        public Dictionary<string, object> ParsePayload(string json)
         {
-            if (_websocket?.State != WebSocketState.Open)
+            if (string.IsNullOrEmpty(json?.Trim()))
             {
-                OnErrorOccurred("WebSocket is not connected.");
-                return;
+                return new Dictionary<string, object>();
             }
 
-            try
+            using (var doc = JsonDocument.Parse(json))
             {
-                var payload = new
-                {
-                    enrollment_id = enrollmentId,
-                    auth_type = authType,
-                    status = status,
-                    message = message
-                };
-
-                await SendCommandAsync("member.status.set", payload);
-                LogHelper.Log($"Member status update sent - Enrollment ID: {enrollmentId}, Auth Type: {authType}, Status: {status}");
-            }
-            catch (Exception ex)
-            {
-                OnErrorOccurred($"Error setting member status: {ex.Message}");
-                LogHelper.Log($"Error setting member status: {ex}");
+                var obj = ConvertJsonElement(doc.RootElement);
+                return obj as Dictionary<string, object> ?? new Dictionary<string, object>();
             }
         }
 
+        public static object ConvertJsonElement(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    var dict = new Dictionary<string, object>();
+                    foreach (var prop in element.EnumerateObject())
+                    {
+                        dict[prop.Name] = ConvertJsonElement(prop.Value);
+                    }
+                    return dict;
+                case JsonValueKind.Array:
+                    var list = new List<object>();
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        list.Add(ConvertJsonElement(item));
+                    }
+                    return list;
+                case JsonValueKind.String:
+                    return element.GetString();
+                case JsonValueKind.Number:
+                    if (element.TryGetInt64(out long l)) return l;
+                    if (element.TryGetDecimal(out decimal d)) return d;
+                    return element.GetDouble();
+                case JsonValueKind.True:
+                    return true;
+                case JsonValueKind.False:
+                    return false;
+                case JsonValueKind.Null:
+                default:
+                    return null;
+            }
+        }
         private async Task SaveMemberPicturesAsync(dynamic membersData)
         {
             try
@@ -624,6 +772,10 @@ namespace smart_attendance_middleware
                                         // Download and save the new image
                                         await DownloadAndSaveImageAsync(newImageUrl, filePath);
                                         LogHelper.Log($"Downloaded and saved new image: {fileName}");
+
+                                                                                // Force Face sync status to false for re-enrollment
+                                        await _dbHelper.ForceFaceSyncStatusFalseAsync(int.Parse(memberId));
+                                        LogHelper.Log($"Set FaceSyncStatus to false for Member ID: {memberId}");
                                     }
                                     catch (Exception deleteEx)
                                     {

@@ -39,6 +39,8 @@ namespace smart_attendance_middleware.Helpers
             {
                 try
                 {
+                    Thread.Sleep(2000); // Small delay to ensure thread stability
+
                     var dummyForm = new Form
                     {
                         Width = 0,

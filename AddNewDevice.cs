@@ -83,6 +83,135 @@ namespace smart_attendance_middleware
             }
         }
 
+        //private async void btnSave_Click(object sender, EventArgs e)
+        //{
+        //    lbl_saving_status.Text = "Checking the device, please wait...";
+        //    lbl_saving_status.Refresh();
+        //    btnSave.Enabled = false;
+
+        //    try
+        //    {
+        //        bool isFirstDevice = _dbHelper.IsFirstDevice();
+        //        // Basic validation (unchanged)
+        //        if (string.IsNullOrWhiteSpace(txt_department.Text) ||
+        //            string.IsNullOrWhiteSpace(txt_ip.Text) ||
+        //            string.IsNullOrWhiteSpace(txt_port.Text) ||
+        //            string.IsNullOrWhiteSpace(txt_timeZone.Text) ||
+        //            string.IsNullOrWhiteSpace(txt_location.Text) ||
+        //            (string.IsNullOrWhiteSpace(txt_face_capacity.Text) &&
+        //             string.IsNullOrWhiteSpace(txt_RFID_capacity.Text) &&
+        //             string.IsNullOrWhiteSpace(txt_finger_capacity.Text)) ||
+        //            cmb_device_type.SelectedItem == null ||
+        //            cmb_connectionType.SelectedItem == null ||
+        //            cmb_machine_no.SelectedItem == null)
+        //        {
+        //            MessageBox.Show("Please fill in all required fields.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        //            return;
+        //        }
+
+        //        string ip = txt_ip.Text.Trim();
+        //        int port = int.TryParse(txt_port.Text, out int parsedPort) ? parsedPort : 5005;
+        //        int machineNo = Convert.ToInt32(cmb_machine_no.SelectedItem);
+        //        string password = txt_password.Text.Trim();
+
+        //        // Check only IP and machine number
+        //        string checkResult = _dbHelper.CheckDeviceExists(ip, machineNo);
+        //        if (checkResult != "Neither IP nor Machine No exists.")
+        //        {
+        //            lbl_saving_status.Text = checkResult;
+        //            MessageBox.Show(checkResult, "Device Exists", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        //            return;
+        //        }
+
+        //        // Ping the device with retries
+        //        bool isReachable = await PingDeviceWithRetries(ip, maxAttempts: 5, delayBetweenAttempts: 2000);
+        //        if (!isReachable)
+        //        {
+        //            lbl_saving_status.Text = "Device connection failed";
+        //            MessageBox.Show($"Could not connect to device at {ip} after 5 attempts. Please check the device network connection.",
+        //                "Connection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //            return;
+        //        }
+
+        //        lbl_saving_status.Text = "Connecting to device and retrieving serial number...";
+        //        lbl_saving_status.Refresh();
+
+        //        string serial = await DeviceService.GetSerial(ip, port, machineNo, password);
+
+        //        lbl_saving_status.Text = "Device found and serial retrieved.";
+        //        txt_Serial.Text = serial;
+        //        txt_Serial.Refresh();
+
+        //        DialogResult result = MessageBox.Show(
+        //            $"Device connected successfully.\n\nSerial Number: {serial}\nIP Address: {ip}\n\nWould you like to save this device?",
+        //            "Confirm Device Addition",
+        //            MessageBoxButtons.YesNo,
+        //            MessageBoxIcon.Question);
+
+        //        if (result == DialogResult.No)
+        //        {
+        //            MessageBox.Show(
+        //                "You've cancelled the device addition.\n\nNo changes have been made.",
+        //                "Device Not Added",
+        //                MessageBoxButtons.OK,
+        //                MessageBoxIcon.Information);
+        //            return;
+        //        }
+
+        //        bool attendanceType = cmb_device_type.SelectedItem.ToString() == "Check-in";
+        //        bool isActive = true;
+
+        //        Device newDevice = new Device
+        //        {
+        //            Department = txt_department.Text,
+        //            AttendanceType = attendanceType,
+        //            DeviceSerial = serial,
+        //            DeviceIP = ip,
+        //            Port = port,
+        //            TimeZone = txt_timeZone.Text.Trim(),
+        //            Location = txt_location.Text.Trim(),
+        //            ConnectionType = cmb_connectionType.SelectedItem.ToString(),
+        //            IsActive = isActive,
+        //            LastSyncTime = null,
+        //            FaceCapacity = int.TryParse(txt_face_capacity.Text, out int faceCap) ? faceCap : 0,
+        //            RFIDCapacity = int.TryParse(txt_RFID_capacity.Text, out int rfidCap) ? rfidCap : 0,
+        //            FingerCapacity = int.TryParse(txt_finger_capacity.Text, out int fingerCap) ? fingerCap : 0,
+        //            MachineNo = machineNo,
+        //            Password = password
+        //        };
+
+        //        _dbHelper.SaveDevice(newDevice);
+        //        _processor.update_session();
+        //        lbl_saving_status.Text = "Device added successfully.";
+
+        //        // Notify dashboard to refresh
+        //        NotifyDashboardRefresh();
+
+        //        MessageBox.Show("Device has been saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+        //        // Only process user workflow if this isn't the first device (after message box)
+        //        if (!isFirstDevice)
+        //        {
+        //            lbl_saving_status.Text = "Processing user workflow...";
+        //            lbl_saving_status.Refresh();
+
+        //            await _deviceFunctions.ProcessUserWorkflowAsync();
+        //            lbl_saving_status.Text = "Completed user workflow...";
+
+        //        }
+
+        //        this.Close();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show("Error saving device: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //    }
+        //    finally
+        //    {
+        //        btnSave.Enabled = true;
+        //    }
+        //}
+
         private async void btnSave_Click(object sender, EventArgs e)
         {
             lbl_saving_status.Text = "Checking the device, please wait...";
@@ -114,7 +243,7 @@ namespace smart_attendance_middleware
                 int machineNo = Convert.ToInt32(cmb_machine_no.SelectedItem);
                 string password = txt_password.Text.Trim();
 
-                // Check only IP and machine number
+                // Check only IP and machine number (normal Devices table check)
                 string checkResult = _dbHelper.CheckDeviceExists(ip, machineNo);
                 if (checkResult != "Neither IP nor Machine No exists.")
                 {
@@ -158,13 +287,14 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                bool attendanceType = cmb_device_type.SelectedItem.ToString() == "Check-in";
+                // Map device type once from UI
+                string attendanceText = cmb_device_type.SelectedItem.ToString().Trim(); // "Check-in", "Check-out", or "Check-in/Check-out"
                 bool isActive = true;
 
-                Device newDevice = new Device
+                // Create common device object (fields common to both)
+                var deviceModel = new Device
                 {
                     Department = txt_department.Text,
-                    AttendanceType = attendanceType,
                     DeviceSerial = serial,
                     DeviceIP = ip,
                     Port = port,
@@ -180,9 +310,38 @@ namespace smart_attendance_middleware
                     Password = password
                 };
 
-                _dbHelper.SaveDevice(newDevice);
-                _ = _processor.update_session();
-                lbl_saving_status.Text = "Device added successfully.";
+                // Staff vs normal branch
+                if (chk_isstaff != null && chk_isstaff.Checked)
+                {
+                    // Staff device supports all three: "Check-in", "Check-out", "Check-in/Check-out"
+                    deviceModel.StaffAttendanceType = attendanceText;
+
+                    // Duplicate guard for staff devices
+                    if (_dbHelper.StaffDeviceExists(ip, machineNo))
+                    {
+                        lbl_saving_status.Text = "Staff device with same IP or Machine No already exists.";
+                        MessageBox.Show("Staff device with same IP or Machine No already exists.", "Duplicate Staff Device", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    _dbHelper.SaveStaffDevice(deviceModel);
+                    lbl_saving_status.Text = "Staff device added successfully.";
+                }
+                else
+                {
+                    // Normal devices only support boolean check-in/check-out.
+                    if (string.Equals(attendanceText, "Check-in/Check-out", StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show("Normal devices cannot be 'Check-in/Check-out'. Please select 'Check-in' or 'Check-out', or mark as Staff device.", "Invalid Type", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    deviceModel.AttendanceType = string.Equals(attendanceText, "Check-in", StringComparison.OrdinalIgnoreCase);
+                    _dbHelper.SaveDevice(deviceModel);
+                    lbl_saving_status.Text = "Device added successfully.";
+                }
+
+                _processor.update_session();
 
                 // Notify dashboard to refresh
                 NotifyDashboardRefresh();
@@ -197,7 +356,6 @@ namespace smart_attendance_middleware
 
                     await _deviceFunctions.ProcessUserWorkflowAsync();
                     lbl_saving_status.Text = "Completed user workflow...";
-
                 }
 
                 this.Close();
@@ -261,7 +419,7 @@ namespace smart_attendance_middleware
 
         private void btn_load_Click(object sender, EventArgs e)
         {
-            txt_password.Text = "0"; // We have to change it after testing phase 1
+            txt_password.Text = "0"; 
             txt_port.Text = "5005";
             txt_location.Text = "Gate";
             txt_timeZone.Text = "+5";
@@ -270,7 +428,6 @@ namespace smart_attendance_middleware
             cmb_connectionType.SelectedItem = "LAN";
             cmb_device_type.SelectedItem = "Check-in";
             cmb_machine_no.SelectedItem = "1";
-            txt_ip.Text = "192.168.100.30";
         }
 
         private void pnl_device_Paint(object sender, PaintEventArgs e)

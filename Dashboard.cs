@@ -55,7 +55,8 @@ namespace smart_attendance_middleware
         private string originalButtonText;
         private System.Windows.Forms.Timer attendancePanelTimer;
         private bool _uiReady = false;
-        private const int MaxLogLines = 1;
+        private const int MaxLogLines = 10000000;
+        private HttpHandler _httpHandler;
 
         private readonly object _loaderLock = new object();
         private int _loaderRefCount = 0;
@@ -66,6 +67,16 @@ namespace smart_attendance_middleware
         private bool servicesInitialized = false;
         private smart_attendance_middleware.UI.LoaderPopupForm _loaderPopup;
         private EmailBackupService _emailBackupService;
+        private bool _attendanceInitialSyncHandled = false;
+        private volatile bool _serverProgressKeepAlive = false;
+
+        // DTO to carry computed sync status results
+        public class SyncStatusResult
+        {
+            public int MembersSynced { get; set; }
+            public int PendingBiometricJobs { get; set; }
+            public int MissingFingerprints { get; set; }
+        }
 
 
         public Dashboard()
@@ -79,15 +90,12 @@ namespace smart_attendance_middleware
             _dbHelper.InitializeDatabase();
             InitializeWebSocketManager();
 
-            string savedCapacity = _dbHelper.GetSetting("DeviceCapacity");
-            if (!string.IsNullOrEmpty(savedCapacity))
-            {
-                //txtDeviceCapacity.Text = savedCapacity;
-            }
 
             // Create DeviceFunctions with the WebSocketManager
             _deviceFunctions = new DeviceFunctions(_wsManager);
             _processor = new Processor(_dbHelper, _wsManager, _deviceFunctions);
+            _httpHandler = new HttpHandler(_dbHelper, _processor);
+
             _wsManager.LiveUpdate += WsManager_LiveUpdate;
             LogHelper.LogUpdated += AppendLogToTextBox; // Subscribe to log updates
 
@@ -231,53 +239,50 @@ namespace smart_attendance_middleware
         private void InitializeWebSocketManager()
         {
             _wsManager = new WebSocketManager(_dbHelper);
-            // _wsManager.LiveUpdate += WsManager_LiveUpdate; // Delegate to Processor instead
         }
         private void WsManager_LiveUpdate(object sender, LiveUpdateEventArgs e)
         {
             if (e.Data is JObject jdata)
             {
                 _processor.HandleLiveUserUpdate(e.EventType, jdata);
-                //AppendLog($"☁️ Live event handled: {e.EventType}");
-            }
-        }
-
-        private string GetTimeBasedGreeting()
-        {
-            var hour = DateTime.Now.Hour;
-            if (hour < 12) return "Good morning";
-            if (hour < 17) return "Good afternoon";
-            return "Good evening";
-        }
-
-        private void AddContextualMessages()
-        {
-            var hour = DateTime.Now.Hour;
-
-            if (hour >= 9 && hour <= 10)
-            {
-                aiChatLogger.AddTimeMessage("Good morning! I'm active and monitoring attendance events.");
-            }
-            else if (hour >= 17 && hour <= 18)
-            {
-                aiChatLogger.AddTimeMessage("Evening hours detected. Continuing to track attendance activity.");
-            }
-            else if (hour >= 22 || hour <= 6)
-            {
-                aiChatLogger.AddTimeMessage("It's late, but I'm still running and ready to process attendance events.");
             }
         }
 
         private void Dashboard_Load(object sender, EventArgs e)
         {
-            // Only cheap, non-blocking UI prep here
             OnDeviceExistCheck();
             UpdateAttendancePanels();
-            AddWelcomeMessages();
         }
 
-        //// Add this new event handler method
-        private bool _attendanceInitialSyncHandled = false;
+        
+
+        // Modify the Ready handler to finalize the bar and stop keep-alive
+        private void AttendanceServerThreadManager_Ready()
+        {
+            // Unsubscribe to avoid repeated calls
+            AttendanceServerThreadManager.Ready -= AttendanceServerThreadManager_Ready;
+            LogHelper.Log("[Dashboard] AttendanceServer thread reported ready.");
+
+            // Indicate server running on the progress bar
+            if (prg_server != null)
+            {
+                prg_server.Style = ProgressBarStyle.Continuous;
+                prg_server.Value = 100;
+                prg_server.Visible = true;
+            }
+
+            // Stop keep-alive progress
+            _serverProgressKeepAlive = false;
+
+            // Pass the WebSocketManager to the AttendanceServerForm instance
+            var attendanceServer = AttendanceServerForm.Instance;
+            if (attendanceServer != null && _wsManager != null)
+            {
+                attendanceServer.SetWebSocketManager(_wsManager);
+                LogHelper.Log("[Dashboard] WebSocketManager passed to AttendanceServer.");
+            }
+        }
+
         private async void OnAttendanceLogSyncCompleted()
         {
             // Prevent double handling
@@ -301,24 +306,57 @@ namespace smart_attendance_middleware
                 // Unsubscribe immediately (defensive)
                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
 
-                // Show loader and wait 20 seconds (non-blocking UI with DoEvents)
+                // Determinate progress: 0->100 over 20s, then keep-alive up to 99% until server ready
                 int delaySeconds = 20;
-                ShowLoader($"Finalizing initial sync... waiting {delaySeconds}s");
-                LogHelper.Log($"⏳ Waiting {delaySeconds}s to allow batch sends & cloud acks...");
+
+                if (prg_server != null)
+                {
+                    prg_server.Visible = true;
+                    prg_server.Style = ProgressBarStyle.Continuous;
+                    prg_server.Minimum = 0;
+                    prg_server.Maximum = 100;
+                    prg_server.Value = 0;
+                }
+
+                LogHelper.Log($"⏳ Finalizing initial sync... progressing server bar for {delaySeconds}s");
+
+                int stepPerSecond = 100 / delaySeconds; // 5
+                int current = 0;
 
                 for (int remain = delaySeconds; remain > 0; remain--)
                 {
-                    if (_loaderPopup != null && !_loaderPopup.IsDisposed)
+                    if (prg_server != null)
                     {
-                        _loaderPopup.StatusText = $"Finalizing initial sync... waiting {remain}s";
-                        _loaderPopup.Refresh();
+                        current = Math.Min(100, current + stepPerSecond);
+                        prg_server.Value = current;
+                        prg_server.Refresh();
                     }
+
                     await Task.Delay(1000);
                 }
 
-                HideLoader();
+                // After 20s, switch to keep-alive progress up to 99% until Ready sets it to 100%
+                _serverProgressKeepAlive = true;
+                LogHelper.Log("⏭️ Entering keep-alive progress mode until server is ready...");
 
-                // If server was already started manually, skip
+                // Increment slowly to 99% (e.g., 1% every second) until Ready triggers
+                while (_serverProgressKeepAlive && prg_server != null && prg_server.Value < 99)
+                {
+                    try
+                    {
+                        prg_server.Value = Math.Min(99, prg_server.Value + 1);
+                        prg_server.Refresh();
+
+                    }
+                    catch
+                    {
+                        // Ignore UI update issues
+                    }
+
+                    await Task.Delay(1000);
+                }
+
+                // If server was already started manually, skip auto-start
                 if (_attendanceServerStarted)
                 {
                     LogHelper.Log("ℹ️ Attendance server already started manually. Skipping auto-start.");
@@ -333,50 +371,38 @@ namespace smart_attendance_middleware
                     AttendanceServerThreadManager.Start(showUI: false, waitForReady: false);
                     _attendanceServerStarted = true;
 
-                    LogHelper.Log("✅ AttendanceServerThreadManager start requested after delay window");
+                    LogHelper.Log("✅ AttendanceServerThreadManager start requested after progress completion");
                 }
                 catch (Exception ex)
                 {
                     LogHelper.Log($"❌ Failed to start AttendanceServerThreadManager: {ex.Message}");
+                    _serverProgressKeepAlive = false;
+                    if (prg_server != null)
+                    {
+                        prg_server.Style = ProgressBarStyle.Continuous;
+                        prg_server.Value = Math.Max(0, prg_server.Value - 10);
+                        prg_server.Refresh();
+                    }
                 }
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Error in OnAttendanceLogSyncCompleted: {ex.Message}");
+                _serverProgressKeepAlive = false;
+                if (prg_server != null)
+                {
+                    prg_server.Style = ProgressBarStyle.Continuous;
+                    prg_server.Value = 0;
+                    prg_server.Refresh();
+                }
             }
             finally
             {
-                // Ensure we are unsubscribed even if an exception occurred
                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
             }
         }
 
 
-        private async void AddWelcomeMessages()
-        {
-            try
-            {
-                // Add welcome message first
-                string userName = AppSession.LoggedInUser ?? "User";
-                string greeting = GetTimeBasedGreeting();
-                aiChatLogger.AddWelcomeMessage($"{greeting}, {userName}!");
-
-                // Check if it's first time today
-                aiChatLogger.AddInfoMessage("Ready to assist you today! Let's make attendance management easy.");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error adding welcome messages: {ex.Message}");
-            }
-        }
-
-        // DTO to carry computed sync status results
-        public class SyncStatusResult
-        {
-            public int MembersSynced { get; set; }
-            public int PendingBiometricJobs { get; set; }
-            public int MissingFingerprints { get; set; }
-        }
 
 
         /// <summary>
@@ -675,10 +701,7 @@ namespace smart_attendance_middleware
         // Add async initialization routine
         private async Task LoadInitialUiAsync()
         {
-            // Previously done in Dashboard_Load
-            //OnDeviceExistCheck();
             UpdateAttendancePanels();
-            AddWelcomeMessages();
             await Task.Yield(); // let UI pump once
         }
 
@@ -691,27 +714,25 @@ namespace smart_attendance_middleware
                 attendancePanelTimer.Tick += (s, args) => UpdateAttendancePanels();
                 attendancePanelTimer.Start();
 
-                AddContextualMessages();
-
-                _ = _processor.update_session();
+                _processor.update_session();
 
                 ShowLoader("Starting General Log Sync Service...");
                 ServiceManager.StartLogSyncService(_deviceFunctions);
-                await Task.Delay(15000);
+                await Task.Delay(1000);
 
                 ShowLoader("Starting Attendance Log Sync Service...");
                 AttendanceLogSyncService.InitialSyncCompleted += OnAttendanceLogSyncCompleted;
                 ServiceManager.StartAttendanceLogSyncService(_wsManager);
-                await Task.Delay(20000);
+                await Task.Delay(2000);
 
                 ShowLoader("Starting Periodic Maintenance Service...");
                 ServiceManager.StartPeriodicMaintenanceService(this);
-                await Task.Delay(10000);
+                await Task.Delay(1000);
 
                 ShowLoader("Starting Email Backup Service...");
                 _emailBackupService = new EmailBackupService(_dbHelper);
                 _emailBackupService.Start();
-                await Task.Delay(10000);
+                await Task.Delay(1000);
 
                 ShowLoader("Connection monitors...");
                 ConnectionStatusChecker.Instance.SetWebSocketManager(_wsManager);
@@ -721,7 +742,7 @@ namespace smart_attendance_middleware
                 ConnectionStatusChecker.Instance.StaffDeviceStatusChanged += OnStaffDeviceStatusChanged;
                 ConnectionStatusChecker.Instance.Start();
 
-                await Task.Delay(3000);
+                await Task.Delay(1000);
 
 
                 // Immediately refresh device panels after connection monitors start
@@ -750,30 +771,6 @@ namespace smart_attendance_middleware
         {
             AttendanceServerThreadManager.Ready -= ShowServerWhenReady;
             AttendanceServerThreadManager.ShowUI();
-        }
-        
-
-        private void AttendanceServerThreadManager_Ready()
-        {
-            // Unsubscribe to avoid repeated calls
-            AttendanceServerThreadManager.Ready -= AttendanceServerThreadManager_Ready;
-            LogHelper.Log("[Dashboard] AttendanceServer thread reported ready.");
-
-            // Update the label to show "Connected" status
-            if (label10 != null)
-            {
-                label10.Text = "Connected";
-                label10.ForeColor = Color.Green;
-            }
-
-            // Pass the WebSocketManager to the AttendanceServerForm instance
-            var attendanceServer = AttendanceServerForm.Instance;
-            if (attendanceServer != null && _wsManager != null)
-            {
-                // You'll need to add this method to AttendanceServerForm
-                attendanceServer.SetWebSocketManager(_wsManager);
-                LogHelper.Log("[Dashboard] WebSocketManager passed to AttendanceServer.");
-            }
         }
 
         private void OnInternetStatusChanged(bool isConnected)
@@ -884,12 +881,15 @@ namespace smart_attendance_middleware
 
         }
 
+        
+
         public async Task TriggerWebSocketReconnection()
         {
             try
             {
                 LogHelper.Log("🔄 WebSocket reconnection triggered by subscription checker...");
 
+                // Check if we have an API key and devices configured
                 var existingDevices = _dbHelper.LoadDevices();
                 if (existingDevices == null || existingDevices.Count == 0)
                 {
@@ -904,23 +904,25 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                _wsManager.Initialize(apiKey);
-                await _wsManager.ConnectAsync().ConfigureAwait(false);
+                // Subscribe to channel
+                bool isSubscribed = await _wsManager.ConnectAndSubscribeAsync(preferTls: true, handshakeTimeoutMs: 5000, fallbackToCleartext: true);
 
-                bool isSubscribed = await _wsManager.SubscribeAsync().ConfigureAwait(false);
-
-                // Marshal UI update only
-                BeginInvoke(new Action(() => OnSubscriptionStatusChanged(isSubscribed)));
+                // Update the subscription status
+                OnSubscriptionStatusChanged(isSubscribed);
 
                 if (isSubscribed)
+                {
                     LogHelper.Log("✅ WebSocket reconnection successful");
+                }
                 else
+                {
                     LogHelper.Log("❌ WebSocket reconnection failed - subscription unsuccessful");
+                }
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ WebSocket reconnection failed: {ex.Message}");
-                BeginInvoke(new Action(() => OnSubscriptionStatusChanged(false)));
+                OnSubscriptionStatusChanged(false);
             }
         }
 
@@ -1469,13 +1471,12 @@ namespace smart_attendance_middleware
             }
         }
 
-
-
         private async void cuiButton4_Click(object sender, EventArgs e)
         {
             // Store original button text and start countdown
             originalButtonText = btn_sync.Content?.ToString() ?? "Connect";
             StartButtonCountdown();
+
             try
             {
                 // Step 0: Temporarily stop subscription checking to prevent interference
@@ -1483,7 +1484,6 @@ namespace smart_attendance_middleware
                 ConnectionStatusChecker.Instance.Stop();
 
                 // Step 1: Check for existing devices
-
                 var existingDevices = _dbHelper.LoadDevices();
                 if (existingDevices == null || existingDevices.Count == 0)
                 {
@@ -1556,18 +1556,12 @@ namespace smart_attendance_middleware
                 {
                     LogHelper.Log("🔌 Establishing new WebSocket connection...");
 
-                    // Step 4: Initialize WebSocket if not already connected
-                    _wsManager.Initialize(apiKey);
-                    LogHelper.Log($"🔗 Initialized WebSocket with API Key: {apiKey}");
-
-                    // Step 5: Connect and Subscribe
+                    // Step 4: Connect and Subscribe
                     LogHelper.Log("🔄 Connecting to WebSocket...");
-                    await _wsManager.ConnectAsync();
-
                     LogHelper.Log("📡 Subscribing to channel...");
-                    bool isSubscribed = await _wsManager.SubscribeAsync();
+                    bool isSubscribed = await _wsManager.ConnectAndSubscribeAsync(preferTls: true, handshakeTimeoutMs: 5000, fallbackToCleartext: true);
 
-                    // Step 6: Update cloud icon and status
+                    // Step 5: Update cloud icon and status
                     OnSubscriptionStatusChanged(isSubscribed);
 
                     if (!isSubscribed)
@@ -1579,60 +1573,18 @@ namespace smart_attendance_middleware
                     LogHelper.Log("✅ Successfully connected and subscribed");
                 }
 
-                LogHelper.Log("📡 Connection verified. Requesting all members from cloud...");
+                LogHelper.Log("📡 Connection verified. Requesting all members from cloud via HTTP...");
 
-                // Step 7: Get version from local DB
-                string versionValue = _dbHelper.GetSetting("VersionTimestamp");
-                int version = 0; // Default to full sync
+                // Step 6: Request all members via HttpHandler
+                await _httpHandler.FetchAllMembers(CancellationToken.None);
 
-                if (!string.IsNullOrWhiteSpace(versionValue) && int.TryParse(versionValue, out int parsed))
-                {
-                    version = parsed;
-                    LogHelper.Log($"ℹ️ Using sync version: {version}");
-                }
-                else
-                {
-                    LogHelper.Log("ℹ️ Using default version (full sync)");
-                }
+                LogHelper.Log("✅ Member synchronization request completed via HTTP");
 
-                // Step 8: Request all members with correct version
-                LogHelper.Log("📥 Requesting members from cloud...");
-
-                // Create a TaskCompletionSource to await sync completion
-                var syncCompletionSource = new TaskCompletionSource<bool>();
-
-                // Register event handler
-                EventHandler syncCompleteHandler = null;
-                syncCompleteHandler = (s, args) =>
-                {
-                    _wsManager.AllMembersSynced -= syncCompleteHandler;
-                    syncCompletionSource.SetResult(true);
-                };
-                _wsManager.AllMembersSynced += syncCompleteHandler;
-
-                // Start the sync
-                await _wsManager.GetAllMembersAsync(perPage: 20, version: version);
-
-                // Wait for sync completion with timeout (60 seconds)
-                var completedTask = await Task.WhenAny(
-                    syncCompletionSource.Task,
-                    Task.Delay(TimeSpan.FromSeconds(60))
-                );
-
-                if (completedTask != syncCompletionSource.Task)
-                {
-                    LogHelper.Log("❌ Member synchronization timed out after 60 seconds");
-                    throw new TimeoutException("Member synchronization timed out");
-                }
-
-                LogHelper.Log("✅ Member synchronization fully completed");
-
-                // Step 9: Execute complete user processing workflow
+                // Step 7: Execute complete user processing workflow
                 await _deviceFunctions.ProcessUserWorkflowAsync();
 
-                // Refresh sync status after retry
+                // Step 8: Refresh sync status after processing
                 await RefreshDeviceSyncStatusAsync();
-
             }
             catch (Exception ex)
             {
@@ -1645,14 +1597,13 @@ namespace smart_attendance_middleware
             }
             finally
             {
-                // Step 11: Restart subscription checking now that button operations are complete
+                // Step 9: Restart subscription checking now that button operations are complete
                 LogHelper.Log("🔄 Restarting Connection Status Checker");
                 ConnectionStatusChecker.Instance.Start();
 
                 LogHelper.Log("🔚 Connect operation completed");
             }
         }
-
         // Add these methods to handle the countdown timer
         private void StartButtonCountdown()
         {
@@ -2218,6 +2169,212 @@ namespace smart_attendance_middleware
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+        private const string HardcodedUuid = "d3e7a3b5-4d1b-4e8a-8f3b-2e2b3b4c5d6e";
+        private async void button2_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                int enrollmentId = 118;
+                string checkinTime = DateTime.UtcNow.ToString("o"); // ISO 8601 format
 
+                await _httpHandler.PostAttendanceRecordAsync(enrollmentId, checkinTime: checkinTime, id: HardcodedUuid);
+                LogHelper.Log($"✅ Sent Check-In for Enrollment ID: {enrollmentId} with UUID: {HardcodedUuid}");
+                MessageBox.Show($"Check-In sent for Enrollment ID: {enrollmentId}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Check-In failed: {ex.Message}");
+                MessageBox.Show($"Error during Check-In: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        private async void button3_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                int enrollmentId = 118;
+                string checkoutTime = DateTime.UtcNow.ToString("o"); // ISO 8601 format
+
+                await _httpHandler.PostAttendanceRecordAsync(enrollmentId, checkoutTime: checkoutTime, id: HardcodedUuid);
+                LogHelper.Log($"✅ Sent Check-Out for Enrollment ID: {enrollmentId} with UUID: {HardcodedUuid}");
+                MessageBox.Show($"Check-Out sent for Enrollment ID: {enrollmentId}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Check-Out failed: {ex.Message}");
+                MessageBox.Show($"Error during Check-Out: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+
+
+        /////////////////////////Global Loader////////////////////////////////////////////
+
+
+        /// <summary>
+        /// Starts the loader and optionally sets a status message.
+        /// Multiple concurrent starts are reference-counted; the loader remains visible
+        /// until the last Stop is called.
+        /// Safe to call from any thread.
+        /// </summary>
+        public void StartLoader(string message = null)
+        {
+            try
+            {
+                lock (_loaderLock)
+                {
+                    _loaderRefCount++;
+                }
+
+                if (InvokeRequired)
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        ShowLoader(message);
+                    }));
+                }
+                else
+                {
+                    ShowLoader(message);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[StartLoader][ERROR] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Stops the loader. Decrements the reference-count; hides when it reaches zero.
+        /// Safe to call from any thread.
+        /// </summary>
+        public void StopLoader()
+        {
+            try
+            {
+                bool shouldHide = false;
+                lock (_loaderLock)
+                {
+                    if (_loaderRefCount > 0)
+                    {
+                        _loaderRefCount--;
+                        shouldHide = _loaderRefCount == 0;
+                    }
+                    else
+                    {
+                        _loaderRefCount = 0;
+                    }
+                }
+
+                if (shouldHide)
+                {
+                    if (InvokeRequired)
+                        BeginInvoke(new Action(HideLoader));
+                    else
+                        HideLoader();
+                }
+                else
+                {
+                    // Refresh if still visible for other callers
+                    if (InvokeRequired)
+                    {
+                        BeginInvoke(new Action(() =>
+                        {
+                            if (_loaderPopup != null && !_loaderPopup.IsDisposed)
+                                _loaderPopup.Refresh();
+                        }));
+                    }
+                    else
+                    {
+                        if (_loaderPopup != null && !_loaderPopup.IsDisposed)
+                            _loaderPopup.Refresh();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[StopLoader][ERROR] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Updates the loader message while it is visible.
+        /// Safe to call from any thread.
+        /// </summary>
+        public void UpdateLoaderMessage(string message)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(message))
+                    return;
+
+                if (InvokeRequired)
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        if (_loaderPopup != null && !_loaderPopup.IsDisposed)
+                        {
+                            _loaderPopup.StatusText = message;
+                            _loaderPopup.Refresh();
+                        }
+                    }));
+                }
+                else
+                {
+                    if (_loaderPopup != null && !_loaderPopup.IsDisposed)
+                    {
+                        _loaderPopup.StatusText = message;
+                        _loaderPopup.Refresh();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[UpdateLoaderMessage][ERROR] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Start loader from anywhere without a Dashboard reference.
+        /// </summary>
+        public static void GlobalStartLoader(string message = null)
+        {
+            var dash = Application.OpenForms.Cast<Form>().OfType<Dashboard>().FirstOrDefault();
+            if (dash == null)
+            {
+                LogHelper.Log("[GlobalStartLoader] Dashboard not available.");
+                return;
+            }
+            dash.StartLoader(message);
+        }
+
+        /// <summary>
+        /// Stop loader from anywhere without a Dashboard reference.
+        /// </summary>
+        public static void GlobalStopLoader()
+        {
+            var dash = Application.OpenForms.Cast<Form>().OfType<Dashboard>().FirstOrDefault();
+            if (dash == null)
+            {
+                LogHelper.Log("[GlobalStopLoader] Dashboard not available.");
+                return;
+            }
+            dash.StopLoader();
+        }
+
+        /// <summary>
+        /// Update loader message from anywhere.
+        /// </summary>
+        public static void GlobalUpdateLoaderMessage(string message)
+        {
+            var dash = Application.OpenForms.Cast<Form>().OfType<Dashboard>().FirstOrDefault();
+            if (dash == null)
+            {
+                LogHelper.Log("[GlobalUpdateLoaderMessage] Dashboard not available.");
+                return;
+            }
+            dash.UpdateLoaderMessage(message);
+        }
+
+        /////////////////////////////////////////////////////////////////////////////////
     }
 }

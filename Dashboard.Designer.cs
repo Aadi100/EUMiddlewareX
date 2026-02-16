@@ -29,9 +29,9 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Dashboard));
-            this.label1 = new System.Windows.Forms.Label();
             this.txtLog = new System.Windows.Forms.TextBox();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.prg_server = new System.Windows.Forms.ProgressBar();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.cuiPanel6 = new CuoreUI.Controls.cuiPanel();
             this.cuiPanel7 = new CuoreUI.Controls.cuiPanel();
@@ -107,8 +107,7 @@
             this.pic_device_status = new System.Windows.Forms.PictureBox();
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
-            this.label10 = new System.Windows.Forms.Label();
-            this.button1 = new System.Windows.Forms.Button();
+            this.process1 = new System.Diagnostics.Process();
             this.panel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.cuiPanel6.SuspendLayout();
@@ -136,18 +135,6 @@
             this.panel4.SuspendLayout();
             this.SuspendLayout();
             // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.BackColor = System.Drawing.Color.Transparent;
-            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 30F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.ForeColor = System.Drawing.Color.White;
-            this.label1.Location = new System.Drawing.Point(1795, 54);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(34, 46);
-            this.label1.TabIndex = 1;
-            this.label1.Text = "-";
-            // 
             // txtLog
             // 
             this.txtLog.Location = new System.Drawing.Point(1384, 103);
@@ -160,6 +147,7 @@
             // panel2
             // 
             this.panel2.BackColor = System.Drawing.Color.White;
+            this.panel2.Controls.Add(this.prg_server);
             this.panel2.Controls.Add(this.pictureBox1);
             this.panel2.Controls.Add(this.cuiPanel6);
             this.panel2.Controls.Add(this.cuiPanel5);
@@ -171,6 +159,13 @@
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(1307, 567);
             this.panel2.TabIndex = 41;
+            // 
+            // prg_server
+            // 
+            this.prg_server.Location = new System.Drawing.Point(-20, 554);
+            this.prg_server.Name = "prg_server";
+            this.prg_server.Size = new System.Drawing.Size(1385, 10);
+            this.prg_server.TabIndex = 15;
             // 
             // pictureBox1
             // 
@@ -1302,24 +1297,15 @@
             this.panel4.TabIndex = 45;
             this.panel4.Paint += new System.Windows.Forms.PaintEventHandler(this.panel4_Paint);
             // 
-            // label10
+            // process1
             // 
-            this.label10.AutoSize = true;
-            this.label10.ForeColor = System.Drawing.SystemColors.Control;
-            this.label10.Location = new System.Drawing.Point(1385, 73);
-            this.label10.Name = "label10";
-            this.label10.Size = new System.Drawing.Size(0, 13);
-            this.label10.TabIndex = 44;
-            // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(1463, 47);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 46;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
+            this.process1.StartInfo.Domain = "";
+            this.process1.StartInfo.LoadUserProfile = false;
+            this.process1.StartInfo.Password = null;
+            this.process1.StartInfo.StandardErrorEncoding = null;
+            this.process1.StartInfo.StandardOutputEncoding = null;
+            this.process1.StartInfo.UserName = "";
+            this.process1.SynchronizingObject = this;
             // 
             // Dashboard
             // 
@@ -1327,9 +1313,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1296, 636);
-            this.Controls.Add(this.button1);
-            this.Controls.Add(this.label10);
+            this.ClientSize = new System.Drawing.Size(1834, 636);
             this.Controls.Add(this.lbl_Fingerprints);
             this.Controls.Add(this.btn_fingerprintno);
             this.Controls.Add(this.lbl_NoDevices);
@@ -1339,7 +1323,6 @@
             this.Controls.Add(this.panelDevice1);
             this.Controls.Add(this.panelDevice2);
             this.Controls.Add(this.panelDevice3);
-            this.Controls.Add(this.label1);
             this.Controls.Add(this.panel4);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -1390,7 +1373,6 @@
         }
 
         #endregion
-        private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.PictureBox pic_cloud_status;
         private System.Windows.Forms.PictureBox pic_net_status;
@@ -1468,7 +1450,7 @@
         private System.Windows.Forms.LinkLabel lnk_dooropen3;
         private System.Windows.Forms.LinkLabel lnk_dooropen2;
         private System.Windows.Forms.LinkLabel lnk_dooropen1;
-        private System.Windows.Forms.Label label10;
-        private System.Windows.Forms.Button button1;
+        private System.Diagnostics.Process process1;
+        private System.Windows.Forms.ProgressBar prg_server;
     }
 }
