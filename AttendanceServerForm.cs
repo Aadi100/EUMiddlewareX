@@ -15,6 +15,8 @@ namespace smart_attendance_middleware
         private static Exception _lastInitException;
 
         private readonly AttendenceServerFunctions _attendanceFunctions = new AttendenceServerFunctions();
+        private readonly DatabaseHelper _dbHelper = new DatabaseHelper();
+        private readonly StaffAttendenceServerFunctions _staffAttendanceFunctions = new StaffAttendenceServerFunctions();
 
 
         // Add this method to your AttendanceServerForm class
@@ -375,21 +377,53 @@ namespace smart_attendance_middleware
 
         private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time)
         {
-            // Skip forwarding for enroll numbers in the ignored range
-            if (enroll >= 10000 && enroll <= 10500)
-            {
-                LogHelper.Log($"[AttendanceServer] ForwardAttendanceData skipped (Enroll={enroll} in 10000-10500).");
-                return;
-            }
+            // Normalize IP (strip port if present)
+            string ipOnly = ip ?? string.Empty;
+            int colon = ipOnly.IndexOf(':');
+            if (colon >= 0) ipOnly = ipOnly.Substring(0, colon);
 
-            var record = new AttendenceServerFunctions.AttendanceRecord
+            try
             {
-                DevID = devId,
-                IP = ip,
-                Enroll = enroll,
-                Time = time
-            };
-            _attendanceFunctions.Process(record);
+                // Use DatabaseHelper to determine whether this IP belongs to a staff or member device
+                var category = _dbHelper.GetDeviceCategoryByIp(ipOnly);
+
+                if (category.exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Route to staff pipeline
+                    var srec = new StaffAttendenceServerFunctions.StaffAttendanceRecord
+                    {
+                        DevID = devId,
+                        IP = ip,
+                        Enroll = enroll,
+                        Time = time
+                    };
+                    _staffAttendanceFunctions.Process(srec);
+                    return;
+                }
+
+                // Default / member pipeline
+                var mrec = new AttendenceServerFunctions.AttendanceRecord
+                {
+                    DevID = devId,
+                    IP = ip,
+                    Enroll = enroll,
+                    Time = time
+                };
+                _attendanceFunctions.Process(mrec);
+            }
+            catch (Exception ex)
+            {
+                // On any error, fallback to member pipeline to avoid losing events
+                LogHelper.Log($"[ForwardAttendanceData] Routing error for IP={ip}: {ex.Message}. Falling back to member pipeline.");
+                var fallback = new AttendenceServerFunctions.AttendanceRecord
+                {
+                    DevID = devId,
+                    IP = ip,
+                    Enroll = enroll,
+                    Time = time
+                };
+                _attendanceFunctions.Process(fallback);
+            }
         }
 
 

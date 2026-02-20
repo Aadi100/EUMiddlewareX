@@ -717,35 +717,39 @@ namespace smart_attendance_middleware
                 _processor.update_session();
 
                 ShowLoader("Starting General Log Sync Service...");
-                ServiceManager.StartLogSyncService(_deviceFunctions);
-                await Task.Delay(1000);
+                await ServiceManager.StartLogSyncServiceAsync(_deviceFunctions);
 
                 ShowLoader("Starting Attendance Log Sync Service...");
+                AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
                 AttendanceLogSyncService.InitialSyncCompleted += OnAttendanceLogSyncCompleted;
-                ServiceManager.StartAttendanceLogSyncService(_wsManager);
-                await Task.Delay(2000);
+                await ServiceManager.StartAttendanceLogSyncServiceAsync(_wsManager);
 
                 ShowLoader("Starting Periodic Maintenance Service...");
-                ServiceManager.StartPeriodicMaintenanceService(this);
-                await Task.Delay(1000);
+                await ServiceManager.StartPeriodicMaintenanceServiceAsync(this);
 
                 ShowLoader("Starting Email Backup Service...");
-                _emailBackupService = new EmailBackupService(_dbHelper);
+                if (_emailBackupService == null)
+                {
+                    _emailBackupService = new EmailBackupService(_dbHelper);
+                }
                 _emailBackupService.Start();
-                await Task.Delay(1000);
 
                 ShowLoader("Connection monitors...");
                 ConnectionStatusChecker.Instance.SetWebSocketManager(_wsManager);
+                ConnectionStatusChecker.Instance.InternetStatusChanged -= OnInternetStatusChanged;
                 ConnectionStatusChecker.Instance.InternetStatusChanged += OnInternetStatusChanged;
+
+                ConnectionStatusChecker.Instance.BiometricDeviceStatusChanged -= OnBiometricStatusChanged;
                 ConnectionStatusChecker.Instance.BiometricDeviceStatusChanged += OnBiometricStatusChanged;
+
+                ConnectionStatusChecker.Instance.SubscriptionStatusChanged -= OnSubscriptionStatusChanged;
                 ConnectionStatusChecker.Instance.SubscriptionStatusChanged += OnSubscriptionStatusChanged;
+
+                ConnectionStatusChecker.Instance.StaffDeviceStatusChanged -= OnStaffDeviceStatusChanged;
                 ConnectionStatusChecker.Instance.StaffDeviceStatusChanged += OnStaffDeviceStatusChanged;
+
                 ConnectionStatusChecker.Instance.Start();
 
-                await Task.Delay(1000);
-
-
-                // Immediately refresh device panels after connection monitors start
                 ShowLoader("Scanning devices...");
                 try
                 {
@@ -755,15 +759,13 @@ namespace smart_attendance_middleware
                 {
                     LogHelper.Log("[StartServicesAsync] Error refreshing device status: " + ex.Message);
                 }
-                ShowLoader("Finalizing...");
-                await Task.Delay(3000);
 
+                ShowLoader("Finalizing...");
             }
             catch (Exception ex)
             {
                 LogHelper.Log("[StartServicesAsync][ERROR] " + ex.Message);
                 ShowLoader("Startup error. See logs.");
-                await Task.Delay(1200);
             }
         }
 

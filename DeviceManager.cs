@@ -23,19 +23,8 @@ namespace smart_attendance_middleware
         private DeviceFunctions _deviceFunctions = new DeviceFunctions();
         //private AxFP_CLOCK pOcxObject;
 
-        private readonly string _staffFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "staff.txt");
         private readonly List<(int Id, string Name, long CardId, string ImagePath)> _staffEntries = new List<(int, string, long, string)>();
-        private string _selectedImagePath = null; // original user-selected path (source)
-        private string _storedImagePath = null;   // copied image path we persist/use
-        private readonly string _staffImagesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "StaffImages");
-        private readonly List<(int Id, string Name, string ImagePath)> _enrolledStaffBuffer = new List<(int, string, string)>(); // in-memory array requested
-
-        // Add these fields near the other staff fields at the top of the class
-        private readonly string _privMembersFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "privilegemember.txt");
-        private readonly string _privImagesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PrivilegeImages");
-        private readonly List<(int Id, string Name, long CardId, string ImagePath)> _privMembers = new List<(int, string, long, string)>();
-        private string _privSelectedImagePath = null; // original user-selected path
-        private string _privStoredImagePath = null;   // copied image path we persist/use
+        private readonly List<(int Id, string Name, string ImagePath)> _enrolledStaffBuffer= new List<(int Id, string Name, string ImagePath)>();
         private CancellationTokenSource _cardListenCts = null;
 
         private bool _selectedIsStaff = false;
@@ -226,17 +215,12 @@ namespace smart_attendance_middleware
             ClearDeviceFields(); // Clear device fields on load
             update_session(); // Update session with device data
             InitializeMemberList();
-            EnsureStaffFileExists();
-            LoadStaffEntriesFromFile();
-            PopulateStaffListView();
-            PrepareNextStaffId();
             InitializeMemberListForStats();       // dynamic name suggestions
             InitializeMembersListView();  // members list view setup
 
             // Wire events
             flt_members.Click += flt_members_Click;
             txt_memb_name.TextChanged += txt_memb_name_TextChanged;
-            lst_stff.DoubleClick += lst_stff_DoubleClick;
 
             InitializeStaffSuggestions();
             InitializeStaffsListView();
@@ -411,7 +395,6 @@ namespace smart_attendance_middleware
             pnl_APIkey.Visible = false;
             // End of Button Color Seetup
 
-            StartStaffCardIdListening();
         }
 
         private void btn_attendencemanagment_Click(object sender, EventArgs e)
@@ -483,6 +466,9 @@ namespace smart_attendance_middleware
             pnl_APIkey.Visible = false;
             pnl_staffsManagment.Visible = false;
             // End of Button Color Setup
+
+            StartStaffCardIdListening();
+
 
         }
 
@@ -2146,383 +2132,6 @@ namespace smart_attendance_middleware
 
 
 
-        //////////////////////////MANUAL STAFF HANDLING//////////////////////////////////
-        private void EnsureStaffFileExists()
-        {
-            try
-            {
-                if (!File.Exists(_staffFilePath))
-                {
-                    File.WriteAllText(_staffFilePath, string.Empty); // create empty
-                }
-                if (!Directory.Exists(_staffImagesDir))
-                    Directory.CreateDirectory(_staffImagesDir);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to prepare staff storage: {ex.Message}", "Staff Init Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void LoadStaffEntriesFromFile()
-        {
-            _staffEntries.Clear();
-            if (!File.Exists(_staffFilePath)) return;
-
-            foreach (var line in File.ReadAllLines(_staffFilePath))
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-
-                var parts = line.Split('|');
-                if (parts.Length < 2) continue;
-
-                int id;
-                if (!int.TryParse(parts[0], out id)) continue;
-
-                string name = parts[1];
-                long cardId = 0;
-                string img = string.Empty;
-
-                if (parts.Length >= 4)
-                {
-                    // New format: id|name|cardId|imagePath
-                    long.TryParse(parts[2], out cardId);
-                    img = parts[3];
-                }
-                else if (parts.Length == 3)
-                {
-                    // Legacy format: id|name|imagePath
-                    img = parts[2];
-                    cardId = 0;
-                }
-                else
-                {
-                    // Only id|name present
-                    cardId = 0;
-                    img = string.Empty;
-                }
-
-                _staffEntries.Add((id, name, cardId, img));
-            }
-        }
-
-        private void PopulateStaffListView()
-        {
-            if (lst_stff == null) return;
-
-            lst_stff.BeginUpdate();
-            lst_stff.Clear();
-            lst_stff.View = View.Details;
-            lst_stff.FullRowSelect = true;
-            lst_stff.GridLines = true;
-            if (lst_stff.Columns.Count == 0)
-            {
-                lst_stff.Columns.Add("ID", 60);
-                lst_stff.Columns.Add("Name", 160);
-                lst_stff.Columns.Add("Card Id", 120);
-                lst_stff.Columns.Add("Image", 260);
-                lst_stff.Columns[lst_stff.Columns.Count - 1].Width = -2;
-            }
-
-            foreach (var e in _staffEntries.OrderBy(x => x.Id))
-            {
-                var item = new ListViewItem(e.Id.ToString());
-                item.SubItems.Add(e.Name);
-                item.SubItems.Add(e.CardId == 0 ? "-" : e.CardId.ToString());
-                item.SubItems.Add(string.IsNullOrWhiteSpace(e.ImagePath) ? "-" : Path.GetFileName(e.ImagePath));
-                item.Tag = e;
-                lst_stff.Items.Add(item);
-            }
-            lst_stff.EndUpdate();
-        }
-
-        private void PrepareNextStaffId()
-        {
-            if (txt_stffid == null) return;
-            int next = _staffEntries.Count == 0 ? 1 : _staffEntries.Max(x => x.Id) + 1;
-            txt_stffid.Text = next.ToString();
-            txt_stffid.ReadOnly = true;
-        }
-
-        private void SaveStaffEntryToFile(int id, string name, long cardId, string imagePath)
-        {
-            // Append as id|name|cardId|imagePath
-            var line = $"{id}|{name}|{cardId}|{imagePath}";
-            File.AppendAllText(_staffFilePath, line + Environment.NewLine);
-            _staffEntries.Add((id, name, cardId, imagePath));
-        }
-
-        private void btn_image_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                using (var ofd = new OpenFileDialog())
-                {
-                    ofd.Title = "Select Face Image";
-                    ofd.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp";
-                    ofd.Multiselect = false;
-                    if (ofd.ShowDialog() != DialogResult.OK) return;
-
-                    _selectedImagePath = ofd.FileName;
-                    // Copy to local StaffImages for consistent path usage
-                    string fileName = $"{Guid.NewGuid()}{Path.GetExtension(_selectedImagePath)}";
-                    _storedImagePath = Path.Combine(_staffImagesDir, fileName);
-                    File.Copy(_selectedImagePath, _storedImagePath, true);
-
-                    // Simple feedback (optional: show preview in PictureBox if exists)
-                    btn_image.Text = "Image Selected";
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Image selection failed: {ex.Message}", "Image Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private async void btn_stffenroll_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(txt_stffid?.Text) ||
-                string.IsNullOrWhiteSpace(txt_stffname?.Text))
-            {
-                MessageBox.Show("ID and Name are required.", "Validation",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            int id;
-            if (!int.TryParse(txt_stffid.Text, out id))
-            {
-                MessageBox.Show("Invalid ID format.", "Validation",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            string name = txt_stffname.Text.Trim();
-            if (name.Length == 0)
-            {
-                MessageBox.Show("Name cannot be empty.", "Validation",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Optional: staff card ID (if present, we will add RFID as well)
-            long staffCardId = 0;
-            long.TryParse((txt_staffcardid?.Text ?? string.Empty).Trim(), out staffCardId);
-
-            // Relaxed validation: require at least one of card OR image
-            bool hasImage = _storedImagePath != null && File.Exists(_storedImagePath);
-            bool hasCard = staffCardId > 0;
-
-            if (!hasImage && !hasCard)
-            {
-                MessageBox.Show("Please provide either a Card ID or a Face Image to enroll.", "Validation",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            btn_stffenroll.Enabled = false;
-            Cursor = Cursors.WaitCursor;
-
-            try
-            {
-                // Persist to staff.txt with whatever we have (empty image path allowed)
-                string imagePathToSave = hasImage ? _storedImagePath : string.Empty;
-                SaveStaffEntryToFile(id, name, staffCardId, imagePathToSave);
-
-                // Add to in-memory buffer (face path can be empty)
-                _enrolledStaffBuffer.Add((id, name, imagePathToSave));
-
-                // Refresh UI
-                PopulateStaffListView();
-                PrepareNextStaffId();
-                txt_stffname.Text = "";
-                _selectedImagePath = null;
-                _storedImagePath = null;
-                btn_image.Text = "Add Face";
-                if (txt_staffcardid != null) txt_staffcardid.Text = string.Empty;
-
-                // Enroll across devices: name, optional RFID, optional face
-                // Use the last saved entry's image path (may be empty)
-                await EnrollStaffAcrossAllDevicesAsync(id, name, staffCardId, _staffEntries.Last().ImagePath);
-
-                MessageBox.Show("Staff enrolled successfully on available devices.", "Success",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Enrollment failed: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                btn_stffenroll.Enabled = true;
-                txt_staffcardid.Text = "";
-                Cursor = Cursors.Default;
-            }
-        }
-
-        
-
-
-
-        private void label7_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        // helper to rewrite staff.txt after removals
-        private void WriteStaffEntriesToFile()
-        {
-            try
-            {
-                var lines = _staffEntries.Select(e => $"{e.Id}|{e.Name}|{e.CardId}|{(e.ImagePath ?? string.Empty)}");
-                File.WriteAllLines(_staffFilePath, lines);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to update staff file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void lst_stff_DoubleClick(object sender, EventArgs e)
-        {
-            if (lst_stff.SelectedItems.Count == 0) return;
-
-            var item = lst_stff.SelectedItems[0];
-
-            // New tuple with CardId
-            if (item.Tag is ValueTuple<int, string, long, string> entry4)
-            {
-                txt_stffid.Text = entry4.Item1.ToString();
-                txt_stffname.Text = entry4.Item2;
-                if (txt_staffcardid != null)
-                    txt_staffcardid.Text = entry4.Item3 > 0 ? entry4.Item3.ToString() : string.Empty;
-                return;
-            }
-
-            // Legacy tuple without CardId
-            if (item.Tag is ValueTuple<int, string, string> entry3)
-            {
-                txt_stffid.Text = entry3.Item1.ToString();
-                txt_stffname.Text = entry3.Item2;
-                if (txt_staffcardid != null)
-                    txt_staffcardid.Text = string.Empty;
-                return;
-            }
-
-            // Fallback from columns
-            int parsedId;
-            if (int.TryParse(item.Text, out parsedId))
-                txt_stffid.Text = parsedId.ToString();
-            if (item.SubItems.Count > 1)
-                txt_stffname.Text = item.SubItems[1].Text;
-            if (txt_staffcardid != null)
-            {
-                // Column 2 (index 2) is "Card Id" now
-                if (item.SubItems.Count > 2)
-                    txt_staffcardid.Text = item.SubItems[2].Text == "-" ? string.Empty : item.SubItems[2].Text;
-                else
-                    txt_staffcardid.Text = string.Empty;
-            }
-        }
-
-        // delete staff across devices and remove from file + image
-        private async void btn_deletestff_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(txt_stffid?.Text))
-            {
-                MessageBox.Show("Select a staff entry first (double-click on the list).", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            int id;
-            if (!int.TryParse(txt_stffid.Text.Trim(), out id))
-            {
-                MessageBox.Show("Invalid ID.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var idx = _staffEntries.FindIndex(s => s.Id == id);
-            if (idx < 0)
-            {
-                MessageBox.Show("Staff entry not found.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            var entry = _staffEntries[idx];
-            var allDevices = new List<Device>();
-            if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
-            if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
-
-            btn_deletestff.Enabled = false;
-            Cursor = Cursors.WaitCursor;
-
-            try
-            {
-                // call DeleteEnrollmentData on all devices (backupNumber hardcoded to 12)
-                foreach (var device in allDevices)
-                {
-                    try
-                    {
-                        string ip = device.DeviceIP;
-                        int port = device.Port;
-                        int machineNo = device.MachineNo;
-                        string password = device.Password ?? "0";
-                        int enrollmentNumber = id;
-                        int enrollmentMachineId = machineNo; // use device machine no
-
-                        bool ok = await DeviceService.DeleteEnrollmentData(ip, port, machineNo, password, enrollmentNumber, enrollmentMachineId, 12);
-                        if (!ok)
-                        {
-                            LogHelper.Log($"DeleteEnrollmentData failed for {ip}:{port} machineNo={machineNo} enrollment={id}");
-                        }
-                    }
-                    catch (Exception exDev)
-                    {
-                        LogHelper.Log($"Error deleting enrollment {id} on device {device.DeviceIP}: {exDev.Message}");
-                    }
-                }
-
-                // remove image (if exists)
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(entry.ImagePath) && File.Exists(entry.ImagePath))
-                        File.Delete(entry.ImagePath);
-                }
-                catch (Exception imgEx)
-                {
-                    LogHelper.Log($"Could not delete image for staff {entry.Id}: {imgEx.Message}");
-                }
-
-                // remove from in-memory list and rewrite file
-                _staffEntries.RemoveAt(idx);
-                WriteStaffEntriesToFile();
-
-                // refresh UI
-                PopulateStaffListView();
-                txt_stffname.Text = "";
-                PrepareNextStaffId();
-
-                MessageBox.Show("Staff deleted from devices and removed from file.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Deletion failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                btn_deletestff.Enabled = true;
-                txt_staffcardid.Text = "";
-
-                Cursor = Cursors.Default;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////
-
-
         /////////////////////////////////SETUP/////////////////////////////////////////
         private void btn_savedebounce_Click(object sender, EventArgs e)
         {
@@ -3238,9 +2847,6 @@ namespace smart_attendance_middleware
         {
             try
             {
-                // Ensure staff entries are loaded
-                if (_staffEntries.Count == 0)
-                    LoadStaffEntriesFromFile();
 
                 txt_staffname.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
                 txt_staffname.AutoCompleteSource = AutoCompleteSource.CustomSource;
@@ -3435,7 +3041,7 @@ namespace smart_attendance_middleware
             }
         }
 
-        
+
         private async void EnrollStaffFromListView(string staffIdentifier, string staffName, string enrollmentIdStr = null)
         {
             // Input validation
@@ -3446,7 +3052,6 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            btn_stffenroll.Enabled = false;
             Cursor = Cursors.WaitCursor;
 
             try
@@ -3540,14 +3145,18 @@ namespace smart_attendance_middleware
                     }
                 }
 
-                // Copy image from DB path to local storage
+                // Copy image from DB path to local FACE directory (use "FACE" folder)
                 string storedImagePath = null;
                 if (!string.IsNullOrWhiteSpace(imagePathFromDb) && File.Exists(imagePathFromDb))
                 {
                     try
                     {
+                        // Ensure FACE directory exists and use it
+                        string faceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FACE");
+                        Directory.CreateDirectory(faceDir);
+
                         string fileName = $"{Guid.NewGuid()}{Path.GetExtension(imagePathFromDb)}";
-                        storedImagePath = Path.Combine(_staffImagesDir, fileName);
+                        storedImagePath = Path.Combine(faceDir, fileName);
                         File.Copy(imagePathFromDb, storedImagePath, true);
                         LogHelper.Log($"[EnrollStaffFromListView] Image copied to: {storedImagePath}");
                     }
@@ -3592,7 +3201,6 @@ namespace smart_attendance_middleware
             }
             finally
             {
-                btn_stffenroll.Enabled = true;
                 Cursor = Cursors.Default;
             }
         }
@@ -3704,45 +3312,73 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            // Proceed to enroll only on the selected devices
-            foreach (var device in targetDevices)
+            // Start global dashboard loader
+            try
             {
+                Dashboard.GlobalStartLoader($"Enrolling \"{userName}\" to {targetDevices.Count} device(s)...");
+
+                // Proceed to enroll only on the selected devices
+                int processed = 0;
+                foreach (var device in targetDevices)
+                {
+                    processed++;
+                    try
+                    {
+                        string ip = device.DeviceIP;
+                        int port = device.Port;
+                        int machineNo = device.MachineNo;
+                        string password = device.Password ?? "0";
+
+                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : ip;
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Enrolling on {deviceLabel} ({ip})...");
+
+                        // 1) Set username
+                        bool nameOk = await DeviceService.SetUserName(ip, port, machineNo, password, enrollId, userName);
+                        if (!nameOk)
+                        {
+                            LogHelper.Log($"Failed SetUserName on {ip}:{port} machineNo={machineNo} enroll={enrollId}");
+                            continue; // skip RFID/face if name failed
+                        }
+
+                        // 2) Add RFID (only if cardId present)
+                        if (cardId > 0)
+                        {
+                            bool rfidOk = await DeviceService.AddRfidCard(ip, port, machineNo, password, enrollId, cardId, machineNo);
+                            if (!rfidOk)
+                                LogHelper.Log($"Failed AddRfidCard on {ip}:{port} machineNo={machineNo} enroll={enrollId} card={cardId}");
+                        }
+
+                        // 3) Add face (only if image available)
+                        if (!string.IsNullOrWhiteSpace(imagePath) && File.Exists(imagePath))
+                        {
+                            bool faceOk = await DeviceService.AddFace(ip, port, machineNo, password, enrollId, imagePath);
+                            if (!faceOk)
+                                LogHelper.Log($"Failed AddFace on {ip}:{port} machineNo={machineNo} enroll={enrollId}");
+                        }
+
+                        LogHelper.Log($"Staff enrollment completed for {userName} ({enrollId}) on {ip}:{port}");
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Completed on {deviceLabel} ({ip})");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"Error enrolling staff {userName} ({enrollId}) on device {device?.DeviceIP}: {ex.Message}");
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Error on {device?.DeviceIP}: {ex.Message}");
+                    }
+                }
+
+                // brief final message before hiding loader
+                Dashboard.GlobalUpdateLoaderMessage($"Enrollment completed for \"{userName}\".");
+            }
+            finally
+            {
+                // Ensure loader is stopped even if exceptions occur
                 try
                 {
-                    string ip = device.DeviceIP;
-                    int port = device.Port;
-                    int machineNo = device.MachineNo;
-                    string password = device.Password ?? "0";
-
-                    // 1) Set username
-                    bool nameOk = await DeviceService.SetUserName(ip, port, machineNo, password, enrollId, userName);
-                    if (!nameOk)
-                    {
-                        LogHelper.Log($"Failed SetUserName on {ip}:{port} machineNo={machineNo} enroll={enrollId}");
-                        continue; // skip RFID/face if name failed
-                    }
-
-                    // 2) Add RFID (only if cardId present)
-                    if (cardId > 0)
-                    {
-                        bool rfidOk = await DeviceService.AddRfidCard(ip, port, machineNo, password, enrollId, cardId, machineNo);
-                        if (!rfidOk)
-                            LogHelper.Log($"Failed AddRfidCard on {ip}:{port} machineNo={machineNo} enroll={enrollId} card={cardId}");
-                    }
-
-                    // 3) Add face (only if image available)
-                    if (!string.IsNullOrWhiteSpace(imagePath) && File.Exists(imagePath))
-                    {
-                        bool faceOk = await DeviceService.AddFace(ip, port, machineNo, password, enrollId, imagePath);
-                        if (!faceOk)
-                            LogHelper.Log($"Failed AddFace on {ip}:{port} machineNo={machineNo} enroll={enrollId}");
-                    }
-
-                    LogHelper.Log($"Staff enrollment completed for {userName} ({enrollId}) on {ip}:{port}");
+                    Dashboard.GlobalStopLoader();
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"Error enrolling staff {userName} ({enrollId}) on device {device?.DeviceIP}: {ex.Message}");
+                    LogHelper.Log($"Error stopping global loader: {ex.Message}");
                 }
             }
         }
@@ -3781,6 +3417,26 @@ namespace smart_attendance_middleware
 
         }
 
+        private void btn_cardcopy_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var text = txt_staffcardid?.Text ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    MessageBox.Show("No card ID to copy.", "Copy", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                Clipboard.SetText(text);
+                MessageBox.Show("Card ID copied to clipboard.", "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"btn_cardcopy_Click error: {ex.Message}");
+                MessageBox.Show("Failed to copy card ID to clipboard.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
 
 
         //////////////////////////////////////////////////////////////////////////////////////

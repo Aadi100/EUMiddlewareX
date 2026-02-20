@@ -4,9 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
-using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using System.Data.SQLite;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -1648,6 +1648,52 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
+        /// <summary>
+        /// Returns the attendance action for a staff device identified by its MachineNo.
+        /// Maps textual StaffAttendanceType values to canonical values:
+        /// - "check-in"
+        /// - "check-out"
+        /// - "check-in/check-out" (when device is configured for both)
+        /// Returns null when no device or type is found.
+        /// </summary>
+        public string GetStaffDeviceAttendanceAction(int staffMachineNo)
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+                using (var cmd = new SQLiteCommand(
+                    "SELECT StaffAttendanceType FROM StaffDevices WHERE MachineNo = @m LIMIT 1", connection))
+                {
+                    cmd.Parameters.AddWithValue("@m", staffMachineNo);
+                    var result = cmd.ExecuteScalar();
+                    if (result == null || result == DBNull.Value) return null;
+
+                    var raw = Convert.ToString(result)?.Trim();
+                    if (string.IsNullOrEmpty(raw)) return null;
+
+                    var norm = raw.ToLowerInvariant();
+
+                    // Common normalization patterns
+                    if (norm.Contains("check_in") || norm.Contains("check-in") || norm.Contains("check in"))
+                    {
+                        // If it also contains check_out, return combined
+                        if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out") || norm.Contains("/"))
+                            return "check-in/check-out";
+
+                        return "check-in";
+                    }
+
+                    if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out"))
+                    {
+                        return "check-out";
+                    }
+
+                    // fallback: return the raw normalized value to preserve info
+                    return norm;
+                }
+            }
+        }
+
         public int? GetMemberIdByEnrollment(int enrollmentId)
         {
             try
@@ -1835,6 +1881,77 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
+
+        public string GetAttendanceIdForStaff(string staffId, DateTime? checkIn = null, DateTime? checkOut = null)
+        {
+            if (string.IsNullOrWhiteSpace(staffId)) return null;
+
+            // Try common staff attendance table names to be resilient to schema differences
+            var candidateTables = new[] { "StaffAttendanceLog", "StaffAttendanceLogs" };
+
+            try
+            {
+                using (var conn = new System.Data.SQLite.SQLiteConnection(connectionString))
+                {
+                    conn.Open();
+
+                    foreach (var table in candidateTables)
+                    {
+                        try
+                        {
+                            string sql;
+                            if (checkIn.HasValue)
+                            {
+                                sql = $"SELECT AttendanceId FROM {table} WHERE StaffID = @sid AND CheckInTime = @checkIn LIMIT 1";
+                            }
+                            else if (checkOut.HasValue)
+                            {
+                                sql = $"SELECT AttendanceId FROM {table} WHERE StaffID = @sid AND CheckOutTime = @checkOut LIMIT 1";
+                            }
+                            else
+                            {
+                                sql = $"SELECT AttendanceId FROM {table} WHERE StaffID = @sid AND AttendanceId IS NOT NULL AND TRIM(AttendanceId) <> '' ORDER BY datetime(CheckInTime) DESC LIMIT 1";
+                            }
+
+                            using (var cmd = new System.Data.SQLite.SQLiteCommand(sql, conn))
+                            {
+                                cmd.Parameters.AddWithValue("@sid", staffId);
+                                if (checkIn.HasValue) cmd.Parameters.AddWithValue("@checkIn", checkIn.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+                                if (checkOut.HasValue) cmd.Parameters.AddWithValue("@checkOut", checkOut.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                                var result = cmd.ExecuteScalar();
+                                if (result != null && result != DBNull.Value)
+                                    return result.ToString();
+                            }
+                        }
+                        catch (System.Data.SQLite.SQLiteException sqlEx)
+                        {
+                            // If the table doesn't exist or column missing, try next candidate.
+                            // For other SQLite errors, log and stop trying further tables.
+                            var msg = sqlEx.Message ?? string.Empty;
+                            if (msg.IndexOf("no such table", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                msg.IndexOf("no such column", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                // try next table name
+                                continue;
+                            }
+
+                            LogHelper.Log($"GetAttendanceIdForStaff SQLite error using table '{table}': {sqlEx.Message}");
+                            return null;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"GetAttendanceIdForStaff error for staff '{staffId}': {ex.Message}");
+                return null;
+            }
+
+            // Not found
+            return null;
+        }
+
         public DateTime? GetPairedCheckInTime(int memberId, DateTime checkOutTime)
         {
             try
@@ -1878,6 +1995,71 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             return null;
         }
 
+
+        public DateTime? GetPairedCheckInTimeForStaff(string staffId, DateTime checkOutTime)
+        {
+            if (string.IsNullOrWhiteSpace(staffId)) return null;
+
+            try
+            {
+                using (var connection = new SQLiteConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // Stored times are saved as text "yyyy-MM-dd HH:mm:ss"
+                    string checkOutStr = checkOutTime.ToString("yyyy-MM-dd HH:mm:ss");
+
+                    // Try common staff attendance table names to be resilient to schema differences
+                    var candidateTables = new[] { "StaffAttendanceLog", "StaffAttendanceLogs" };
+
+                    foreach (var table in candidateTables)
+                    {
+                        try
+                        {
+                            string query = $@"
+                        SELECT CheckInTime
+                        FROM {table}
+                        WHERE StaffID = @staffId
+                          AND CheckOutTime = @checkOutTime
+                        LIMIT 1";
+
+                            using (var command = new SQLiteCommand(query, connection))
+                            {
+                                command.Parameters.AddWithValue("@staffId", staffId);
+                                command.Parameters.AddWithValue("@checkOutTime", checkOutStr);
+
+                                var result = command.ExecuteScalar();
+                                if (result != null && result != DBNull.Value)
+                                {
+                                    var checkInText = Convert.ToString(result);
+                                    if (DateTime.TryParse(checkInText, out var parsedCheckIn))
+                                        return parsedCheckIn;
+                                }
+                            }
+                        }
+                        catch (System.Data.SQLite.SQLiteException sqlEx)
+                        {
+                            // If table/column doesn't exist, try next candidate; otherwise log and abort.
+                            var msg = sqlEx.Message ?? string.Empty;
+                            if (msg.IndexOf("no such table", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                msg.IndexOf("no such column", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                continue;
+                            }
+
+                            LogHelper.Log($"GetPairedCheckInTimeForStaff SQLite error using table '{table}': {sqlEx.Message}");
+                            return null;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"GetPairedCheckInTimeForStaff error for staff '{staffId}': {ex.Message}");
+            }
+
+            return null;
+        }
 
         public bool UpdateAttendanceLogFromCloud(
     int memberId,
@@ -3000,6 +3182,107 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     {
                         transaction.Rollback();
                         LogHelper.Log($"Error updating member sync status: {ex.Message}");
+                        return false;
+                    }
+                }
+            }
+        }
+
+
+        public async Task<bool> CheckAndUpdateStaffDeviceSyncStatus(string staffId, int staffDeviceId)
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                // Ensure a StaffLog exists for this staff + device
+                bool logExists = false;
+                using (var checkCmd = new SQLiteCommand(
+                    "SELECT 1 FROM StaffLog WHERE StaffID = @staffId AND StaffDeviceId = @sdid",
+                    connection))
+                {
+                    checkCmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                    checkCmd.Parameters.AddWithValue("@sdid", staffDeviceId);
+                    logExists = (await checkCmd.ExecuteScalarAsync()) != null;
+                }
+
+                if (!logExists) return false;
+
+                // Ensure all biometric modalities in the StaffLog are already synced
+                bool allSynced = true;
+                using (var cmd = new SQLiteCommand(
+                    "SELECT BiometricData, SyncStatus FROM StaffLog WHERE StaffID = @staffId AND StaffDeviceId = @sdid",
+                    connection))
+                {
+                    cmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@sdid", staffDeviceId);
+
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var bioJson = Convert.ToString(reader["BiometricData"]) ?? "{}";
+                            var syncJson = Convert.ToString(reader["SyncStatus"]) ?? "{}";
+
+                            var biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(bioJson) ?? new Dictionary<string, string>();
+                            var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncJson) ?? new Dictionary<string, bool>();
+
+                            allSynced = biometricData.Keys.All(key =>
+                                syncStatus.ContainsKey(key) && syncStatus[key]);
+                        }
+                    }
+                }
+
+                if (!allSynced) return false;
+
+                // Mark staff.SyncStatus[staffDeviceId] = true (if not already true)
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        Dictionary<int, bool> staffSyncStatus = new Dictionary<int, bool>();
+
+                        using (var cmd = new SQLiteCommand(
+                            "SELECT SyncStatus FROM Staff WHERE StaffID = @staffId",
+                            connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                            var result = await cmd.ExecuteScalarAsync();
+                            if (result != null && result != DBNull.Value)
+                            {
+                                staffSyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(result.ToString())
+                                                  ?? new Dictionary<int, bool>();
+                            }
+                        }
+
+                        // Skip DB write if already true
+                        bool alreadyTrue;
+                        if (staffSyncStatus.TryGetValue(staffDeviceId, out alreadyTrue) && alreadyTrue)
+                        {
+                            transaction.Commit();
+                            return false; // no change performed
+                        }
+
+                        staffSyncStatus[staffDeviceId] = true;
+
+                        using (var updateCmd = new SQLiteCommand(
+                            "UPDATE Staff SET SyncStatus = @syncStatus WHERE StaffID = @staffId",
+                            connection, transaction))
+                        {
+                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(staffSyncStatus));
+                            updateCmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+
+                        LogHelper.Log($"Updated staff {staffId} sync status for device {staffDeviceId}");
+
+                        transaction.Commit();
+                        return true; // changed
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        LogHelper.Log($"Error updating staff sync status: {ex.Message}");
                         return false;
                     }
                 }
@@ -5288,8 +5571,8 @@ ON CONFLICT(StaffID) DO UPDATE SET
             LogHelper.Log($"🗑 Staff {staffId} deleted from local DB.");
         }
 
-        // Get staff ID by Enrollment
-        public int? GetStaffIdByEnrollment(int enrollmentId)
+        // Get staff ID (string) by EnrollmentID. Returns null when not found.
+        public string GetStaffIdByEnrollment(int enrollmentId)
         {
             try
             {
@@ -5301,8 +5584,8 @@ ON CONFLICT(StaffID) DO UPDATE SET
                     {
                         cmd.Parameters.AddWithValue("@enroll", enrollmentId);
                         var result = cmd.ExecuteScalar();
-                        if (result != null && result != DBNull.Value)
-                            return Convert.ToInt32(result);
+                        if (result == null || result == DBNull.Value) return null;
+                        return Convert.ToString(result);
                     }
                 }
             }
@@ -5633,8 +5916,18 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
             }
         }
 
-
-        public void DebugStaffGLogFiltering()
+        /// <summary>
+        /// For staff devices that are configured as "check-in/check-out" (or similar mixed values),
+        /// determine whether this incoming event for the given enrollment (and time) should be
+        /// treated as a "check-in" or "check-out".
+        /// Rules:
+        ///  - If device's StaffAttendanceType is explicit ("check_in" / "check-out") return that.
+        ///  - If device's StaffAttendanceType indicates both (e.g. "check-in/check-out", "check_in/check_out", "both")
+        ///    then examine StaffAttendanceLog for an open session (CheckOutTime IS NULL). If an open session exists
+        ///    return "check-out", otherwise return "check-in".
+        /// Returns null on error or when device record not found.
+        /// </summary>
+        public string GetEffectiveStaffActionForDevice(int staffMachineNo, int enrollmentId, DateTime deviceTime)
         {
             try
             {
@@ -5642,357 +5935,64 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
                 {
                     connection.Open();
 
-                    // Check attendance case
-                    string attendanceCase = DecideAttendanceCase();
-                    LogHelper.Log($"🔍 DEBUG: Attendance case = {attendanceCase}");
-
-                    // Check device types
-                    using (var cmd = new SQLiteCommand(@"
-                SELECT sd.StaffDeviceId, sd.StaffAttendanceType, COUNT(sg.LogId) as RecordCount
-                FROM StaffDevices sd
-                LEFT JOIN StaffGLog sg ON sd.StaffDeviceId = sg.StaffDeviceId
-                WHERE sg.Sync = 0
-                GROUP BY sd.StaffDeviceId, sd.StaffAttendanceType", connection))
+                    using (var cmd = new SQLiteCommand(
+                        "SELECT StaffAttendanceType FROM StaffDevices WHERE MachineNo = @m LIMIT 1", connection))
                     {
-                        using (var reader = cmd.ExecuteReader())
+                        cmd.Parameters.AddWithValue("@m", staffMachineNo);
+                        var raw = cmd.ExecuteScalar();
+                        if (raw == null || raw == DBNull.Value) return null;
+
+                        string type = Convert.ToString(raw)?.Trim();
+                        if (string.IsNullOrEmpty(type)) return null;
+
+                        string norm = type.ToLowerInvariant();
+
+                        // If explicitly single-mode
+                        if (norm.Contains("check_in") || norm.Contains("check-in") || norm.Contains("check in"))
+                            return "check-in";
+                        if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out"))
+                            return "check-out";
+
+                        // Mixed / ambiguous -> decide by looking for an open staff attendance session
+                        // Treat values like "check-in/check-out", "check_in/check_out", "both", "/" as mixed.
+                        if (norm.Contains("/") || norm.Contains("both") || norm.Contains("check"))
                         {
-                            LogHelper.Log("🔍 DEBUG: Device types and record counts:");
-                            while (reader.Read())
+                            // Look for an open StaffAttendanceLog for this enrollment
+                            using (var q = new SQLiteCommand(@"
+                                SELECT LogID, CheckInTime
+                                FROM StaffAttendanceLog
+                                WHERE EnrollmentID = @enr AND CheckOutTime IS NULL
+                                ORDER BY datetime(CheckInTime) DESC
+                                LIMIT 1", connection))
                             {
-                                LogHelper.Log($"   Device {reader["StaffDeviceId"]}: Type='{reader["StaffAttendanceType"]}', Records={reader["RecordCount"]}");
+                                q.Parameters.AddWithValue("@enr", enrollmentId);
+                                using (var r = q.ExecuteReader())
+                                {
+                                    if (r.Read())
+                                    {
+                                        // There is an open session -> this event is a checkout
+                                        return "check-out";
+                                    }
+                                    else
+                                    {
+                                        // No open session -> treat as check-in
+                                        return "check-in";
+                                    }
+                                }
                             }
                         }
-                    }
 
-                    // Check unsynced records by enrollment and date
-                    using (var cmd = new SQLiteCommand(@"
-                SELECT EnrollmentNumber, DATE(DeviceTime) as RecordDate, COUNT(*) as Count
-                FROM StaffGLog sg
-                WHERE Sync = 0
-                GROUP BY EnrollmentNumber, DATE(DeviceTime)
-                ORDER BY EnrollmentNumber, RecordDate", connection))
-                    {
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            LogHelper.Log("🔍 DEBUG: Records by enrollment and date:");
-                            while (reader.Read())
-                            {
-                                LogHelper.Log($"   Enrollment {reader["EnrollmentNumber"]}, Date {reader["RecordDate"]}: {reader["Count"]} records");
-                            }
-                        }
+                        // Fallback: return normalized raw value
+                        return norm;
                     }
                 }
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"❌ Error in debug method: {ex.Message}");
+                LogHelper.Log($"[GetEffectiveStaffActionForDevice][ERROR] MachineNo={staffMachineNo}, Enroll={enrollmentId} : {ex.Message}");
+                return null;
             }
         }
-
-        public int InsertOrUpdateStaffAttendance1Way(int enrollmentId, string punchTimeValue, string name, int debounceSeconds = 30)
-        {
-            if (string.IsNullOrWhiteSpace(punchTimeValue))
-                return 0;
-
-            DateTime punchDt;
-            if (!DateTime.TryParse(punchTimeValue, out punchDt))
-                return 0;
-
-            string tsNow = GetTimestamp();
-
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-
-                // 1. Try to find an OPEN session (no checkout yet)
-                int? openLogId = null;
-                DateTime openCheckIn = DateTime.MinValue;
-
-                using (var cmd = new SQLiteCommand(
-                    @"SELECT LogID, CheckInTime 
-              FROM StaffAttendanceLog
-              WHERE EnrollmentID = @enr AND CheckOutTime IS NULL
-              ORDER BY datetime(CheckInTime) DESC
-              LIMIT 1", connection))
-                {
-                    cmd.Parameters.AddWithValue("@enr", enrollmentId);
-                    using (var r = cmd.ExecuteReader())
-                    {
-                        if (r.Read())
-                        {
-                            openLogId = r.GetInt32(0);
-                            DateTime.TryParse(r.GetString(1), out openCheckIn);
-                        }
-                    }
-                }
-
-                if (openLogId.HasValue)
-                {
-                    // Debounce / duplicate: ignore if punch inside debounce window
-                    if (punchDt <= openCheckIn.AddSeconds(debounceSeconds))
-                        return openLogId.Value;
-
-                    // Guard: ensure not earlier than check-in
-                    if (punchDt < openCheckIn)
-                        return openLogId.Value; // ignore weird out-of-order
-
-                    // Update checkout
-                    using (var upd = new SQLiteCommand(
-                        @"UPDATE StaffAttendanceLog
-                  SET CheckOutTime = @co, UpdatedAt = @up
-                  WHERE LogID = @id AND CheckOutTime IS NULL", connection))
-                    {
-                        upd.Parameters.AddWithValue("@co", punchDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                        upd.Parameters.AddWithValue("@up", tsNow);
-                        upd.Parameters.AddWithValue("@id", openLogId.Value);
-                        upd.ExecuteNonQuery();
-                    }
-                    return openLogId.Value;
-                }
-
-                // 2. No open session. Check most recent CLOSED row to prevent rapid duplicate new check-ins
-                DateTime lastClosedCheckout = DateTime.MinValue;
-                int? lastClosedId = null;
-                using (var cmd = new SQLiteCommand(
-                    @"SELECT LogID, CheckOutTime 
-              FROM StaffAttendanceLog
-              WHERE EnrollmentID = @enr AND CheckOutTime IS NOT NULL
-              ORDER BY datetime(CheckOutTime) DESC
-              LIMIT 1", connection))
-                {
-                    cmd.Parameters.AddWithValue("@enr", enrollmentId);
-                    using (var r = cmd.ExecuteReader())
-                    {
-                        if (r.Read() && !r.IsDBNull(1))
-                        {
-                            lastClosedId = r.GetInt32(0);
-                            DateTime.TryParse(r.GetString(1), out lastClosedCheckout);
-                        }
-                    }
-                }
-
-                // If new punch is within debounce of last checkout -> treat as duplicate, ignore
-                if (lastClosedId.HasValue && punchDt <= lastClosedCheckout.AddSeconds(debounceSeconds))
-                    return lastClosedId.Value;
-
-                // 3. Insert new check-in row (include Name)
-                using (var ins = new SQLiteCommand(
-                    @"INSERT INTO StaffAttendanceLog
-              (EnrollmentID, AttendanceId, Name, CheckInTime, CheckOutTime, CreatedAt, UpdatedAt)
-              VALUES (@enr, NULL, @name, @ci, NULL, @cAt, @uAt);
-              SELECT last_insert_rowid();", connection))
-                {
-                    ins.Parameters.AddWithValue("@enr", enrollmentId);
-                    ins.Parameters.AddWithValue("@name", (object)name ?? DBNull.Value);  // Use the passed name
-                    ins.Parameters.AddWithValue("@ci", punchDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                    ins.Parameters.AddWithValue("@cAt", tsNow);
-                    ins.Parameters.AddWithValue("@uAt", tsNow);
-                    return Convert.ToInt32((long)ins.ExecuteScalar());
-                }
-            }
-        }
-
-
-        public int InsertStaffAttendanceLog(int enrollmentId, string checkInValue, string name)
-        {
-            if (string.IsNullOrWhiteSpace(checkInValue))
-                return 0;
-
-            DateTime checkInDt;
-            if (!DateTime.TryParse(checkInValue, out checkInDt))
-                return 0;
-
-            string timestamp = GetTimestamp();
-            int newLogId = 0;
-
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-
-                // OPTIONAL index (run once; harmless if already exists)
-                using (var idx = new SQLiteCommand(
-                    "CREATE INDEX IF NOT EXISTS IX_StaffAttendanceLog_Enrollment_CheckIn ON StaffAttendanceLog(EnrollmentID, CheckInTime);",
-                    connection))
-                {
-                    idx.ExecuteNonQuery();
-                }
-
-                // 1. If exact duplicate (same enrollment + same check-in timestamp) -> return existing
-                using (var dupCmd = new SQLiteCommand(
-                    @"SELECT LogID FROM StaffAttendanceLog 
-              WHERE EnrollmentID = @enrollmentId AND CheckInTime = @checkIn LIMIT 1", connection))
-                {
-                    dupCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
-                    dupCmd.Parameters.AddWithValue("@checkIn", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                    var existing = dupCmd.ExecuteScalar();
-                    if (existing != null && existing != DBNull.Value)
-                        return Convert.ToInt32(existing);
-                }
-
-                // 2. Prevent multiple OPEN logs for the same calendar date:
-                using (var openSameDateCmd = new SQLiteCommand(
-                    @"SELECT LogID FROM StaffAttendanceLog
-              WHERE EnrollmentID = @enrollmentId
-                AND CheckOutTime IS NULL
-                AND DATE(CheckInTime) = DATE(@checkInDate)
-              ORDER BY CheckInTime DESC
-              LIMIT 1", connection))
-                {
-                    openSameDateCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
-                    openSameDateCmd.Parameters.AddWithValue("@checkInDate", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                    var openSameDate = openSameDateCmd.ExecuteScalar();
-                    if (openSameDate != null && openSameDate != DBNull.Value)
-                    {
-                        // Decide policy: either ignore or update existing open log's CheckInTime.
-                        // Here we IGNORE new duplicate-day check-in to avoid orphan pairs.
-                        return Convert.ToInt32(openSameDate);
-                    }
-                }
-
-                // 3. Insert new row (include Name)
-                using (var insert = new SQLiteCommand(
-                    @"INSERT INTO StaffAttendanceLog
-              (EnrollmentID, AttendanceId, Name, CheckInTime, CheckOutTime, CreatedAt, UpdatedAt)
-              VALUES (@enrollmentId, NULL, @name, @checkIn, NULL, @createdAt, @updatedAt);
-              SELECT last_insert_rowid();", connection))
-                {
-                    insert.Parameters.AddWithValue("@enrollmentId", enrollmentId);
-                    insert.Parameters.AddWithValue("@name", (object)name ?? DBNull.Value);  // Use the passed name
-                    insert.Parameters.AddWithValue("@checkIn", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                    insert.Parameters.AddWithValue("@createdAt", timestamp);
-                    insert.Parameters.AddWithValue("@updatedAt", timestamp);
-
-                    newLogId = Convert.ToInt32((long)insert.ExecuteScalar());
-                }
-            }
-            return newLogId;
-        }
-
-
-        // Update staff attendance log for check-out (pairs only with same-day or previous-day open check-in)
-        public bool UpdateStaffAttendanceLogForCheckOut(int enrollmentId, string checkOutValue)
-        {
-            if (string.IsNullOrWhiteSpace(checkOutValue))
-                return false;
-
-            DateTime checkOutDt;
-            if (!DateTime.TryParse(checkOutValue, out checkOutDt))
-                return false;
-
-            string timestamp = GetTimestamp();
-
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-
-                // Ensure index exists (safe if already created)
-                using (var idx = new SQLiteCommand(
-                    "CREATE INDEX IF NOT EXISTS IX_StaffAttendanceLog_Enrollment_Open ON StaffAttendanceLog(EnrollmentID, CheckOutTime, CheckInTime);",
-                    connection))
-                {
-                    idx.ExecuteNonQuery();
-                }
-
-                // 1. Try same day open check-in (must be <= checkout)
-                int? logId = null;
-                DateTime chosenCheckIn = DateTime.MinValue;
-
-                using (var sameDay = new SQLiteCommand(
-                    @"SELECT LogID, CheckInTime FROM StaffAttendanceLog
-                      WHERE EnrollmentID = @enrollmentId
-                        AND CheckOutTime IS NULL
-                        AND DATE(CheckInTime) = DATE(@checkOut)
-                        AND datetime(CheckInTime) <= datetime(@checkOut)
-                      ORDER BY datetime(CheckInTime) DESC
-                      LIMIT 1", connection))
-                {
-                    sameDay.Parameters.AddWithValue("@enrollmentId", enrollmentId);
-                    sameDay.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                    using (var r = sameDay.ExecuteReader())
-                    {
-                        if (r.Read())
-                        {
-                            logId = r.GetInt32(0);
-                            DateTime.TryParse(r.GetString(1), out chosenCheckIn);
-                        }
-                    }
-                }
-
-                // 2. If not found, try previous day (overnight session)
-                if (!logId.HasValue)
-                {
-                    using (var prevDay = new SQLiteCommand(
-                        @"SELECT LogID, CheckInTime FROM StaffAttendanceLog
-                          WHERE EnrollmentID = @enrollmentId
-                            AND CheckOutTime IS NULL
-                            AND DATE(CheckInTime) = DATE(@checkOut, '-1 day')
-                            AND datetime(CheckInTime) <= datetime(@checkOut)
-                          ORDER BY datetime(CheckInTime) DESC
-                          LIMIT 1", connection))
-                    {
-                        prevDay.Parameters.AddWithValue("@enrollmentId", enrollmentId);
-                        prevDay.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                        using (var r = prevDay.ExecuteReader())
-                        {
-                            if (r.Read())
-                            {
-                                logId = r.GetInt32(0);
-                                DateTime.TryParse(r.GetString(1), out chosenCheckIn);
-                            }
-                        }
-                    }
-                }
-
-                // 3. Fallback: any open log whose CheckInTime <= checkout (prevent pairing with future check-in)
-                if (!logId.HasValue)
-                {
-                    using (var anyOpen = new SQLiteCommand(
-                        @"SELECT LogID, CheckInTime FROM StaffAttendanceLog
-                          WHERE EnrollmentID = @enrollmentId
-                            AND CheckOutTime IS NULL
-                            AND datetime(CheckInTime) <= datetime(@checkOut)
-                          ORDER BY datetime(CheckInTime) DESC
-                          LIMIT 1", connection))
-                    {
-                        anyOpen.Parameters.AddWithValue("@enrollmentId", enrollmentId);
-                        anyOpen.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                        using (var r = anyOpen.ExecuteReader())
-                        {
-                            if (r.Read())
-                            {
-                                logId = r.GetInt32(0);
-                                DateTime.TryParse(r.GetString(1), out chosenCheckIn);
-                            }
-                        }
-                    }
-                }
-
-                if (!logId.HasValue)
-                {
-                    // No suitable open check-in to pair -> ignore (or optionally create orphan record policy)
-                    return false;
-                }
-
-                // Final guard: do not set a checkout earlier than its check-in
-                if (chosenCheckIn != DateTime.MinValue && checkOutDt < chosenCheckIn)
-                {
-                    // Reject invalid pairing
-                    return false;
-                }
-
-                using (var update = new SQLiteCommand(
-                    @"UPDATE StaffAttendanceLog
-                      SET CheckOutTime = @checkOut, UpdatedAt = @updatedAt
-                      WHERE LogID = @logId AND CheckOutTime IS NULL", connection))
-                {
-                    update.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
-                    update.Parameters.AddWithValue("@updatedAt", timestamp);
-                    update.Parameters.AddWithValue("@logId", logId.Value);
-                    return update.ExecuteNonQuery() > 0;
-                }
-            }
-        }
-
 
         // Insert or update staff biometric log for a single staff/device
         public async Task InsertOrUpdateStaffLogAsync(string staffId, int staffDeviceId)
@@ -6148,6 +6148,8 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
             }
         }
 
+
+
         // Utility: delete staff logs by staffId
         public int DeleteStaffLogs(string staffId)
         {
@@ -6279,6 +6281,174 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
                 }
             }
         }
+
+
+        /// <summary>
+        /// Insert a staff check-in using Staff.StaffID (GUID/string).
+        /// This implementation does NOT call any other helpers — it performs its own DB work.
+        /// Returns the new StaffAttendanceLog.LogID on success, 0 on failure.
+        /// </summary>
+        public int InsertStaffCheckInByStaffId(string staffId, string checkInValue, string name = null)
+        {
+            if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkInValue))
+                return 0;
+
+            try
+            {
+                int? enrollmentId = null;
+                using (var connection = new SQLiteConnection(connectionString))
+                {
+                    connection.Open();
+
+                    using (var cmd = new SQLiteCommand("SELECT EnrollmentID FROM Staff WHERE StaffID = @sid LIMIT 1", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@sid", staffId);
+                        var result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return 0;
+                        enrollmentId = Convert.ToInt32(result);
+                    }
+
+                    if (!enrollmentId.HasValue) return 0;
+
+                    // Prevent exact-duplicate insert (same EnrollmentID + CheckInTime)
+                    using (var chk = new SQLiteCommand(@"SELECT COUNT(1) FROM StaffAttendanceLog 
+                                                        WHERE EnrollmentID = @enr AND CheckInTime = @chkIn LIMIT 1", connection))
+                    {
+                        chk.Parameters.AddWithValue("@enr", enrollmentId.Value);
+                        chk.Parameters.AddWithValue("@chkIn", checkInValue);
+                        var exists = Convert.ToInt32(chk.ExecuteScalar());
+                        if (exists > 0)
+                        {
+                            LogHelper.Log($"[InsertStaffCheckInByStaffId] Duplicate check-in suppressed StaffID={staffId} Enroll={enrollmentId} Time={checkInValue}");
+                            return 0;
+                        }
+                    }
+
+                    string attendanceId = Guid.NewGuid().ToString();
+                    string ts = GetTimestamp();
+
+                    using (var ins = new SQLiteCommand(@"
+                        INSERT INTO StaffAttendanceLog (EnrollmentID, AttendanceId, Name, CheckInTime, CheckOutTime, CreatedAt, UpdatedAt)
+                        VALUES (@enr, @aid, @name, @chkIn, NULL, @createdAt, @updatedAt);
+                        SELECT last_insert_rowid();", connection))
+                    {
+                        ins.Parameters.AddWithValue("@enr", enrollmentId.Value);
+                        ins.Parameters.AddWithValue("@aid", attendanceId);
+                        ins.Parameters.AddWithValue("@name", (object)name ?? string.Empty);
+                        ins.Parameters.AddWithValue("@chkIn", checkInValue);
+                        ins.Parameters.AddWithValue("@createdAt", ts);
+                        ins.Parameters.AddWithValue("@updatedAt", ts);
+
+                        var scalar = ins.ExecuteScalar();
+                        int newId = scalar == null ? 0 : Convert.ToInt32((long)scalar);
+                        LogHelper.Log($"[InsertStaffCheckInByStaffId] Inserted check-in LogID={newId} StaffID={staffId} Enroll={enrollmentId} Time={checkInValue}");
+                        return newId;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[InsertStaffCheckInByStaffId][ERROR] StaffID={staffId}: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Apply check-out for a staff identified by Staff.StaffID (GUID/string).
+        /// Does NOT reuse other helpers — updates the nearest open StaffAttendanceLog row directly.
+        /// Returns true on success, false otherwise.
+        /// </summary>
+        public bool InsertStaffCheckOutByStaffId(string staffId, string checkOutValue)
+        {
+            if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkOutValue))
+                return false;
+
+            try
+            {
+                int? enrollmentId = null;
+                using (var connection = new SQLiteConnection(connectionString))
+                {
+                    connection.Open();
+
+                    using (var cmd = new SQLiteCommand("SELECT EnrollmentID FROM Staff WHERE StaffID = @sid LIMIT 1", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@sid", staffId);
+                        var result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return false;
+                        enrollmentId = Convert.ToInt32(result);
+                    }
+
+                    if (!enrollmentId.HasValue) return false;
+
+                    // Parse check-out time for validation
+                    DateTime checkOutDt;
+                    if (!DateTime.TryParse(checkOutValue, out checkOutDt))
+                    {
+                        LogHelper.Log($"[InsertStaffCheckOutByStaffId] Invalid check-out time format: {checkOutValue}");
+                        return false;
+                    }
+
+                    // Find the most recent open StaffAttendanceLog for this enrollment
+                    int targetLogId = 0;
+                    string existingCheckIn = null;
+                    using (var sel = new SQLiteCommand(@"
+                        SELECT LogID, CheckInTime 
+                        FROM StaffAttendanceLog 
+                        WHERE EnrollmentID = @enr AND (CheckOutTime IS NULL OR TRIM(CheckOutTime) = '') 
+                        ORDER BY datetime(CheckInTime) DESC
+                        LIMIT 1", connection))
+                    {
+                        sel.Parameters.AddWithValue("@enr", enrollmentId.Value);
+                        using (var r = sel.ExecuteReader())
+                        {
+                            if (r.Read())
+                            {
+                                targetLogId = Convert.ToInt32(r["LogID"]);
+                                existingCheckIn = r["CheckInTime"] != DBNull.Value ? r["CheckInTime"].ToString() : null;
+                            }
+                        }
+                    }
+
+                    if (targetLogId == 0)
+                    {
+                        LogHelper.Log($"[InsertStaffCheckOutByStaffId] No open check-in found for StaffID={staffId} Enroll={enrollmentId}");
+                        return false;
+                    }
+
+                    // Validate chronological order if check-in exists
+                    if (!string.IsNullOrWhiteSpace(existingCheckIn) && DateTime.TryParse(existingCheckIn, out var chkInDt))
+                    {
+                        if (checkOutDt <= chkInDt)
+                        {
+                            LogHelper.Log($"[InsertStaffCheckOutByStaffId] Check-out {checkOutValue} is not after Check-in {existingCheckIn} for LogID={targetLogId}");
+                            return false;
+                        }
+                    }
+
+                    string ts = GetTimestamp();
+                    using (var upd = new SQLiteCommand(@"
+                        UPDATE StaffAttendanceLog
+                        SET CheckOutTime = @chkOut, UpdatedAt = @updatedAt
+                        WHERE LogID = @logId", connection))
+                    {
+                        upd.Parameters.AddWithValue("@chkOut", checkOutValue);
+                        upd.Parameters.AddWithValue("@updatedAt", ts);
+                        upd.Parameters.AddWithValue("@logId", targetLogId);
+                        int rows = upd.ExecuteNonQuery();
+                        LogHelper.Log($"[InsertStaffCheckOutByStaffId] Applied check-out LogID={targetLogId} StaffID={staffId} Enroll={enrollmentId} Time={checkOutValue} Success={rows > 0}");
+                        return rows > 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[InsertStaffCheckOutByStaffId][ERROR] StaffID={staffId}: {ex.Message}");
+                return false;
+            }
+        }
+
+
+
 
         public async Task<List<LogBiometricChange>> VerifyAndUpdateStaffLogBiometricsAsync(string staffId)
         {
@@ -6564,7 +6734,49 @@ WHERE LOWER(TRIM(IFNULL(s.Status, ''))) = 'active'
 
 
 
+        // Add the following method inside the DatabaseHelper class (near other device query helpers)
+        /// <summary>
+        /// Determine whether the provided IP belongs to a staff device or a member device.
+        /// Returns a tuple: (exists, "staff"|"member"|null, deviceId)
+        /// </summary>
+        public (bool exists, string type, int deviceId) GetDeviceCategoryByIp(string deviceIp)
+        {
+            if (string.IsNullOrWhiteSpace(deviceIp))
+                return (false, null, 0);
 
+            try
+            {
+                using (var connection = new SQLiteConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // Staff devices stored in StaffDevices with encrypted DeviceIP
+                    using (var cmd = new SQLiteCommand("SELECT StaffDeviceId FROM StaffDevices WHERE DeviceIP = @ip LIMIT 1", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ip", Encrypt(deviceIp));
+                        var res = cmd.ExecuteScalar();
+                        if (res != null && res != DBNull.Value)
+                            return (true, "staff", Convert.ToInt32(res));
+                    }
+
+                    // Member (attendance) devices stored in Devices with encrypted DeviceIP
+                    using (var cmd2 = new SQLiteCommand("SELECT DeviceId FROM Devices WHERE DeviceIP = @ip LIMIT 1", connection))
+                    {
+                        cmd2.Parameters.AddWithValue("@ip", Encrypt(deviceIp));
+                        var res2 = cmd2.ExecuteScalar();
+                        if (res2 != null && res2 != DBNull.Value)
+                            return (true, "member", Convert.ToInt32(res2));
+                    }
+
+                    return (false, null, 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetDeviceCategoryByIp][ERROR] IP={deviceIp} : {ex.Message}");
+                return (false, null, 0);
+            }
+        }
 
 
 

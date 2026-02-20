@@ -34,6 +34,10 @@ public class AttendanceLogSyncService : IDisposable
     private volatile bool _loopRunning = false;
     private volatile bool _earlyRetryRequested = false;
 
+    // TaskCompletionSource to signal "initial sync completed"
+    private readonly TaskCompletionSource<bool> _startedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+    public Task Started => _startedTcs.Task;
+
     // Local DTO used to prepare bulk payload from DB model
     private sealed class UnsyncedAttendanceDto
     {
@@ -110,18 +114,27 @@ public class AttendanceLogSyncService : IDisposable
             // Initial cycle (immediate)
             await ExecuteFullSyncCycleAsync(token, isInitial: true).ConfigureAwait(false);
 
-            // Fire initial sync completed only once
+            // Fire initial sync completed only once and signal Started TCS after completion
             if (!_initialSyncRaised)
             {
                 _initialSyncRaised = true;
                 LogHelper.Log("✅ Initial attendance log sync completed - firing completion event");
                 try
                 {
+                    // Invoke the event handlers so subscribers run before we signal Started
                     InitialSyncCompleted?.Invoke();
                 }
                 catch (Exception ex)
                 {
                     LogHelper.Log($"❌ Error firing InitialSyncCompleted event: {ex.Message}");
+                }
+                finally
+                {
+                    // Signal callers awaiting Started that the initial sync is complete.
+                    if (!_startedTcs.Task.IsCompleted)
+                    {
+                        _startedTcs.TrySetResult(true);
+                    }
                 }
             }
 

@@ -76,6 +76,9 @@ namespace smart_attendance_middleware.Classes
         /// <summary>
         /// Starts the periodic maintenance service with initial 15-minute delay
         /// </summary>
+        private readonly TaskCompletionSource<bool> _startedTcs = new TaskCompletionSource<bool>();
+        public Task Started => _startedTcs.Task;
+
         public void Start()
         {
             if (_disposed)
@@ -93,6 +96,12 @@ namespace smart_attendance_middleware.Classes
                 }
 
                 LogHelper.Log("🚀 Starting PeriodicMaintenanceService with 15-minute initial delay");
+
+                // Timers created => service is considered started
+                if (!_startedTcs.Task.IsCompleted)
+                {
+                    _startedTcs.TrySetResult(true);
+                }
 
                 // NOTE:
                 // _updateTimer is no longer started here as a standalone periodic timer.

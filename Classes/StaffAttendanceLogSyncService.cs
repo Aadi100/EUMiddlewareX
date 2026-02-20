@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 public class StaffAttendanceLogSyncService : IDisposable
 {
@@ -447,7 +448,6 @@ public class StaffAttendanceLogSyncService : IDisposable
         try
         {
             LogHelper.Log("👣 Starting staff attendance application from filtered staff GLogs...");
-            _dbHelper.DebugStaffGLogFiltering();
 
             var filteredLogs = _dbHelper.FilterAndUpdateStaffGLogRecordsByDate();
             if (filteredLogs == null || filteredLogs.Count == 0)
@@ -471,187 +471,294 @@ public class StaffAttendanceLogSyncService : IDisposable
             var staffDevicesFromDb = _dbHelper.LoadStaffDevices() ?? new List<Device>();
             var staffDeviceMap = staffDevicesFromDb.ToDictionary(d => d.StaffDeviceId, d => d);
 
-            if (isOneWay)
+            foreach (var log in ordered)
             {
-                foreach (var log in ordered)
+                if (token.IsCancellationRequested)
                 {
-                    if (token.IsCancellationRequested)
-                    {
-                        LogHelper.Log("⏹ Cancellation requested (1-way processing).");
-                        break;
-                    }
-
-                    if (log == null || string.IsNullOrWhiteSpace(log.EnrollmentNumber) || log.DeviceTime == DateTime.MinValue)
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    if (!int.TryParse(log.EnrollmentNumber, out int enrollmentId))
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    string ts = log.DeviceTime.ToString("yyyy-MM-dd HH:mm:ss");
-
-                    // Resolve device details via StaffDeviceId stored in GLogRecord.DeviceId
-                    string userName = string.Empty;
-                    int staffDeviceId = log.DeviceId;
-                    string deviceIp = null;
-                    int devicePort = 0;
-                    int deviceMachineNo = 0;
-                    string devicePassword = string.Empty;
-
-                    if (staffDeviceMap.TryGetValue(staffDeviceId, out var matched))
-                    {
-                        deviceIp = matched.DeviceIP;
-                        devicePort = matched.Port;
-                        deviceMachineNo = matched.MachineNo;
-                        devicePassword = matched.Password ?? string.Empty;
-                    }
-                    else
-                    {
-                        try
-                        {
-                            var details = _dbHelper.GetStaffDeviceDetails(staffDeviceId);
-                            deviceIp = details.ip;
-                            devicePort = details.port;
-                            deviceMachineNo = details.machineNo;
-                        }
-                        catch (Exception ex)
-                        {
-                            LogHelper.Log($"⚠️ Unable to load staff device details for StaffDeviceId={staffDeviceId}: {ex.Message}");
-                        }
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(deviceIp))
-                    {
-                        try
-                        {
-                            userName = await DeviceService.GetUserName(deviceIp, devicePort, deviceMachineNo, devicePassword, enrollmentId, deviceMachineNo);
-                            LogHelper.Log($"🔎 Resolved username for Enroll={enrollmentId} -> '{userName}'");
-                        }
-                        catch (Exception ex)
-                        {
-                            LogHelper.Log($"⚠️ GetUserName failed for Enroll={enrollmentId} on device {deviceIp}:{devicePort} - {ex.Message}");
-                        }
-                    }
-
-                    int logId = _dbHelper.InsertOrUpdateStaffAttendance1Way(enrollmentId, ts, userName);
-
-                    if (logId > 0)
-                    {
-                        inserted++;
-                        LogHelper.Log($"[1WAY] Punch applied Enroll={enrollmentId}, Time={ts}, AttendanceLogId={logId}");
-                    }
-                    else
-                    {
-                        skipped++;
-                        LogHelper.Log($"[1WAY] Ignored duplicate/invalid punch Enroll={enrollmentId}, Time={ts}");
-                    }
+                    LogHelper.Log("⏹ Cancellation requested (staff processing).");
+                    break;
                 }
 
-                LogHelper.Log($"🏁 1-WAY staff attendance processing complete. Punches processed={inserted}, Skipped={skipped}.");
-            }
-            else
-            {
-                var openCheckInSeen = new HashSet<string>();
-
-                foreach (var log in ordered)
+                if (log == null || string.IsNullOrWhiteSpace(log.EnrollmentNumber) || log.DeviceTime == DateTime.MinValue)
                 {
-                    if (token.IsCancellationRequested)
+                    skipped++;
+                    LogHelper.Log($"⚠️ Skipping invalid log (LogId={log?.LogId})");
+                    continue;
+                }
+
+                if (!int.TryParse(log.EnrollmentNumber, out int enrollmentId))
+                {
+                    skipped++;
+                    LogHelper.Log($"⚠️ Skipping log with non-numeric enrollment '{log.EnrollmentNumber}' (LogId={log.LogId})");
+                    continue;
+                }
+
+                string ts = log.DeviceTime.ToString("yyyy-MM-dd HH:mm:ss");
+
+                // Resolve machineNo for device where possible
+                int machineNo = 0;
+                if (staffDeviceMap.TryGetValue(log.DeviceId, out var matchedDev))
+                    machineNo = matchedDev.MachineNo;
+
+                // Resolve action and staffId similar to StaffAttendenceServerFunctions.Process
+                string resolvedAction = null;
+                string resolvedStaffId = null;
+                try
+                {
+                    if (machineNo != 0)
                     {
-                        LogHelper.Log("⏹ Cancellation requested (2-way processing).");
-                        break;
+                        resolvedAction = _dbHelper.GetStaffDeviceAttendanceAction(machineNo);
+                    }
+                    // fallback to log's DeviceType normalization if DB lookup fails
+                    if (string.IsNullOrWhiteSpace(resolvedAction))
+                    {
+                        // map DeviceType like "Check_In"/"Check_Out" to "check-in"/"check-out"
+                        if (string.Equals(log.DeviceType, "Check_In", StringComparison.OrdinalIgnoreCase))
+                            resolvedAction = "check-in";
+                        else if (string.Equals(log.DeviceType, "Check_Out", StringComparison.OrdinalIgnoreCase))
+                            resolvedAction = "check-out";
                     }
 
-                    if (log == null || string.IsNullOrWhiteSpace(log.EnrollmentNumber) || log.DeviceTime == DateTime.MinValue)
+                    resolvedStaffId = _dbHelper.GetStaffIdByEnrollment(enrollmentId);
+
+                    if (!string.IsNullOrEmpty(resolvedAction) && !string.IsNullOrEmpty(resolvedStaffId))
                     {
-                        skipped++;
-                        LogHelper.Log($"⚠️ Skipping invalid log (LogId={log?.LogId})");
-                        continue;
-                    }
+                        // Mixed-mode resolution if needed
+                        if (resolvedAction.IndexOf("/", StringComparison.OrdinalIgnoreCase) >= 0
+                            || resolvedAction.Equals("check-in/check-out", StringComparison.OrdinalIgnoreCase)
+                            || resolvedAction.Equals("check_in/check_out", StringComparison.OrdinalIgnoreCase)
+                            || resolvedAction.Equals("both", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (machineNo != 0)
+                            {
+                                var eff = _dbHelper.GetEffectiveStaffActionForDevice(machineNo, enrollmentId, log.DeviceTime);
+                                if (!string.IsNullOrEmpty(eff))
+                                {
+                                    LogHelper.Log($"[StaffSync] Device mixed mode; resolved effective action='{eff}' for Enroll={enrollmentId}");
+                                    resolvedAction = eff;
+                                }
+                                else
+                                {
+                                    LogHelper.Log("[StaffSync] Could not resolve effective action for mixed-mode device; letting DB helpers decide later.");
+                                }
+                            }
+                        }
 
-                    if (!int.TryParse(log.EnrollmentNumber, out int enrollmentId))
-                    {
-                        skipped++;
-                        LogHelper.Log($"⚠️ Skipping log with non-numeric enrollment '{log.EnrollmentNumber}' (LogId={log.LogId})");
-                        continue;
-                    }
-
-                    string ts = log.DeviceTime.ToString("yyyy-MM-dd HH:mm:ss");
-
-                    // Resolve device details via StaffDeviceId stored in GLogRecord.DeviceId
-                    string userName = string.Empty;
-                    int staffDeviceId = log.DeviceId;
-                    string deviceIp = null;
-                    int devicePort = 0;
-                    int deviceMachineNo = 0;
-                    string devicePassword = string.Empty;
-
-                    if (staffDeviceMap.TryGetValue(staffDeviceId, out var matched))
-                    {
-                        deviceIp = matched.DeviceIP;
-                        devicePort = matched.Port;
-                        deviceMachineNo = matched.MachineNo;
-                        devicePassword = matched.Password ?? string.Empty;
+                        LogHelper.Log($"[StaffSync] Staff device action='{resolvedAction}', StaffID='{resolvedStaffId}', Enroll={enrollmentId}");
                     }
                     else
                     {
-                        try
-                        {
-                            var details = _dbHelper.GetStaffDeviceDetails(staffDeviceId);
-                            deviceIp = details.ip;
-                            devicePort = details.port;
-                            deviceMachineNo = details.machineNo;
-                        }
-                        catch (Exception ex)
-                        {
-                            LogHelper.Log($"⚠️ Unable to load staff device details for StaffDeviceId={staffDeviceId}: {ex.Message}");
-                        }
+                        LogHelper.Log("[StaffSync] Missing action or staff id; debounce will be skipped for this log.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"[StaffSync][Resolve] Error resolving action/staff: {ex.Message}");
+                }
+
+                // --- Apply debounce exactly as StaffAttendenceServerFunctions.Process ---
+                try
+                {
+                    var s = _dbHelper.GetSetting("AttendanceDebounceSeconds");
+                    if (!int.TryParse(s, out var debounceSeconds) || debounceSeconds < 0)
+                    {
+                        MessageBox.Show(
+                            "Debounce setting is missing or invalid. Please set it in Device Manager and try again.",
+                            "Debounce Setting Required",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                        LogHelper.Log("[StaffSync][Debounce] Missing/invalid debounce setting. Aborting processing of staff filtered logs.");
+                        return; // abort entire processing loop, matching server behavior
                     }
 
-                    if (!string.IsNullOrWhiteSpace(deviceIp))
+                    if (string.IsNullOrEmpty(resolvedAction) || string.IsNullOrEmpty(resolvedStaffId))
                     {
-                        try
+                        LogHelper.Log("[StaffSync] Debounce check skipped (missing action or staffId)");
+                    }
+                    else
+                    {
+                        string action = resolvedAction;
+
+                        if (action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
                         {
-                            userName = await DeviceService.GetUserName(deviceIp, devicePort, deviceMachineNo, devicePassword, enrollmentId, deviceMachineNo);
-                            LogHelper.Log($"🔎 Resolved username for Enroll={enrollmentId} -> '{userName}'");
+                            DateTime? pairedCheckIn = null;
+                            try
+                            {
+                                pairedCheckIn = _dbHelper.GetPairedCheckInTimeForStaff(resolvedStaffId, log.DeviceTime);
+                            }
+                            catch (Exception exPair)
+                            {
+                                LogHelper.Log($"[StaffSync][Debounce] Failed to get paired check-in for staff {resolvedStaffId}: {exPair.Message}");
+                            }
+
+                            if (pairedCheckIn.HasValue)
+                            {
+                                var diff = log.DeviceTime - pairedCheckIn.Value;
+                                if (diff.TotalSeconds < debounceSeconds)
+                                {
+                                    skipped++;
+                                    LogHelper.Log($"[StaffSync][Debounce] STAFF CHECK-OUT ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) Staff={resolvedStaffId} Enroll={enrollmentId} Time={log.DeviceTime:yyyy-MM-dd HH:mm:ss}");
+                                    continue; // skip this log
+                                }
+                            }
+                            else
+                            {
+                                LogHelper.Log("[StaffSync][Debounce] No paired/open session for staff checkout; passing to handler.");
+                            }
                         }
-                        catch (Exception ex)
+                        else if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
                         {
-                            LogHelper.Log($"⚠️ GetUserName failed for Enroll={enrollmentId} on device {deviceIp}:{devicePort} - {ex.Message}");
+                            bool openSessionExists = false;
+                            DateTime? lastCheckOut = null;
+
+                            try
+                            {
+                                var logs = _dbHelper.GetAllStaffAttendanceLogs();
+                                if (logs != null)
+                                {
+                                    foreach (var lr in logs)
+                                    {
+                                        try
+                                        {
+                                            string sid = null;
+                                            try { sid = Convert.ToString(lr.StaffID); } catch { try { sid = Convert.ToString(lr.StaffId); } catch { sid = null; } }
+
+                                            if (string.IsNullOrEmpty(sid) || !sid.Equals(resolvedStaffId, StringComparison.OrdinalIgnoreCase))
+                                                continue;
+
+                                            DateTime? co = null;
+                                            try
+                                            {
+                                                co = lr.CheckOutTime as DateTime?;
+                                            }
+                                            catch
+                                            {
+                                                try
+                                                {
+                                                    var coStr = Convert.ToString(lr.CheckOutTime);
+                                                    if (DateTime.TryParse(coStr, out DateTime tmpCo))
+                                                        co = tmpCo;
+                                                    else
+                                                        co = null;
+                                                }
+                                                catch
+                                                {
+                                                    co = null;
+                                                }
+                                            }
+
+                                            if (!co.HasValue)
+                                                openSessionExists = true;
+                                            else
+                                            {
+                                                if (!lastCheckOut.HasValue || co.Value > lastCheckOut.Value)
+                                                    lastCheckOut = co.Value;
+                                            }
+                                        }
+                                        catch { /* ignore malformed rows */ }
+                                    }
+                                }
+                            }
+                            catch (Exception exLogs)
+                            {
+                                LogHelper.Log($"[StaffSync][Debounce] Failed to scan staff logs for debounce: {exLogs.Message}");
+                            }
+
+                            if (!openSessionExists)
+                            {
+                                const int completedSessionCheckInDebounceSeconds = 10;
+                                if (lastCheckOut.HasValue)
+                                {
+                                    var diff = log.DeviceTime - lastCheckOut.Value;
+                                    if (diff.TotalSeconds < completedSessionCheckInDebounceSeconds)
+                                    {
+                                        skipped++;
+                                        LogHelper.Log(
+                                            $"[StaffSync][Debounce] STAFF CHECK-IN ignored after completed session " +
+                                            $"(Δ={diff.TotalSeconds:F0}s < {completedSessionCheckInDebounceSeconds}s) " +
+                                            $"Staff={resolvedStaffId} Enroll={enrollmentId} Time={log.DeviceTime:yyyy-MM-dd HH:mm:ss}");
+                                        continue;
+                                    }
+                                }
+                                else
+                                {
+                                    LogHelper.Log(
+                                        $"[StaffSync][Debounce] STAFF CHECK-IN completed-session debounce check skipped (no last checkout). " +
+                                        $"Staff={resolvedStaffId} Enroll={enrollmentId} Time={log.DeviceTime:yyyy-MM-dd HH:mm:ss}");
+                                }
+                            }
+                            else
+                            {
+                                if (lastCheckOut.HasValue)
+                                {
+                                    var diff = log.DeviceTime - lastCheckOut.Value;
+                                    if (diff.TotalSeconds < debounceSeconds)
+                                    {
+                                        skipped++;
+                                        LogHelper.Log(
+                                            $"[StaffSync][Debounce] STAFF CHECK-IN ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) " +
+                                            $"Staff={resolvedStaffId} Enroll={enrollmentId} Time={log.DeviceTime:yyyy-MM-dd HH:mm:ss}");
+                                        continue;
+                                    }
+                                }
+                            }
                         }
                     }
+                }
+                catch (Exception exDebounce)
+                {
+                    LogHelper.Log($"[StaffSync][Debounce][ERROR] {exDebounce.Message}");
+                    // Fail-open: proceed to normal handling
+                }
 
-                    if (string.Equals(log.DeviceType, "Check_In", StringComparison.OrdinalIgnoreCase))
+                // --- Handling (insert/update) using staff DB helpers ---
+                try
+                {
+                    // If we don't have resolvedStaffId, try to resolve now
+                    string staffId = resolvedStaffId ?? _dbHelper.GetStaffIdByEnrollment(enrollmentId);
+                    if (string.IsNullOrWhiteSpace(staffId))
                     {
-                        var id = _dbHelper.InsertStaffAttendanceLog(enrollmentId, ts, userName);
-                        openCheckInSeen.Add(log.EnrollmentNumber);
-                        inserted++;
-                        LogHelper.Log($"✅ Check-In applied: Enroll={log.EnrollmentNumber}, Time={ts}, RowId={id}");
+                        skipped++;
+                        LogHelper.Log($"⚠️ No staff mapping found for enrollment {enrollmentId} (skipping)");
+                        continue;
                     }
-                    else if (string.Equals(log.DeviceType, "Check_Out", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!openCheckInSeen.Contains(log.EnrollmentNumber))
-                        {
-                            skipped++;
-                            LogHelper.Log($"⚠️ Unmatched Check-Out (Enroll={log.EnrollmentNumber}, Time={ts}) – skipped.");
-                            continue;
-                        }
 
-                        bool ok = _dbHelper.UpdateStaffAttendanceLogForCheckOut(enrollmentId, ts);
-                        if (ok)
+                    // Use resolvedAction if available, otherwise fallback to log.DeviceType mapping
+                    string actionToApply = resolvedAction;
+                    if (string.IsNullOrWhiteSpace(actionToApply))
+                    {
+                        if (string.Equals(log.DeviceType, "Check_In", StringComparison.OrdinalIgnoreCase))
+                            actionToApply = "check-in";
+                        else if (string.Equals(log.DeviceType, "Check_Out", StringComparison.OrdinalIgnoreCase))
+                            actionToApply = "check-out";
+                    }
+
+                    if (string.Equals(actionToApply, "check-in", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int newId = _dbHelper.InsertStaffCheckInByStaffId(staffId, ts, null);
+                        if (newId > 0)
                         {
-                            openCheckInSeen.Remove(log.EnrollmentNumber);
-                            updated++;
-                            LogHelper.Log($"🟩 Check-Out applied: Enroll={log.EnrollmentNumber}, Time={ts}");
+                            inserted++;
+                            LogHelper.Log($"✅ Staff Check-In applied: StaffId={staffId}, Enroll={log.EnrollmentNumber}, Time={ts}, RowId={newId}");
                         }
                         else
                         {
                             skipped++;
-                            LogHelper.Log($"⚠️ Checkout update failed (Enroll={log.EnrollmentNumber}, Time={ts})");
+                            LogHelper.Log($"[StaffSync] Ignored duplicate/invalid staff check-in StaffId={staffId}, Enroll={log.EnrollmentNumber}, Time={ts}");
+                        }
+                    }
+                    else if (string.Equals(actionToApply, "check-out", StringComparison.OrdinalIgnoreCase))
+                    {
+                        bool ok = _dbHelper.InsertStaffCheckOutByStaffId(staffId, ts);
+                        if (ok)
+                        {
+                            updated++;
+                            LogHelper.Log($"🟩 Staff Check-Out applied: StaffId={staffId}, Enroll={log.EnrollmentNumber}, Time={ts}");
+                        }
+                        else
+                        {
+                            skipped++;
+                            LogHelper.Log($"⚠️ Staff checkout update failed (StaffId={staffId}, Enroll={log.EnrollmentNumber}, Time={ts})");
                         }
                     }
                     else
@@ -660,9 +767,14 @@ public class StaffAttendanceLogSyncService : IDisposable
                         LogHelper.Log($"ℹ️ Ignoring non-attendance type record (LogId={log.LogId}, Type={log.DeviceType})");
                     }
                 }
-
-                LogHelper.Log($"🏁 2-WAY staff attendance complete. Check-Ins inserted={inserted}, Check-Outs updated={updated}, Skipped={skipped}.");
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"❌ Error applying staff attendance for Enroll={enrollmentId}: {ex.Message}");
+                    skipped++;
+                }
             }
+
+            LogHelper.Log($"🏁 Staff attendance processing complete. Check-Ins inserted={inserted}, Check-Outs updated={updated}, Skipped={skipped}.");
         }
         catch (Exception ex)
         {

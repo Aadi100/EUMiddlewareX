@@ -480,18 +480,18 @@ namespace smart_attendance_middleware.Classes
                                         break;
                                     }
                             }
-
                             if (success)
                             {
-                                // Brief write under lock to update staff sync status
-                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Staff_Write", DbTaskPriority.High);
+                                // Step 3: brief write under lock
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
                                 try
                                 {
                                     await _dbHelper.UpdateStaffBiometricSyncStatusAsync(sEntry.Id, biometric.Key, true);
+                                    await _dbHelper.CheckAndUpdateStaffDeviceSyncStatus(sEntry.StaffID, sEntry.StaffDeviceId);
                                 }
                                 finally
                                 {
-                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Staff_Write");
+                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Write");
                                 }
                             }
                         }

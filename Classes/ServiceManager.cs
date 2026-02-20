@@ -1,20 +1,23 @@
-﻿using smart_attendance_middleware;
+﻿using System.Threading.Tasks;
+using smart_attendance_middleware;
 using smart_attendance_middleware.Classes;
 using smart_attendance_middleware.Services;
 
-public static class ServiceManager
+public static class ServiceManager  
 {
     public static LogSyncService LogSyncService { get; private set; }
     public static AttendanceLogSyncService AttendanceLogSyncService { get; private set; }
     public static PeriodicMaintenanceService PeriodicMaintenanceService { get; private set; }
 
-    public static void StartLogSyncService(DeviceFunctions deviceFunctions)
+    public static Task StartLogSyncServiceAsync(DeviceFunctions deviceFunctions)
     {
         if (LogSyncService == null)
         {
             LogSyncService = new LogSyncService(deviceFunctions);
             LogSyncService.Start();
         }
+
+        return LogSyncService.Started;
     }
 
     public static void StopLogSyncService()
@@ -23,13 +26,15 @@ public static class ServiceManager
         LogSyncService = null;
     }
 
-    public static void StartAttendanceLogSyncService(WebSocketManager wsManager)
+    public static Task StartAttendanceLogSyncServiceAsync(WebSocketManager wsManager)
     {
         if (AttendanceLogSyncService == null)
         {
             AttendanceLogSyncService = new AttendanceLogSyncService(wsManager);
             AttendanceLogSyncService.Start();
         }
+
+        return AttendanceLogSyncService.Started;
     }
 
     public static void StopAttendanceLogSyncService()
@@ -42,14 +47,15 @@ public static class ServiceManager
         }
     }
 
-    public static void StartPeriodicMaintenanceService(Dashboard dashboard)
+    public static Task StartPeriodicMaintenanceServiceAsync(Dashboard dashboard)
     {
         if (PeriodicMaintenanceService == null)
         {
             PeriodicMaintenanceService = new PeriodicMaintenanceService(dashboard);
             PeriodicMaintenanceService.Start();
-            LogHelper.Log("✅ PeriodicMaintenanceService started successfully");
         }
+
+        return PeriodicMaintenanceService.Started;
     }
 
     public static void StopPeriodicMaintenanceService()

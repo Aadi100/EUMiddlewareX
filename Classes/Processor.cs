@@ -18,7 +18,7 @@ namespace smart_attendance_middleware
         private readonly WebSocketManager _wsManager;
         private DeviceFunctions _deviceFunctions;
         private AttendenceServerFunctions attendenceServerFunctions;
-
+        private StaffAttendenceServerFunctions staffAttendenceServerFunctions;
         public Processor(DatabaseHelper dbHelper, WebSocketManager wsManager,DeviceFunctions deviceFunctions)
         {
             _dbHelper = dbHelper;
@@ -33,6 +33,13 @@ namespace smart_attendance_middleware
             this.attendenceServerFunctions = attendenceServerFunctions;
         }
 
+        public Processor(DatabaseHelper dbHelper, WebSocketManager wsManager, StaffAttendenceServerFunctions staffAttendenceServerFunctions)
+        {
+                _dbHelper = dbHelper;
+                _wsManager = wsManager;
+                this.staffAttendenceServerFunctions = staffAttendenceServerFunctions;
+        }
+
 
         /// <summary>
         /// Central entry point for handling all real-time events from the WebSocketManager.
@@ -44,7 +51,7 @@ namespace smart_attendance_middleware
             {
 
                 case "attendance_updated":
-                    HandleAttendanceUpdated(data);
+                    HandleAttendance(data);
                     break;
 
                 case "user_created":
@@ -348,7 +355,7 @@ namespace smart_attendance_middleware
         /// <summary>
         /// Handles attendance update events from WebSocket, only processing manual updates.
         /// </summary>
-        private async void HandleAttendanceUpdated(JObject data)
+        private async void HandleAttendance(JObject data)
         {
             try
             {

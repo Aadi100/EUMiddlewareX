@@ -12,6 +12,10 @@ namespace smart_attendance_middleware.Services
         private readonly object _lock = new object();
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
+        // Signal that the one-time initial run has completed
+        private readonly TaskCompletionSource<bool> _startedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task Started => _startedTcs.Task;
+
         public LogSyncService(DeviceFunctions deviceFunctions)
         {
             _deviceFunctions = deviceFunctions;
@@ -19,13 +23,11 @@ namespace smart_attendance_middleware.Services
 
         public void Start()
         {
-            // Run the task once in the background.
             Task.Run(async () => await RunAsync(), _cancellationTokenSource.Token);
         }
 
         public void Stop()
         {
-            // Cancel the task if it's running and dispose of the source.
             _cancellationTokenSource?.Cancel();
             _cancellationTokenSource?.Dispose();
         }
@@ -42,13 +44,11 @@ namespace smart_attendance_middleware.Services
             {
                 LogHelper.Log("LogSyncService: Starting one-time check for unsynced logs...");
 
-                // This is a DB read; no global write lock required.
                 bool hasUnsyncedLogs = await _deviceFunctions._dbHelper.CheckForUnsyncedLogs();
 
                 if (hasUnsyncedLogs)
                 {
                     LogHelper.Log("LogSyncService: Unsynced logs found. Running workflow...");
-                    // ProcessUserWorkflowAsync manages its own DB locks internally.
                     await _deviceFunctions.ProcessUserWorkflowAsync();
                 }
                 else
@@ -68,8 +68,14 @@ namespace smart_attendance_middleware.Services
             {
                 _isRunning = false;
                 LogHelper.Log("LogSyncService: One-time check finished.");
+
+                // Signal callers that the initial one-shot run has completed.
+                // Use TrySetResult so multiple calls/start attempts don't throw.
+                if (!_startedTcs.Task.IsCompleted)
+                {
+                    _startedTcs.TrySetResult(true);
+                }
             }
         }
-
     }
 }

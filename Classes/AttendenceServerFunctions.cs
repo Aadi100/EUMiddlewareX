@@ -10,7 +10,6 @@ using System.Windows.Forms;
 
 namespace smart_attendance_middleware
 {
-    // Name exactly as requested
     public class AttendenceServerFunctions
     {
 
@@ -32,7 +31,6 @@ namespace smart_attendance_middleware
             if (_wsManager != null)
             {
                 _processor = new Processor(_dbHelper, _wsManager, this);
-                // Ensure HttpHandler has a Processor to process responses
                 _httpHandler = new HttpHandler(_dbHelper, _processor);
             }
             else
@@ -44,7 +42,6 @@ namespace smart_attendance_middleware
         public AttendenceServerFunctions()
         {
             _dbHelper = new DatabaseHelper();
-            // HttpHandler without Processor for now; will be re-created when WS is set
             _httpHandler = new HttpHandler(_dbHelper);
         }
 
