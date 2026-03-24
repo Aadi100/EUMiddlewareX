@@ -4,9 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
-using System.Data.SQLite;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -26,6 +26,7 @@ namespace smart_attendance_middleware
         public int? EnrollmentID { get; set; }
         public bool Fingerprint { get; set; }
         public string PackageExpiry { get; set; }
+        public bool is_staff { get; set; } 
         public Dictionary<int, bool> SyncStatus { get; set; } = new Dictionary<int, bool>();
     }
 
@@ -145,13 +146,13 @@ namespace smart_attendance_middleware
         public bool NeedsCheckOutSync { get; set; }
     }
 
-    
-        public class LogBiometricChange
-        {
-            public string BiometricType { get; set; }
-            public int DeviceId { get; set; }
-            public int? EnrollmentId { get; set; }
-        }
+
+    public class LogBiometricChange
+    {
+        public string BiometricType { get; set; }
+        public int DeviceId { get; set; }
+        public int? EnrollmentId { get; set; }
+    }
 
     // Updated GLog record model
     public class GLogRecord
@@ -200,7 +201,7 @@ namespace smart_attendance_middleware
 
 
         /// <summary>
-        /// Initializes the SQLite database by creating the file (if needed) and the necessary tables.
+        /// Initializes the SQL Server database by creating the file (if needed) and the necessary tables.
         /// Tables:
         ///  - Settings: to store key-value pairs (e.g., APIKey, TimeZone, VersionTimestamp)
         ///  - Members: to store member details (MemberID, Name, Status, RFID, Picture, MachineID)
@@ -208,331 +209,362 @@ namespace smart_attendance_middleware
         /// </summary>
         public void InitializeDatabase()
         {
-
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
 
-                // Create the Settings table.
-                using (var command = new SQLiteCommand(connection))
+                // All DDL statements to run with corrected data types
+                var createSettingsSql = @"
+IF OBJECT_ID('dbo.Settings','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Settings (
+        [Key] NVARCHAR(255) PRIMARY KEY,
+        Value NVARCHAR(MAX),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createMembersSql = @"
+IF OBJECT_ID('dbo.Members','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Members (
+        MemberID INT IDENTITY(1,1) PRIMARY KEY,
+        Name NVARCHAR(255),
+        Status NVARCHAR(50),
+        RFID NVARCHAR(100),
+        Picture NVARCHAR(500),
+        Fingerprint BIT,
+        EnrollmentID INT,
+        PackageExpiry NVARCHAR(100),
+        SyncStatus NVARCHAR(50),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createStaffSql = @"
+IF OBJECT_ID('dbo.Staff','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Staff (
+        StaffID NVARCHAR(100) PRIMARY KEY,
+        Name NVARCHAR(255),
+        Status NVARCHAR(50),
+        RFID NVARCHAR(100),
+        Picture NVARCHAR(500),
+        Fingerprint BIT,
+        EnrollmentID INT,
+        SyncStatus NVARCHAR(50),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createAttendanceLogsSql = @"
+IF OBJECT_ID('dbo.AttendanceLogs','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AttendanceLogs (
+        LogID INT IDENTITY(1,1) PRIMARY KEY,
+        MemberID INT,
+        AttendanceId NVARCHAR(100),
+        CheckInTime DATETIME2,
+        CheckOutTime DATETIME2,
+        SyncStatus NVARCHAR(50),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2,
+        CONSTRAINT FK_AttendanceLogs_Members FOREIGN KEY(MemberID) REFERENCES dbo.Members(MemberID)
+    );
+END";
+
+                var createLocalUsersSql = @"
+IF OBJECT_ID('dbo.LocalUsers','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.LocalUsers (
+        LocalUserID INT IDENTITY(1,1) PRIMARY KEY,
+        UserName NVARCHAR(100) UNIQUE NOT NULL,
+        Role NVARCHAR(20) CHECK(Role IN ('admin','user','developer')) NOT NULL,
+        Password NVARCHAR(255) NOT NULL,
+        BackupCode NVARCHAR(50) NOT NULL,
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createDevicesSql = @"
+IF OBJECT_ID('dbo.Devices','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Devices (
+        DeviceId INT IDENTITY(1,1) PRIMARY KEY,
+        Department NVARCHAR(100),
+        AttendanceType BIT,
+        DeviceSerial NVARCHAR(500),
+        DeviceIP NVARCHAR(500) UNIQUE NOT NULL,
+        Port INT,
+        MachineNo INT UNIQUE,
+        TimeZone NVARCHAR(100),
+        Location NVARCHAR(100),
+        ConnectionType NVARCHAR(20),
+        IsActive BIT,
+        LastSyncTime DATETIME2,
+        Password NVARCHAR(255) NOT NULL,
+        FaceCapacity INT,
+        RFIDCapacity INT,
+        FingerCapacity INT,
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createFingerprintsSql = @"
+IF OBJECT_ID('dbo.Fingerprints','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Fingerprints (
+        EnrollNumber INT PRIMARY KEY,
+        FingerNumber INT NOT NULL,
+        Privilege INT DEFAULT 0,
+        TemplateData VARBINARY(MAX),
+        TemplateString NVARCHAR(MAX),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createGLogSql = @"
+IF OBJECT_ID('dbo.GLog','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.GLog (
+        LogId INT IDENTITY(1,1) PRIMARY KEY,
+        DeviceId INT NOT NULL,
+        EnrollmentNumber NVARCHAR(100) NOT NULL,
+        DeviceTime DATETIME2 NOT NULL,
+        OriginalLine NVARCHAR(1000) NOT NULL,
+        Sync BIT DEFAULT 0,
+        DeviceType NVARCHAR(50),
+        Filter BIT DEFAULT 0,
+        CreatedOn DATETIME2,
+        UpdatedOn DATETIME2,
+        CONSTRAINT FK_GLog_Devices FOREIGN KEY (DeviceId) REFERENCES dbo.Devices(DeviceId)
+    );
+END";
+
+                var createSyncLogSql = @"
+IF OBJECT_ID('dbo.Log','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Log (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        MemberID INT NOT NULL,
+        DeviceID INT NOT NULL,
+        EnrollmentID INT,
+        BiometricData NVARCHAR(MAX),
+        SyncStatus NVARCHAR(50),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2,
+        CONSTRAINT FK_Log_Members FOREIGN KEY (MemberID) REFERENCES dbo.Members(MemberID),
+        CONSTRAINT FK_Log_Devices FOREIGN KEY (DeviceID) REFERENCES dbo.Devices(DeviceId)
+    );
+END";
+
+                var createStaffDevicesSql = @"
+IF OBJECT_ID('dbo.StaffDevices','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.StaffDevices (
+        StaffDeviceId INT IDENTITY(1,1) PRIMARY KEY,
+        Department NVARCHAR(100),
+        StaffAttendanceType NVARCHAR(100),
+        DeviceSerial NVARCHAR(500),
+        DeviceIP NVARCHAR(500) UNIQUE NOT NULL,
+        Port INT,
+        MachineNo INT UNIQUE,
+        TimeZone NVARCHAR(100),
+        Location NVARCHAR(100),
+        ConnectionType NVARCHAR(20),
+        IsActive BIT,
+        LastSyncTime DATETIME2,
+        Password NVARCHAR(255) NOT NULL,
+        FaceCapacity INT,
+        RFIDCapacity INT,
+        FingerCapacity INT,
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createStaffLogSql = @"
+IF OBJECT_ID('dbo.StaffLog','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.StaffLog (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        StaffID NVARCHAR(100) NOT NULL,
+        StaffDeviceId INT NOT NULL,
+        EnrollmentID INT,
+        BiometricData NVARCHAR(MAX),
+        SyncStatus NVARCHAR(50),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2,
+        CONSTRAINT FK_StaffLog_Staff FOREIGN KEY (StaffID) REFERENCES dbo.Staff(StaffID),
+        CONSTRAINT FK_StaffLog_StaffDevices FOREIGN KEY (StaffDeviceId) REFERENCES dbo.StaffDevices(StaffDeviceId)
+    );
+END";
+
+                var createStaffGLogSql = @"
+IF OBJECT_ID('dbo.StaffGLog','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.StaffGLog (
+        LogId INT IDENTITY(1,1) PRIMARY KEY,
+        StaffDeviceId INT NOT NULL,
+        EnrollmentNumber NVARCHAR(100) NOT NULL,
+        DeviceTime DATETIME2 NOT NULL,
+        OriginalLine NVARCHAR(1000) NOT NULL,
+        Sync BIT DEFAULT 0,
+        DeviceType NVARCHAR(50),
+        Filter BIT DEFAULT 0,
+        CreatedOn DATETIME2,
+        UpdatedOn DATETIME2,
+        CONSTRAINT FK_StaffGLog_StaffDevices FOREIGN KEY (StaffDeviceId) REFERENCES dbo.StaffDevices(StaffDeviceId)
+    );
+END";
+
+                var createStaffAttendanceLogSql = @"
+IF OBJECT_ID('dbo.StaffAttendanceLog','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.StaffAttendanceLog (
+        LogID INT IDENTITY(1,1) PRIMARY KEY,
+        EnrollmentID INT NOT NULL,
+        AttendanceId NVARCHAR(100),
+        CheckInTime DATETIME2,
+        CheckOutTime DATETIME2,
+        SyncStatus NVARCHAR(500),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+
+                var createGateAccessedSql = @"
+IF OBJECT_ID('dbo.GateAccessed','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.GateAccessed (
+        GateId INT IDENTITY(1,1) PRIMARY KEY,
+        DeviceIP NVARCHAR(50) NOT NULL,
+        MemberId INT NOT NULL,
+        IsVisitor BIT NOT NULL DEFAULT 0,
+        VisitorName NVARCHAR(255),
+        VisitorPhone NVARCHAR(50),
+        Reason NVARCHAR(500),
+        AccessedTime DATETIME2,
+        Username NVARCHAR(100),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2,
+        CONSTRAINT FK_GateAccessed_Members FOREIGN KEY (MemberId) REFERENCES dbo.Members(MemberID)
+    );
+END";
+
+                var createPendingJobsSql = @"
+IF OBJECT_ID('dbo.PendingJobs','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PendingJobs (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        Action NVARCHAR(100) NOT NULL,
+        MemberId INT NOT NULL,
+        EnrollmentId INT NOT NULL,
+        DeviceId INT,
+        Ip NVARCHAR(50) NOT NULL,
+        Port INT NOT NULL,
+        MachineNo INT NOT NULL,
+        Password NVARCHAR(255) NOT NULL,
+        BackupNumber INT NOT NULL,
+        CreatedAt DATETIME2,
+        CONSTRAINT FK_PendingJobs_Devices FOREIGN KEY (DeviceId) REFERENCES dbo.Devices(DeviceId)
+    );
+END";
+
+                var createIndexesSql = @"
+-- Create indexes for better performance
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GLog_DeviceId' AND object_id = OBJECT_ID('dbo.GLog'))
+    CREATE INDEX IX_GLog_DeviceId ON dbo.GLog(DeviceId);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GLog_DeviceTime' AND object_id = OBJECT_ID('dbo.GLog'))
+    CREATE INDEX IX_GLog_DeviceTime ON dbo.GLog(DeviceTime);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_AttendanceLogs_MemberID' AND object_id = OBJECT_ID('dbo.AttendanceLogs'))
+    CREATE INDEX IX_AttendanceLogs_MemberID ON dbo.AttendanceLogs(MemberID);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_AttendanceLogs_CheckInTime' AND object_id = OBJECT_ID('dbo.AttendanceLogs'))
+    CREATE INDEX IX_AttendanceLogs_CheckInTime ON dbo.AttendanceLogs(CheckInTime);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Log_MemberID' AND object_id = OBJECT_ID('dbo.Log'))
+    CREATE INDEX IX_Log_MemberID ON dbo.Log(MemberID);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Log_DeviceID' AND object_id = OBJECT_ID('dbo.Log'))
+    CREATE INDEX IX_Log_DeviceID ON dbo.Log(DeviceID);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_StaffLog_StaffID' AND object_id = OBJECT_ID('dbo.StaffLog'))
+    CREATE INDEX IX_StaffLog_StaffID ON dbo.StaffLog(StaffID);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_StaffLog_StaffDeviceId' AND object_id = OBJECT_ID('dbo.StaffLog'))
+    CREATE INDEX IX_StaffLog_StaffDeviceId ON dbo.StaffLog(StaffDeviceId);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_StaffGLog_StaffDeviceId' AND object_id = OBJECT_ID('dbo.StaffGLog'))
+    CREATE INDEX IX_StaffGLog_StaffDeviceId ON dbo.StaffGLog(StaffDeviceId);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_StaffGLog_DeviceTime' AND object_id = OBJECT_ID('dbo.StaffGLog'))
+    CREATE INDEX IX_StaffGLog_DeviceTime ON dbo.StaffGLog(DeviceTime);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GateAccessed_MemberId' AND object_id = OBJECT_ID('dbo.GateAccessed'))
+    CREATE INDEX IX_GateAccessed_MemberId ON dbo.GateAccessed(MemberId);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GateAccessed_AccessedTime' AND object_id = OBJECT_ID('dbo.GateAccessed'))
+    CREATE INDEX IX_GateAccessed_AccessedTime ON dbo.GateAccessed(AccessedTime);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_DeviceId' AND object_id = OBJECT_ID('dbo.PendingJobs'))
+    CREATE INDEX IX_PendingJobs_DeviceId ON dbo.PendingJobs(DeviceId);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt' AND object_id = OBJECT_ID('dbo.PendingJobs'))
+    CREATE INDEX IX_PendingJobs_CreatedAt ON dbo.PendingJobs(CreatedAt);";
+
+                var ddlCommands = new[]
                 {
-                    command.CommandText =
-                    @"
-                    CREATE TABLE IF NOT EXISTS Settings (
-                        Key TEXT PRIMARY KEY,
-                        Value TEXT,
-                        CreatedAt TEXT,
-                        UpdatedAt TEXT
-                    );";
-                    command.ExecuteNonQuery();
-                }
+                createSettingsSql,
+                createMembersSql,
+                createStaffSql,
+                createDevicesSql,
+                createFingerprintsSql,
+                createGLogSql,
+                createAttendanceLogsSql,
+                createLocalUsersSql,
+                createSyncLogSql,
+                createStaffDevicesSql,
+                createStaffLogSql,
+                createStaffGLogSql,
+                createStaffAttendanceLogSql,
+                createGateAccessedSql,
+                createPendingJobsSql,
+                createIndexesSql
+            };
 
-                // Create the Members table.
-                using (var command = new SQLiteCommand(connection))
+                // Execute all DDL statements inside a transaction and handle errors
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.CommandText =
-                @"
-                CREATE TABLE IF NOT EXISTS Members (
-                    MemberID INTEGER PRIMARY KEY,
-                    Name TEXT,
-                    Status TEXT,
-                    RFID TEXT,
-                    Picture TEXT,
-                    Fingerprint BOOLEAN, 
-                    EnrollmentID INTEGER,
-                    PackageExpiry TEXT,
-                    SyncStatus TEXT,
-                    CreatedAt TEXT,
-                    UpdatedAt TEXT
-                );";
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        foreach (var sql in ddlCommands)
+                        {
+                            using (var command = new SqlCommand(sql, connection, transaction))
+                            {
+                                command.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        try { transaction.Rollback(); } catch { /* ignore rollback errors */ }
+                        // Log or rethrow as appropriate for your app
+                        throw new InvalidOperationException("Failed to initialize database schema.", ex);
+                    }
                 }
-
-                //Create the Staff table.
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS Staff (
-        StaffID TEXT PRIMARY KEY,
-        Name TEXT,
-        Status TEXT,
-        RFID TEXT,
-        Picture TEXT,
-        Fingerprint BOOLEAN,
-        EnrollmentID INTEGER,
-        SyncStatus TEXT,
-        CreatedAt TEXT,
-        UpdatedAt TEXT
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the AttendanceLogs table.
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-                    CREATE TABLE IF NOT EXISTS AttendanceLogs (
-                        LogID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        MemberID INTEGER,
-                        AttendanceId TEXT,
-                        CheckInTime TEXT,
-                        CheckOutTime TEXT,
-                        SyncStatus TEXT,-- JSON: { ""checkIn"": bool, ""checkOut"": bool }
-                        CreatedAt TEXT,
-                        UpdatedAt TEXT,
-                        FOREIGN KEY(MemberID) REFERENCES Members(MemberID)
-                    );";
-                    command.ExecuteNonQuery();
-                }
-
-                //Abdul Hadi Code
-                //Create the LocalUsers table.
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-                    CREATE TABLE IF NOT EXISTS LocalUsers (
-                        LocalUserID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        UserName TEXT UNIQUE NOT NULL,
-                        Role TEXT CHECK(Role IN ('admin', 'user', 'developer')) NOT NULL,
-                        Password TEXT NOT NULL,
-                        BackupCode TEXT NOT NULL,
-                        CreatedAt TEXT,
-                        UpdatedAt TEXT
-                    );";
-                    command.ExecuteNonQuery();
-                }
-
-
-                //Abdul Hadi Code
-                // Create the Devices table.
-                // 1 for check_in, 0 for check_out
-                //unique add karna ip mai
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-                    CREATE TABLE IF NOT EXISTS Devices (
-                        DeviceId INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Department VARCHAR(100) NULL,
-                        AttendanceType BOOLEAN,        
-                        DeviceSerial VARCHAR(20),
-                        DeviceIP VARCHAR(50) UNIQUE NOT NULL,
-                        Port INTEGER,
-                        MachineNo INTEGER UNIQUE ,
-                        TimeZone TEXT,
-                        Location VARCHAR(100),
-                        ConnectionType VARCHAR(20),
-                        IsActive BOOLEAN,
-                        LastSyncTime TEXT NULL,
-                        Password TEXT NOT NULL,
-                        FaceCapacity INTEGER NULL,
-                        RFIDCapacity INTEGER NULL,
-                        FingerCapacity INTEGER NULL,
-                        CreatedAt TEXT,
-                        UpdatedAt TEXT
-                    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the  Fingerprints table
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS Fingerprints (
-        EnrollNumber INTEGER PRIMARY KEY,        
-        FingerNumber INTEGER NOT NULL,          
-        Privilege INTEGER DEFAULT 0,              
-        TemplateData BLOB,                        
-        TemplateString TEXT,                      
-        CreatedAt TEXT,
-        UpdatedAt TEXT
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-
-                // Create the GLog table for storing raw glog file data
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS GLog (
-        LogId INTEGER PRIMARY KEY AUTOINCREMENT,
-        DeviceId INTEGER NOT NULL,
-        EnrollmentNumber TEXT NOT NULL,
-        DeviceTime TEXT NOT NULL,
-        OriginalLine TEXT NOT NULL,
-        Sync BOOLEAN DEFAULT 0,
-        DeviceType TEXT,
-        Filter BOOLEAN DEFAULT 0,
-        CreatedOn TEXT,
-        UpdatedOn TEXT,
-        FOREIGN KEY (DeviceId) REFERENCES Devices(DeviceId)
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-
-                // Create the Sync Log table.
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS Log (
-        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-        MemberID INTEGER NOT NULL,
-        DeviceID INTEGER NOT NULL,
-        EnrollmentID INTEGER,
-        BiometricData TEXT,
-        SyncStatus TEXT,
-        CreatedAt TEXT,
-        UpdatedAt TEXT,
-        FOREIGN KEY (MemberID) REFERENCES Members(MemberID),
-        FOREIGN KEY (DeviceID) REFERENCES Devices(DeviceId)
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the StaffDevices table 
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS StaffDevices (
-        StaffDeviceId INTEGER PRIMARY KEY AUTOINCREMENT,
-        Department VARCHAR(100) NULL,
-        StaffAttendanceType TEXT,         -- keep TEXT
-        DeviceSerial VARCHAR(20),
-        DeviceIP VARCHAR(50) UNIQUE NOT NULL,
-        Port INTEGER,
-        MachineNo INTEGER UNIQUE,
-        TimeZone TEXT,
-        Location VARCHAR(100),
-        ConnectionType VARCHAR(20),
-        IsActive BOOLEAN,
-        LastSyncTime TEXT NULL,
-        Password TEXT NOT NULL,
-        FaceCapacity INTEGER NULL,
-        RFIDCapacity INTEGER NULL,
-        FingerCapacity INTEGER NULL,
-        CreatedAt TEXT,
-        UpdatedAt TEXT
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the Staff Sync Log table 
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS StaffLog (
-        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-        StaffID TEXT NOT NULL,
-        StaffDeviceId INTEGER NOT NULL,
-        EnrollmentID INTEGER,
-        BiometricData TEXT,
-        SyncStatus TEXT,
-        CreatedAt TEXT,
-        UpdatedAt TEXT,
-        FOREIGN KEY (StaffID) REFERENCES Staff(StaffID),
-        FOREIGN KEY (StaffDeviceId) REFERENCES StaffDevices(StaffDeviceId)
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the StaffGLog table (like GLog, for staff)
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS StaffGLog (
-        LogId INTEGER PRIMARY KEY AUTOINCREMENT,
-        StaffDeviceId INTEGER NOT NULL,
-        EnrollmentNumber TEXT NOT NULL,
-        DeviceTime TEXT NOT NULL,
-        OriginalLine TEXT NOT NULL,
-        Sync BOOLEAN DEFAULT 0,
-        DeviceType TEXT,
-        Filter BOOLEAN DEFAULT 0,
-        CreatedOn TEXT,
-        UpdatedOn TEXT,
-        FOREIGN KEY (StaffDeviceId) REFERENCES StaffDevices(StaffDeviceId)
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the StaffAttendanceLog table (no MemberID, no SyncStatus, use EnrollmentID)
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS StaffAttendanceLog (
-        LogID INTEGER PRIMARY KEY AUTOINCREMENT,
-        EnrollmentID INTEGER NOT NULL,
-        AttendanceId TEXT,
-        Name TEXT,
-        CheckInTime TEXT,
-        CheckOutTime TEXT,
-        CreatedAt TEXT,
-        UpdatedAt TEXT
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the GateAccessed table
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-    CREATE TABLE IF NOT EXISTS GateAccessed (
-        GateId INTEGER PRIMARY KEY AUTOINCREMENT,
-        DeviceIP TEXT NOT NULL,
-        MemberId INTEGER NOT NULL,
-        IsVisitor BOOLEAN NOT NULL DEFAULT 0,
-        VisitorName TEXT,
-        VisitorPhone TEXT,
-        Reason TEXT,
-        AccessedTime TEXT,
-        Username TEXT,
-        CreatedAt TEXT,
-        UpdatedAt TEXT,
-        FOREIGN KEY (MemberId) REFERENCES Members(MemberID)
-    );";
-                    command.ExecuteNonQuery();
-                }
-
-                // Create the PendingJobs table
-                using (var command = new SQLiteCommand(connection))
-                {
-                    command.CommandText =
-                    @"
-CREATE TABLE IF NOT EXISTS PendingJobs (
-    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-    Action TEXT NOT NULL,       -- ""enable"" | ""disable"" | ""delete""
-    MemberId INTEGER NOT NULL,
-    EnrollmentId INTEGER NOT NULL,
-    DeviceId INTEGER NULL,
-    Ip TEXT NOT NULL,
-    Port INTEGER NOT NULL,
-    MachineNo INTEGER NOT NULL,
-    Password TEXT NOT NULL,
-    BackupNumber INTEGER NOT NULL,
-    CreatedAt TEXT,
-    FOREIGN KEY (DeviceId) REFERENCES Devices(DeviceId)
-);";
-                    command.ExecuteNonQuery();
-                }
-
-
-
-                DefaultDevUser(connection);
             }
-
         }
 
         private static byte[] GenerateSecureKey()
@@ -583,14 +615,11 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         }
 
 
-
-
         private string GetTimestamp()
         {
             return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         }
 
-        
         //Abdul Hadi Code
         //Hash the password
         private byte[] HashString(string input)
@@ -601,7 +630,6 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
-        
         //Abdul Hadi Code
         //Generate a backup code
         private string GenerateBackupCode()
@@ -618,17 +646,19 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             return backupCode.ToString();
         }
 
-        private void DefaultDevUser(SQLiteConnection connection)
+        //Default developer user creation with hashed password and backup code
+        private void DefaultDevUser(SqlConnection connection)
         {
             using (var transaction = connection.BeginTransaction())
             {
                 try
                 {
-                    using (var checkCommand = new SQLiteCommand("SELECT COUNT(*) FROM LocalUsers WHERE UserName = @user", connection))
+                    using (var checkCommand = new SqlCommand("SELECT COUNT(*) FROM LocalUsers WHERE UserName = @user", connection, transaction))
                     {
-                        checkCommand.Transaction = transaction;
                         checkCommand.Parameters.AddWithValue("@user", "Dev");
-                        long count = (long)checkCommand.ExecuteScalar();
+                        var result = checkCommand.ExecuteScalar();
+                        int count = (result == null || result == DBNull.Value) ? 0 : Convert.ToInt32(result);
+
                         if (count == 0)
                         {
                             const string defaultUser = "Dev";
@@ -640,39 +670,38 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                             string hashedBackupBase64 = Convert.ToBase64String(HashString(plainBackupCode));
                             string ts = GetTimestamp();
 
-                            using (var insertCommand = new SQLiteCommand(connection))
+                            using (var insertCommand = new SqlCommand(@"
+INSERT INTO LocalUsers (UserName, Role, Password, BackupCode, CreatedAt, UpdatedAt)
+VALUES (@UserName, @Role, @Password, @BackupCode, @CreatedAt, @UpdatedAt);", connection, transaction))
                             {
-                                insertCommand.Transaction = transaction;
-                                insertCommand.CommandText =
-                                @"
-                        INSERT INTO LocalUsers (UserName, Role, Password, BackupCode, CreatedAt, UpdatedAt)
-                        VALUES (@UserName, @Role, @Password, @BackupCode, @CreatedAt, @UpdatedAt);
-                        ";
                                 insertCommand.Parameters.AddWithValue("@UserName", defaultUser);
                                 insertCommand.Parameters.AddWithValue("@Role", defaultRole);
                                 insertCommand.Parameters.AddWithValue("@Password", hashedPasswordBase64);
                                 insertCommand.Parameters.AddWithValue("@BackupCode", hashedBackupBase64);
                                 insertCommand.Parameters.AddWithValue("@CreatedAt", ts);
                                 insertCommand.Parameters.AddWithValue("@UpdatedAt", ts);
+
                                 insertCommand.ExecuteNonQuery();
                             }
 
                             transaction.Commit();
                             Console.WriteLine($"Default developer user '{defaultUser}' created. Backup code: {plainBackupCode}");
                         }
+                        else
+                        {
+                            transaction.Rollback();
+                        }
                     }
                 }
-                catch (SQLiteException ex)
+                catch (SqlException ex)
                 {
-                    transaction.Rollback();
+                    try { transaction.Rollback(); } catch { /* ignore rollback errors */ }
                     Console.WriteLine($"Error creating default developer user: {ex.Message}");
+                    throw;
                 }
             }
         }
 
-
-
-        //Abdul Hadi Code
         //Add a new user to the LocalUsers table
         public bool AddUser(string userName, string role, string password, out string plainBackupCode)
         {
@@ -688,21 +717,17 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             string hashedPassword = Convert.ToBase64String(HashString(password));
             string timestamp = GetTimestamp();
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
                     {
-                        using (var command = new SQLiteCommand(connection))
+                        using (var command = new SqlCommand(@"
+INSERT INTO LocalUsers (UserName, Role, Password, BackupCode, CreatedAt, UpdatedAt)
+VALUES (@UserName, @Role, @Password, @BackupCode, @CreatedAt, @UpdatedAt);", connection, transaction))
                         {
-                            command.CommandText =
-                            @"
-                            INSERT INTO LocalUsers (UserName, Role, Password, BackupCode, CreatedAt, UpdatedAt)
-                            VALUES (@UserName, @Role, @Password, @BackupCode, @CreatedAt, @UpdatedAt);
-                            ";
-
                             command.Parameters.AddWithValue("@UserName", userName);
                             command.Parameters.AddWithValue("@Role", role);
                             command.Parameters.AddWithValue("@Password", hashedPassword);
@@ -717,7 +742,7 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                         Console.WriteLine($"User '{userName}' added successfully.");
                         return true;
                     }
-                    catch (SQLiteException ex)
+                    catch (SqlException ex)
                     {
                         transaction.Rollback();
                         Console.WriteLine($"Error adding user: {ex.Message}");
@@ -726,7 +751,8 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                 }
             }
         }
-        //Abdul Hadi Code
+
+
         //Add a new user to the LocalUsers table and return the ID of the new user when adding first time
         public int? FirstAddUser(string userName, string role, string password, out string plainBackupCode)
         {
@@ -742,22 +768,18 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             string hashedPassword = Convert.ToBase64String(HashString(password));
             string timestamp = GetTimestamp();
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
                     {
-                        using (var command = new SQLiteCommand(connection))
+                        using (var command = new SqlCommand(@"
+INSERT INTO LocalUsers (UserName, Role, Password, BackupCode, CreatedAt, UpdatedAt)
+VALUES (@UserName, @Role, @Password, @BackupCode, @CreatedAt, @UpdatedAt);
+SELECT SCOPE_IDENTITY();", connection, transaction))
                         {
-                            command.CommandText =
-                            @"
-                    INSERT INTO LocalUsers (UserName, Role, Password, BackupCode, CreatedAt, UpdatedAt)
-                    VALUES (@UserName, @Role, @Password, @BackupCode, @CreatedAt, @UpdatedAt);
-                    SELECT last_insert_rowid();
-                    ";
-
                             command.Parameters.AddWithValue("@UserName", userName);
                             command.Parameters.AddWithValue("@Role", role);
                             command.Parameters.AddWithValue("@Password", hashedPassword);
@@ -765,13 +787,14 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                             command.Parameters.AddWithValue("@CreatedAt", timestamp);
                             command.Parameters.AddWithValue("@UpdatedAt", timestamp);
 
-                            long lastId = (long)command.ExecuteScalar();
+                            var result = command.ExecuteScalar();
+                            int lastId = result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
                             transaction.Commit();
                             Console.WriteLine($"User '{userName}' added successfully.");
-                            return (int)lastId;
+                            return lastId;
                         }
                     }
-                    catch (SQLiteException ex)
+                    catch (SqlException ex)
                     {
                         transaction.Rollback();
                         Console.WriteLine($"Error adding user: {ex.Message}");
@@ -781,231 +804,242 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
-
-
-        //Abdul Hadi Code
         //Login user with username and password or backup code
         public (bool Success, string Role, int UserId) LoginUser(string userName, string passwordOrBackup)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var transaction = connection.BeginTransaction())
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    try
+                    connection.Open();
+                    using (var command = new SqlCommand(@"
+SELECT LocalUserID, Password, BackupCode, Role 
+FROM LocalUsers 
+WHERE UserName = @UserName;", connection))
                     {
-                        using (var command = new SQLiteCommand(connection))
+                        command.Parameters.AddWithValue("@UserName", userName ?? string.Empty);
+
+                        using (var reader = command.ExecuteReader())
                         {
-                            command.CommandText =
-                            @"
-                    SELECT LocalUserID, Password, BackupCode, Role 
-                    FROM LocalUsers 
-                    WHERE UserName = @UserName;
-                    ";
-                            command.Parameters.AddWithValue("@UserName", userName);
-
-                            using (var reader = command.ExecuteReader())
+                            if (!reader.Read())
                             {
-                                if (reader.Read())
-                                {
-                                    int userId = Convert.ToInt32(reader["LocalUserID"]);
-                                    string storedPasswordBase64 = reader["Password"].ToString();
-                                    string storedBackupCodeBase64 = reader["BackupCode"].ToString();
-                                    string userRole = reader["Role"].ToString();
-
-                                    byte[] inputHashedBytes = HashString(passwordOrBackup);
-                                    string inputHashedBase64 = Convert.ToBase64String(inputHashedBytes);
-
-                                    if (storedPasswordBase64 == inputHashedBase64 || storedBackupCodeBase64 == inputHashedBase64)
-                                    {
-                                        Console.WriteLine("✅ Login successful.");
-                                        transaction.Commit();
-                                        return (true, userRole, userId);
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine("❌ Invalid credentials.");
-                                        transaction.Rollback();
-                                        return (false, null, -1);
-                                    }
-                                }
-                                else
-                                {
-                                    Console.WriteLine("❌ User not found.");
-                                    transaction.Rollback();
-                                    return (false, null, -1);
-                                }
+                                Console.WriteLine("❌ User not found.");
+                                return (false, null, -1);
                             }
+
+                            int userId = Convert.ToInt32(reader["LocalUserID"]);
+                            string storedPasswordBase64 = reader["Password"]?.ToString() ?? string.Empty;
+                            string storedBackupCodeBase64 = reader["BackupCode"]?.ToString() ?? string.Empty;
+                            string userRole = reader["Role"]?.ToString();
+
+                            byte[] inputHashedBytes = HashString(passwordOrBackup);
+                            string inputHashedBase64 = Convert.ToBase64String(inputHashedBytes);
+
+                            if (storedPasswordBase64 == inputHashedBase64 || storedBackupCodeBase64 == inputHashedBase64)
+                            {
+                                Console.WriteLine("✅ Login successful.");
+                                return (true, userRole, userId);
+                            }
+
+                            Console.WriteLine("❌ Invalid credentials.");
+                            return (false, null, -1);
                         }
-                    }
-                    catch (SQLiteException ex)
-                    {
-                        transaction.Rollback();
-                        Console.WriteLine($"❌ Login error: {ex.Message}");
-                        return (false, null, -1);
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"❌ Login error: {ex.Message}");
+                return (false, null, -1);
+            }
         }
-
-
-        //Abdul Hadi Code
 
         public bool VerifyLoginUser(string userName, string passwordOrBackup)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SqlCommand(@"
+SELECT Password, BackupCode FROM LocalUsers WHERE UserName = @UserName;", connection))
+                    {
+                        command.Parameters.AddWithValue("@UserName", userName ?? string.Empty);
+
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                Console.WriteLine("❌ User not found.");
+                                return false;
+                            }
+
+                            string storedPasswordBase64 = reader["Password"]?.ToString() ?? string.Empty;
+                            string storedBackupCodeBase64 = reader["BackupCode"]?.ToString() ?? string.Empty;
+
+                            byte[] inputHashedBytes = HashString(passwordOrBackup);
+                            string inputHashedBase64 = Convert.ToBase64String(inputHashedBytes);
+
+                            if (storedPasswordBase64 == inputHashedBase64 || storedBackupCodeBase64 == inputHashedBase64)
+                            {
+                                Console.WriteLine("✅ Login successful.");
+                                return true;
+                            }
+
+                            Console.WriteLine("❌ Invalid credentials.");
+                            return false;
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"❌ Login error: {ex.Message}");
+                return false;
+            }
+        }
+
+        //Check if a user exists in the LocalUsers table
+        public bool AdminUserExists()
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SqlCommand("SELECT COUNT(*) FROM LocalUsers WHERE Role = 'admin'", connection))
+                    {
+                        int count = Convert.ToInt32(command.ExecuteScalar());
+                        return count > 0;
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking admin user existence: {ex.Message}");
+                return false;
+            }
+        }
+
+        //Load all users
+        public List<LocalUser> LoadUsers()
+        {
+            var users = new List<LocalUser>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SqlCommand("SELECT * FROM LocalUsers", connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            users.Add(new LocalUser
+                            {
+                                LocalUserID = Convert.ToInt32(reader["LocalUserID"]),
+                                UserName = reader["UserName"].ToString(),
+                                Role = reader["Role"].ToString(),
+                                Password = reader["Password"].ToString(),
+                                BackupCode = reader["BackupCode"].ToString(),
+                                CreatedAt = reader["CreatedAt"] == DBNull.Value ? null : Convert.ToDateTime(reader["CreatedAt"]).ToString("yyyy-MM-dd HH:mm:ss"),
+                                UpdatedAt = reader["UpdatedAt"] == DBNull.Value ? null : Convert.ToDateTime(reader["UpdatedAt"]).ToString("yyyy-MM-dd HH:mm:ss")
+                            });
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error loading users: {ex.Message}");
+            }
+            return users;
+        }
+
+        //Delete a user from the LocalUsers table
+        public void DeleteUserById(int userId)
+        {
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
                     {
-                        using (var command = new SQLiteCommand(connection))
+                        using (var command = new SqlCommand("DELETE FROM LocalUsers WHERE LocalUserID = @id", connection, transaction))
                         {
-                            command.CommandText =
-                            @"
-                    SELECT Password, BackupCode FROM LocalUsers WHERE UserName = @UserName;
-                    ";
-                            command.Parameters.AddWithValue("@UserName", userName);
-
-                            using (var reader = command.ExecuteReader())
-                            {
-                                if (reader.Read())
-                                {
-                                    string storedPasswordBase64 = reader["Password"].ToString();
-                                    string storedBackupCodeBase64 = reader["BackupCode"].ToString();
-
-                                    byte[] inputHashedBytes = HashString(passwordOrBackup);
-                                    string inputHashedBase64 = Convert.ToBase64String(inputHashedBytes);
-
-                                    if (storedPasswordBase64 == inputHashedBase64 || storedBackupCodeBase64 == inputHashedBase64)
-                                    {
-                                        Console.WriteLine("✅ Login successful.");
-                                        transaction.Commit();
-                                        return true;
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine("❌ Invalid credentials.");
-                                        transaction.Rollback();
-                                        return false;
-                                    }
-                                }
-                                else
-                                {
-                                    Console.WriteLine("❌ User not found.");
-                                    transaction.Rollback();
-                                    return false;
-                                }
-                            }
+                            command.Parameters.AddWithValue("@id", userId);
+                            command.ExecuteNonQuery();
                         }
+                        transaction.Commit();
                     }
-                    catch (SQLiteException ex)
+                    catch (SqlException ex)
                     {
                         transaction.Rollback();
-                        Console.WriteLine($"❌ Login error: {ex.Message}");
-                        return false;
+                        Console.WriteLine($"Error deleting user: {ex.Message}");
+                        throw;
                     }
                 }
             }
         }
 
-
-        //Abdul Hadi Code
-        //Check if a user exists in the LocalUsers table
-        public bool AdminUserExists()
-        {
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-                using (var command = new SQLiteCommand("SELECT COUNT(*) FROM LocalUsers WHERE Role = 'admin'", connection))
-                {
-                    int count = Convert.ToInt32(command.ExecuteScalar());
-                    return count > 0;
-                }
-            }
-        }
-
-        //Abdul Hadi Code
-        //Load all users
-
-        public List<LocalUser> LoadUsers()
-        {
-            var users = new List<LocalUser>();
-
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-                using (var command = new SQLiteCommand("SELECT * FROM LocalUsers", connection))
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        users.Add(new LocalUser
-                        {
-                            LocalUserID = Convert.ToInt32(reader["LocalUserID"]),
-                            UserName = reader["UserName"].ToString(),
-                            Role = reader["Role"].ToString(),
-                            Password = reader["Password"].ToString(),
-                            BackupCode = reader["BackupCode"].ToString(),
-                            CreatedAt = reader["CreatedAt"] as string,
-                            UpdatedAt = reader["UpdatedAt"] as string
-                        });
-                    }
-                }
-            }
-
-            return users;
-        }
-
-        //Abdul Hadi Code
-        //Delete a user from the LocalUsers table
-        public void DeleteUserById(int userId)
-        {
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-                using (var command = new SQLiteCommand("DELETE FROM LocalUsers WHERE LocalUserID = @id", connection))
-                {
-                    command.Parameters.AddWithValue("@id", userId);
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
-
-        //Abdul Hadi Code
         //Update user information in the LocalUsers table
         public void UpdateUserInfo(int userId, string newUsername, string newRole)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand("UPDATE LocalUsers SET UserName = @username, Role = @role, UpdatedAt = @updated WHERE LocalUserID = @id", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.Parameters.AddWithValue("@username", newUsername);
-                    command.Parameters.AddWithValue("@role", newRole);
-                    command.Parameters.AddWithValue("@updated", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                    command.Parameters.AddWithValue("@id", userId);
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        using (var command = new SqlCommand("UPDATE LocalUsers SET UserName = @username, Role = @role, UpdatedAt = @updated WHERE LocalUserID = @id", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@username", newUsername);
+                            command.Parameters.AddWithValue("@role", newRole);
+                            command.Parameters.AddWithValue("@updated", GetTimestamp());
+                            command.Parameters.AddWithValue("@id", userId);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating user info: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
 
-        //Abdul Hadi Code
         //Update user password in the LocalUsers table
         public void UpdateUserPassword(int userId, string newPassword)
         {
             string hashedPassword = Convert.ToBase64String(HashString(newPassword));
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand("UPDATE LocalUsers SET Password = @password, UpdatedAt = @updated WHERE LocalUserID = @id", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.Parameters.AddWithValue("@password", hashedPassword);
-                    command.Parameters.AddWithValue("@updated", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                    command.Parameters.AddWithValue("@id", userId);
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        using (var command = new SqlCommand("UPDATE LocalUsers SET Password = @password, UpdatedAt = @updated WHERE LocalUserID = @id", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@password", hashedPassword);
+                            command.Parameters.AddWithValue("@updated", GetTimestamp());
+                            command.Parameters.AddWithValue("@id", userId);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating user password: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -1015,26 +1049,37 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         /// </summary>
         public void SaveSetting(string key, string value)
         {
-
             string timestamp = GetTimestamp();
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.CommandText =
-                    @"
-                    INSERT INTO Settings (Key, Value, CreatedAt, UpdatedAt)
-                    VALUES (@key, @value, @createdAt, @updatedAt)
-                    ON CONFLICT(Key) DO UPDATE SET
-                        Value = excluded.Value,
-                        UpdatedAt = excluded.UpdatedAt;
-                    ";
-                    command.Parameters.AddWithValue("@key", key);
-                    command.Parameters.AddWithValue("@value", value);
-                    command.Parameters.AddWithValue("@createdAt", timestamp);
-                    command.Parameters.AddWithValue("@updatedAt", timestamp);
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        using (var command = new SqlCommand(@"
+MERGE Settings AS target
+USING (SELECT @key AS [Key], @value AS Value, @createdAt AS CreatedAt, @updatedAt AS UpdatedAt) AS source
+ON target.[Key] = source.[Key]
+WHEN MATCHED THEN
+    UPDATE SET Value = source.Value, UpdatedAt = source.UpdatedAt
+WHEN NOT MATCHED THEN
+    INSERT ([Key], Value, CreatedAt, UpdatedAt) VALUES (source.[Key], source.Value, source.CreatedAt, source.UpdatedAt);", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@key", key);
+                            command.Parameters.AddWithValue("@value", value);
+                            command.Parameters.AddWithValue("@createdAt", timestamp);
+                            command.Parameters.AddWithValue("@updatedAt", timestamp);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error saving setting: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -1045,50 +1090,73 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         /// </summary>
         public string GetSetting(string key)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    command.CommandText = "SELECT Value FROM Settings WHERE Key = @key;";
-                    command.Parameters.AddWithValue("@key", key);
-                    object result = command.ExecuteScalar();
-                    return result?.ToString();
+                    connection.Open();
+                    using (var command = new SqlCommand("SELECT Value FROM Settings WHERE [Key] = @key;", connection))
+                    {
+                        command.Parameters.AddWithValue("@key", key);
+                        var result = command.ExecuteScalar();
+                        return result?.ToString();
+                    }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting setting: {ex.Message}");
+                return null;
             }
         }
 
-        
+        /// <summary>
+        /// Saves or updates a JSON array in the Settings table for the given key.
+        /// The entire array is replaced with the provided list of values.
+        /// </summary>
+        public void SaveJsonArraySetting(string key, List<string> values)
+        {
+            string jsonValue = JsonConvert.SerializeObject(values ?? new List<string>());
+            SaveSetting(key, jsonValue);
+        }
+
         public Member GetMember(int memberId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus " +
-                    "FROM Members WHERE MemberID = @MemberID", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    command.Parameters.AddWithValue("@MemberID", memberId);
-                    using (var reader = command.ExecuteReader())
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus " +
+                        "FROM Members WHERE MemberID = @MemberID", connection))
                     {
-                        if (reader.Read())
+                        command.Parameters.AddWithValue("@MemberID", memberId);
+                        using (var reader = command.ExecuteReader())
                         {
-                            var syncStatusJson = reader.IsDBNull(8) ? "{}" : reader.GetString(8);
-                            return new Member
+                            if (reader.Read())
                             {
-                                MemberID = reader.GetInt32(0),
-                                Name = reader.IsDBNull(1) ? null : reader.GetString(1),
-                                Status = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                RFID = reader.IsDBNull(3) ? null : reader.GetString(3),
-                                Picture = reader.IsDBNull(4) ? null : reader.GetString(4),
-                                Fingerprint = !reader.IsDBNull(5) && reader.GetBoolean(5),
-                                EnrollmentID = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
-                                PackageExpiry = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>()
-                            };
+                                var syncStatusJson = reader.IsDBNull(8) ? "{}" : reader.GetString(8);
+                                return new Member
+                                {
+                                    MemberID = reader.GetInt32(0),
+                                    Name = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                    Status = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    RFID = reader.IsDBNull(3) ? null : reader.GetString(3),
+                                    Picture = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    Fingerprint = !reader.IsDBNull(5) && reader.GetBoolean(5),
+                                    EnrollmentID = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
+                                    PackageExpiry = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                    SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>()
+                                };
+                            }
                         }
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting member: {ex.Message}");
             }
             return null;
         }
@@ -1097,13 +1165,13 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         public List<Member> GetMembers()
         {
             var members = new List<Member>();
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus " +
-                    "FROM Members", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus FROM Members", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -1125,6 +1193,10 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting members: {ex.Message}");
+            }
             return members;
         }
 
@@ -1133,7 +1205,6 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         /// </summary>
         public void UpsertMember(JObject member)
         {
-            // Extract member data
             int memberId = (int)member["id"];
             string name = member["name"]?.ToString() ?? string.Empty;
             string status = (string)member["status"];
@@ -1142,97 +1213,103 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             bool fingerprint = member["fingerprint"]?.ToObject<bool>() ?? false;
             int? enrollmentId = member["enrollment_id"]?.ToObject<int?>();
             string packageExpiry = member["package_expiry"]?.ToString();
-
             string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
 
-            // Get existing data
             var existingMember = GetMember(memberId);
             var devices = LoadDevices();
             var syncStatus = new Dictionary<int, bool>();
 
-            // Determine sync status for each device
             foreach (var device in devices)
             {
-                bool needsSync = true; // Default to false (needs sync)
-
-                if (existingMember != null)
-                {
-                    // Check if this device needs sync based on its capabilities
-                    bool fingerprintRelevant = device.FingerCapacity > 0;
-                    bool rfidRelevant = device.RFIDCapacity > 0;
-                    bool faceRelevant = device.FaceCapacity > 0;
-
-                    // Check if relevant data changed
-                    bool fingerprintChanged = fingerprintRelevant &&
-                                           (fingerprint != existingMember.Fingerprint ||
-                                            enrollmentId != existingMember.EnrollmentID);
-
-                    bool rfidChanged = rfidRelevant &&
-                                     (rfid != existingMember.RFID);
-
-                    bool pictureChanged = faceRelevant &&
-                                        (picture != existingMember.Picture);
-
-                    needsSync = fingerprintChanged || rfidChanged || pictureChanged;
-                }
-
-                // NEVER SET TO TRUE HERE - must be updated after successful sync
+                // default to false (not synced) for each device; actual sync happens after successful device sync
                 syncStatus[device.DeviceId] = false;
-
-                // Log sync decision
-                LogHelper.Log($"Member {memberId} sync status for device {device.DeviceId}: " +
-                             $"{(needsSync ? "Needs sync" : "No changes detected")}");
+                LogHelper.Log($"Member {memberId} sync status for device {device.DeviceId}: Needs sync");
             }
 
-            // Serialize sync status
             string syncStatusJson = JsonConvert.SerializeObject(syncStatus);
 
-            // Execute database operation
-            using (var conn = new SQLiteConnection(connectionString))
+            using (var conn = new SqlConnection(connectionString))
             {
                 conn.Open();
                 using (var transaction = conn.BeginTransaction())
                 {
                     try
                     {
-                        using (var cmd = new SQLiteCommand(conn))
+                        // Check if record exists
+                        bool exists;
+                        using (var checkCmd = new SqlCommand("SELECT COUNT(1) FROM Members WHERE MemberID = @id", conn, transaction))
                         {
-                            cmd.CommandText = @"
-                        INSERT INTO Members 
-                        (MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, 
-                         PackageExpiry, SyncStatus, CreatedAt, UpdatedAt)
-                        VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, 
-                                @enrollment_id, @package_expiry, @syncStatus, @createdAt, @updatedAt)
-                        ON CONFLICT(MemberID) DO UPDATE SET
-                            Name = excluded.Name,
-                            Status = excluded.Status,
-                            RFID = excluded.RFID,
-                            Picture = excluded.Picture,
-                            Fingerprint = excluded.Fingerprint,
-                            EnrollmentID = excluded.EnrollmentID,
-                            PackageExpiry = excluded.PackageExpiry,
-                            SyncStatus = excluded.SyncStatus,
-                            UpdatedAt = excluded.UpdatedAt;";
-
-                            cmd.Parameters.AddWithValue("@id", memberId);
-                            cmd.Parameters.AddWithValue("@name", name);
-                            cmd.Parameters.AddWithValue("@status", status);
-                            cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? DBNull.Value : (object)rfid);
-                            cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? DBNull.Value : (object)picture);
-                            cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
-                            cmd.Parameters.AddWithValue("@enrollment_id", enrollmentId ?? (object)DBNull.Value);
-                            cmd.Parameters.AddWithValue("@package_expiry", string.IsNullOrEmpty(packageExpiry) ? DBNull.Value : (object)packageExpiry);
-                            cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
-                            cmd.Parameters.AddWithValue("@createdAt", timestamp);
-                            cmd.Parameters.AddWithValue("@updatedAt", timestamp);
-
-                            cmd.ExecuteNonQuery();
+                            checkCmd.Parameters.AddWithValue("@id", memberId);
+                            exists = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
                         }
+
+                        if (exists)
+                        {
+                            using (var cmd = new SqlCommand(@"
+UPDATE Members
+SET Name = @name,
+    Status = @status,
+    RFID = @rfid,
+    Picture = @picture,
+    Fingerprint = @fingerprint,
+    EnrollmentID = @enrollment_id,
+    PackageExpiry = @package_expiry,
+    SyncStatus = @syncStatus,
+    UpdatedAt = @updatedAt
+WHERE MemberID = @id", conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@id", memberId);
+                                cmd.Parameters.AddWithValue("@name", name);
+                                cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
+                                cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
+                                cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
+                                cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
+                                cmd.Parameters.AddWithValue("@enrollment_id", enrollmentId ?? (object)DBNull.Value);
+                                cmd.Parameters.AddWithValue("@package_expiry", string.IsNullOrEmpty(packageExpiry) ? (object)DBNull.Value : packageExpiry);
+                                cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
+                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                        else
+                        {
+                            // Insert with explicit identity value: enable IDENTITY_INSERT for this session
+                            using (var setOn = new SqlCommand("SET IDENTITY_INSERT dbo.Members ON;", conn, transaction))
+                            {
+                                setOn.ExecuteNonQuery();
+                            }
+
+                            using (var cmd = new SqlCommand(@"
+INSERT INTO Members (MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus, CreatedAt, UpdatedAt)
+VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @package_expiry, @syncStatus, @createdAt, @updatedAt);", conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@id", memberId);
+                                cmd.Parameters.AddWithValue("@name", name);
+                                cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
+                                cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
+                                cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
+                                cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
+                                cmd.Parameters.AddWithValue("@enrollment_id", enrollmentId ?? (object)DBNull.Value);
+                                cmd.Parameters.AddWithValue("@package_expiry", string.IsNullOrEmpty(packageExpiry) ? (object)DBNull.Value : packageExpiry);
+                                cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
+                                cmd.Parameters.AddWithValue("@createdAt", timestamp);
+                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            using (var setOff = new SqlCommand("SET IDENTITY_INSERT dbo.Members OFF;", conn, transaction))
+                            {
+                                setOff.ExecuteNonQuery();
+                            }
+                        }
+
                         transaction.Commit();
                     }
                     catch (Exception ex)
                     {
-                        transaction.Rollback();
+                        try { transaction.Rollback(); } catch { /* ignore */ }
                         LogHelper.Log($"Error upserting member {memberId}: {ex.Message}");
                         throw;
                     }
@@ -1241,21 +1318,33 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         }
 
         /// <summary>
-        /// Deletes a member record from the local SQLite DB based on MemberID.
+        /// Deletes a member record from the local SQL Server DB based on MemberID.
         /// </summary>
         public void DeleteMemberById(int memberId)
         {
-            using (var conn = new SQLiteConnection(connectionString))
+            using (var conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-                using (var cmd = new SQLiteCommand("DELETE FROM Members WHERE MemberID = @id", conn))
+                using (var transaction = conn.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@id", memberId);
-                    cmd.ExecuteNonQuery();
+                    try
+                    {
+                        using (var cmd = new SqlCommand("DELETE FROM Members WHERE MemberID = @id", conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@id", memberId);
+                            cmd.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                        Console.WriteLine($"🗑 Member {memberId} deleted from local DB.");
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error deleting member: {ex.Message}");
+                        throw;
+                    }
                 }
             }
-
-            Console.WriteLine($"🗑 Member {memberId} deleted from local DB.");
         }
 
 
@@ -1267,36 +1356,50 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             int newLogId = 0;
             string attendanceId = Guid.NewGuid().ToString();
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-
-                // Check if the provided check-in time is later than the member's last check-out time
-                DateTime checkInDateTime;
-                if (DateTime.TryParse(checkInValue, out checkInDateTime))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    DateTime lastCheckOutTime = GetLastCheckOutTime(memberId);
-                    if (checkInDateTime <= lastCheckOutTime)
+                    try
                     {
-                        LogHelper.Log($"❌ Check-in time {checkInValue} is not later than the member's last check-out time {lastCheckOutTime}.");
-                        return 0; // Or throw an exception, depending on your error handling policy
-                    }
-                }
+                        // Check if the provided check-in time is later than the member's last check-out time
+                        DateTime checkInDateTime;
+                        if (DateTime.TryParse(checkInValue, out checkInDateTime))
+                        {
+                            DateTime lastCheckOutTime = GetLastCheckOutTime(memberId);
+                            if (checkInDateTime <= lastCheckOutTime)
+                            {
+                                LogHelper.Log($"❌ Check-in time {checkInValue} is not later than the member's last check-out time {lastCheckOutTime}.");
+                                transaction.Rollback();
+                                return 0; // Or throw an exception, depending on your error handling policy
+                            }
+                        }
 
-                using (var command = new SQLiteCommand(
-                    @"INSERT INTO AttendanceLogs
+                        using (var command = new SqlCommand(
+                            @"INSERT INTO AttendanceLogs
               (MemberID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, CreatedAt, UpdatedAt)
               VALUES (@memberId, @attendanceId, @checkIn, NULL, @syncStatus, @createdAt, @updatedAt);
-              SELECT last_insert_rowid();", connection))
-                {
-                    command.Parameters.AddWithValue("@memberId", memberId);
-                    command.Parameters.AddWithValue("@attendanceId", attendanceId);
-                    command.Parameters.AddWithValue("@checkIn", (object)checkInValue ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@syncStatus", syncStatusJson);
-                    command.Parameters.AddWithValue("@createdAt", timestamp);
-                    command.Parameters.AddWithValue("@updatedAt", timestamp);
+              SELECT SCOPE_IDENTITY();", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@memberId", memberId);
+                            command.Parameters.AddWithValue("@attendanceId", attendanceId);
+                            command.Parameters.AddWithValue("@checkIn", (object)checkInValue ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@syncStatus", syncStatusJson);
+                            command.Parameters.AddWithValue("@createdAt", timestamp);
+                            command.Parameters.AddWithValue("@updatedAt", timestamp);
 
-                    newLogId = Convert.ToInt32((long)command.ExecuteScalar());
+                            var result = command.ExecuteScalar();
+                            newLogId = result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error inserting attendance log: {ex.Message}");
+                        return 0;
+                    }
                 }
             }
             return newLogId;
@@ -1307,146 +1410,170 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         {
             string timestamp = GetTimestamp();
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-
-                // First, validate the check-out time format
-                DateTime checkOutDateTime;
-                if (!DateTime.TryParse(checkOutValue, out checkOutDateTime))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    return; // Invalid check-out time format
-                }
+                    try
+                    {
+                        // First, validate the check-out time format
+                        DateTime checkOutDateTime;
+                        if (!DateTime.TryParse(checkOutValue, out checkOutDateTime))
+                        {
+                            transaction.Rollback();
+                            return; // Invalid check-out time format
+                        }
 
-                // Check if there's any check-in record for this member on the check-out date
-                bool hasCheckInForDate = HasAttendanceLogForDate(memberId, checkOutDateTime.Date, "check-in");
+                        // Check if there's any check-in record for this member on the check-out date
+                        bool hasCheckInForDate = HasAttendanceLogForDate(memberId, checkOutDateTime.Date, "check-in");
 
-                int logId = 0;
-                string existingJson = null;
-                DateTime checkInTime = DateTime.MinValue;
+                        int logId = 0;
+                        string existingJson = null;
+                        DateTime checkInTime = DateTime.MinValue;
 
-                if (hasCheckInForDate)
-                {
-                    // Get latest open (no checkout) log for this member on the same date
-                    using (var get = new SQLiteCommand(
-                        @"SELECT LogID, CheckInTime, SyncStatus 
+                        if (hasCheckInForDate)
+                        {
+                            // Get latest open (no checkout) log for this member on the same date
+                            using (var get = new SqlCommand(
+                                @"SELECT LogID, CheckInTime, SyncStatus 
                   FROM AttendanceLogs 
                   WHERE MemberID = @memberId AND CheckOutTime IS NULL 
-                  AND DATE(CheckInTime) = DATE(@checkOutDate)
-                  ORDER BY CheckInTime DESC 
-                  LIMIT 1", connection))
-                    {
-                        get.Parameters.AddWithValue("@memberId", memberId);
-                        get.Parameters.AddWithValue("@checkOutDate", checkOutDateTime.ToString("yyyy-MM-dd"));
-                        using (var reader = get.ExecuteReader())
-                        {
-                            if (reader.Read())
+                  AND CONVERT(DATE, CheckInTime) = @checkOutDate
+                  ORDER BY CheckInTime DESC", connection, transaction))
                             {
-                                logId = reader.GetInt32(0);
-                                checkInTime = DateTime.Parse(reader["CheckInTime"].ToString());
-
-                                // Check that the check-out time is greater than the check-in time
-                                if (checkOutDateTime <= checkInTime)
+                                get.Parameters.AddWithValue("@memberId", memberId);
+                                get.Parameters.AddWithValue("@checkOutDate", checkOutDateTime.Date);
+                                using (var reader = get.ExecuteReader())
                                 {
-                                    LogHelper.Log($"❌ Check-out time {checkOutValue} is not greater than the check-in time {checkInTime} for same day.");
-                                    return; // Prevent invalid check-out
+                                    if (reader.Read())
+                                    {
+                                        logId = reader.GetInt32(0);
+                                        checkInTime = reader.GetDateTime(1);
+
+                                        // Check that the check-out time is greater than the check-in time
+                                        if (checkOutDateTime <= checkInTime)
+                                        {
+                                            LogHelper.Log($"❌ Check-out time {checkOutValue} is not greater than the check-in time {checkInTime} for same day.");
+                                            transaction.Rollback();
+                                            return; // Prevent invalid check-out
+                                        }
+                                        existingJson = reader.IsDBNull(2) ? null : reader.GetString(2);
+                                    }
+                                    else
+                                    {
+                                        transaction.Rollback();
+                                        return; // No open attendance for this date
+                                    }
                                 }
-                                existingJson = reader.IsDBNull(2) ? null : reader.GetString(2);
-                            }
-                            else
-                            {
-                                return; // No open attendance for this date
                             }
                         }
-                    }
-                }
-                else
-                {
-                    // No check-in for current date, look for previous day only
-                    DateTime previousDay = checkOutDateTime.Date.AddDays(-1);
+                        else
+                        {
+                            // No check-in for current date, look for previous day only
+                            DateTime previousDay = checkOutDateTime.Date.AddDays(-1);
 
-                    using (var get = new SQLiteCommand(
-                        @"SELECT LogID, CheckInTime, SyncStatus
+                            using (var get = new SqlCommand(
+                                @"SELECT LogID, CheckInTime, SyncStatus
                   FROM AttendanceLogs 
                   WHERE MemberID = @memberId AND CheckOutTime IS NULL 
-                  AND DATE(CheckInTime) = DATE(@previousDay)
-                  ORDER BY CheckInTime DESC 
-                  LIMIT 1", connection))
-                    {
-                        get.Parameters.AddWithValue("@memberId", memberId);
-                        get.Parameters.AddWithValue("@previousDay", previousDay.ToString("yyyy-MM-dd"));
-                        using (var reader = get.ExecuteReader())
-                        {
-                            if (reader.Read())
+                  AND CONVERT(DATE, CheckInTime) = @previousDay
+                  ORDER BY CheckInTime DESC", connection, transaction))
                             {
-                                logId = reader.GetInt32(0);
-                                checkInTime = DateTime.Parse(reader["CheckInTime"].ToString());
-
-                                // Check that the check-out time is greater than the check-in time
-                                if (checkOutDateTime <= checkInTime)
+                                get.Parameters.AddWithValue("@memberId", memberId);
+                                get.Parameters.AddWithValue("@previousDay", previousDay);
+                                using (var reader = get.ExecuteReader())
                                 {
-                                    LogHelper.Log($"❌ Check-out time {checkOutValue} is not greater than the check-in time {checkInTime} for previous day.");
-                                    return; // Prevent invalid check-out
+                                    if (reader.Read())
+                                    {
+                                        logId = reader.GetInt32(0);
+                                        checkInTime = reader.GetDateTime(1);
+
+                                        // Check that the check-out time is greater than the check-in time
+                                        if (checkOutDateTime <= checkInTime)
+                                        {
+                                            LogHelper.Log($"❌ Check-out time {checkOutValue} is not greater than the check-in time {checkInTime} for previous day.");
+                                            transaction.Rollback();
+                                            return; // Prevent invalid check-out
+                                        }
+                                        existingJson = reader.IsDBNull(2) ? null : reader.GetString(2);
+                                    }
+                                    else
+                                    {
+                                        transaction.Rollback();
+                                        return; // No open attendance record found for previous day either
+                                    }
                                 }
-                                existingJson = reader.IsDBNull(2) ? null : reader.GetString(2);
-                            }
-                            else
-                            {
-                                return; // No open attendance record found for previous day either
                             }
                         }
-                    }
-                }
 
-                var syncDict = !string.IsNullOrWhiteSpace(existingJson)
-                    ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingJson) ?? new Dictionary<string, bool>()
-                    : new Dictionary<string, bool>();
+                        var syncDict = !string.IsNullOrWhiteSpace(existingJson)
+                            ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingJson) ?? new Dictionary<string, bool>()
+                            : new Dictionary<string, bool>();
 
-                // Ensure keys exist & mark checkout as needing sync again
-                if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
-                syncDict["checkOut"] = false;
+                        // Ensure keys exist & mark checkout as needing sync again
+                        if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
+                        syncDict["checkOut"] = false;
 
-                using (var update = new SQLiteCommand(
-                    @"UPDATE AttendanceLogs 
+                        using (var update = new SqlCommand(
+                            @"UPDATE AttendanceLogs 
               SET CheckOutTime = @checkOut, SyncStatus = @syncStatus, UpdatedAt = @updatedAt
-              WHERE LogID = @logId", connection))
-                {
-                    update.Parameters.AddWithValue("@checkOut", (object)checkOutValue ?? DBNull.Value);
-                    update.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncDict));
-                    update.Parameters.AddWithValue("@updatedAt", timestamp);
-                    update.Parameters.AddWithValue("@logId", logId);
-                    update.ExecuteNonQuery();
+              WHERE LogID = @logId", connection, transaction))
+                        {
+                            update.Parameters.AddWithValue("@checkOut", (object)checkOutValue ?? DBNull.Value);
+                            update.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncDict));
+                            update.Parameters.AddWithValue("@updatedAt", timestamp);
+                            update.Parameters.AddWithValue("@logId", logId);
+                            update.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating attendance log for check-out: {ex.Message}");
+                    }
                 }
             }
         }
 
         private DateTime GetLastCheckOutTime(int memberId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT MAX(CheckOutTime) FROM AttendanceLogs WHERE MemberID = @memberId", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.Parameters.AddWithValue("@memberId", memberId);
-                    object result = command.ExecuteScalar();
-                    if (result != DBNull.Value && result != null)
+                    try
                     {
-                        return DateTime.Parse(result.ToString());
+                        using (var command = new SqlCommand(
+                            "SELECT MAX(CheckOutTime) FROM AttendanceLogs WHERE MemberID = @memberId", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@memberId", memberId);
+                            object result = command.ExecuteScalar();
+                            transaction.Commit();
+                            if (result != DBNull.Value && result != null)
+                            {
+                                return DateTime.Parse(result.ToString());
+                            }
+                            else
+                            {
+                                return DateTime.MinValue; // Or some other default value
+                            }
+                        }
                     }
-                    else
+                    catch (SqlException ex)
                     {
-                        return DateTime.MinValue; // Or some other default value
+                        transaction.Rollback();
+                        Console.WriteLine($"Error getting last check-out time: {ex.Message}");
+                        return DateTime.MinValue;
                     }
                 }
             }
         }
 
-
-        
-
         /// <summary>
-        /// /// Updates the sync status of an attendance log based on provided parameters.
+        /// Updates the sync status of an attendance log based on provided parameters.
         /// </summary>
         /// <param name="memberId"></param>
         /// <param name="attendanceId"></param>
@@ -1455,15 +1582,13 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         /// <param name="checkIn"></param>
         /// <param name="checkOut"></param>
         /// <returns></returns>
-        
-
         public bool UpdateAttendanceLogSyncStatus(
-    int memberId,
-    string attendanceId,
-    DateTime? checkInTime = null,
-    DateTime? checkOutTime = null,
-    bool? checkIn = null,
-    bool? checkOut = null)
+            int memberId,
+            string attendanceId,
+            DateTime? checkInTime = null,
+            DateTime? checkOutTime = null,
+            bool? checkIn = null,
+            bool? checkOut = null)
         {
             // Must supply exactly one flag.
             bool hasCheckIn = checkIn.HasValue;
@@ -1479,218 +1604,195 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             if (hasCheckIn && !string.IsNullOrWhiteSpace(attendanceId) && !checkInTime.HasValue)
                 return false;
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-
-                string existingJson = null;
-                int targetLogId = 0;
-                bool foundRecord = false;
-
-                // For check-in: require both attendanceId and checkInTime to match
-                if (hasCheckIn && !string.IsNullOrWhiteSpace(attendanceId) && checkInTime.HasValue)
+                using (var transaction = connection.BeginTransaction())
                 {
-                    using (var select = new SQLiteCommand(
-                        "SELECT LogID, SyncStatus FROM AttendanceLogs WHERE AttendanceId = @aid AND MemberID = @mid AND CheckInTime = @checkInTime LIMIT 1", connection))
+                    try
                     {
-                        select.Parameters.AddWithValue("@aid", attendanceId);
-                        select.Parameters.AddWithValue("@mid", memberId);
-                        select.Parameters.AddWithValue("@checkInTime", checkInTime.Value.ToString("yyyy-MM-dd HH:mm:ss"));
-                        using (var reader = select.ExecuteReader())
+                        string existingJson = null;
+                        int targetLogId = 0;
+                        bool foundRecord = false;
+
+                        // For check-in: require both attendanceId and checkInTime to match
+                        if (hasCheckIn && !string.IsNullOrWhiteSpace(attendanceId) && checkInTime.HasValue)
                         {
-                            if (reader.Read())
+                            using (var select = new SqlCommand(
+                                "SELECT TOP 1 LogID, SyncStatus FROM AttendanceLogs WHERE AttendanceId = @aid AND MemberID = @mid AND CheckInTime = @checkInTime", connection, transaction))
                             {
-                                targetLogId = reader.GetInt32(0);
-                                existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
-                                foundRecord = true;
-                                LogHelper.Log($"Found attendance log with ID {targetLogId} for member {memberId} with AttendanceId {attendanceId} and CheckInTime {checkInTime.Value}");
+                                select.Parameters.AddWithValue("@aid", attendanceId);
+                                select.Parameters.AddWithValue("@mid", memberId);
+                                select.Parameters.AddWithValue("@checkInTime", checkInTime.Value);
+                                using (var reader = select.ExecuteReader())
+                                {
+                                    if (reader.Read())
+                                    {
+                                        targetLogId = reader.GetInt32(0);
+                                        existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                        foundRecord = true;
+                                        LogHelper.Log($"Found attendance log with ID {targetLogId} for member {memberId} with AttendanceId {attendanceId} and CheckInTime {checkInTime.Value}");
+                                    }
+                                }
                             }
                         }
-                    }
-                }
-                // For check-out: require both attendanceId and checkOutTime to match
-                else if (hasCheckOut && !string.IsNullOrWhiteSpace(attendanceId) && checkOutTime.HasValue)
-                {
-                    using (var select = new SQLiteCommand(
-                        "SELECT LogID, SyncStatus FROM AttendanceLogs WHERE AttendanceId = @aid AND MemberID = @mid AND CheckOutTime = @checkOutTime LIMIT 1", connection))
-                    {
-                        select.Parameters.AddWithValue("@aid", attendanceId);
-                        select.Parameters.AddWithValue("@mid", memberId);
-                        select.Parameters.AddWithValue("@checkOutTime", checkOutTime.Value.ToString("yyyy-MM-dd HH:mm:ss"));
-                        using (var reader = select.ExecuteReader())
+                        // For check-out: require both attendanceId and checkOutTime to match
+                        else if (hasCheckOut && !string.IsNullOrWhiteSpace(attendanceId) && checkOutTime.HasValue)
                         {
-                            if (reader.Read())
+                            using (var select = new SqlCommand(
+                                "SELECT TOP 1 LogID, SyncStatus FROM AttendanceLogs WHERE AttendanceId = @aid AND MemberID = @mid AND CheckOutTime = @checkOutTime", connection, transaction))
                             {
-                                targetLogId = reader.GetInt32(0);
-                                existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
-                                foundRecord = true;
-                                LogHelper.Log($"Found attendance log with ID {targetLogId} for member {memberId} with AttendanceId {attendanceId} and CheckOutTime {checkOutTime.Value}");
+                                select.Parameters.AddWithValue("@aid", attendanceId);
+                                select.Parameters.AddWithValue("@mid", memberId);
+                                select.Parameters.AddWithValue("@checkOutTime", checkOutTime.Value);
+                                using (var reader = select.ExecuteReader())
+                                {
+                                    if (reader.Read())
+                                    {
+                                        targetLogId = reader.GetInt32(0);
+                                        existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                        foundRecord = true;
+                                        LogHelper.Log($"Found attendance log with ID {targetLogId} for member {memberId} with AttendanceId {attendanceId} and CheckOutTime {checkOutTime.Value}");
+                                    }
+                                }
                             }
                         }
-                    }
-                }
-                // For check-in without attendanceId or checkInTime, fallback to latest log for member
-                else if (hasCheckIn && string.IsNullOrWhiteSpace(attendanceId))
-                {
-                    using (var selectLatest = new SQLiteCommand(
-                        @"SELECT LogID, SyncStatus 
-                  FROM AttendanceLogs 
-                  WHERE MemberID = @mid 
-                  ORDER BY CheckInTime DESC 
-                  LIMIT 1", connection))
-                    {
-                        selectLatest.Parameters.AddWithValue("@mid", memberId);
-                        using (var reader = selectLatest.ExecuteReader())
+                        // For check-in without attendanceId or checkInTime, fallback to latest log for member
+                        else if (hasCheckIn && string.IsNullOrWhiteSpace(attendanceId))
                         {
-                            if (reader.Read())
+                            using (var selectLatest = new SqlCommand(
+                                @"SELECT TOP 1 LogID, SyncStatus 
+                          FROM AttendanceLogs 
+                          WHERE MemberID = @mid 
+                          ORDER BY CheckInTime DESC", connection, transaction))
                             {
-                                targetLogId = reader.GetInt32(0);
-                                existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
-                                foundRecord = true;
-                                LogHelper.Log($"Found latest attendance log with ID {targetLogId} for member {memberId} (no AttendanceId)");
+                                selectLatest.Parameters.AddWithValue("@mid", memberId);
+                                using (var reader = selectLatest.ExecuteReader())
+                                {
+                                    if (reader.Read())
+                                    {
+                                        targetLogId = reader.GetInt32(0);
+                                        existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                        foundRecord = true;
+                                        LogHelper.Log($"Found latest attendance log with ID {targetLogId} for member {memberId} (no AttendanceId)");
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
-                if (!foundRecord)
-                {
-                    LogHelper.Log($"No matching attendance log found for member {memberId}" +
-                                  (string.IsNullOrWhiteSpace(attendanceId) ? "" : $" with AttendanceId {attendanceId} and {(hasCheckIn ? $"CheckInTime {checkInTime}" : $"CheckOutTime {checkOutTime}")}"));
-                    return false;
-                }
-
-                // Parse existing sync status
-                Dictionary<string, bool> flags;
-                try
-                {
-                    flags = JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingJson ?? "") ?? new Dictionary<string, bool>();
-                }
-                catch
-                {
-                    flags = new Dictionary<string, bool>();
-                }
-
-                // Ensure keys exist
-                if (!flags.ContainsKey("checkIn")) flags["checkIn"] = false;
-                if (!flags.ContainsKey("checkOut")) flags["checkOut"] = false;
-
-                // Only update the field we're directly changing, not both fields
-                bool valueChanged = false;
-                if (hasCheckIn)
-                {
-                    if (flags["checkIn"] != checkIn.Value)
-                    {
-                        flags["checkIn"] = checkIn.Value;
-                        valueChanged = true;
-                    }
-                    else
-                    {
-                        LogHelper.Log($"Check-in sync status already set to {checkIn.Value} for log {targetLogId}");
-                        return false;
-                    }
-                }
-                else if (hasCheckOut)
-                {
-                    if (flags["checkOut"] != checkOut.Value)
-                    {
-                        flags["checkOut"] = checkOut.Value;
-                        valueChanged = true;
-                    }
-                    else
-                    {
-                        LogHelper.Log($"Check-out sync status already set to {checkOut.Value} for log {targetLogId}");
-                        return false;
-                    }
-                }
-
-                // Only update if there was an actual change
-                if (valueChanged)
-                {
-                    using (var update = new SQLiteCommand(
-                        "UPDATE AttendanceLogs SET SyncStatus = @json, UpdatedAt = @ts WHERE LogID = @lid", connection))
-                    {
-                        update.Parameters.AddWithValue("@json", JsonConvert.SerializeObject(flags));
-                        update.Parameters.AddWithValue("@ts", GetTimestamp());
-                        update.Parameters.AddWithValue("@lid", targetLogId);
-                        int rowsUpdated = update.ExecuteNonQuery();
-
-                        if (rowsUpdated > 0)
+                        if (!foundRecord)
                         {
-                            LogHelper.Log($"Successfully updated {(hasCheckIn ? "check-in" : "check-out")} sync status for log {targetLogId}");
-                            return true;
-                        }
-                        else
-                        {
-                            LogHelper.Log($"Failed to update {(hasCheckIn ? "check-in" : "check-out")} sync status for log {targetLogId}");
+                            LogHelper.Log($"No matching attendance log found for member {memberId}" +
+                                          (string.IsNullOrWhiteSpace(attendanceId) ? "" : $" with AttendanceId {attendanceId} and {(hasCheckIn ? $"CheckInTime {checkInTime}" : $"CheckOutTime {checkOutTime}")}"));
+                            transaction.Rollback();
                             return false;
                         }
+
+                        // Parse existing sync status
+                        Dictionary<string, bool> flags;
+                        try
+                        {
+                            flags = JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingJson ?? "") ?? new Dictionary<string, bool>();
+                        }
+                        catch
+                        {
+                            flags = new Dictionary<string, bool>();
+                        }
+
+                        // Ensure keys exist
+                        if (!flags.ContainsKey("checkIn")) flags["checkIn"] = false;
+                        if (!flags.ContainsKey("checkOut")) flags["checkOut"] = false;
+
+                        // Only update the field we're directly changing, not both fields
+                        bool valueChanged = false;
+                        if (hasCheckIn)
+                        {
+                            if (flags["checkIn"] != checkIn.Value)
+                            {
+                                flags["checkIn"] = checkIn.Value;
+                                valueChanged = true;
+                            }
+                            else
+                            {
+                                LogHelper.Log($"Check-in sync status already set to {checkIn.Value} for log {targetLogId}");
+                                transaction.Rollback();
+                                return false;
+                            }
+                        }
+                        else if (hasCheckOut)
+                        {
+                            if (flags["checkOut"] != checkOut.Value)
+                            {
+                                flags["checkOut"] = checkOut.Value;
+                                valueChanged = true;
+                            }
+                            else
+                            {
+                                LogHelper.Log($"Check-out sync status already set to {checkOut.Value} for log {targetLogId}");
+                                transaction.Rollback();
+                                return false;
+                            }
+                        }
+
+                        // Only update if there was an actual change
+                        if (valueChanged)
+                        {
+                            using (var update = new SqlCommand(
+                                "UPDATE AttendanceLogs SET SyncStatus = @json, UpdatedAt = @ts WHERE LogID = @lid", connection, transaction))
+                            {
+                                update.Parameters.AddWithValue("@json", JsonConvert.SerializeObject(flags));
+                                update.Parameters.AddWithValue("@ts", GetTimestamp());
+                                update.Parameters.AddWithValue("@lid", targetLogId);
+                                int rowsUpdated = update.ExecuteNonQuery();
+
+                                if (rowsUpdated > 0)
+                                {
+                                    LogHelper.Log($"Successfully updated {(hasCheckIn ? "check-in" : "check-out")} sync status for log {targetLogId}");
+                                    transaction.Commit();
+                                    return true;
+                                }
+                                else
+                                {
+                                    LogHelper.Log($"Failed to update {(hasCheckIn ? "check-in" : "check-out")} sync status for log {targetLogId}");
+                                    transaction.Rollback();
+                                    return false;
+                                }
+                            }
+                        }
+
+                        transaction.Rollback();
+                        return false;
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating attendance log sync status: {ex.Message}");
+                        return false;
                     }
                 }
-
-                return false;
             }
         }
 
         public string GetDeviceAttendanceAction(int deviceMachineNo)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var cmd = new SQLiteCommand(
-                    "SELECT AttendanceType FROM Devices WHERE MachineNo = @m LIMIT 1", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    cmd.Parameters.AddWithValue("@m", deviceMachineNo);
-                    var result = cmd.ExecuteScalar();
-                    if (result == null || result == DBNull.Value) return null;
-                    return Convert.ToBoolean(result) ? "check-in" : "check-out";
+                    connection.Open();
+                    using (var cmd = new SqlCommand("SELECT TOP 1 AttendanceType FROM Devices WHERE MachineNo = @m", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@m", deviceMachineNo);
+                        var result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return null;
+                        return Convert.ToBoolean(result) ? "check-in" : "check-out";
+                    }
                 }
             }
-        }
-
-        /// <summary>
-        /// Returns the attendance action for a staff device identified by its MachineNo.
-        /// Maps textual StaffAttendanceType values to canonical values:
-        /// - "check-in"
-        /// - "check-out"
-        /// - "check-in/check-out" (when device is configured for both)
-        /// Returns null when no device or type is found.
-        /// </summary>
-        public string GetStaffDeviceAttendanceAction(int staffMachineNo)
-        {
-            using (var connection = new SQLiteConnection(connectionString))
+            catch (SqlException ex)
             {
-                connection.Open();
-                using (var cmd = new SQLiteCommand(
-                    "SELECT StaffAttendanceType FROM StaffDevices WHERE MachineNo = @m LIMIT 1", connection))
-                {
-                    cmd.Parameters.AddWithValue("@m", staffMachineNo);
-                    var result = cmd.ExecuteScalar();
-                    if (result == null || result == DBNull.Value) return null;
-
-                    var raw = Convert.ToString(result)?.Trim();
-                    if (string.IsNullOrEmpty(raw)) return null;
-
-                    var norm = raw.ToLowerInvariant();
-
-                    // Common normalization patterns
-                    if (norm.Contains("check_in") || norm.Contains("check-in") || norm.Contains("check in"))
-                    {
-                        // If it also contains check_out, return combined
-                        if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out") || norm.Contains("/"))
-                            return "check-in/check-out";
-
-                        return "check-in";
-                    }
-
-                    if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out"))
-                    {
-                        return "check-out";
-                    }
-
-                    // fallback: return the raw normalized value to preserve info
-                    return norm;
-                }
+                Console.WriteLine($"Error getting device attendance action: {ex.Message}");
+                return null;
             }
         }
 
@@ -1698,11 +1800,10 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand(
-                        "SELECT MemberID FROM Members WHERE EnrollmentID = @enroll LIMIT 1", connection))
+                    using (var cmd = new SqlCommand("SELECT TOP 1 MemberID FROM Members WHERE EnrollmentID = @enroll", connection))
                     {
                         cmd.Parameters.AddWithValue("@enroll", enrollmentId);
                         var result = cmd.ExecuteScalar();
@@ -1711,6 +1812,10 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting member ID by enrollment: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 LogHelper.Log($"[GetMemberIdByEnrollment][ERROR] {ex.Message}");
@@ -1718,29 +1823,21 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             return null;
         }
 
-
         // Helper method to check if a record exists in the attendance log table
         public async Task<bool> RecordExistsInAttendanceLogAsync(int enrollNumber, DateTime deviceTime)
         {
-            // Time tolerance (in seconds) to account for small differences in timestamps
             const int timeTolerance = 5;
-
-            return await Task.Run(() =>
+            try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    connection.Open();
-
-                    // First, get the memberId from enrollNumber
+                    await connection.OpenAsync();
                     int? memberId = null;
-                    using (var cmd = new SQLiteCommand("SELECT MemberID FROM Members WHERE EnrollmentID = @enrollId", connection))
+                    using (var cmd = new SqlCommand("SELECT TOP 1 MemberID FROM Members WHERE EnrollmentID = @enrollId", connection))
                     {
                         cmd.Parameters.AddWithValue("@enrollId", enrollNumber);
-                        var result = cmd.ExecuteScalar();
-                        if (result != null && result != DBNull.Value)
-                        {
-                            memberId = Convert.ToInt32(result);
-                        }
+                        var result = await cmd.ExecuteScalarAsync();
+                        if (result != null && result != DBNull.Value) memberId = Convert.ToInt32(result);
                     }
 
                     if (!memberId.HasValue)
@@ -1749,30 +1846,30 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                         return false;
                     }
 
-                    // Format the date for comparison with a tolerance
                     DateTime startTime = deviceTime.AddSeconds(-timeTolerance);
                     DateTime endTime = deviceTime.AddSeconds(timeTolerance);
 
-                    // Check if there's a matching record in AttendanceLogs
-                    using (var cmd = new SQLiteCommand(@"
-                    SELECT COUNT(*) FROM AttendanceLogs 
-                    WHERE MemberID = @memberId AND 
-                    ((datetime(CheckInTime) BETWEEN datetime(@startTime) AND datetime(@endTime)) OR 
-                     (CheckOutTime IS NOT NULL AND datetime(CheckOutTime) BETWEEN datetime(@startTime) AND datetime(@endTime)))",
-                        connection))
+                    using (var cmd = new SqlCommand(@"
+                SELECT COUNT(*) FROM AttendanceLogs 
+                WHERE MemberID = @memberId AND 
+                ((CheckInTime BETWEEN @startTime AND @endTime) OR 
+                 (CheckOutTime IS NOT NULL AND CheckOutTime BETWEEN @startTime AND @endTime))", connection))
                     {
                         cmd.Parameters.AddWithValue("@memberId", memberId.Value);
-                        cmd.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm:ss"));
-                        cmd.Parameters.AddWithValue("@endTime", endTime.ToString("yyyy-MM-dd HH:mm:ss"));
-
-                        long count = (long)cmd.ExecuteScalar();
+                        cmd.Parameters.AddWithValue("@startTime", startTime);
+                        cmd.Parameters.AddWithValue("@endTime", endTime);
+                        var countObj = await cmd.ExecuteScalarAsync();
+                        long count = countObj == null || countObj == DBNull.Value ? 0L : Convert.ToInt64(countObj);
                         return count > 0;
                     }
                 }
-            });
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking record existence in attendance log: {ex.Message}");
+                return false;
+            }
         }
-
-
         /// <summary>
         /// Retrieves the ID of the most recent open attendance log for a member.
         /// An open log is one where CheckOutTime is NULL.
@@ -1781,20 +1878,28 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         /// <returns>The LogID of the open attendance log, or 0 if no open log exists</returns>
         public int GetOpenAttendanceLogId(int memberId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    @"SELECT LogID FROM AttendanceLogs 
-              WHERE MemberID = @memberId AND CheckOutTime IS NULL 
-              ORDER BY CheckInTime DESC LIMIT 1", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    command.Parameters.AddWithValue("@memberId", memberId);
-                    var result = command.ExecuteScalar();
-                    if (result != null && result != DBNull.Value)
-                        return Convert.ToInt32(result);
-                    return 0;
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        @"SELECT TOP 1 LogID FROM AttendanceLogs 
+                  WHERE MemberID = @memberId AND CheckOutTime IS NULL 
+                  ORDER BY CheckInTime DESC", connection))
+                    {
+                        command.Parameters.AddWithValue("@memberId", memberId);
+                        var result = command.ExecuteScalar();
+                        if (result != null && result != DBNull.Value)
+                            return Convert.ToInt32(result);
+                        return 0;
+                    }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting open attendance log ID: {ex.Message}");
+                return 0;
             }
         }
 
@@ -1802,30 +1907,29 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand(@"
-                    SELECT CheckInTime
-                    FROM AttendanceLogs
-                    WHERE MemberID = @memberId
-                      AND CheckOutTime IS NULL
-                    ORDER BY CheckInTime DESC
-                    LIMIT 1;", connection))
+                    using (var cmd = new SqlCommand(@"
+                SELECT TOP 1 CheckInTime
+                FROM AttendanceLogs
+                WHERE MemberID = @memberId
+                  AND CheckOutTime IS NULL
+                ORDER BY CheckInTime DESC;", connection))
                     {
                         cmd.Parameters.AddWithValue("@memberId", memberId);
                         var result = cmd.ExecuteScalar();
-                        if (result == null || result == DBNull.Value)
-                            return null;
-
-                        // Attendance times are stored as text; ensure robust parse
+                        if (result == null || result == DBNull.Value) return null;
                         DateTime parsed;
-                        if (DateTime.TryParse(Convert.ToString(result), out parsed))
-                            return parsed;
-
+                        if (DateTime.TryParse(Convert.ToString(result), out parsed)) return parsed;
                         return null;
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting open attendance log check-in time: {ex.Message}");
+                return null;
             }
             catch (Exception ex)
             {
@@ -1844,35 +1948,37 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         {
             try
             {
-                using (var conn = new System.Data.SQLite.SQLiteConnection(connectionString))
+                using (var conn = new SqlConnection(connectionString))
                 {
                     conn.Open();
-
                     string sql;
                     if (checkIn.HasValue)
                     {
-                        sql = "SELECT AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND CheckInTime = @checkIn LIMIT 1";
+                        sql = "SELECT TOP 1 AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND CheckInTime = @checkIn";
                     }
                     else if (checkOut.HasValue)
                     {
-                        sql = "SELECT AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND CheckOutTime = @checkOut LIMIT 1";
+                        sql = "SELECT TOP 1 AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND CheckOutTime = @checkOut";
                     }
                     else
                     {
-                        // latest non-empty AttendanceId for member
-                        sql = "SELECT AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND AttendanceId IS NOT NULL AND TRIM(AttendanceId) <> '' ORDER BY datetime(CheckInTime) DESC LIMIT 1";
+                        sql = "SELECT TOP 1 AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND AttendanceId IS NOT NULL AND LTRIM(RTRIM(AttendanceId)) <> '' ORDER BY CheckInTime DESC";
                     }
 
-                    using (var cmd = new System.Data.SQLite.SQLiteCommand(sql, conn))
+                    using (var cmd = new SqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@mid", memberId);
-                        if (checkIn.HasValue) cmd.Parameters.AddWithValue("@checkIn", checkIn.Value.ToString("yyyy-MM-dd HH:mm:ss"));
-                        if (checkOut.HasValue) cmd.Parameters.AddWithValue("@checkOut", checkOut.Value.ToString("yyyy-MM-dd HH:mm:ss"));
-
+                        if (checkIn.HasValue) cmd.Parameters.AddWithValue("@checkIn", checkIn.Value);
+                        if (checkOut.HasValue) cmd.Parameters.AddWithValue("@checkOut", checkOut.Value);
                         var result = cmd.ExecuteScalar();
                         return result == null || result == DBNull.Value ? null : result.ToString();
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting attendance ID for member: {ex.Message}");
+                return null;
             }
             catch (Exception ex)
             {
@@ -1881,102 +1987,23 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
-
-        public string GetAttendanceIdForStaff(string staffId, DateTime? checkIn = null, DateTime? checkOut = null)
-        {
-            if (string.IsNullOrWhiteSpace(staffId)) return null;
-
-            // Try common staff attendance table names to be resilient to schema differences
-            var candidateTables = new[] { "StaffAttendanceLog", "StaffAttendanceLogs" };
-
-            try
-            {
-                using (var conn = new System.Data.SQLite.SQLiteConnection(connectionString))
-                {
-                    conn.Open();
-
-                    foreach (var table in candidateTables)
-                    {
-                        try
-                        {
-                            string sql;
-                            if (checkIn.HasValue)
-                            {
-                                sql = $"SELECT AttendanceId FROM {table} WHERE StaffID = @sid AND CheckInTime = @checkIn LIMIT 1";
-                            }
-                            else if (checkOut.HasValue)
-                            {
-                                sql = $"SELECT AttendanceId FROM {table} WHERE StaffID = @sid AND CheckOutTime = @checkOut LIMIT 1";
-                            }
-                            else
-                            {
-                                sql = $"SELECT AttendanceId FROM {table} WHERE StaffID = @sid AND AttendanceId IS NOT NULL AND TRIM(AttendanceId) <> '' ORDER BY datetime(CheckInTime) DESC LIMIT 1";
-                            }
-
-                            using (var cmd = new System.Data.SQLite.SQLiteCommand(sql, conn))
-                            {
-                                cmd.Parameters.AddWithValue("@sid", staffId);
-                                if (checkIn.HasValue) cmd.Parameters.AddWithValue("@checkIn", checkIn.Value.ToString("yyyy-MM-dd HH:mm:ss"));
-                                if (checkOut.HasValue) cmd.Parameters.AddWithValue("@checkOut", checkOut.Value.ToString("yyyy-MM-dd HH:mm:ss"));
-
-                                var result = cmd.ExecuteScalar();
-                                if (result != null && result != DBNull.Value)
-                                    return result.ToString();
-                            }
-                        }
-                        catch (System.Data.SQLite.SQLiteException sqlEx)
-                        {
-                            // If the table doesn't exist or column missing, try next candidate.
-                            // For other SQLite errors, log and stop trying further tables.
-                            var msg = sqlEx.Message ?? string.Empty;
-                            if (msg.IndexOf("no such table", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                msg.IndexOf("no such column", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                // try next table name
-                                continue;
-                            }
-
-                            LogHelper.Log($"GetAttendanceIdForStaff SQLite error using table '{table}': {sqlEx.Message}");
-                            return null;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"GetAttendanceIdForStaff error for staff '{staffId}': {ex.Message}");
-                return null;
-            }
-
-            // Not found
-            return null;
-        }
-
         public DateTime? GetPairedCheckInTime(int memberId, DateTime checkOutTime)
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-
-                    // Stored times are saved as text "yyyy-MM-dd HH:mm:ss"
-                    string checkOutStr = checkOutTime.ToString("yyyy-MM-dd HH:mm:ss");
-
-                    // Find the attendance row for this member with the provided checkout time
-                    // and return its paired check-in time.
                     const string query = @"
-                SELECT CheckInTime
+                SELECT TOP 1 CheckInTime
                 FROM AttendanceLogs
                 WHERE MemberID = @memberId
-                  AND CheckOutTime = @checkOutTime
-                LIMIT 1";
+                  AND CheckOutTime = @checkOutTime";
 
-                    using (var command = new SQLiteCommand(query, connection))
+                    using (var command = new SqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@memberId", memberId);
-                        command.Parameters.AddWithValue("@checkOutTime", checkOutStr);
-
+                        command.Parameters.AddWithValue("@checkOutTime", checkOutTime);
                         var result = command.ExecuteScalar();
                         if (result != null && result != DBNull.Value)
                         {
@@ -1987,6 +2014,10 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting paired check-in time: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Error in GetPairedCheckInTime(memberId={memberId}, checkOut={checkOutTime}): {ex.Message}");
@@ -1996,141 +2027,89 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         }
 
 
-        public DateTime? GetPairedCheckInTimeForStaff(string staffId, DateTime checkOutTime)
+        public bool UpdateAttendanceLogBulkMembers(
+            int memberId,
+            DateTime checkInTime,
+            DateTime? checkOutTime,
+            string attendanceId,
+            bool setCheckInSynced,
+            bool setCheckOutSynced)
         {
-            if (string.IsNullOrWhiteSpace(staffId)) return null;
-
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-
-                    // Stored times are saved as text "yyyy-MM-dd HH:mm:ss"
-                    string checkOutStr = checkOutTime.ToString("yyyy-MM-dd HH:mm:ss");
-
-                    // Try common staff attendance table names to be resilient to schema differences
-                    var candidateTables = new[] { "StaffAttendanceLog", "StaffAttendanceLogs" };
-
-                    foreach (var table in candidateTables)
+                    using (var transaction = connection.BeginTransaction())
                     {
                         try
                         {
-                            string query = $@"
-                        SELECT CheckInTime
-                        FROM {table}
-                        WHERE StaffID = @staffId
-                          AND CheckOutTime = @checkOutTime
-                        LIMIT 1";
+                            // Find the log row by member + exact check-in time
+                            int logId = 0;
+                            string existingSyncStatusJson = null;
 
-                            using (var command = new SQLiteCommand(query, connection))
+                            using (var cmd = new SqlCommand(
+                                @"SELECT TOP 1 LogID, SyncStatus 
+                          FROM AttendanceLogs
+                          WHERE MemberID = @memberId
+                            AND CheckInTime = @checkIn", connection, transaction))
                             {
-                                command.Parameters.AddWithValue("@staffId", staffId);
-                                command.Parameters.AddWithValue("@checkOutTime", checkOutStr);
+                                cmd.Parameters.AddWithValue("@memberId", memberId);
+                                cmd.Parameters.AddWithValue("@checkIn", checkInTime);
 
-                                var result = command.ExecuteScalar();
-                                if (result != null && result != DBNull.Value)
+                                using (var reader = cmd.ExecuteReader())
                                 {
-                                    var checkInText = Convert.ToString(result);
-                                    if (DateTime.TryParse(checkInText, out var parsedCheckIn))
-                                        return parsedCheckIn;
+                                    if (reader.Read())
+                                    {
+                                        logId = reader.GetInt32(0);
+                                        existingSyncStatusJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                    }
                                 }
                             }
-                        }
-                        catch (System.Data.SQLite.SQLiteException sqlEx)
-                        {
-                            // If table/column doesn't exist, try next candidate; otherwise log and abort.
-                            var msg = sqlEx.Message ?? string.Empty;
-                            if (msg.IndexOf("no such table", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                msg.IndexOf("no such column", StringComparison.OrdinalIgnoreCase) >= 0)
+
+                            if (logId == 0)
                             {
-                                continue;
+                                LogHelper.Log($"⚠️ No local AttendanceLog found for Member={memberId}, CheckIn={checkInTime:yyyy-MM-dd HH:mm:ss}");
+                                transaction.Rollback();
+                                return false;
                             }
 
-                            LogHelper.Log($"GetPairedCheckInTimeForStaff SQLite error using table '{table}': {sqlEx.Message}");
-                            return null;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"GetPairedCheckInTimeForStaff error for staff '{staffId}': {ex.Message}");
-            }
+                            // Parse / update SyncStatus JSON
+                            var syncDict = !string.IsNullOrWhiteSpace(existingSyncStatusJson)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingSyncStatusJson) ?? new Dictionary<string, bool>()
+                                : new Dictionary<string, bool>();
 
-            return null;
-        }
+                            if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
+                            if (!syncDict.ContainsKey("checkOut")) syncDict["checkOut"] = false;
 
-        public bool UpdateAttendanceLogFromCloud(
-    int memberId,
-    DateTime checkInTime,
-    DateTime? checkOutTime,
-    string attendanceId,
-    bool setCheckInSynced,
-    bool setCheckOutSynced)
-        {
-            try
-            {
-                using (var connection = new SQLiteConnection(connectionString))
-                {
-                    connection.Open();
+                            if (setCheckInSynced) syncDict["checkIn"] = true;
+                            if (setCheckOutSynced) syncDict["checkOut"] = true;
 
-                    // Find the log row by member + exact check-in time
-                    int logId = 0;
-                    string existingSyncStatusJson = null;
+                            string newSyncJson = JsonConvert.SerializeObject(syncDict);
+                            string timestamp = GetTimestamp();
 
-                    using (var cmd = new SQLiteCommand(
-                        @"SELECT LogID, SyncStatus 
-                  FROM AttendanceLogs
-                  WHERE MemberID = @memberId
-                    AND CheckInTime = @checkIn", connection))
-                    {
-                        cmd.Parameters.AddWithValue("@memberId", memberId);
-                        cmd.Parameters.AddWithValue("@checkIn", checkInTime.ToString("yyyy-MM-dd HH:mm:ss"));
-
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
+                            using (var update = new SqlCommand(
+                                @"UPDATE AttendanceLogs
+                          SET AttendanceId = @attendanceId,
+                              SyncStatus   = @syncStatus,
+                              UpdatedAt    = @updatedAt
+                          WHERE LogID = @logId", connection, transaction))
                             {
-                                logId = reader.GetInt32(0);
-                                existingSyncStatusJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                update.Parameters.AddWithValue("@attendanceId", (object)attendanceId ?? DBNull.Value);
+                                update.Parameters.AddWithValue("@syncStatus", newSyncJson);
+                                update.Parameters.AddWithValue("@updatedAt", timestamp);
+                                update.Parameters.AddWithValue("@logId", logId);
+
+                                update.ExecuteNonQuery();
                             }
+                            transaction.Commit();
                         }
-                    }
-
-                    if (logId == 0)
-                    {
-                        LogHelper.Log($"⚠️ No local AttendanceLog found for Member={memberId}, CheckIn={checkInTime:yyyy-MM-dd HH:mm:ss}");
-                        return false;
-                    }
-
-                    // Parse / update SyncStatus JSON
-                    var syncDict = !string.IsNullOrWhiteSpace(existingSyncStatusJson)
-                        ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingSyncStatusJson) ?? new Dictionary<string, bool>()
-                        : new Dictionary<string, bool>();
-
-                    if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
-                    if (!syncDict.ContainsKey("checkOut")) syncDict["checkOut"] = false;
-
-                    if (setCheckInSynced) syncDict["checkIn"] = true;
-                    if (setCheckOutSynced) syncDict["checkOut"] = true;
-
-                    string newSyncJson = JsonConvert.SerializeObject(syncDict);
-                    string timestamp = GetTimestamp();
-
-                    using (var update = new SQLiteCommand(
-                        @"UPDATE AttendanceLogs
-                  SET AttendanceId = @attendanceId,
-                      SyncStatus   = @syncStatus,
-                      UpdatedAt    = @updatedAt
-                  WHERE LogID = @logId", connection))
-                    {
-                        update.Parameters.AddWithValue("@attendanceId", (object)attendanceId ?? DBNull.Value);
-                        update.Parameters.AddWithValue("@syncStatus", newSyncJson);
-                        update.Parameters.AddWithValue("@updatedAt", timestamp);
-                        update.Parameters.AddWithValue("@logId", logId);
-
-                        update.ExecuteNonQuery();
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error updating attendance log from cloud: {ex.Message}");
+                            return false;
+                        }
                     }
                 }
 
@@ -2144,33 +2123,183 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
+        public bool UpdateStaffAttendanceLogBulk(
+    int enrollmentId,
+    DateTime checkInTime,
+    DateTime? checkOutTime,
+    string attendanceId,
+    bool setCheckInSynced,
+    bool setCheckOutSynced)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // Find the log row by enrollment + exact check-in time
+                            int logId = 0;
+                            string existingSyncStatusJson = null;
+
+                            using (var cmd = new SqlCommand(
+                                @"SELECT TOP 1 LogID, SyncStatus 
+                          FROM StaffAttendanceLog
+                          WHERE EnrollmentID = @enrollmentId
+                            AND CheckInTime = @checkIn", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                                cmd.Parameters.AddWithValue("@checkIn", checkInTime);
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    if (reader.Read())
+                                    {
+                                        logId = reader.GetInt32(0);
+                                        existingSyncStatusJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                    }
+                                }
+                            }
+
+                            if (logId == 0)
+                            {
+                                LogHelper.Log($"⚠️ No local StaffAttendanceLog found for Enrollment={enrollmentId}, CheckIn={checkInTime:yyyy-MM-dd HH:mm:ss}");
+                                transaction.Rollback();
+                                return false;
+                            }
+
+                            // Parse / update SyncStatus JSON
+                            var syncDict = !string.IsNullOrWhiteSpace(existingSyncStatusJson)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingSyncStatusJson) ?? new Dictionary<string, bool>()
+                                : new Dictionary<string, bool>();
+
+                            if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
+                            if (!syncDict.ContainsKey("checkOut")) syncDict["checkOut"] = false;
+
+                            if (setCheckInSynced) syncDict["checkIn"] = true;
+                            if (setCheckOutSynced) syncDict["checkOut"] = true;
+
+                            string newSyncJson = JsonConvert.SerializeObject(syncDict);
+                            string timestamp = GetTimestamp();
+
+                            using (var update = new SqlCommand(
+                                @"UPDATE StaffAttendanceLog
+                          SET AttendanceId = @attendanceId,
+                              SyncStatus   = @syncStatus,
+                              UpdatedAt    = @updatedAt
+                          WHERE LogID = @logId", connection, transaction))
+                            {
+                                update.Parameters.AddWithValue("@attendanceId", (object)attendanceId ?? DBNull.Value);
+                                update.Parameters.AddWithValue("@syncStatus", newSyncJson);
+                                update.Parameters.AddWithValue("@updatedAt", timestamp);
+                                update.Parameters.AddWithValue("@logId", logId);
+
+                                update.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            LogHelper.Log($"Error updating staff attendance log from cloud: {ex.Message}");
+                            return false;
+                        }
+                    }
+                }
+
+                LogHelper.Log($"✅ Updated StaffAttendanceLog from cloud for Enrollment={enrollmentId}, CheckIn={checkInTime:yyyy-MM-dd HH:mm:ss}, AttendanceId={attendanceId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error updating StaffAttendanceLog from cloud for Enrollment={enrollmentId}: {ex.Message}");
+                return false;
+            }
+        }
+
+
+        public async Task<List<UnsyncedAttendanceLog>> CheckUnsyncedStaffAttendanceLogsAsync()
+        {
+            var list = new List<UnsyncedAttendanceLog>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync().ConfigureAwait(false);
+                    string query = @"
+                        SELECT LogID, EnrollmentID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus
+                        FROM StaffAttendanceLog
+                        WHERE SyncStatus LIKE '%""checkIn"":false%' 
+                           OR SyncStatus LIKE '%""checkOut"":false%'";
+
+                    using (var cmd = new SqlCommand(query, connection))
+                    using (var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false))
+                    {
+                        while (await reader.ReadAsync().ConfigureAwait(false))
+                        {
+                            string syncStatusJson = reader.IsDBNull(5) ? null : reader.GetString(5);
+                            var syncDict = !string.IsNullOrWhiteSpace(syncStatusJson)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncStatusJson)
+                                : new Dictionary<string, bool>();
+
+                            bool needsCheckIn = syncDict.ContainsKey("checkIn") && !syncDict["checkIn"];
+                            bool needsCheckOut = syncDict.ContainsKey("checkOut") && !syncDict["checkOut"];
+
+                            if (needsCheckIn || needsCheckOut)
+                            {
+                                list.Add(new UnsyncedAttendanceLog
+                                {
+                                    LogId = reader.GetInt32(0),
+                                    EnrollmentId = reader.GetInt32(1),
+                                    AttendanceId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    CheckInTime = reader.IsDBNull(3) ? DateTime.MinValue : reader.GetDateTime(3),
+                                    CheckOutTime = reader.IsDBNull(4) ? DateTime.MinValue : reader.GetDateTime(4),
+                                    NeedsCheckInSync = needsCheckIn,
+                                    NeedsCheckOutSync = needsCheckOut
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error checking unsynced staff logs: {ex.Message}");
+            }
+            return list;
+        }
+
+
+
         public DateTime? GetLastCheckOutTimeForMember(int memberId)
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand(@"
-                    SELECT CheckOutTime
-                    FROM AttendanceLogs
-                    WHERE MemberID = @memberId
-                      AND CheckOutTime IS NOT NULL
-                    ORDER BY CheckOutTime DESC
-                    LIMIT 1;", connection))
+                    using (var cmd = new SqlCommand(@"
+                SELECT TOP 1 CheckOutTime
+                FROM AttendanceLogs
+                WHERE MemberID = @memberId
+                  AND CheckOutTime IS NOT NULL
+                ORDER BY CheckOutTime DESC;", connection))
                     {
                         cmd.Parameters.AddWithValue("@memberId", memberId);
                         var result = cmd.ExecuteScalar();
-                        if (result == null || result == DBNull.Value)
-                            return null;
-
+                        if (result == null || result == DBNull.Value) return null;
                         DateTime parsed;
-                        if (DateTime.TryParse(Convert.ToString(result), out parsed))
-                            return parsed;
-
+                        if (DateTime.TryParse(Convert.ToString(result), out parsed)) return parsed;
                         return null;
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting last check-out time for member: {ex.Message}");
+                return null;
             }
             catch (Exception ex)
             {
@@ -2179,6 +2308,71 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
+        /// <summary>
+        /// Deletes completed and synced attendance logs for both members and staff that are older than the specified number of days.
+        /// </summary>
+        public int DeleteOldSyncedAttendanceLogs(int daysOld)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // Logic: CheckIn and CheckOut must exist, and the SyncStatus JSON must indicate both are synced (true)
+                            // For Members
+                            string memberSql = @"
+                        DELETE FROM AttendanceLogs 
+                        WHERE CheckInTime IS NOT NULL 
+                          AND CheckOutTime IS NOT NULL 
+                          AND SyncStatus LIKE '%""checkIn"":true%' 
+                          AND SyncStatus LIKE '%""checkOut"":true%'
+                          AND CheckInTime < DATEADD(DAY, -@days, GETDATE())";
+
+                            // For Staff
+                            string staffSql = @"
+                        DELETE FROM StaffAttendanceLog 
+                        WHERE CheckInTime IS NOT NULL 
+                          AND CheckOutTime IS NOT NULL 
+                          AND SyncStatus LIKE '%""checkIn"":true%' 
+                          AND SyncStatus LIKE '%""checkOut"":true%'
+                          AND CheckInTime < DATEADD(DAY, -@days, GETDATE())";
+
+                            int totalDeleted = 0;
+
+                            using (var cmd = new SqlCommand(memberSql, connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@days", daysOld);
+                                totalDeleted += cmd.ExecuteNonQuery();
+                            }
+
+                            using (var cmd = new SqlCommand(staffSql, connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@days", daysOld);
+                                totalDeleted += cmd.ExecuteNonQuery();
+                            }
+
+                            transaction.Commit();
+                            return totalDeleted;
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            LogHelper.Log($"❌ SQL Error in DeleteOldSyncedAttendanceLogs: {ex.Message}");
+                            return 0;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error in DeleteOldSyncedAttendanceLogs: {ex.Message}");
+                return 0;
+            }
+        }
 
         /// <summary>
         /// Checks if there are any attendance logs for a member on a specific date for a specific action.
@@ -2189,42 +2383,49 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         /// <returns>True if attendance logs exist for that day and action, false otherwise</returns>
         public bool HasAttendanceLogForDate(int memberId, DateTime date, string action)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    string sql;
+                    if (action == "check-in")
+                    {
+                        sql = @"SELECT COUNT(*) FROM AttendanceLogs 
+                        WHERE MemberID = @memberId 
+                        AND CONVERT(DATE, CheckInTime) = @date
+                        AND CheckInTime IS NOT NULL";
+                    }
+                    else if (action == "check-out")
+                    {
+                        sql = @"SELECT COUNT(*) FROM AttendanceLogs 
+                        WHERE MemberID = @memberId 
+                        AND CONVERT(DATE, CheckInTime) = @date
+                        AND CheckOutTime IS NOT NULL";
+                    }
+                    else
+                    {
+                        sql = @"SELECT COUNT(*) FROM AttendanceLogs 
+                        WHERE MemberID = @memberId 
+                        AND CONVERT(DATE, CheckInTime) = @date";
+                    }
 
-                string sql;
-                if (action == "check-in")
-                {
-                    sql = @"SELECT COUNT(*) FROM AttendanceLogs 
-                           WHERE MemberID = @memberId 
-                           AND DATE(CheckInTime) = DATE(@date)
-                           AND CheckInTime IS NOT NULL";
-                }
-                else if (action == "check-out")
-                {
-                    sql = @"SELECT COUNT(*) FROM AttendanceLogs 
-                           WHERE MemberID = @memberId 
-                           AND DATE(CheckInTime) = DATE(@date)
-                           AND CheckOutTime IS NOT NULL";
-                }
-                else
-                {
-                    // If action is not specified or invalid, check for any logs on that date
-                    sql = @"SELECT COUNT(*) FROM AttendanceLogs 
-                           WHERE MemberID = @memberId 
-                           AND DATE(CheckInTime) = DATE(@date)";
-                }
-
-                using (var command = new SQLiteCommand(sql, connection))
-                {
-                    command.Parameters.AddWithValue("@memberId", memberId);
-                    command.Parameters.AddWithValue("@date", date.ToString("yyyy-MM-dd"));
-                    var result = command.ExecuteScalar();
-                    return Convert.ToInt32(result) > 0;
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@memberId", memberId);
+                        command.Parameters.AddWithValue("@date", date.Date);
+                        var result = command.ExecuteScalar();
+                        return Convert.ToInt32(result) > 0;
+                    }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking attendance log for date: {ex.Message}");
+                return false;
+            }
         }
+
 
         /// <summary>
         /// Checks if there are any attendance logs for a member on a specific date (backward compatibility).
@@ -2236,8 +2437,6 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         {
             return HasAttendanceLogForDate(memberId, date, null);
         }
-
-
 
         /// <summary>
         /// Unified attendance gate.
@@ -2255,40 +2454,37 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
 
             action = action.Trim().ToLowerInvariant();
 
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                // Count any open session whose check-in date is today or previous day
-                const string sql = @"
-                    SELECT COUNT(*) FROM AttendanceLogs
-                    WHERE MemberID = @mid
-                      AND CheckInTime IS NOT NULL
-                      AND (CheckOutTime IS NULL OR TRIM(CheckOutTime) = '')
-                      AND (
-                            DATE(CheckInTime) = DATE(@dt)
-                         OR DATE(CheckInTime) = DATE(@dt, '-1 day')
-                          );";
-
-                int openCount;
-                using (var cmd = new SQLiteCommand(sql, connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    cmd.Parameters.AddWithValue("@mid", memberId);
-                    cmd.Parameters.AddWithValue("@dt", deviceTime.ToString("yyyy-MM-dd"));
-                    openCount = Convert.ToInt32(cmd.ExecuteScalar());
-                }
+                    connection.Open();
+                    const string sql = @"
+                SELECT COUNT(*) FROM AttendanceLogs
+                WHERE MemberID = @mid
+                  AND CheckInTime IS NOT NULL
+                  AND (CheckOutTime IS NULL OR LTRIM(RTRIM(CheckOutTime)) = '')
+                  AND (
+                        CONVERT(DATE, CheckInTime) = CONVERT(DATE, @dt)
+                     OR CONVERT(DATE, CheckInTime) = CONVERT(DATE, DATEADD(DAY, -1, @dt))
+                      );";
 
-                if (action == "check-in")
-                {
-                    // Allow new check-in only if NO open session spanning today/previous
-                    return openCount == 0;
-                }
-                if (action == "check-out")
-                {
-                    // Allow checkout only if an open session exists
-                    return openCount > 0;
-                }
+                    int openCount;
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@mid", memberId);
+                        cmd.Parameters.AddWithValue("@dt", deviceTime);
+                        openCount = Convert.ToInt32(cmd.ExecuteScalar());
+                    }
 
+                    if (action == "check-in") return openCount == 0;
+                    if (action == "check-out") return openCount > 0;
+                    return false;
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error processing attendance: {ex.Message}");
                 return false;
             }
         }
@@ -2303,53 +2499,64 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-
-                    // Get all log entries for the member
-                    var logIds = new List<int>();
-                    using (var cmd = new SQLiteCommand("SELECT Id, SyncStatus FROM Log WHERE MemberID = @memberId", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        cmd.Parameters.AddWithValue("@memberId", memberId);
-                        using (var reader = await cmd.ExecuteReaderAsync())
+                        try
                         {
-                            while (await reader.ReadAsync())
+                            // Get all log entries for the member
+                            var logIds = new List<int>();
+                            using (var cmd = new SqlCommand("SELECT Id, SyncStatus FROM Log WHERE MemberID = @memberId", connection, transaction))
                             {
-                                int logId = reader.GetInt32(0);
-                                string syncStatusJson = reader.GetString(1);
-                                var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncStatusJson) ?? new Dictionary<string, bool>();
-
-                                // Set Face to false if it exists
-                                if (syncStatus.ContainsKey("Face"))
+                                cmd.Parameters.AddWithValue("@memberId", memberId);
+                                using (var reader = await cmd.ExecuteReaderAsync())
                                 {
-                                    syncStatus["Face"] = false;
-                                }
-                                else
-                                {
-                                    syncStatus["Face"] = false;  // Add if missing
-                                }
+                                    while (await reader.ReadAsync())
+                                    {
+                                        int logId = reader.GetInt32(0);
+                                        string syncStatusJson = reader.GetString(1);
+                                        var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncStatusJson) ?? new Dictionary<string, bool>();
 
-                                // Update the log entry
-                                using (var updateCmd = new SQLiteCommand("UPDATE Log SET SyncStatus = @syncStatus WHERE Id = @logId", connection))
-                                {
-                                    updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
-                                    updateCmd.Parameters.AddWithValue("@logId", logId);
-                                    await updateCmd.ExecuteNonQueryAsync();
-                                }
+                                        // Set Face to false if it exists
+                                        if (syncStatus.ContainsKey("Face"))
+                                        {
+                                            syncStatus["Face"] = false;
+                                        }
+                                        else
+                                        {
+                                            syncStatus["Face"] = false;  // Add if missing
+                                        }
 
-                                logIds.Add(logId);
+                                        // Update the log entry
+                                        using (var updateCmd = new SqlCommand("UPDATE Log SET SyncStatus = @syncStatus WHERE Id = @logId", connection, transaction))
+                                        {
+                                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
+                                            updateCmd.Parameters.AddWithValue("@logId", logId);
+                                            await updateCmd.ExecuteNonQueryAsync();
+                                        }
+
+                                        logIds.Add(logId);
+                                    }
+                                }
+                            }
+                            transaction.Commit();
+
+                            if (logIds.Count > 0)
+                            {
+                                LogHelper.Log($"✅ Forced Face sync status to false for member {memberId} in {logIds.Count} log entries.");
+                            }
+                            else
+                            {
+                                LogHelper.Log($"ℹ️ No log entries found for member {memberId} to update Face sync status.");
                             }
                         }
-                    }
-
-                    if (logIds.Count > 0)
-                    {
-                        LogHelper.Log($"✅ Forced Face sync status to false for member {memberId} in {logIds.Count} log entries.");
-                    }
-                    else
-                    {
-                        LogHelper.Log($"ℹ️ No log entries found for member {memberId} to update Face sync status.");
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error forcing face sync status: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -2359,17 +2566,15 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             }
         }
 
+
         public async Task<List<UnsyncedAttendanceLog>> CheckUnsyncedAttendanceLogsAsync()
         {
             var unsyncedLogs = new List<UnsyncedAttendanceLog>();
-
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-
-                    // Query now selects AttendanceId instead of LogId/EnrollmentId
                     string query = @"
                 SELECT 
                     al.AttendanceId, 
@@ -2382,32 +2587,23 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                 WHERE 
                     al.SyncStatus LIKE '%false%'";
 
-                    using (var command = new SQLiteCommand(query, connection))
+                    using (var command = new SqlCommand(query, connection))
                     using (var reader = await command.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
                         {
-                            string attendanceId = reader.GetString(0);
+                            string attendanceId = reader.IsDBNull(0) ? null : reader.GetString(0);
                             int memberId = reader.GetInt32(1);
 
-                            // Robust parsing of CheckInTime (skip row if invalid)
-                            string checkInText = reader.IsDBNull(2) ? null : reader.GetString(2);
                             DateTime checkInTime;
-                            if (string.IsNullOrWhiteSpace(checkInText) || !DateTime.TryParse(checkInText, out checkInTime))
+                            if (!DateTime.TryParse(reader.GetValue(2).ToString(), out checkInTime))
                                 continue;
 
                             DateTime? checkOutTime = null;
-                            if (!reader.IsDBNull(3))
-                            {
-                                string checkOutText = reader.GetString(3);
-                                DateTime tmp;
-                                if (DateTime.TryParse(checkOutText, out tmp))
-                                    checkOutTime = tmp;
-                            }
+                            if (!reader.IsDBNull(3)) checkOutTime = reader.GetDateTime(3);
 
                             string syncStatusJson = reader.IsDBNull(4) ? "{}" : reader.GetString(4);
 
-                            // Parse the JSON in the SyncStatus field safely
                             Dictionary<string, bool> syncStatus;
                             try
                             {
@@ -2425,7 +2621,7 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                             {
                                 unsyncedLogs.Add(new UnsyncedAttendanceLog
                                 {
-                                    AttendanceId = attendanceId,   // ✅ new field
+                                    AttendanceId = attendanceId,
                                     MemberId = memberId,
                                     CheckInTime = checkInTime,
                                     CheckOutTime = checkOutTime ?? DateTime.MinValue,
@@ -2439,7 +2635,7 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
 
                 unsyncedLogs = unsyncedLogs
                     .OrderBy(u => u.CheckInTime)
-                    .ThenBy(u => u.AttendanceId) // ✅ sort by AttendanceId instead of LogId
+                    .ThenBy(u => u.AttendanceId)
                     .ToList();
 
                 LogHelper.Log($"Found {unsyncedLogs.Count} unsynced attendance logs");
@@ -2448,19 +2644,20 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
             {
                 LogHelper.Log($"Error checking for unsynced attendance logs: {ex.Message}");
             }
-
             return unsyncedLogs;
         }
+
 
         // Get all attendance logs
         public List<dynamic> GetAllAttendanceLogs()
         {
             var logs = new List<dynamic>();
-
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(@"
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SqlCommand(@"
                     SELECT 
                         LogID,
                         MemberID,
@@ -2471,24 +2668,28 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
                         UpdatedAt
                     FROM AttendanceLogs
                     ORDER BY CheckInTime ASC", connection))
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
+                    using (var reader = command.ExecuteReader())
                     {
-                        logs.Add(new
+                        while (reader.Read())
                         {
-                            LogID = reader.GetInt32(0),
-                            MemberID = reader.GetInt32(1),
-                            AttendanceId = reader.IsDBNull(2) ? null : reader.GetString(2),
-                            CheckInTime = reader.IsDBNull(3) ? null : reader.GetString(3),
-                            CheckOutTime = reader.IsDBNull(4) ? null : reader.GetString(4),
-                            CreatedAt = reader.IsDBNull(5) ? null : reader.GetString(5),
-                            UpdatedAt = reader.IsDBNull(6) ? null : reader.GetString(6)
-                        });
+                            logs.Add(new
+                            {
+                                LogID = reader.GetInt32(0),
+                                MemberID = reader.GetInt32(1),
+                                AttendanceId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                CheckInTime = reader.IsDBNull(3) ? null : reader.GetDateTime(3).ToString("yyyy-MM-dd HH:mm:ss"),
+                                CheckOutTime = reader.IsDBNull(4) ? null : reader.GetDateTime(4).ToString("yyyy-MM-dd HH:mm:ss"),
+                                CreatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5).ToString("yyyy-MM-dd HH:mm:ss"),
+                                UpdatedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss")
+                            });
+                        }
                     }
                 }
             }
-
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting all attendance logs: {ex.Message}");
+            }
             return logs;
         }
 
@@ -2496,64 +2697,75 @@ CREATE TABLE IF NOT EXISTS PendingJobs (
         //Abdul Hadi Code
         public void SaveDevice(Device device)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    string timestamp = GetTimestamp();
+                    try
+                    {
+                        string timestamp = GetTimestamp();
 
-                    // Encrypt sensitive fields
-                    string encryptedSerial = Encrypt(device.DeviceSerial);
-                    string encryptedIP = Encrypt(device.DeviceIP);
+                        // Encrypt sensitive fields
+                        string encryptedSerial = Encrypt(device.DeviceSerial);
+                        string encryptedIP = Encrypt(device.DeviceIP);
 
-                    command.CommandText = @"
+                        using (var command = new SqlCommand(@"
 INSERT INTO Devices 
 (Department, AttendanceType, DeviceSerial, DeviceIP, Port, TimeZone, Location, ConnectionType, IsActive, LastSyncTime, FaceCapacity, RFIDCapacity, FingerCapacity, MachineNo, CreatedAt, UpdatedAt, Password) 
 VALUES 
-(@Department, @AttendanceType, @DeviceSerial, @DeviceIP, @Port, @TimeZone, @Location, @ConnectionType, @IsActive, @LastSyncTime, @FaceCapacity, @RFIDCapacity, @FingerCapacity, @MachineNo, @CreatedAt, @UpdatedAt, @Password)";
+(@Department, @AttendanceType, @DeviceSerial, @DeviceIP, @Port, @TimeZone, @Location, @ConnectionType, @IsActive, @LastSyncTime, @FaceCapacity, @RFIDCapacity, @FingerCapacity, @MachineNo, @CreatedAt, @UpdatedAt, @Password)", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@AttendanceType", device.AttendanceType);
+                            command.Parameters.AddWithValue("@DeviceSerial", encryptedSerial);
+                            command.Parameters.AddWithValue("@DeviceIP", encryptedIP);
+                            command.Parameters.AddWithValue("@Port", device.Port);
+                            command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
+                            command.Parameters.AddWithValue("@Location", device.Location);
+                            command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
+                            command.Parameters.AddWithValue("@IsActive", device.IsActive);
+                            command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
+                            command.Parameters.AddWithValue("@CreatedAt", timestamp);
+                            command.Parameters.AddWithValue("@UpdatedAt", timestamp);
+                            command.Parameters.AddWithValue("@Password", device.Password);
 
-                    command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@AttendanceType", device.AttendanceType);
-                    command.Parameters.AddWithValue("@DeviceSerial", encryptedSerial);
-                    command.Parameters.AddWithValue("@DeviceIP", encryptedIP);
-                    command.Parameters.AddWithValue("@Port", device.Port);
-                    command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
-                    command.Parameters.AddWithValue("@Location", device.Location);
-                    command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
-                    command.Parameters.AddWithValue("@IsActive", device.IsActive);
-                    command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
-                    command.Parameters.AddWithValue("@CreatedAt", timestamp);
-                    command.Parameters.AddWithValue("@UpdatedAt", timestamp);
-                    command.Parameters.AddWithValue("@Password", device.Password);
-
-                    command.ExecuteNonQuery();
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error saving device: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
-
-
 
         //Abdul Hadi Code
         public void UpdateDevice(Device device)
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var command = new SQLiteCommand(connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        string timestamp = GetTimestamp();
-                        // Encrypt sensitive fields
-                        string encryptedSerial = Encrypt(device.DeviceSerial);
-                        string encryptedIP = Encrypt(device.DeviceIP);
+                        try
+                        {
+                            string timestamp = GetTimestamp();
+                            // Encrypt sensitive fields
+                            string encryptedSerial = Encrypt(device.DeviceSerial);
+                            string encryptedIP = Encrypt(device.DeviceIP);
 
-                        command.CommandText = @"
+                            using (var command = new SqlCommand(@"
 UPDATE Devices SET 
     Department = @Department,
     AttendanceType = @AttendanceType,
@@ -2571,31 +2783,40 @@ UPDATE Devices SET
     MachineNo = @MachineNo,
     Password = @Password,
     UpdatedAt = @UpdatedAt
-WHERE DeviceId = @DeviceId";
+WHERE DeviceId = @DeviceId", connection, transaction))
+                            {
+                                command.Parameters.AddWithValue("@DeviceId", device.DeviceId);
+                                command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
+                                command.Parameters.AddWithValue("@AttendanceType", device.AttendanceType);
+                                command.Parameters.AddWithValue("@DeviceSerial", encryptedSerial);
+                                command.Parameters.AddWithValue("@DeviceIP", encryptedIP);
+                                command.Parameters.AddWithValue("@Port", device.Port);
+                                command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
+                                command.Parameters.AddWithValue("@Location", device.Location);
+                                command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
+                                command.Parameters.AddWithValue("@IsActive", device.IsActive);
+                                command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
+                                command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
+                                command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
+                                command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
+                                command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
+                                command.Parameters.AddWithValue("@Password", device.Password);
+                                command.Parameters.AddWithValue("@UpdatedAt", timestamp);
 
-                        command.Parameters.AddWithValue("@DeviceId", device.DeviceId);
-                        command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@AttendanceType", device.AttendanceType);
-                        command.Parameters.AddWithValue("@DeviceSerial", encryptedSerial);
-                        command.Parameters.AddWithValue("@DeviceIP", encryptedIP);
-                        command.Parameters.AddWithValue("@Port", device.Port);
-                        command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
-                        command.Parameters.AddWithValue("@Location", device.Location);
-                        command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
-                        command.Parameters.AddWithValue("@IsActive", device.IsActive);
-                        command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
-                        command.Parameters.AddWithValue("@Password", device.Password);
-                        command.Parameters.AddWithValue("@UpdatedAt", timestamp);
-
-                        command.ExecuteNonQuery();
+                                command.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error updating device: {ex.Message}");
+                            throw;
+                        }
                     }
                 }
             }
-            catch (SQLiteException ex) when (ex.ErrorCode == 19)
+            catch (SqlException ex) when (ex.Number == 2627 || ex.Number == 2601)
             {
                 string detail = "Update failed due to a unique constraint violation.";
 
@@ -2618,115 +2839,111 @@ WHERE DeviceId = @DeviceId";
         // Check if a device with the same IP or Machine No already exists
         public string CheckDeviceExists(string deviceIP, int machineNo)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                using (var command = new SQLiteCommand(connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    command.CommandText = @"
+                    connection.Open();
+                    using (var command = new SqlCommand(@"
                 SELECT DeviceIP, MachineNo
                 FROM Devices
-                WHERE DeviceIP = @DeviceIP OR MachineNo = @MachineNo;
-            ";
-
-                    command.Parameters.AddWithValue("@DeviceIP", Encrypt(deviceIP));
-                    command.Parameters.AddWithValue("@MachineNo", machineNo);
-
-                    using (var reader = command.ExecuteReader())
+                WHERE DeviceIP = @DeviceIP OR MachineNo = @MachineNo;", connection))
                     {
-                        bool ipExists = false, machineExists = false;
+                        command.Parameters.AddWithValue("@DeviceIP", Encrypt(deviceIP));
+                        command.Parameters.AddWithValue("@MachineNo", machineNo);
 
-                        while (reader.Read())
+                        bool ipExists = false, machineExists = false;
+                        using (var reader = command.ExecuteReader())
                         {
-                            if (Decrypt(reader["DeviceIP"].ToString()) == deviceIP) ipExists = true;
-                            if (Convert.ToInt32(reader["MachineNo"]) == machineNo) machineExists = true;
+                            while (reader.Read())
+                            {
+                                var encryptedIp = reader["DeviceIP"] != DBNull.Value ? reader["DeviceIP"].ToString() : null;
+                                if (!string.IsNullOrEmpty(encryptedIp) && Decrypt(encryptedIp) == deviceIP) ipExists = true;
+                                if (reader["MachineNo"] != DBNull.Value && Convert.ToInt32(reader["MachineNo"]) == machineNo) machineExists = true;
+                            }
                         }
 
-                        if (ipExists && machineExists)
-                            return "Both Device IP and Machine No exist.";
-                        else if (ipExists)
-                            return "Device IP exists.";
-                        else if (machineExists)
-                            return "Machine No exists.";
+                        if (ipExists && machineExists) return "Both Device IP and Machine No exist.";
+                        if (ipExists) return "Device IP exists.";
+                        if (machineExists) return "Machine No exists.";
+                        return "Neither IP nor Machine No exists.";
                     }
                 }
             }
-
-            return "Neither IP nor Machine No exists.";
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking device exists: {ex.Message}");
+                return "Error occurred.";
+            }
         }
-
-
 
         //Abdul Hadi Code
         // Check if a device with the same IP or Machine No already exists, excluding the current deviceId
         // Updated version - Port uniqueness check removed
         public string IDCheckDeviceExists(string deviceIP, int machineNo, int? deviceId = null)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                using (var command = new SQLiteCommand(connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    // Check for matching DeviceIP or MachineNo, but optionally skip for a specific deviceId
-                    command.CommandText = @"
+                    connection.Open();
+                    using (var command = new SqlCommand(@"
                 SELECT DeviceId, DeviceIP, MachineNo
                 FROM Devices
                 WHERE (DeviceIP = @DeviceIP OR MachineNo = @MachineNo)
-                AND (@DeviceId IS NULL OR DeviceId != @DeviceId);";
-
-                    // Adding parameters to prevent SQL injection
-                    command.Parameters.AddWithValue("@DeviceIP", Encrypt(deviceIP));
-                    command.Parameters.AddWithValue("@MachineNo", machineNo);
-                    command.Parameters.AddWithValue("@DeviceId", deviceId.HasValue ? (object)deviceId.Value : DBNull.Value);
-
-                    // Execute the query
-                    using (var reader = command.ExecuteReader())
+                AND (@DeviceId IS NULL OR DeviceId != @DeviceId);", connection))
                     {
+                        command.Parameters.AddWithValue("@DeviceIP", Encrypt(deviceIP));
+                        command.Parameters.AddWithValue("@MachineNo", machineNo);
+                        command.Parameters.AddWithValue("@DeviceId", deviceId.HasValue ? (object)deviceId.Value : DBNull.Value);
+
                         bool ipExists = false, machineExists = false;
-
-                        // Check if the fields exist
-                        while (reader.Read())
+                        using (var reader = command.ExecuteReader())
                         {
-                            string existingIP = Decrypt(reader["DeviceIP"].ToString());
-                            int existingMachineNo = Convert.ToInt32(reader["MachineNo"]);
-
-                            if (existingIP == deviceIP) ipExists = true;
-                            if (existingMachineNo == machineNo) machineExists = true;
+                            while (reader.Read())
+                            {
+                                var existingIPEncrypted = reader["DeviceIP"] != DBNull.Value ? reader["DeviceIP"].ToString() : null;
+                                if (!string.IsNullOrEmpty(existingIPEncrypted) && Decrypt(existingIPEncrypted) == deviceIP) ipExists = true;
+                                if (reader["MachineNo"] != DBNull.Value && Convert.ToInt32(reader["MachineNo"]) == machineNo) machineExists = true;
+                            }
                         }
 
-                        // Construct the response based on which fields exist
-                        if (ipExists && machineExists)
-                        {
-                            return "Device IP and Machine No exist.";
-                        }
-                        else if (ipExists)
-                        {
-                            return "Device IP exists.";
-                        }
-                        else if (machineExists)
-                        {
-                            return "Machine No exists.";
-                        }
+                        if (ipExists && machineExists) return "Device IP and Machine No exist.";
+                        if (ipExists) return "Device IP exists.";
+                        if (machineExists) return "Machine No exists.";
+                        return "";
                     }
                 }
             }
-
-            return "";
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking device exists by ID: {ex.Message}");
+                return "Error occurred.";
+            }
         }
-
 
         public void DeleteDevice(int deviceId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.CommandText = "DELETE FROM Devices WHERE DeviceId = @DeviceId";
-                    command.Parameters.AddWithValue("@DeviceId", deviceId);
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        using (var command = new SqlCommand("DELETE FROM Devices WHERE DeviceId = @DeviceId", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@DeviceId", deviceId);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error deleting device: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -2735,42 +2952,48 @@ WHERE DeviceId = @DeviceId";
         public List<Device> LoadDevices()
         {
             var devices = new List<Device>();
-
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand("SELECT * FROM Devices", connection))
-                using (var reader = command.ExecuteReader())
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    while (reader.Read())
+                    connection.Open();
+                    using (var command = new SqlCommand("SELECT * FROM Devices", connection))
+                    using (var reader = command.ExecuteReader())
                     {
-                        devices.Add(new Device
+                        while (reader.Read())
                         {
-                            DeviceId = Convert.ToInt32(reader["DeviceId"]),
-                            Department = reader["Department"] as string,
-                            AttendanceType = Convert.ToBoolean(reader["AttendanceType"]),
-                            DeviceSerial = Decrypt(reader["DeviceSerial"].ToString()),
-                            DeviceIP = Decrypt(reader["DeviceIP"].ToString()),
-                            Port = Convert.ToInt32(reader["Port"]),
-                            TimeZone = reader["TimeZone"].ToString(),
-                            Location = reader["Location"].ToString(),
-                            ConnectionType = reader["ConnectionType"].ToString(),
-                            IsActive = Convert.ToBoolean(reader["IsActive"]),
-                            LastSyncTime = reader["LastSyncTime"] as string,
-                            FaceCapacity = Convert.ToInt32(reader["FaceCapacity"]),
-                            RFIDCapacity = Convert.ToInt32(reader["RFIDCapacity"]),
-                            FingerCapacity = Convert.ToInt32(reader["FingerCapacity"]),
-                            MachineNo = Convert.ToInt32(reader["MachineNo"]),
-                            CreatedAt = reader["CreatedAt"] as string,
-                            UpdatedAt = reader["UpdatedAt"] as string,
-                            Password = reader["Password"].ToString()
-                        });
+                            devices.Add(new Device
+                            {
+                                DeviceId = Convert.ToInt32(reader["DeviceId"]),
+                                Department = reader["Department"] as string,
+                                AttendanceType = reader["AttendanceType"] != DBNull.Value && Convert.ToBoolean(reader["AttendanceType"]),
+                                DeviceSerial = reader["DeviceSerial"] == DBNull.Value ? null : Decrypt(reader["DeviceSerial"].ToString()),
+                                DeviceIP = reader["DeviceIP"] == DBNull.Value ? null : Decrypt(reader["DeviceIP"].ToString()),
+                                Port = reader["Port"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Port"]),
+                                TimeZone = reader["TimeZone"] as string,
+                                Location = reader["Location"] as string,
+                                ConnectionType = reader["ConnectionType"] as string,
+                                IsActive = reader["IsActive"] != DBNull.Value && Convert.ToBoolean(reader["IsActive"]),
+                                LastSyncTime = reader["LastSyncTime"] as string,
+                                FaceCapacity = reader["FaceCapacity"] == DBNull.Value ? 0 : Convert.ToInt32(reader["FaceCapacity"]),
+                                RFIDCapacity = reader["RFIDCapacity"] == DBNull.Value ? 0 : Convert.ToInt32(reader["RFIDCapacity"]),
+                                FingerCapacity = reader["FingerCapacity"] == DBNull.Value ? 0 : Convert.ToInt32(reader["FingerCapacity"]),
+                                MachineNo = reader["MachineNo"] == DBNull.Value ? 0 : Convert.ToInt32(reader["MachineNo"]),
+                                CreatedAt = reader["CreatedAt"] == DBNull.Value ? null : Convert.ToDateTime(reader["CreatedAt"]).ToString("yyyy-MM-dd HH:mm:ss"),
+                                UpdatedAt = reader["UpdatedAt"] == DBNull.Value ? null : Convert.ToDateTime(reader["UpdatedAt"]).ToString("yyyy-MM-dd HH:mm:ss"),
+                                Password = reader["Password"] == DBNull.Value ? null : reader["Password"].ToString()
+                            });
+                        }
                     }
                 }
             }
-
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error loading devices: {ex.Message}");
+            }
             return devices;
         }
+
 
         public async Task InsertLogsForMemberAcrossAllDevicesAsync(int memberId)
         {
@@ -2778,7 +3001,7 @@ WHERE DeviceId = @DeviceId";
             string facePath = Path.Combine(faceDir, $"{memberId}.jpg");
             string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
 
@@ -2788,19 +3011,32 @@ WHERE DeviceId = @DeviceId";
                 int? enrollmentId = null;
                 bool hasFace = false;
 
-                using (var cmd = new SQLiteCommand(
-                    "SELECT RFID, Fingerprint, EnrollmentID FROM Members WHERE MemberID = @memberId",
-                    connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@memberId", memberId);
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    try
                     {
-                        if (await reader.ReadAsync())
+                        using (var cmd = new SqlCommand(
+                            "SELECT RFID, Fingerprint, EnrollmentID FROM Members WHERE MemberID = @memberId",
+                            connection, transaction))
                         {
-                            rfid = reader["RFID"] != DBNull.Value ? reader["RFID"].ToString() : null;
-                            hasFingerprint = reader["Fingerprint"] != DBNull.Value && Convert.ToBoolean(reader["Fingerprint"]);
-                            enrollmentId = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null;
+                            cmd.Parameters.AddWithValue("@memberId", memberId);
+                            using (var reader = await cmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    rfid = reader["RFID"] != DBNull.Value ? reader["RFID"].ToString() : null;
+                                    hasFingerprint = reader["Fingerprint"] != DBNull.Value && Convert.ToBoolean(reader["Fingerprint"]);
+                                    enrollmentId = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null;
+                                }
+                            }
                         }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error getting member biometric data: {ex.Message}");
+                        return;
                     }
                 }
 
@@ -2838,17 +3074,30 @@ WHERE DeviceId = @DeviceId";
 
                 // Get all active devices
                 List<Device> devices = new List<Device>();
-                using (var cmd = new SQLiteCommand(
-                    "SELECT DeviceId FROM Devices WHERE IsActive = 1;",
-                    connection))
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var transaction = connection.BeginTransaction())
                 {
-                    while (await reader.ReadAsync())
+                    try
                     {
-                        devices.Add(new Device
+                        using (var cmd = new SqlCommand(
+                            "SELECT DeviceId FROM Devices WHERE IsActive = 1;",
+                            connection, transaction))
+                        using (var reader = await cmd.ExecuteReaderAsync())
                         {
-                            DeviceId = reader.GetInt32(0)
-                        });
+                            while (await reader.ReadAsync())
+                            {
+                                devices.Add(new Device
+                                {
+                                    DeviceId = reader.GetInt32(0)
+                                });
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error getting active devices: {ex.Message}");
+                        return;
                     }
                 }
 
@@ -2864,7 +3113,7 @@ WHERE DeviceId = @DeviceId";
                             Dictionary<string, string> existingBiometrics = null;
                             Dictionary<string, bool> existingSync = null;
 
-                            using (var checkCmd = new SQLiteCommand(
+                            using (var checkCmd = new SqlCommand(
                                 "SELECT BiometricData, SyncStatus FROM Log " +
                                 "WHERE MemberID = @memberId AND DeviceID = @deviceId",
                                 connection, transaction))
@@ -2921,7 +3170,7 @@ WHERE DeviceId = @DeviceId";
                                 if (logExists)
                                 {
                                     // Update existing
-                                    using (var updateCmd = new SQLiteCommand(
+                                    using (var updateCmd = new SqlCommand(
                                         "UPDATE Log SET " +
                                         "EnrollmentID = @enrollmentId, " +
                                         "BiometricData = @biometricData, " +
@@ -2942,7 +3191,7 @@ WHERE DeviceId = @DeviceId";
                                 else
                                 {
                                     // Insert new
-                                    using (var insertCmd = new SQLiteCommand(
+                                    using (var insertCmd = new SqlCommand(
                                         "INSERT INTO Log (" +
                                         "MemberID, DeviceID, EnrollmentID, " +
                                         "BiometricData, SyncStatus, CreatedAt, UpdatedAt" +
@@ -2974,25 +3223,24 @@ WHERE DeviceId = @DeviceId";
             }
         }
 
-        
         // Get active members with biometrics but no logs
         public List<int> GetActiveMemberIdsWithBiometricsAndNoLogs()
         {
             var memberIds = new List<int>();
-
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                const string sql = @"
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    const string sql = @"
 SELECT m.MemberID
 FROM Members m
-WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
+WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
   AND m.EnrollmentID IS NOT NULL
   AND (
-        TRIM(IFNULL(m.RFID, '')) <> ''
+        LTRIM(RTRIM(ISNULL(m.RFID, ''))) <> ''
      OR m.Fingerprint = 1
-     OR TRIM(IFNULL(m.Picture, '')) <> ''
+     OR LTRIM(RTRIM(ISNULL(m.Picture, ''))) <> ''
   )
   AND NOT EXISTS (
         SELECT 1
@@ -3000,39 +3248,48 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         WHERE l.MemberID = m.MemberID
   );";
 
-                using (var cmd = new SQLiteCommand(sql, connection))
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                        memberIds.Add(reader.GetInt32(0));
+                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                            memberIds.Add(reader.GetInt32(0));
+                    }
                 }
             }
-
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting active member IDs with biometrics and no logs: {ex.Message}");
+            }
             return memberIds;
         }
 
+
         public async Task InsertLogsForAllMembersAsync(int memberId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
-
-                try
+                using (var transaction = connection.BeginTransaction())
                 {
-                    await InsertLogsForMemberAcrossAllDevicesAsync(memberId);
-                    LogHelper.Log($"Log processing complete for MemberID {memberId}. Success: 1, Failed: 0, Total: 1");
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Log($"Error inserting logs for MemberID {memberId}: {ex.Message}");
-                    LogHelper.Log($"Log processing complete for MemberID {memberId}. Success: 0, Failed: 1, Total: 1");
+                    try
+                    {
+                        await InsertLogsForMemberAcrossAllDevicesAsync(memberId);
+                        LogHelper.Log($"Log processing complete for MemberID {memberId}. Success: 1, Failed: 0, Total: 1");
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        LogHelper.Log($"Error inserting logs for MemberID {memberId}: {ex.Message}");
+                        LogHelper.Log($"Log processing complete for MemberID {memberId}. Success: 0, Failed: 1, Total: 1");
+                    }
                 }
             }
         }
 
         public async Task UpdateBiometricSyncStatus(int logId, string biometricType, bool isSynced)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
@@ -3041,7 +3298,7 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     {
                         // 1. Get current sync status from Log table
                         Dictionary<string, bool> syncStatus = null;
-                        using (var cmd = new SQLiteCommand(
+                        using (var cmd = new SqlCommand(
                             "SELECT SyncStatus FROM Log WHERE Id = @logId",
                             connection, transaction))
                         {
@@ -3069,7 +3326,7 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                         }
 
                         // 3. Update only the Log table
-                        using (var updateCmd = new SQLiteCommand(
+                        using (var updateCmd = new SqlCommand(
                             "UPDATE Log SET SyncStatus = @syncStatus WHERE Id = @logId",
                             connection, transaction))
                         {
@@ -3091,45 +3348,70 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             }
         }
 
-
         public async Task<bool> CheckAndUpdateMemberDeviceSyncStatus(int memberId, int deviceId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
 
                 bool logExists = false;
-                using (var checkCmd = new SQLiteCommand(
-                    "SELECT 1 FROM Log WHERE MemberID = @memberId AND DeviceID = @deviceId",
-                    connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    checkCmd.Parameters.AddWithValue("@memberId", memberId);
-                    checkCmd.Parameters.AddWithValue("@deviceId", deviceId);
-                    logExists = (await checkCmd.ExecuteScalarAsync()) != null;
+                    try
+                    {
+                        using (var checkCmd = new SqlCommand(
+                            "SELECT TOP 1 1 FROM Log WHERE MemberID = @memberId AND DeviceID = @deviceId",
+                            connection, transaction))
+                        {
+                            checkCmd.Parameters.AddWithValue("@memberId", memberId);
+                            checkCmd.Parameters.AddWithValue("@deviceId", deviceId);
+                            logExists = (await checkCmd.ExecuteScalarAsync()) != null;
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error checking log existence: {ex.Message}");
+                        return false;
+                    }
                 }
 
                 if (!logExists) return false;
 
                 bool allSynced = true;
-                using (var cmd = new SQLiteCommand(
-                    "SELECT BiometricData, SyncStatus FROM Log WHERE MemberID = @memberId AND DeviceID = @deviceId",
-                    connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@memberId", memberId);
-                    cmd.Parameters.AddWithValue("@deviceId", deviceId);
-
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    try
                     {
-                        if (await reader.ReadAsync())
+                        using (var cmd = new SqlCommand(
+                            "SELECT BiometricData, SyncStatus FROM Log WHERE MemberID = @memberId AND DeviceID = @deviceId",
+                            connection, transaction))
                         {
-                            var biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(
-                                reader["BiometricData"].ToString());
-                            var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(
-                                reader["SyncStatus"].ToString());
+                            cmd.Parameters.AddWithValue("@memberId", memberId);
+                            cmd.Parameters.AddWithValue("@deviceId", deviceId);
 
-                            allSynced = biometricData.Keys.All(key =>
-                                syncStatus.ContainsKey(key) && syncStatus[key]);
+                            using (var reader = await cmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    var biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(
+                                        reader["BiometricData"].ToString());
+                                    var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(
+                                        reader["SyncStatus"].ToString());
+
+                                    allSynced = biometricData.Keys.All(key =>
+                                        syncStatus.ContainsKey(key) && syncStatus[key]);
+                                }
+                            }
                         }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error checking sync status: {ex.Message}");
+                        return false;
                     }
                 }
 
@@ -3141,7 +3423,7 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     {
                         Dictionary<int, bool> memberSyncStatus = new Dictionary<int, bool>();
 
-                        using (var cmd = new SQLiteCommand(
+                        using (var cmd = new SqlCommand(
                             "SELECT SyncStatus FROM Members WHERE MemberID = @memberId",
                             connection, transaction))
                         {
@@ -3164,7 +3446,7 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
 
                         memberSyncStatus[deviceId] = true;
 
-                        using (var updateCmd = new SQLiteCommand(
+                        using (var updateCmd = new SqlCommand(
                             "UPDATE Members SET SyncStatus = @syncStatus WHERE MemberID = @memberId",
                             connection, transaction))
                         {
@@ -3188,239 +3470,148 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             }
         }
 
-
-        public async Task<bool> CheckAndUpdateStaffDeviceSyncStatus(string staffId, int staffDeviceId)
-        {
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                await connection.OpenAsync();
-
-                // Ensure a StaffLog exists for this staff + device
-                bool logExists = false;
-                using (var checkCmd = new SQLiteCommand(
-                    "SELECT 1 FROM StaffLog WHERE StaffID = @staffId AND StaffDeviceId = @sdid",
-                    connection))
-                {
-                    checkCmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
-                    checkCmd.Parameters.AddWithValue("@sdid", staffDeviceId);
-                    logExists = (await checkCmd.ExecuteScalarAsync()) != null;
-                }
-
-                if (!logExists) return false;
-
-                // Ensure all biometric modalities in the StaffLog are already synced
-                bool allSynced = true;
-                using (var cmd = new SQLiteCommand(
-                    "SELECT BiometricData, SyncStatus FROM StaffLog WHERE StaffID = @staffId AND StaffDeviceId = @sdid",
-                    connection))
-                {
-                    cmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@sdid", staffDeviceId);
-
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        if (await reader.ReadAsync())
-                        {
-                            var bioJson = Convert.ToString(reader["BiometricData"]) ?? "{}";
-                            var syncJson = Convert.ToString(reader["SyncStatus"]) ?? "{}";
-
-                            var biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(bioJson) ?? new Dictionary<string, string>();
-                            var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncJson) ?? new Dictionary<string, bool>();
-
-                            allSynced = biometricData.Keys.All(key =>
-                                syncStatus.ContainsKey(key) && syncStatus[key]);
-                        }
-                    }
-                }
-
-                if (!allSynced) return false;
-
-                // Mark staff.SyncStatus[staffDeviceId] = true (if not already true)
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        Dictionary<int, bool> staffSyncStatus = new Dictionary<int, bool>();
-
-                        using (var cmd = new SQLiteCommand(
-                            "SELECT SyncStatus FROM Staff WHERE StaffID = @staffId",
-                            connection, transaction))
-                        {
-                            cmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
-                            var result = await cmd.ExecuteScalarAsync();
-                            if (result != null && result != DBNull.Value)
-                            {
-                                staffSyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(result.ToString())
-                                                  ?? new Dictionary<int, bool>();
-                            }
-                        }
-
-                        // Skip DB write if already true
-                        bool alreadyTrue;
-                        if (staffSyncStatus.TryGetValue(staffDeviceId, out alreadyTrue) && alreadyTrue)
-                        {
-                            transaction.Commit();
-                            return false; // no change performed
-                        }
-
-                        staffSyncStatus[staffDeviceId] = true;
-
-                        using (var updateCmd = new SQLiteCommand(
-                            "UPDATE Staff SET SyncStatus = @syncStatus WHERE StaffID = @staffId",
-                            connection, transaction))
-                        {
-                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(staffSyncStatus));
-                            updateCmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
-                            await updateCmd.ExecuteNonQueryAsync();
-                        }
-
-                        LogHelper.Log($"Updated staff {staffId} sync status for device {staffDeviceId}");
-
-                        transaction.Commit();
-                        return true; // changed
-                    }
-                    catch (Exception ex)
-                    {
-                        transaction.Rollback();
-                        LogHelper.Log($"Error updating staff sync status: {ex.Message}");
-                        return false;
-                    }
-                }
-            }
-        }
-
         public int GetFullySyncedMembersCountAgainstAllDevices(bool onlyActiveDevices = true)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                // 1) Load device IDs (active only by default)
-                var deviceIds = new List<int>();
-                using (var deviceCmd = new SQLiteCommand(
-                    onlyActiveDevices
-                        ? "SELECT DeviceId FROM Devices WHERE IsActive = 1"
-                        : "SELECT DeviceId FROM Devices",
-                    connection))
-                using (var reader = deviceCmd.ExecuteReader())
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    while (reader.Read())
-                        deviceIds.Add(reader.GetInt32(0));
-                }
+                    connection.Open();
 
-                // If no devices, no one can be "synced against all devices"
-                if (deviceIds.Count == 0)
-                    return 0;
-
-                // 2) Scan all members and count those whose SyncStatus has TRUE for every deviceId
-                int fullySyncedCount = 0;
-
-                using (var memberCmd = new SQLiteCommand(
-                    "SELECT MemberID, SyncStatus FROM Members",
-                    connection))
-                using (var reader = memberCmd.ExecuteReader())
-                {
-                    while (reader.Read())
+                    var deviceIds = new List<int>();
+                    using (var deviceCmd = new SqlCommand(
+                        onlyActiveDevices ? "SELECT DeviceId FROM Devices WHERE IsActive = 1" : "SELECT DeviceId FROM Devices", connection))
+                    using (var reader = deviceCmd.ExecuteReader())
                     {
-                        string syncStatusJson = reader.IsDBNull(1) ? "{}" : reader.GetString(1);
-
-                        Dictionary<int, bool> syncDict;
-                        try
-                        {
-                            syncDict = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson)
-                                       ?? new Dictionary<int, bool>();
-                        }
-                        catch
-                        {
-                            syncDict = new Dictionary<int, bool>();
-                        }
-
-                        bool allDevicesTrue = true;
-                        for (int i = 0; i < deviceIds.Count; i++)
-                        {
-                            int deviceId = deviceIds[i];
-                            bool value;
-                            if (!syncDict.TryGetValue(deviceId, out value) || !value)
-                            {
-                                allDevicesTrue = false;
-                                break;
-                            }
-                        }
-
-                        if (allDevicesTrue)
-                            fullySyncedCount++;
+                        while (reader.Read()) deviceIds.Add(reader.GetInt32(0));
                     }
-                }
 
-                return fullySyncedCount;
+                    if (deviceIds.Count == 0) return 0;
+
+                    int fullySyncedCount = 0;
+                    using (var memberCmd = new SqlCommand("SELECT MemberID, SyncStatus FROM Members", connection))
+                    using (var reader = memberCmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string syncStatusJson = reader.IsDBNull(1) ? "{}" : reader.GetString(1);
+                            Dictionary<int, bool> syncDict;
+                            try
+                            {
+                                syncDict = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>();
+                            }
+                            catch
+                            {
+                                syncDict = new Dictionary<int, bool>();
+                            }
+
+                            bool allDevicesTrue = true;
+                            foreach (var deviceId in deviceIds)
+                            {
+                                bool value;
+                                if (!syncDict.TryGetValue(deviceId, out value) || !value)
+                                {
+                                    allDevicesTrue = false;
+                                    break;
+                                }
+                            }
+
+                            if (allDevicesTrue) fullySyncedCount++;
+                        }
+                    }
+
+                    return fullySyncedCount;
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting fully synced members count: {ex.Message}");
+                return 0;
             }
         }
 
-        //Abdul Hadi Code
+
         // Get unsynced log entries
         public async Task<List<LogEntry>> GetUnsyncedLogEntriesAsync()
         {
             var unsyncedEntries = new List<LogEntry>();
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                await connection.OpenAsync();
-                using (var command = new SQLiteCommand(
-                    "SELECT Id, MemberID, DeviceID, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt " +
-                    "FROM Log WHERE SyncStatus LIKE '%false%'", connection))
-                using (var reader = await command.ExecuteReaderAsync())
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    while (await reader.ReadAsync())
+                    await connection.OpenAsync();
+                    using (var command = new SqlCommand(
+                        "SELECT Id, MemberID, DeviceID, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt " +
+                        "FROM Log WHERE SyncStatus LIKE '%false%'", connection))
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        var entry = new LogEntry
+                        while (await reader.ReadAsync())
                         {
-                            Id = Convert.ToInt32(reader["Id"]),
-                            MemberID = Convert.ToInt32(reader["MemberID"]),
-                            DeviceID = Convert.ToInt32(reader["DeviceID"]),
-                            EnrollmentID = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : 0,
-                            BiometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(reader["BiometricData"].ToString()),
-                            SyncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(reader["SyncStatus"].ToString()),
-                            CreatedAt = reader["CreatedAt"].ToString(),
-                            UpdatedAt = reader["UpdatedAt"].ToString()
-                        };
-                        if (entry.SyncStatus.Any(s => !s.Value)) unsyncedEntries.Add(entry);
+                            var entry = new LogEntry
+                            {
+                                Id = Convert.ToInt32(reader["Id"]),
+                                MemberID = Convert.ToInt32(reader["MemberID"]),
+                                DeviceID = Convert.ToInt32(reader["DeviceID"]),
+                                EnrollmentID = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : 0,
+                                BiometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(reader["BiometricData"])),
+                                SyncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(reader["SyncStatus"])),
+                                CreatedAt = Convert.ToString(reader["CreatedAt"]),
+                                UpdatedAt = Convert.ToString(reader["UpdatedAt"])
+                            };
+                            if (entry.SyncStatus.Any(s => !s.Value)) unsyncedEntries.Add(entry);
+                        }
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting unsynced log entries: {ex.Message}");
+            }
             return unsyncedEntries;
         }
+
 
         public bool AddOrUpdateFingerprint(FingerprintData fingerprintdata)
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var command = new SQLiteCommand(connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        command.CommandText = @"
-                INSERT INTO Fingerprints 
-                (EnrollNumber, FingerNumber, Privilege, TemplateData, TemplateString, CreatedAt, UpdatedAt) 
-                VALUES 
-                (@EnrollNumber, @FingerNumber, @Privilege, @TemplateData, @TemplateString, @CreatedAt, @UpdatedAt)
-                ON CONFLICT(EnrollNumber) DO UPDATE SET 
-                    FingerNumber = excluded.FingerNumber,
-                    Privilege = excluded.Privilege,
-                    TemplateData = excluded.TemplateData,
-                    TemplateString = excluded.TemplateString,
-                    UpdatedAt = excluded.UpdatedAt";
+                        try
+                        {
+                            using (var command = new SqlCommand(@"
+MERGE Fingerprints AS target
+USING (SELECT @EnrollNumber AS EnrollNumber, @FingerNumber AS FingerNumber, @Privilege AS Privilege, @TemplateData AS TemplateData, @TemplateString AS TemplateString, @CreatedAt AS CreatedAt, @UpdatedAt AS UpdatedAt) AS source
+ON target.EnrollNumber = source.EnrollNumber
+WHEN MATCHED THEN
+    UPDATE SET FingerNumber = source.FingerNumber, Privilege = source.Privilege, TemplateData = source.TemplateData, TemplateString = source.TemplateString, UpdatedAt = source.UpdatedAt
+WHEN NOT MATCHED THEN
+    INSERT (EnrollNumber, FingerNumber, Privilege, TemplateData, TemplateString, CreatedAt, UpdatedAt) VALUES (source.EnrollNumber, source.FingerNumber, source.Privilege, source.TemplateData, source.TemplateString, source.CreatedAt, source.UpdatedAt);", connection, transaction))
+                            {
+                                var now = GetTimestamp();
 
-                        var now = GetTimestamp();
+                                command.Parameters.AddWithValue("@EnrollNumber", fingerprintdata.EnrollNumber);
+                                command.Parameters.AddWithValue("@FingerNumber", fingerprintdata.FingerNumber);
+                                command.Parameters.AddWithValue("@Privilege", fingerprintdata.Privilege);
+                                command.Parameters.AddWithValue("@TemplateData", fingerprintdata.TemplateData ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@TemplateString", fingerprintdata.TemplateString ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@CreatedAt", fingerprintdata.CreatedAt ?? now);
+                                command.Parameters.AddWithValue("@UpdatedAt", now);
 
-                        command.Parameters.AddWithValue("@EnrollNumber", fingerprintdata.EnrollNumber);
-                        command.Parameters.AddWithValue("@FingerNumber", fingerprintdata.FingerNumber);
-                        command.Parameters.AddWithValue("@Privilege", fingerprintdata.Privilege);
-                        command.Parameters.AddWithValue("@TemplateData", fingerprintdata.TemplateData ?? (object)DBNull.Value);
-                        command.Parameters.AddWithValue("@TemplateString", fingerprintdata.TemplateString ?? (object)DBNull.Value);
-                        command.Parameters.AddWithValue("@CreatedAt", fingerprintdata.CreatedAt ?? now);
-                        command.Parameters.AddWithValue("@UpdatedAt", now);
-
-                        return command.ExecuteNonQuery() > 0;
+                                command.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error adding or updating fingerprint: {ex.Message}");
+                            return false;
+                        }
                     }
                 }
             }
@@ -3431,16 +3622,15 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             }
         }
 
-
         public List<FingerprintData> GetAllFingerprints()
         {
             var fingerprints = new List<FingerprintData>();
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var command = new SQLiteCommand("SELECT * FROM Fingerprints", connection))
+                    using (var command = new SqlCommand("SELECT * FROM Fingerprints", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -3459,9 +3649,9 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     }
                 }
             }
-            catch (Exception ex)
+            catch (SqlException ex)
             {
-                Console.WriteLine($"Error in GetAllFingerprints: {ex.Message}");
+                Console.WriteLine($"Error getting all fingerprints: {ex.Message}");
             }
             return fingerprints;
         }
@@ -3471,11 +3661,10 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             var templates = new List<byte[]>();
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var command = new SQLiteCommand(
-                        "SELECT TemplateData FROM Fingerprints WHERE TemplateData IS NOT NULL", connection))
+                    using (var command = new SqlCommand("SELECT TemplateData FROM Fingerprints WHERE TemplateData IS NOT NULL", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -3488,23 +3677,23 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     }
                 }
             }
-            catch (Exception ex)
+            catch (SqlException ex)
             {
-                Console.WriteLine($"Error in GetAllBinaryTemplates: {ex.Message}");
+                Console.WriteLine($"Error getting all binary templates: {ex.Message}");
             }
             return templates;
         }
+
 
         public List<string> GetAllStringTemplates()
         {
             var templates = new List<string>();
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var command = new SQLiteCommand(
-                        "SELECT TemplateString FROM Fingerprints WHERE TemplateString IS NOT NULL", connection))
+                    using (var command = new SqlCommand("SELECT TemplateString FROM Fingerprints WHERE TemplateString IS NOT NULL", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -3517,9 +3706,9 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     }
                 }
             }
-            catch (Exception ex)
+            catch (SqlException ex)
             {
-                Console.WriteLine($"Error in GetAllStringTemplates: {ex.Message}");
+                Console.WriteLine($"Error getting all string templates: {ex.Message}");
             }
             return templates;
         }
@@ -3528,14 +3717,28 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var command = new SQLiteCommand(
-                        "DELETE FROM Fingerprints WHERE EnrollNumber = @EnrollNumber", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        command.Parameters.AddWithValue("@EnrollNumber", enrollNumber);
-                        return command.ExecuteNonQuery() > 0;
+                        try
+                        {
+                            using (var command = new SqlCommand(
+                                "DELETE FROM Fingerprints WHERE EnrollNumber = @EnrollNumber", connection, transaction))
+                            {
+                                command.Parameters.AddWithValue("@EnrollNumber", enrollNumber);
+                                command.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error deleting fingerprint: {ex.Message}");
+                            return false;
+                        }
                     }
                 }
             }
@@ -3550,12 +3753,26 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var command = new SQLiteCommand("DELETE FROM Fingerprints", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        return command.ExecuteNonQuery() > 0;
+                        try
+                        {
+                            using (var command = new SqlCommand("DELETE FROM Fingerprints", connection, transaction))
+                            {
+                                command.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error deleting all fingerprints: {ex.Message}");
+                            return false;
+                        }
                     }
                 }
             }
@@ -3568,14 +3785,12 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
 
         public async Task<List<Member>> GetMembersWithMissingFingerprintsAsync()
         {
-            List<Member> members = new List<Member>();
-
+            var members = new List<Member>();
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-
                     string query = @"
                 SELECT m.MemberID, m.Name, m.Status, m.RFID, m.Picture, 
                        m.Fingerprint, m.EnrollmentID, m.PackageExpiry
@@ -3585,177 +3800,160 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                 AND f.EnrollNumber IS NULL
                 AND m.EnrollmentID IS NOT NULL";
 
-                    using (var command = new SQLiteCommand(query, connection))
+                    using (var command = new SqlCommand(query, connection))
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        using (var reader = await command.ExecuteReaderAsync())
+                        while (await reader.ReadAsync())
                         {
-                            while (await reader.ReadAsync())
+                            try
                             {
-                                try
+                                var member = new Member
                                 {
-                                    Member member = new Member
-                                    {
-                                        MemberID = Convert.ToInt32(reader["MemberID"]),
-                                        Name = reader["Name"] != DBNull.Value ? reader["Name"].ToString() : null,
-                                        Status = reader["Status"] != DBNull.Value ? reader["Status"].ToString() : null,
-                                        RFID = reader["RFID"] != DBNull.Value ? reader["RFID"].ToString() : null,
-                                        Picture = reader["Picture"] != DBNull.Value ? reader["Picture"].ToString() : null,
-                                        Fingerprint = Convert.ToBoolean(reader["Fingerprint"]),
-                                        EnrollmentID = reader["EnrollmentID"] != DBNull.Value
-                                                    ? Convert.ToInt32(reader["EnrollmentID"])
-                                                    : (int?)null,
-                                        PackageExpiry = reader["PackageExpiry"] != DBNull.Value
-                                                    ? reader["PackageExpiry"].ToString()
-                                                    : null
-                                    };
-                                    members.Add(member);
-
-                                    // Log each found member
-                                    LogHelper.Log($"Found member with missing fingerprint - " +
-                                                $"MemberID: {member.MemberID}, " +
-                                                $"Name: {member.Name}, " +
-                                                $"EnrollmentID: {member.EnrollmentID}, " +
-                                                $"RFID: {member.RFID}");
-                                }
-                                catch (Exception ex)
-                                {
-                                    LogHelper.Log($"Error processing member record: {ex.Message}");
-                                }
+                                    MemberID = Convert.ToInt32(reader["MemberID"]),
+                                    Name = reader["Name"] != DBNull.Value ? reader["Name"].ToString() : null,
+                                    Status = reader["Status"] != DBNull.Value ? reader["Status"].ToString() : null,
+                                    RFID = reader["RFID"] != DBNull.Value ? reader["RFID"].ToString() : null,
+                                    Picture = reader["Picture"] != DBNull.Value ? reader["Picture"].ToString() : null,
+                                    Fingerprint = Convert.ToBoolean(reader["Fingerprint"]),
+                                    EnrollmentID = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null,
+                                    PackageExpiry = reader["PackageExpiry"] != DBNull.Value ? reader["PackageExpiry"].ToString() : null
+                                };
+                                members.Add(member);
+                                LogHelper.Log($"Found member with missing fingerprint - MemberID: {member.MemberID}, Name: {member.Name}, EnrollmentID: {member.EnrollmentID}, RFID: {member.RFID}");
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.Log($"Error processing member record: {ex.Message}");
                             }
                         }
                     }
                 }
-
                 LogHelper.Log($"Completed missing fingerprints check. Found {members.Count} members.");
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"Error in GetMembersWithMissingFingerprintsAsync: {ex.Message}");
-                throw; // Re-throw if you want calling code to handle it
+                throw;
             }
-
             return members;
         }
 
 
         public (bool shouldDisable, List<(int machineNo, string ip, int port, string password, int enrollmentNumber, int backupNumber)> deviceInfo)
-        CheckMemberAccessStatus(int memberId)
+CheckMemberAccessStatus(int memberId)
         {
             var deviceInfo = new List<(int, string, int, string, int, int)>();
             bool shouldDisable = false;
 
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                using (var cmd = new SQLiteCommand(connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    cmd.CommandText = @"
+                    connection.Open();
+                    using (var cmd = new SqlCommand(@"
                 SELECT m.Status, m.PackageExpiry, m.EnrollmentID,
                        d.DeviceIP, d.Port, d.MachineNo
                 FROM Members m
                 JOIN Log l ON m.MemberID = l.MemberID
                 JOIN Devices d ON l.DeviceID = d.DeviceId
-                WHERE m.MemberID = @memberId";
-                    cmd.Parameters.AddWithValue("@memberId", memberId);
-
-                    using (var reader = cmd.ExecuteReader())
+                WHERE m.MemberID = @memberId", connection))
                     {
-                        if (reader.Read())
+                        cmd.Parameters.AddWithValue("@memberId", memberId);
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            // Safe reading with null checks
-                            string status = reader["Status"]?.ToString() ?? "active";
-                            string packageExpiry = reader["PackageExpiry"]?.ToString();
-                            int enrollmentNumber = reader["EnrollmentID"] != DBNull.Value ?
-                                Convert.ToInt32(reader["EnrollmentID"]) : 0;
-
-                            // Parse expiry date safely
-                            bool isExpired = false;
-                            if (!string.IsNullOrEmpty(packageExpiry) &&
-                                DateTime.TryParse(packageExpiry, out DateTime expiryDate))
+                            if (reader.Read())
                             {
-                                isExpired = expiryDate < DateTime.Today;
+                                string status = reader["Status"]?.ToString() ?? "active";
+                                string packageExpiry = reader["PackageExpiry"]?.ToString();
+                                int enrollmentNumber = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : 0;
+
+                                bool isExpired = false;
+                                if (!string.IsNullOrEmpty(packageExpiry) &&
+                                    DateTime.TryParse(packageExpiry, out DateTime expiryDate))
+                                {
+                                    isExpired = expiryDate < DateTime.Today;
+                                }
+
+                                if (status.Equals("disabled", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    shouldDisable = false;
+                                }
+                                else
+                                {
+                                    bool isInactive = status.Equals("inactive", StringComparison.OrdinalIgnoreCase);
+                                    bool isOverdue = status.Equals("overdue", StringComparison.OrdinalIgnoreCase);
+                                    shouldDisable = isInactive || isOverdue || isExpired;
+                                }
+
+                                do
+                                {
+                                    int machineNo = reader["MachineNo"] != DBNull.Value ? Convert.ToInt32(reader["MachineNo"]) : 0;
+                                    string ip = reader["DeviceIP"] != DBNull.Value ? Decrypt(reader["DeviceIP"].ToString()) : "0.0.0.0";
+                                    int port = reader["Port"] != DBNull.Value ? Convert.ToInt32(reader["Port"]) : 0;
+
+                                    deviceInfo.Add((
+                                        machineNo,
+                                        ip,
+                                        port,
+                                        "0",
+                                        enrollmentNumber,
+                                        0
+                                    ));
+                                } while (reader.Read());
                             }
-
-                            // If member already marked "Disabled" in DB, do not attempt disable again
-                            if (status.Equals("disabled", StringComparison.OrdinalIgnoreCase))
-                            {
-                                shouldDisable = false;
-                            }
-                            else
-                            {
-                                // Also disable for overdue/inactive/expired status
-                                bool isInactive = status.Equals("inactive", StringComparison.OrdinalIgnoreCase);
-                                bool isOverdue = status.Equals("overdue", StringComparison.OrdinalIgnoreCase);
-
-                                shouldDisable = isInactive || isOverdue || isExpired;
-                            }
-
-                            // Reset reader to process all rows
-                            do
-                            {
-                                int machineNo = reader["MachineNo"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["MachineNo"]) : 0;
-                                string ip = Decrypt(reader["DeviceIP"]?.ToString()) ?? "0.0.0.0";
-                                int port = reader["Port"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["Port"]) : 0;
-
-                                deviceInfo.Add((
-                                    machineNo,
-                                    ip,
-                                    port,       // Now taken from Devices table
-                                    "0",        // Fixed password
-                                    enrollmentNumber,
-                                    0           // Fixed backupNumber
-                                ));
-                            } while (reader.Read());
                         }
                     }
                 }
             }
-
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking member access status: {ex.Message}");
+            }
             return (shouldDisable, deviceInfo);
         }
 
+
         public Dictionary<int, (bool shouldDisable, List<(int machineNo, string ip, int port, string password, int enrollmentNumber, int backupNumber)> deviceInfo)>
-            GetMembersAccessStatus()
+    GetMembersAccessStatus()
         {
             var results = new Dictionary<int, (bool, List<(int, string, int, string, int, int)>)>();
-
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                // Get only members who have logs
-                using (var cmd = new SQLiteCommand(@"
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(@"
             SELECT DISTINCT m.MemberID
             FROM Members m
             JOIN Log l ON m.MemberID = l.MemberID", connection))
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
+                    using (var reader = cmd.ExecuteReader())
                     {
-                        int memberId = Convert.ToInt32(reader["MemberID"]);
-                        results[memberId] = CheckMemberAccessStatus(memberId);
+                        while (reader.Read())
+                        {
+                            int memberId = Convert.ToInt32(reader["MemberID"]);
+                            results[memberId] = CheckMemberAccessStatus(memberId);
+                        }
                     }
                 }
             }
-
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting members access status: {ex.Message}");
+            }
             return results;
         }
 
+
         public List<(int machineNo, string ip, int port, string password, int enrollmentNumber, int backupNumber)>
-            GetDetails(int memberId)
+    GetDetails(int memberId)
         {
             var deviceDetails = new List<(int machineNo, string ip, int port, string password, int enrollmentNumber, int backupNumber)>();
-            int totalDevices = 0;
-
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand(@"
+                    using (var cmd = new SqlCommand(@"
                 SELECT 
                     m.EnrollmentID,
                     d.DeviceIP, 
@@ -3767,7 +3965,6 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                 WHERE m.MemberID = @memberId", connection))
                     {
                         cmd.Parameters.AddWithValue("@memberId", memberId);
-
                         using (var reader = cmd.ExecuteReader())
                         {
                             if (!reader.HasRows)
@@ -3776,39 +3973,19 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                                 return deviceDetails;
                             }
 
-                            LogHelper.Log($"\n📋 Device Details for Member {memberId}:");
-                            LogHelper.Log($"----------------------------------------");
-
+                            int totalDevices = 0;
                             while (reader.Read())
                             {
-                                int enrollmentNumber = reader["EnrollmentID"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["EnrollmentID"]) : 0;
-                                int machineNo = reader["MachineNo"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["MachineNo"]) : 0;
-                                string ip = Decrypt(reader["DeviceIP"]?.ToString()) ?? "0.0.0.0";
-                                int port = reader["Port"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["Port"]) : 0;
+                                int enrollmentNumber = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : 0;
+                                int machineNo = reader["MachineNo"] != DBNull.Value ? Convert.ToInt32(reader["MachineNo"]) : 0;
+                                string ip = reader["DeviceIP"] != DBNull.Value ? Decrypt(reader["DeviceIP"].ToString()) : "0.0.0.0";
+                                int port = reader["Port"] != DBNull.Value ? Convert.ToInt32(reader["Port"]) : 0;
 
-                                deviceDetails.Add((
-                                    machineNo: machineNo,
-                                    ip: ip,
-                                    port: port,
-                                    password: "0",
-                                    enrollmentNumber: enrollmentNumber,
-                                    backupNumber: 0
-                                ));
+                                deviceDetails.Add((machineNo, ip, port, "0", enrollmentNumber, 0));
                                 totalDevices++;
 
-                                // Log each device
-                                LogHelper.Log($"🔧 Device {totalDevices}:");
-                                LogHelper.Log($"   ├─ Machine No: {machineNo}");
-                                LogHelper.Log($"   ├─ IP:Port: {ip}:{port}");
-                                LogHelper.Log($"   └─ Enrollment: {enrollmentNumber}");
+                                LogHelper.Log($"🔧 Device {totalDevices}: Machine No: {machineNo}, IP:Port: {ip}:{port}, Enrollment: {enrollmentNumber}");
                             }
-
-                            LogHelper.Log($"\n📊 Summary:");
-                            LogHelper.Log($"   Total Devices: {totalDevices}");
-                            LogHelper.Log($"----------------------------------------");
                         }
                     }
                 }
@@ -3818,32 +3995,26 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                 LogHelper.Log($"❌ Error fetching details for member {memberId}: {ex.Message}");
                 LogHelper.Log($"🔍 Stack Trace: {ex.StackTrace}");
             }
-
             return deviceDetails;
         }
 
 
         public List<(int machineNo, string ip, int port, string password, int enrollmentNumber, int backupNumber)>
-    GetAvailableDeviceDetails(int memberId)
+ GetAvailableDeviceDetails(int memberId)
         {
-            var deviceDetails = new List<(int machineNo, string ip, int port, string password, int enrollmentNumber, int backupNumber)>();
-            int totalDevices = 0;
-
+            var deviceDetails = new List<(int, string, int, string, int, int)>();
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-
-                    // Check if the member exists in the Log table
-                    using (var checkCmd = new SQLiteCommand(@"
-                SELECT 1 
-                FROM Log 
-                WHERE MemberID = @memberId", connection))
+                    using (var checkCmd = new SqlCommand(@"
+                        SELECT TOP 1 1 
+                        FROM Log 
+                        WHERE MemberID = @memberId", connection))
                     {
                         checkCmd.Parameters.AddWithValue("@memberId", memberId);
                         var exists = checkCmd.ExecuteScalar();
-
                         if (exists == null)
                         {
                             LogHelper.Log($"⚠️ Member {memberId} does not exist in the Log table.");
@@ -3851,21 +4022,19 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                         }
                     }
 
-                    // Retrieve device details based on availability
-                    using (var cmd = new SQLiteCommand(@"
-                SELECT 
-                    m.EnrollmentID,
-                    d.DeviceIP, 
-                    d.Port, 
-                    d.MachineNo,
-                    d.IsActive
-                FROM Members m
-                JOIN Log l ON m.MemberID = l.MemberID
-                JOIN Devices d ON l.DeviceID = d.DeviceId
-                WHERE m.MemberID = @memberId AND d.IsActive = 1", connection))
+                    using (var cmd = new SqlCommand(@"
+                        SELECT 
+                            m.EnrollmentID,
+                            d.DeviceIP, 
+                            d.Port, 
+                            d.MachineNo,
+                            d.IsActive
+                        FROM Members m
+                        JOIN Log l ON m.MemberID = l.MemberID
+                        JOIN Devices d ON l.DeviceID = d.DeviceId
+                        WHERE m.MemberID = @memberId AND d.IsActive = 1", connection))
                     {
                         cmd.Parameters.AddWithValue("@memberId", memberId);
-
                         using (var reader = cmd.ExecuteReader())
                         {
                             if (!reader.HasRows)
@@ -3874,39 +4043,19 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                                 return deviceDetails;
                             }
 
-                            LogHelper.Log($"\n📋 Active Device Details for Member {memberId}:");
-                            LogHelper.Log($"----------------------------------------");
-
+                            int totalDevices = 0;
                             while (reader.Read())
                             {
-                                int enrollmentNumber = reader["EnrollmentID"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["EnrollmentID"]) : 0;
-                                int machineNo = reader["MachineNo"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["MachineNo"]) : 0;
-                                string ip = Decrypt(reader["DeviceIP"]?.ToString()) ?? "0.0.0.0";
-                                int port = reader["Port"] != DBNull.Value ?
-                                    Convert.ToInt32(reader["Port"]) : 0;
+                                int enrollmentNumber = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : 0;
+                                int machineNo = reader["MachineNo"] != DBNull.Value ? Convert.ToInt32(reader["MachineNo"]) : 0;
+                                string ip = reader["DeviceIP"] != DBNull.Value ? Decrypt(reader["DeviceIP"].ToString()) : "0.0.0.0";
+                                int port = reader["Port"] != DBNull.Value ? Convert.ToInt32(reader["Port"]) : 0;
 
-                                deviceDetails.Add((
-                                    machineNo: machineNo,
-                                    ip: ip,
-                                    port: port,
-                                    password: "0",
-                                    enrollmentNumber: enrollmentNumber,
-                                    backupNumber: 0
-                                ));
+                                deviceDetails.Add((machineNo, ip, port, "0", enrollmentNumber, 0));
                                 totalDevices++;
-
-                                // Log each device
-                                LogHelper.Log($"🔧 Device {totalDevices}:");
-                                LogHelper.Log($"   ├─ Machine No: {machineNo}");
-                                LogHelper.Log($"   ├─ IP:Port: {ip}:{port}");
-                                LogHelper.Log($"   └─ Enrollment: {enrollmentNumber}");
+                                LogHelper.Log($"🔧 Device {totalDevices}: Machine No: {machineNo}, IP:Port: {ip}:{port}, Enrollment: {enrollmentNumber}");
                             }
-
-                            LogHelper.Log($"\n📊 Summary:");
-                            LogHelper.Log($"   Total Active Devices: {totalDevices}");
-                            LogHelper.Log($"----------------------------------------");
+                            LogHelper.Log($"📊 Summary: Total Active Devices: {totalDevices}");
                         }
                     }
                 }
@@ -3925,13 +4074,13 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand(@"
-                SELECT SyncStatus, Status 
-                FROM Members 
-                WHERE MemberID = @memberId", connection))
+                    using (var cmd = new SqlCommand(@"
+                        SELECT SyncStatus, Status 
+                        FROM Members 
+                        WHERE MemberID = @memberId", connection))
                     {
                         cmd.Parameters.AddWithValue("@memberId", memberId);
                         LogHelper.Log($"⚡ Checking sync status for member {memberId} and device {deviceId}");
@@ -3951,9 +4100,7 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
 
                                 try
                                 {
-                                    // Parse the JSON sync status
                                     var syncStatusDict = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson);
-
                                     if (syncStatusDict != null && syncStatusDict.ContainsKey(deviceId))
                                     {
                                         bool syncStatus = syncStatusDict[deviceId];
@@ -3981,6 +4128,11 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting member device sync status: {ex.Message}");
+                return (false, false, "Error");
+            }
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Error checking member-device sync status for member {memberId}, device {deviceId}: {ex.Message}");
@@ -3989,34 +4141,50 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             }
         }
 
+
         public bool UpdateMemberStatus(int memberId, string newStatus)
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    LogHelper.Log($"ℹ️ Updating status for member {memberId} to '{newStatus}'");
-
-                    using (var cmd = new SQLiteCommand(@"
-                UPDATE Members 
-                SET Status = @status,
-                    UpdatedAt = CURRENT_TIMESTAMP
-                WHERE MemberID = @memberId", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        cmd.Parameters.AddWithValue("@status", newStatus);
-                        cmd.Parameters.AddWithValue("@memberId", memberId);
-
-                        int rowsAffected = cmd.ExecuteNonQuery();
-
-                        if (rowsAffected > 0)
+                        try
                         {
-                            LogHelper.Log($"✅ Successfully updated status for member {memberId}");
-                            return true;
+                            LogHelper.Log($"ℹ️ Updating status for member {memberId} to '{newStatus}'");
+
+                            using (var cmd = new SqlCommand(@"
+                        UPDATE Members 
+                        SET Status = @status,
+                            UpdatedAt = @updatedAt
+                        WHERE MemberID = @memberId", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@status", newStatus);
+                                cmd.Parameters.AddWithValue("@updatedAt", GetTimestamp());
+                                cmd.Parameters.AddWithValue("@memberId", memberId);
+
+                                int rowsAffected = cmd.ExecuteNonQuery();
+
+                                if (rowsAffected > 0)
+                                {
+                                    LogHelper.Log($"✅ Successfully updated status for member {memberId}");
+                                    transaction.Commit();
+                                    return true;
+                                }
+                                else
+                                {
+                                    LogHelper.Log($"⚠️ No member found with ID {memberId}");
+                                    transaction.Rollback();
+                                    return false;
+                                }
+                            }
                         }
-                        else
+                        catch (SqlException ex)
                         {
-                            LogHelper.Log($"⚠️ No member found with ID {memberId}");
+                            transaction.Rollback();
+                            Console.WriteLine($"Error updating member status: {ex.Message}");
                             return false;
                         }
                     }
@@ -4034,23 +4202,34 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    LogHelper.Log($"ℹ️ Preparing to delete logs for member {memberId}");
-
                     using (var transaction = connection.BeginTransaction())
-                    using (var cmd = new SQLiteCommand(@"
-                DELETE FROM Log 
-                WHERE MemberID = @memberId", connection, transaction))
                     {
-                        cmd.Parameters.AddWithValue("@memberId", memberId);
+                        try
+                        {
+                            LogHelper.Log($"ℹ️ Preparing to delete logs for member {memberId}");
 
-                        int rowsAffected = cmd.ExecuteNonQuery();
-                        transaction.Commit();
+                            using (var cmd = new SqlCommand(@"
+                        DELETE FROM Log 
+                        WHERE MemberID = @memberId", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@memberId", memberId);
 
-                        LogHelper.Log($"🗑️ Deleted {rowsAffected} log entries for member {memberId}");
-                        return rowsAffected > 0;
+                                int rowsAffected = cmd.ExecuteNonQuery();
+                                transaction.Commit();
+
+                                LogHelper.Log($"🗑️ Deleted {rowsAffected} log entries for member {memberId}");
+                                return rowsAffected > 0;
+                            }
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error deleting member logs: {ex.Message}");
+                            return false;
+                        }
                     }
                 }
             }
@@ -4062,47 +4241,53 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             }
         }
 
-
         // Check if this is the first device in the database
         public bool IsFirstDevice()
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand("SELECT COUNT(*) FROM Devices", connection))
+                    using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Devices", connection))
                     {
                         int deviceCount = Convert.ToInt32(cmd.ExecuteScalar());
                         return deviceCount == 0;
                     }
                 }
             }
-            catch (Exception ex)
+            catch (SqlException ex)
             {
-                LogHelper.Log($"❌ Error checking device count: {ex.Message}");
+                Console.WriteLine($"Error checking if first device: {ex.Message}");
                 return false;
             }
         }
+
+
 
         // Check if there are any unsynced logs
         public async Task<bool> CheckForUnsyncedLogs()
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-                    using (var cmd = new SQLiteCommand(@"
-                SELECT EXISTS(
-                    SELECT 1 FROM Log 
-                    WHERE SyncStatus LIKE '%false%' 
-                    LIMIT 1
-                )", connection))
+                    using (var cmd = new SqlCommand(@"
+                        SELECT CASE WHEN EXISTS(
+                            SELECT TOP 1 1 FROM Log 
+                            WHERE SyncStatus LIKE '%false%' 
+                        ) THEN 1 ELSE 0 END", connection))
                     {
-                        return Convert.ToBoolean(await cmd.ExecuteScalarAsync());
+                        var result = await cmd.ExecuteScalarAsync();
+                        return Convert.ToBoolean(result);
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking for unsynced logs: {ex.Message}");
+                return false;
             }
             catch (Exception ex)
             {
@@ -4112,21 +4297,33 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         }
 
 
-
         public async Task<List<LogBiometricChange>> VerifyAndUpdateLogBiometricsAsync(int memberId)
         {
             var changes = new List<LogBiometricChange>();
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
 
                 // Check if the member exists in the Log table
                 bool memberExistsInLog = false;
-                using (var checkCmd = new SQLiteCommand("SELECT 1 FROM Log WHERE MemberID = @memberId LIMIT 1", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    checkCmd.Parameters.AddWithValue("@memberId", memberId);
-                    memberExistsInLog = (await checkCmd.ExecuteScalarAsync()) != null;
+                    try
+                    {
+                        using (var checkCmd = new SqlCommand("SELECT TOP 1 1 FROM Log WHERE MemberID = @memberId", connection, transaction))
+                        {
+                            checkCmd.Parameters.AddWithValue("@memberId", memberId);
+                            memberExistsInLog = (await checkCmd.ExecuteScalarAsync()) != null;
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error checking member existence in log: {ex.Message}");
+                        return changes;
+                    }
                 }
 
                 if (!memberExistsInLog)
@@ -4142,19 +4339,32 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                 string facePath = Path.Combine(Directory.GetCurrentDirectory(), "FACE", $"{memberId}.jpg");
                 bool hasFace = File.Exists(facePath);
 
-                using (var cmd = new SQLiteCommand("SELECT RFID, Fingerprint, EnrollmentID, Picture, SyncStatus FROM Members WHERE MemberID = @memberId", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@memberId", memberId);
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    try
                     {
-                        if (await reader.ReadAsync())
+                        using (var cmd = new SqlCommand("SELECT RFID, Fingerprint, EnrollmentID, Picture, SyncStatus FROM Members WHERE MemberID = @memberId", connection, transaction))
                         {
-                            rfid = reader["RFID"] != DBNull.Value ? reader["RFID"].ToString() : null;
-                            hasFingerprint = reader["Fingerprint"] != DBNull.Value && Convert.ToBoolean(reader["Fingerprint"]);
-                            enrollmentId = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null;
-                            picture = reader["Picture"] != DBNull.Value ? reader["Picture"].ToString() : null;
-                            syncStatusJson = reader["SyncStatus"] != DBNull.Value ? reader["SyncStatus"].ToString() : null;
+                            cmd.Parameters.AddWithValue("@memberId", memberId);
+                            using (var reader = await cmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    rfid = reader["RFID"] != DBNull.Value ? reader["RFID"].ToString() : null;
+                                    hasFingerprint = reader["Fingerprint"] != DBNull.Value && Convert.ToBoolean(reader["Fingerprint"]);
+                                    enrollmentId = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null;
+                                    picture = reader["Picture"] != DBNull.Value ? reader["Picture"].ToString() : null;
+                                    syncStatusJson = reader["SyncStatus"] != DBNull.Value ? reader["SyncStatus"].ToString() : null;
+                                }
+                            }
                         }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error getting member biometric data: {ex.Message}");
+                        return changes;
                     }
                 }
 
@@ -4184,20 +4394,33 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     int logId = 0;
                     bool logExists = false;
 
-                    using (var logCmd = new SQLiteCommand("SELECT Id, EnrollmentID, BiometricData, SyncStatus FROM Log WHERE MemberID = @memberId AND DeviceID = @deviceId", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        logCmd.Parameters.AddWithValue("@memberId", memberId);
-                        logCmd.Parameters.AddWithValue("@deviceId", deviceId);
-                        using (var reader = await logCmd.ExecuteReaderAsync())
+                        try
                         {
-                            if (await reader.ReadAsync())
+                            using (var logCmd = new SqlCommand("SELECT Id, EnrollmentID, BiometricData, SyncStatus FROM Log WHERE MemberID = @memberId AND DeviceID = @deviceId", connection, transaction))
                             {
-                                logExists = true;
-                                logId = reader.GetInt32(0);
-                                logEnrollmentId = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null;
-                                biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(reader["BiometricData"].ToString());
-                                syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(reader["SyncStatus"].ToString());
+                                logCmd.Parameters.AddWithValue("@memberId", memberId);
+                                logCmd.Parameters.AddWithValue("@deviceId", deviceId);
+                                using (var reader = await logCmd.ExecuteReaderAsync())
+                                {
+                                    if (await reader.ReadAsync())
+                                    {
+                                        logExists = true;
+                                        logId = reader.GetInt32(0);
+                                        logEnrollmentId = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null;
+                                        biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(reader["BiometricData"].ToString());
+                                        syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(reader["SyncStatus"].ToString());
+                                    }
+                                }
                             }
+                            transaction.Commit();
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error checking log existence: {ex.Message}");
+                            continue;
                         }
                     }
 
@@ -4229,19 +4452,31 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                         }
                         if (biometricData.Count > 0)
                         {
-                            using (var insertCmd = new SQLiteCommand(
-                                "INSERT INTO Log (MemberID, DeviceID, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt) VALUES (@memberId, @deviceId, @enrollmentId, @biometricData, @syncStatus, @createdAt, @updatedAt)", connection))
+                            using (var transaction = connection.BeginTransaction())
                             {
-                                insertCmd.Parameters.AddWithValue("@memberId", memberId);
-                                insertCmd.Parameters.AddWithValue("@deviceId", deviceId);
-                                insertCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId ?? (object)DBNull.Value);
-                                insertCmd.Parameters.AddWithValue("@biometricData", JsonConvert.SerializeObject(biometricData));
-                                insertCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
-                                var now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-                                insertCmd.Parameters.AddWithValue("@createdAt", now);
-                                insertCmd.Parameters.AddWithValue("@updatedAt", now);
-                                await insertCmd.ExecuteNonQueryAsync();
-                                LogHelper.Log($"[VerifyAndUpdateLogBiometricsAsync] Inserted new log for member {memberId} on device {deviceId} with biometrics: {string.Join(", ", biometricData.Keys)}");
+                                try
+                                {
+                                    using (var insertCmd = new SqlCommand(
+                                        "INSERT INTO Log (MemberID, DeviceID, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt) VALUES (@memberId, @deviceId, @enrollmentId, @biometricData, @syncStatus, @createdAt, @updatedAt)", connection, transaction))
+                                    {
+                                        insertCmd.Parameters.AddWithValue("@memberId", memberId);
+                                        insertCmd.Parameters.AddWithValue("@deviceId", deviceId);
+                                        insertCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId ?? (object)DBNull.Value);
+                                        insertCmd.Parameters.AddWithValue("@biometricData", JsonConvert.SerializeObject(biometricData));
+                                        insertCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
+                                        var now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+                                        insertCmd.Parameters.AddWithValue("@createdAt", now);
+                                        insertCmd.Parameters.AddWithValue("@updatedAt", now);
+                                        await insertCmd.ExecuteNonQueryAsync();
+                                        transaction.Commit();
+                                        LogHelper.Log($"[VerifyAndUpdateLogBiometricsAsync] Inserted new log for member {memberId} on device {deviceId} with biometrics: {string.Join(", ", biometricData.Keys)}");
+                                    }
+                                }
+                                catch (SqlException ex)
+                                {
+                                    transaction.Rollback();
+                                    Console.WriteLine($"Error inserting new log: {ex.Message}");
+                                }
                             }
                         }
                         continue;
@@ -4343,26 +4578,50 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     // If after update there is no biometric data left, delete the log and log the action
                     if (biometricData.Count == 0)
                     {
-                        using (var deleteCmd = new SQLiteCommand("DELETE FROM Log WHERE Id = @logId", connection))
+                        using (var transaction = connection.BeginTransaction())
                         {
-                            deleteCmd.Parameters.AddWithValue("@logId", logId);
-                            await deleteCmd.ExecuteNonQueryAsync();
+                            try
+                            {
+                                using (var deleteCmd = new SqlCommand("DELETE FROM Log WHERE Id = @logId", connection, transaction))
+                                {
+                                    deleteCmd.Parameters.AddWithValue("@logId", logId);
+                                    await deleteCmd.ExecuteNonQueryAsync();
+                                    transaction.Commit();
+                                }
+                                LogHelper.Log($"[VerifyAndUpdateLogBiometricsAsync] Deleted log for member {memberId} on device {deviceId} because no biometric data remains.");
+                            }
+                            catch (SqlException ex)
+                            {
+                                transaction.Rollback();
+                                Console.WriteLine($"Error deleting log: {ex.Message}");
+                            }
                         }
-                        LogHelper.Log($"[VerifyAndUpdateLogBiometricsAsync] Deleted log for member {memberId} on device {deviceId} because no biometric data remains.");
                         continue;
                     }
 
                     if (updated)
                     {
-                        using (var updateCmd = new SQLiteCommand("UPDATE Log SET BiometricData = @biometricData, SyncStatus = @syncStatus, UpdatedAt = @updatedAt WHERE Id = @logId", connection))
+                        using (var transaction = connection.BeginTransaction())
                         {
-                            updateCmd.Parameters.AddWithValue("@biometricData", JsonConvert.SerializeObject(biometricData));
-                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
-                            updateCmd.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
-                            updateCmd.Parameters.AddWithValue("@logId", logId);
-                            await updateCmd.ExecuteNonQueryAsync();
+                            try
+                            {
+                                using (var updateCmd = new SqlCommand("UPDATE Log SET BiometricData = @biometricData, SyncStatus = @syncStatus, UpdatedAt = @updatedAt WHERE Id = @logId", connection, transaction))
+                                {
+                                    updateCmd.Parameters.AddWithValue("@biometricData", JsonConvert.SerializeObject(biometricData));
+                                    updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
+                                    updateCmd.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+                                    updateCmd.Parameters.AddWithValue("@logId", logId);
+                                    await updateCmd.ExecuteNonQueryAsync();
+                                    transaction.Commit();
+                                }
+                                LogHelper.Log($"[VerifyAndUpdateLogBiometricsAsync] Updated log for member {memberId} on device {deviceId}. Remaining biometrics: {string.Join(", ", biometricData.Keys)}");
+                            }
+                            catch (SqlException ex)
+                            {
+                                transaction.Rollback();
+                                Console.WriteLine($"Error updating log: {ex.Message}");
+                            }
                         }
-                        LogHelper.Log($"[VerifyAndUpdateLogBiometricsAsync] Updated log for member {memberId} on device {deviceId}. Remaining biometrics: {string.Join(", ", biometricData.Keys)}");
                     }
                 }
             }
@@ -4371,117 +4630,156 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             return changes;
         }
 
-
         // Query function to get device details by DeviceId
         public (string ip, int machineNo, int port) GetDeviceDetails(int deviceId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var cmd = new SQLiteCommand("SELECT DeviceIP, MachineNo, Port FROM Devices WHERE DeviceId = @deviceId", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    cmd.Parameters.AddWithValue("@deviceId", deviceId);
-                    using (var reader = cmd.ExecuteReader())
+                    connection.Open();
+                    using (var cmd = new SqlCommand("SELECT DeviceIP, MachineNo, Port FROM Devices WHERE DeviceId = @deviceId", connection))
                     {
-                        if (reader.Read())
+                        cmd.Parameters.AddWithValue("@deviceId", deviceId);
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            string ip = Decrypt(reader["DeviceIP"].ToString());
-                            int machineNo = Convert.ToInt32(reader["MachineNo"]);
-                            int port = Convert.ToInt32(reader["Port"]);
-                            return (ip, machineNo, port);
+                            if (reader.Read())
+                            {
+                                var ipEncrypted = reader["DeviceIP"] != DBNull.Value ? reader["DeviceIP"].ToString() : null;
+                                string ip = string.IsNullOrEmpty(ipEncrypted) ? null : Decrypt(ipEncrypted);
+                                int machineNo = reader["MachineNo"] != DBNull.Value ? Convert.ToInt32(reader["MachineNo"]) : 0;
+                                int port = reader["Port"] != DBNull.Value ? Convert.ToInt32(reader["Port"]) : 0;
+                                return (ip, machineNo, port);
+                            }
                         }
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting device details: {ex.Message}");
+            }
             return (null, 0, 0);
         }
 
+
         public (bool exists, bool synced) CheckAttendanceDuplicateAndSynced(int memberId, DateTime deviceTime, string action)
         {
-            string timeStr = deviceTime.ToString("yyyy-MM-dd HH:mm:ss");
-            string column = action == "check-in" ? "CheckInTime" : "CheckOutTime";
-            using (var conn = new SQLiteConnection(connectionString))
+            try
             {
-                conn.Open();
-                using (var cmd = new SQLiteCommand($@"
-            SELECT SyncStatus 
-            FROM AttendanceLogs
-            WHERE MemberID=@mid AND {column}=@ts
-            LIMIT 1;", conn))
+                string timeStr = deviceTime.ToString("yyyy-MM-dd HH:mm:ss");
+                string column = action == "check-in" ? "CheckInTime" : "CheckOutTime";
+                using (var conn = new SqlConnection(connectionString))
                 {
-                    cmd.Parameters.AddWithValue("@mid", memberId);
-                    cmd.Parameters.AddWithValue("@ts", timeStr);
-                    var raw = cmd.ExecuteScalar();
-                    if (raw == null || raw == DBNull.Value) return (false, false);
-                    try
+                    conn.Open();
+                    using (var cmd = new SqlCommand($@"
+                    SELECT TOP 1 SyncStatus 
+                    FROM AttendanceLogs
+                    WHERE MemberID=@mid AND {column}=@ts;", conn))
                     {
-                        var dict = JsonConvert.DeserializeObject<Dictionary<string, bool>>(raw.ToString())
-                                   ?? new Dictionary<string, bool>();
-                        bool synced = false;
-                        if (action == "check-in" && dict.ContainsKey("checkIn")) synced = dict["checkIn"];
-                        if (action == "check-out" && dict.ContainsKey("checkOut")) synced = dict["checkOut"];
-                        return (true, synced);
-                    }
-                    catch
-                    {
-                        return (true, false);
+                        cmd.Parameters.AddWithValue("@mid", memberId);
+                        cmd.Parameters.AddWithValue("@ts", timeStr);
+                        var raw = cmd.ExecuteScalar();
+                        if (raw == null || raw == DBNull.Value) return (false, false);
+                        try
+                        {
+                            var dict = JsonConvert.DeserializeObject<Dictionary<string, bool>>(raw.ToString()) ?? new Dictionary<string, bool>();
+                            bool synced = false;
+                            if (action == "check-in" && dict.ContainsKey("checkIn")) synced = dict["checkIn"];
+                            if (action == "check-out" && dict.ContainsKey("checkOut")) synced = dict["checkOut"];
+                            return (true, synced);
+                        }
+                        catch
+                        {
+                            return (true, false);
+                        }
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking attendance duplicate and synced: {ex.Message}");
+                return (false, false);
+            }
         }
-
-
 
 
         // Helper to delete logs for a device
         public void DeleteLogsByDeviceId(int deviceId)
         {
-            using (var connection = new System.Data.SQLite.SQLiteConnection("Data Source=SmartAttendance.db;Version=3;"))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
 
                 // 1. Delete logs for the device
-                using (var command = new System.Data.SQLite.SQLiteCommand("DELETE FROM Log WHERE DeviceId = @DeviceId", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.Parameters.AddWithValue("@DeviceId", deviceId);
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        using (var command = new SqlCommand("DELETE FROM Log WHERE DeviceID = @DeviceId", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@DeviceId", deviceId);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error deleting logs by device ID: {ex.Message}");
+                        throw;
+                    }
                 }
 
                 // 2. Update SyncStatus in Members table for all members
-                using (var selectCmd = new System.Data.SQLite.SQLiteCommand("SELECT MemberID, SyncStatus FROM Members", connection))
-                using (var reader = selectCmd.ExecuteReader())
+                using (var transaction = connection.BeginTransaction())
                 {
-                    var updates = new List<(int memberId, string newSyncStatus)>();
-
-                    while (reader.Read())
+                    try
                     {
-                        int memberId = reader.GetInt32(0);
-                        string syncStatusJson = reader.IsDBNull(1) ? "{}" : reader.GetString(1);
-
-                        var syncStatusDict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>();
-
-                        if (syncStatusDict.ContainsKey(deviceId))
+                        using (var selectCmd = new SqlCommand("SELECT MemberID, SyncStatus FROM Members", connection, transaction))
+                        using (var reader = selectCmd.ExecuteReader())
                         {
-                            syncStatusDict.Remove(deviceId);
-                            string newSyncStatusJson = Newtonsoft.Json.JsonConvert.SerializeObject(syncStatusDict);
-                            updates.Add((memberId, newSyncStatusJson));
+                            var updates = new List<(int memberId, string newSyncStatus)>();
+
+                            while (reader.Read())
+                            {
+                                int memberId = reader.GetInt32(0);
+                                string syncStatusJson = reader.IsDBNull(1) ? "{}" : reader.GetString(1);
+
+                                var syncStatusDict = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>();
+
+                                if (syncStatusDict.ContainsKey(deviceId))
+                                {
+                                    syncStatusDict.Remove(deviceId);
+                                    string newSyncStatusJson = JsonConvert.SerializeObject(syncStatusDict);
+                                    updates.Add((memberId, newSyncStatusJson));
+                                }
+                            }
+
+                            reader.Close();
+
+                            // Apply updates
+                            foreach (var update in updates)
+                            {
+                                using (var updateCmd = new SqlCommand("UPDATE Members SET SyncStatus = @SyncStatus WHERE MemberID = @MemberID", connection, transaction))
+                                {
+                                    updateCmd.Parameters.AddWithValue("@SyncStatus", update.newSyncStatus);
+                                    updateCmd.Parameters.AddWithValue("@MemberID", update.memberId);
+                                    updateCmd.ExecuteNonQuery();
+                                }
+                            }
                         }
+                        transaction.Commit();
                     }
-
-                    // Apply updates
-                    foreach (var update in updates)
+                    catch (SqlException ex)
                     {
-                        using (var updateCmd = new System.Data.SQLite.SQLiteCommand("UPDATE Members SET SyncStatus = @SyncStatus WHERE MemberID = @MemberID", connection))
-                        {
-                            updateCmd.Parameters.AddWithValue("@SyncStatus", update.newSyncStatus);
-                            updateCmd.Parameters.AddWithValue("@MemberID", update.memberId);
-                            updateCmd.ExecuteNonQuery();
-                        }
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating sync status after deleting logs: {ex.Message}");
+                        throw;
                     }
                 }
             }
         }
-
 
         // Update the InsertGLogRecordAsync method to include the new fields
         // Enhanced InsertGLogRecordAsync method with duplicate prevention
@@ -4493,62 +4791,87 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
 
                 // Get device type from Devices table
                 string deviceType = "unknown";
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand("SELECT AttendanceType FROM Devices WHERE DeviceId = @DeviceId", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        cmd.Parameters.AddWithValue("@DeviceId", deviceId);
-                        var result = cmd.ExecuteScalar();
-                        if (result != null && result != DBNull.Value)
+                        try
                         {
-                            bool attendanceType = Convert.ToBoolean(result);
-                            deviceType = attendanceType ? "check-in" : "check-out";
+                            using (var cmd = new SqlCommand("SELECT TOP 1 AttendanceType FROM Devices WHERE DeviceId = @DeviceId", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@DeviceId", deviceId);
+                                var result = cmd.ExecuteScalar();
+                                if (result != null && result != DBNull.Value)
+                                {
+                                    bool attendanceType = Convert.ToBoolean(result);
+                                    deviceType = attendanceType ? "check-in" : "check-out";
+                                }
+                            }
+                            transaction.Commit();
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error getting device type: {ex.Message}");
                         }
                     }
                 }
 
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-
-                    // Check for existing record to prevent duplicates
-                    using (var checkCommand = new SQLiteCommand(@"
-                SELECT COUNT(*) FROM GLog 
-                WHERE DeviceId = @DeviceId 
-                AND EnrollmentNumber = @EnrollmentNumber 
-                AND DeviceTime = @DeviceTime 
-                AND OriginalLine = @OriginalLine", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        checkCommand.Parameters.AddWithValue("@DeviceId", deviceId);
-                        checkCommand.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
-                        checkCommand.Parameters.AddWithValue("@DeviceTime", deviceTimeText);
-                        checkCommand.Parameters.AddWithValue("@OriginalLine", originalLine);
-
-                        int existingCount = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
-                        if (existingCount > 0)
+                        try
                         {
-                            LogHelper.Log($"Duplicate GLog record detected - skipping insert for enrollment {enrollmentNumber} at {deviceTimeText}");
-                            return;
+                            // Check for existing record to prevent duplicates
+                            using (var checkCommand = new SqlCommand(@"
+                        SELECT COUNT(*) FROM GLog 
+                        WHERE DeviceId = @DeviceId 
+                        AND EnrollmentNumber = @EnrollmentNumber 
+                        AND DeviceTime = @DeviceTime 
+                        AND OriginalLine = @OriginalLine", connection, transaction))
+                            {
+                                checkCommand.Parameters.AddWithValue("@DeviceId", deviceId);
+                                checkCommand.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
+                                checkCommand.Parameters.AddWithValue("@DeviceTime", deviceTimeText);
+                                checkCommand.Parameters.AddWithValue("@OriginalLine", originalLine);
+
+                                int existingCount = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+                                if (existingCount > 0)
+                                {
+                                    LogHelper.Log($"Duplicate GLog record detected - skipping insert for enrollment {enrollmentNumber} at {deviceTimeText}");
+                                    transaction.Commit();
+                                    return;
+                                }
+                            }
+
+                            using (var command = new SqlCommand(@"
+                        INSERT INTO GLog (DeviceId, EnrollmentNumber, DeviceTime, OriginalLine, Sync, DeviceType, Filter, CreatedOn, UpdatedOn)
+                        VALUES (@DeviceId, @EnrollmentNumber, @DeviceTime, @OriginalLine, @Sync, @DeviceType, @Filter, @CreatedOn, @UpdatedOn)", connection, transaction))
+                            {
+                                command.Parameters.AddWithValue("@DeviceId", deviceId);
+                                command.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
+                                command.Parameters.AddWithValue("@DeviceTime", deviceTimeText);
+                                command.Parameters.AddWithValue("@OriginalLine", originalLine);
+                                command.Parameters.AddWithValue("@Sync", false);
+                                command.Parameters.AddWithValue("@DeviceType", deviceType);
+                                command.Parameters.AddWithValue("@Filter", filter);
+                                command.Parameters.AddWithValue("@CreatedOn", timestamp);
+                                command.Parameters.AddWithValue("@UpdatedOn", timestamp);
+
+                                await command.ExecuteNonQueryAsync();
+                                transaction.Commit();
+                                LogHelper.Log($"Successfully inserted GLog record for enrollment {enrollmentNumber} at {deviceTimeText}");
+                            }
                         }
-                    }
-
-                    using (var command = new SQLiteCommand(@"
-                INSERT INTO GLog (DeviceId, EnrollmentNumber, DeviceTime, OriginalLine, Sync, DeviceType, Filter, CreatedOn, UpdatedOn)
-                VALUES (@DeviceId, @EnrollmentNumber, @DeviceTime, @OriginalLine, @Sync, @DeviceType, @Filter, @CreatedOn, @UpdatedOn)", connection))
-                    {
-                        command.Parameters.AddWithValue("@DeviceId", deviceId);
-                        command.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
-                        command.Parameters.AddWithValue("@DeviceTime", deviceTimeText);
-                        command.Parameters.AddWithValue("@OriginalLine", originalLine);
-                        command.Parameters.AddWithValue("@Sync", false);
-                        command.Parameters.AddWithValue("@DeviceType", deviceType);
-                        command.Parameters.AddWithValue("@Filter", filter);
-                        command.Parameters.AddWithValue("@CreatedOn", timestamp);
-                        command.Parameters.AddWithValue("@UpdatedOn", timestamp);
-
-                        await command.ExecuteNonQueryAsync();
-                        LogHelper.Log($"Successfully inserted GLog record for enrollment {enrollmentNumber} at {deviceTimeText}");
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error inserting GLog record: {ex.Message}");
+                            throw;
+                        }
                     }
                 }
             }
@@ -4569,13 +4892,15 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                 string attendanceCase = "2way";
                 LogHelper.Log($"[GLogPair] Starting two-way pairing for all devices. Case={attendanceCase}");
 
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    try
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        // Re-open previously filtered rows for dates that received new logs
-                        string reopenSql = @"
+                        try
+                        {
+                            // Re-open previously filtered rows for dates that received new logs
+                            string reopenSql = @"
                 UPDATE GLog
                 SET Sync = 0,
                     Filter = 0
@@ -4583,126 +4908,125 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     SELECT 1
                     FROM GLog g2
                     WHERE g2.EnrollmentNumber = GLog.EnrollmentNumber
-                      AND DATE(g2.DeviceTime) = DATE(GLog.DeviceTime)
+                      AND CONVERT(DATE, g2.DeviceTime) = CONVERT(DATE, GLog.DeviceTime)
                       AND g2.Sync = 0
                 );";
 
-                        using (var reopenTransaction = connection.BeginTransaction())
-                        {
-                            using (var reopenCmd = new SQLiteCommand(reopenSql, connection, reopenTransaction))
+                            using (var reopenCmd = new SqlCommand(reopenSql, connection, transaction))
                             {
                                 int reopened = reopenCmd.ExecuteNonQuery();
                                 LogHelper.Log($"[GLogPair] Reopened {reopened} previously processed rows for re-evaluation.");
                             }
-                            reopenTransaction.Commit();
-                        }
 
-                        // Get device type mapping for all devices
-                        var deviceTypeMap = new Dictionary<int, string>();
-                        using (var mapCmd = new SQLiteCommand("SELECT DeviceId, AttendanceType FROM Devices", connection))
-                        {
-                            using (var r = mapCmd.ExecuteReader())
+                            // Get device type mapping for all devices
+                            var deviceTypeMap = new Dictionary<int, string>();
+                            using (var mapCmd = new SqlCommand("SELECT DeviceId, AttendanceType FROM Devices", connection, transaction))
                             {
-                                while (r.Read())
+                                using (var r = mapCmd.ExecuteReader())
                                 {
-                                    int deviceId = r.GetInt32(r.GetOrdinal("DeviceId"));
-                                    bool attendanceType = Convert.ToBoolean(r["AttendanceType"]);
-                                    string deviceTypeStr = attendanceType ? "Check_In" : "Check_Out";
-                                    deviceTypeMap[deviceId] = deviceTypeStr;
+                                    while (r.Read())
+                                    {
+                                        int deviceId = r.GetInt32(r.GetOrdinal("DeviceId"));
+                                        bool attendanceType = Convert.ToBoolean(r["AttendanceType"]);
+                                        string deviceTypeStr = attendanceType ? "Check_In" : "Check_Out";
+                                        deviceTypeMap[deviceId] = deviceTypeStr;
+                                    }
                                 }
                             }
-                        }
 
-                        // Load all unsynced records from all devices
-                        string selectSql = @"
+                            // Load all unsynced records from all devices
+                            string selectSql = @"
                         SELECT LogId, DeviceId, EnrollmentNumber, DeviceTime, OriginalLine,
                                Sync, DeviceType, Filter, CreatedOn, UpdatedOn,
-                               DATE(DeviceTime) AS RecordDate
+                               CONVERT(DATE, DeviceTime) AS RecordDate
                         FROM GLog
                         WHERE Sync = 0
-                        ORDER BY EnrollmentNumber, DATE(DeviceTime), DeviceTime";
+                        ORDER BY EnrollmentNumber, CONVERT(DATE, DeviceTime), DeviceTime";
 
-                        var allRecords = new List<dynamic>();
-                        using (var cmd = new SQLiteCommand(selectSql, connection))
-                        {
-                            using (var reader = cmd.ExecuteReader())
+                            var allRecords = new List<dynamic>();
+                            using (var cmd = new SqlCommand(selectSql, connection, transaction))
                             {
-                                while (reader.Read())
+                                using (var reader = cmd.ExecuteReader())
                                 {
-                                    int deviceId = reader.GetInt32(reader.GetOrdinal("DeviceId"));
+                                    while (reader.Read())
+                                    {
+                                        int deviceId = reader.GetInt32(reader.GetOrdinal("DeviceId"));
 
-                                    // Determine effective type based on device configuration and stored DeviceType
-                                    string effectiveType = "Unknown";
-                                    if (deviceTypeMap.ContainsKey(deviceId))
-                                    {
-                                        effectiveType = deviceTypeMap[deviceId];
-                                    }
-                                    else
-                                    {
-                                        // Fallback to stored DeviceType
-                                        string storedType = reader["DeviceType"]?.ToString()?.ToLower() ?? "";
-                                        if (storedType == "check-in") effectiveType = "Check_In";
-                                        else if (storedType == "check-out") effectiveType = "Check_Out";
-                                    }
+                                        // Determine effective type based on device configuration and stored DeviceType
+                                        string effectiveType = "Unknown";
+                                        if (deviceTypeMap.ContainsKey(deviceId))
+                                        {
+                                            effectiveType = deviceTypeMap[deviceId];
+                                        }
+                                        else
+                                        {
+                                            // Fallback to stored DeviceType
+                                            string storedType = reader["DeviceType"]?.ToString()?.ToLower() ?? "";
+                                            if (storedType == "check-in") effectiveType = "Check_In";
+                                            else if (storedType == "check-out") effectiveType = "Check_Out";
+                                        }
 
-                                    allRecords.Add(new
-                                    {
-                                        LogId = reader.GetInt32(reader.GetOrdinal("LogId")),
-                                        DeviceId = deviceId,
-                                        EnrollmentNumber = reader["EnrollmentNumber"].ToString(),
-                                        DeviceTime = DateTime.Parse(reader["DeviceTime"].ToString()),
-                                        DeviceTimeText = reader["DeviceTime"].ToString(),
-                                        OriginalLine = reader["OriginalLine"].ToString(),
-                                        Sync = Convert.ToBoolean(reader["Sync"]),
-                                        OriginalDeviceType = reader["DeviceType"]?.ToString() ?? "unknown",
-                                        EffectiveType = effectiveType,
-                                        Filter = reader["Filter"] != DBNull.Value && Convert.ToBoolean(reader["Filter"]),
-                                        CreatedOn = reader["CreatedOn"].ToString(),
-                                        UpdatedOn = reader["UpdatedOn"].ToString(),
-                                        RecordDate = reader["RecordDate"].ToString()
-                                    });
+                                        allRecords.Add(new
+                                        {
+                                            LogId = reader.GetInt32(reader.GetOrdinal("LogId")),
+                                            DeviceId = deviceId,
+                                            EnrollmentNumber = reader["EnrollmentNumber"].ToString(),
+                                            DeviceTime = DateTime.Parse(reader["DeviceTime"].ToString()),
+                                            DeviceTimeText = reader["DeviceTime"].ToString(),
+                                            OriginalLine = reader["OriginalLine"].ToString(),
+                                            Sync = Convert.ToBoolean(reader["Sync"]),
+                                            OriginalDeviceType = reader["DeviceType"]?.ToString() ?? "unknown",
+                                            EffectiveType = effectiveType,
+                                            Filter = reader["Filter"] != DBNull.Value && Convert.ToBoolean(reader["Filter"]),
+                                            CreatedOn = reader["CreatedOn"].ToString(),
+                                            UpdatedOn = reader["UpdatedOn"].ToString(),
+                                            RecordDate = reader["RecordDate"].ToString()
+                                        });
+                                    }
                                 }
                             }
+
+                            transaction.Commit();
+                            LogHelper.Log($"[GLogPair] Loaded {allRecords.Count} records for pairing across all devices.");
+
+                            // Group by enrollment and date
+                            var grouped = allRecords.GroupBy(g => new { g.EnrollmentNumber, g.RecordDate }).ToList();
+                            var selectedIds = new HashSet<int>();
+                            var openIds = new HashSet<int>();
+                            var ignoredIds = new HashSet<int>();
+
+                            // Process each group
+                            foreach (var group in grouped)
+                            {
+                                LogHelper.Log($"[GLogPair] Group Enroll={group.Key.EnrollmentNumber} Date={group.Key.RecordDate} Total={group.Count()}");
+                                PairTwoWayGLog(group.ToList(), selectedIds, openIds, ignoredIds, filteredRecords);
+                            }
+
+                            // Update database with results in batches to reduce lock duration
+                            string timestamp = GetTimestamp();
+                            const int batchSize = 200;
+
+                            if (selectedIds.Count > 0)
+                            {
+                                UpdateGLogSyncFlagsInBatches(connection, selectedIds.ToList(), true, timestamp, batchSize);
+                                LogHelper.Log($"[GLogPair] Marked {selectedIds.Count} paired/open rows Filter=1 Sync=1.");
+                            }
+
+                            var toIgnore = ignoredIds.Except(selectedIds).ToList();
+                            if (toIgnore.Count > 0)
+                            {
+                                UpdateGLogSyncFlagsInBatches(connection, toIgnore, false, timestamp, batchSize);
+                                LogHelper.Log($"[GLogPair] Marked {toIgnore.Count} ignored rows Filter=0 Sync=1.");
+                            }
+
+                            LogHelper.Log($"[GLogPair] Finished two-way filtering for all devices. Output filtered rows={filteredRecords.Count}");
                         }
-
-                        LogHelper.Log($"[GLogPair] Loaded {allRecords.Count} records for pairing across all devices.");
-
-                        // Group by enrollment and date
-                        var grouped = allRecords.GroupBy(g => new { g.EnrollmentNumber, g.RecordDate }).ToList();
-                        var selectedIds = new HashSet<int>();
-                        var openIds = new HashSet<int>();
-                        var ignoredIds = new HashSet<int>();
-
-                        // Process each group
-                        foreach (var group in grouped)
+                        catch (SqlException ex)
                         {
-                            LogHelper.Log($"[GLogPair] Group Enroll={group.Key.EnrollmentNumber} Date={group.Key.RecordDate} Total={group.Count()}");
-                            PairTwoWayGLog(group.ToList(), selectedIds, openIds, ignoredIds, filteredRecords);
+                            transaction.Rollback();
+                            Console.WriteLine($"Error in FilterAndUpdateGLogRecordsByDateTwoWay: {ex.Message}");
+                            throw;
                         }
-
-                        // Update database with results in batches to reduce lock duration
-                        string timestamp = GetTimestamp();
-                        const int batchSize = 200;
-
-                        if (selectedIds.Count > 0)
-                        {
-                            UpdateGLogSyncFlagsInBatches(connection, selectedIds.ToList(), true, timestamp, batchSize);
-                            LogHelper.Log($"[GLogPair] Marked {selectedIds.Count} paired/open rows Filter=1 Sync=1.");
-                        }
-
-                        var toIgnore = ignoredIds.Except(selectedIds).ToList();
-                        if (toIgnore.Count > 0)
-                        {
-                            UpdateGLogSyncFlagsInBatches(connection, toIgnore, false, timestamp, batchSize);
-                            LogHelper.Log($"[GLogPair] Marked {toIgnore.Count} ignored rows Filter=0 Sync=1.");
-                        }
-
-                        LogHelper.Log($"[GLogPair] Finished two-way filtering for all devices. Output filtered rows={filteredRecords.Count}");
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Log($"Error in FilterAndUpdateGLogRecordsByDateTwoWay: {ex.Message}");
-                        throw;
                     }
                 }
             }
@@ -4715,7 +5039,7 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             return filteredRecords;
         }
 
-        private void UpdateGLogSyncFlagsInBatches(SQLiteConnection connection, List<int> ids, bool filterValue, string timestamp, int batchSize)
+        private void UpdateGLogSyncFlagsInBatches(SqlConnection connection, List<int> ids, bool filterValue, string timestamp, int batchSize)
         {
             if (ids == null || ids.Count == 0)
                 return;
@@ -4727,7 +5051,7 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                 string updateSql = $"UPDATE GLog SET Sync=1, Filter=@filter, UpdatedOn=@ts WHERE LogId IN ({string.Join(", ", idParameters)})";
 
                 using (var transaction = connection.BeginTransaction())
-                using (var cmd = new SQLiteCommand(updateSql, connection, transaction))
+                using (var cmd = new SqlCommand(updateSql, connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@filter", filterValue ? 1 : 0);
                     cmd.Parameters.AddWithValue("@ts", timestamp);
@@ -4830,8 +5154,6 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                     ignoredIds.Add(r.LogId);
         }
 
-
-
         /// <summary>
         /// Helper method to create GLogRecord from dynamic record for normal GLog
         /// </summary>
@@ -4852,8 +5174,6 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             };
         }
 
-
-
         public int? GetDeviceIdByMachineNo(int machineNo)
         {
             try
@@ -4869,7 +5189,6 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             }
         }
 
-
         /// <summary>
         /// Gets the name of a member by their ID
         /// </summary>
@@ -4879,17 +5198,21 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand(
-                        "SELECT Name FROM Members WHERE MemberID = @memberId LIMIT 1", connection))
+                    using (var cmd = new SqlCommand("SELECT TOP 1 Name FROM Members WHERE MemberID = @memberId", connection))
                     {
                         cmd.Parameters.AddWithValue("@memberId", memberId);
                         var result = cmd.ExecuteScalar();
                         return result?.ToString();
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting member name: {ex.Message}");
+                return null;
             }
             catch (Exception ex)
             {
@@ -5070,7 +5393,6 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                 UpdatedOn = record.UpdatedOn
             };
         }
-        
 
         /// <summary>
         /// Deletes all GLog records from the database.
@@ -5079,13 +5401,25 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    string query = "DELETE FROM GLog";
-                    using (var command = new SQLiteCommand(query, connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        command.ExecuteNonQuery();
+                        try
+                        {
+                            string query = "DELETE FROM GLog";
+                            using (var command = new SqlCommand(query, connection, transaction))
+                            {
+                                command.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error deleting all GLogs: {ex.Message}");
+                        }
                     }
                 }
                 LogHelper.Log("✅ Successfully deleted all GLog records from the database");
@@ -5096,17 +5430,17 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
             }
         }
 
-        
         public List<GateAccessed> GetAllGateAccesseds()
         {
             var gateAccesseds = new List<GateAccessed>();
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT GateId, DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, CreatedAt, UpdatedAt " +
-                    "FROM GateAccessed", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT GateId, DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, CreatedAt, UpdatedAt " +
+                        "FROM GateAccessed", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -5120,94 +5454,101 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                                 VisitorName = reader.IsDBNull(4) ? null : reader.GetString(4),
                                 VisitorPhone = reader.IsDBNull(5) ? null : reader.GetString(5),
                                 Reason = reader.IsDBNull(6) ? null : reader.GetString(6),
-                                AccessedTime = DateTime.Parse(reader.GetString(7)),
+                                AccessedTime = reader.IsDBNull(7) ? DateTime.MinValue : Convert.ToDateTime(reader.GetValue(7)),
                                 Username = reader.IsDBNull(8) ? null : reader.GetString(8)
                             });
                         }
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting all gate accesseds: {ex.Message}");
+            }
             return gateAccesseds;
         }
-
         public void InsertGateAccessed(GateAccessed gateAccessed)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    string timestamp = GetTimestamp();
-                    string accessedTime = gateAccessed.AccessedTime != DateTime.MinValue
-                        ? gateAccessed.AccessedTime.ToString("yyyy-MM-dd HH:mm:ss")
-                        : timestamp;
+                    try
+                    {
+                        string timestamp = GetTimestamp();
+                        string accessedTime = gateAccessed.AccessedTime != DateTime.MinValue
+                            ? gateAccessed.AccessedTime.ToString("yyyy-MM-dd HH:mm:ss")
+                            : timestamp;
 
-                    command.CommandText = @"
+                        using (var command = new SqlCommand(@"
             INSERT INTO GateAccessed 
             (DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, CreatedAt, UpdatedAt) 
             VALUES 
-            (@DeviceIP, @MemberId, @IsVisitor, @VisitorName, @VisitorPhone, @Reason, @AccessedTime, @Username, @CreatedAt, @UpdatedAt)";
+            (@DeviceIP, @MemberId, @IsVisitor, @VisitorName, @VisitorPhone, @Reason, @AccessedTime, @Username, @CreatedAt, @UpdatedAt)", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@DeviceIP", gateAccessed.DeviceIP);
+                            command.Parameters.AddWithValue("@MemberId", gateAccessed.MemberId);
+                            command.Parameters.AddWithValue("@IsVisitor", gateAccessed.IsVisitor);
+                            command.Parameters.AddWithValue("@VisitorName", (object)gateAccessed.VisitorName ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@VisitorPhone", (object)gateAccessed.VisitorPhone ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@Reason", (object)gateAccessed.Reason ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@AccessedTime", accessedTime);
+                            command.Parameters.AddWithValue("@Username", (object)gateAccessed.Username ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@CreatedAt", timestamp);
+                            command.Parameters.AddWithValue("@UpdatedAt", timestamp);
 
-                    command.Parameters.AddWithValue("@DeviceIP", gateAccessed.DeviceIP);
-                    command.Parameters.AddWithValue("@MemberId", gateAccessed.MemberId);
-                    command.Parameters.AddWithValue("@IsVisitor", gateAccessed.IsVisitor);
-                    command.Parameters.AddWithValue("@VisitorName", (object)gateAccessed.VisitorName ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@VisitorPhone", (object)gateAccessed.VisitorPhone ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@Reason", (object)gateAccessed.Reason ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@AccessedTime", accessedTime);
-                    command.Parameters.AddWithValue("@Username", (object)gateAccessed.Username ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@CreatedAt", timestamp);
-                    command.Parameters.AddWithValue("@UpdatedAt", timestamp);
-
-                    command.ExecuteNonQuery();
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error inserting gate accessed: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
 
-        
-        public string GetDatabaseFilePath()
-        {
-            try
-            {
-                var builder = new SQLiteConnectionStringBuilder(connectionString);
-                var dataSource = builder.DataSource;
-                if (string.IsNullOrWhiteSpace(dataSource)) return null;
-
-                // If relative, resolve against application base directory
-                if (!Path.IsPathRooted(dataSource))
-                    dataSource = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dataSource));
-
-                return dataSource;
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ GetDatabaseFilePath error: {ex.Message}");
-                return null;
-            }
-        }
-
-        // Creates a read-only snapshot of the SQLite DB to attach in email
+        // Creates a backup of the SQL Server DB
         public string CreateDatabaseSnapshot()
         {
             try
             {
-                var dbPath = GetDatabaseFilePath();
-                if (string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath))
-                    return null;
+                var builder = new SqlConnectionStringBuilder(connectionString);
+                string databaseName = builder.InitialCatalog;
 
-                var tempDir = Path.Combine(Path.GetTempPath(), "SmartAttendanceBackup");
-                Directory.CreateDirectory(tempDir);
-                var snapshotPath = Path.Combine(tempDir, $"SmartAttendance_{DateTime.Now:yyyyMMdd_HHmmss}.db");
+                // Use a directory that the SQL Server Service is more likely to have access to.
+                // Note: You may need to manually grant 'Full Control' to 'NT Service\MSSQLSERVER' 
+                // on this folder if it still fails.
+                string backupFolder = @"C:\SmartAttendanceBackups";
 
-                using (var src = new SQLiteConnection(connectionString))
-                using (var dest = new SQLiteConnection($"Data Source={snapshotPath};Version=3;"))
+                if (!Directory.Exists(backupFolder))
                 {
-                    src.Open();
-                    dest.Open();
-                    src.BackupDatabase(dest, "main", "main", -1, null, 0);
+                    Directory.CreateDirectory(backupFolder);
                 }
 
-                return snapshotPath;
+                string fileName = $"{databaseName}_{DateTime.Now:yyyyMMdd_HHmmss}.bak";
+                string backupPath = Path.Combine(backupFolder, fileName);
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    // WITH FORMAT ensures we create a new backup file
+                    string query = $"BACKUP DATABASE [{databaseName}] TO DISK = @path WITH FORMAT, NAME = 'Full Backup of {databaseName}';";
+
+                    using (var cmd = new SqlCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@path", backupPath);
+                        cmd.CommandTimeout = 120;
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                LogHelper.Log($"Database backup created successfully at: {backupPath}");
+                return backupPath;
             }
             catch (Exception ex)
             {
@@ -5217,7 +5558,6 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         }
 
 
-
         ////////////////////////PENDING JOBS////////////////////////////////
 
         /// <summary>
@@ -5225,36 +5565,49 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         /// </summary>
         public void InsertPendingJob(PendingJob job)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(
-                    @"INSERT INTO PendingJobs (Action, MemberId, EnrollmentId, DeviceId, Ip, Port, MachineNo, Password, BackupNumber, CreatedAt)
-              VALUES (@action, @memberId, @enrollmentId, @deviceId, @ip, @port, @machineNo, @password, @backupNumber, @createdAt)", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.Parameters.AddWithValue("@action", job.Action ?? string.Empty);
-                    command.Parameters.AddWithValue("@memberId", job.MemberId);
-                    command.Parameters.AddWithValue("@enrollmentId", job.EnrollmentId);
-
-                    // Nullable DeviceId support via reflection (works even if PendingJob doesn't define DeviceId)
-                    var deviceIdProp = job.GetType().GetProperty("DeviceId");
-                    if (deviceIdProp != null)
+                    try
                     {
-                        var deviceIdVal = deviceIdProp.GetValue(job, null);
-                        command.Parameters.AddWithValue("@deviceId", deviceIdVal ?? (object)DBNull.Value);
-                    }
-                    else
-                    {
-                        command.Parameters.AddWithValue("@deviceId", DBNull.Value);
-                    }
+                        using (var command = new SqlCommand(
+                            @"INSERT INTO PendingJobs (Action, MemberId, EnrollmentId, DeviceId, Ip, Port, MachineNo, Password, BackupNumber, CreatedAt)
+              VALUES (@action, @memberId, @enrollmentId, @deviceId, @ip, @port, @machineNo, @password, @backupNumber, @createdAt)", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@action", job.Action ?? string.Empty);
+                            command.Parameters.AddWithValue("@memberId", job.MemberId);
+                            command.Parameters.AddWithValue("@enrollmentId", job.EnrollmentId);
 
-                    command.Parameters.AddWithValue("@ip", job.Ip ?? string.Empty);
-                    command.Parameters.AddWithValue("@port", job.Port);
-                    command.Parameters.AddWithValue("@machineNo", job.MachineNo);
-                    command.Parameters.AddWithValue("@password", job.Password ?? string.Empty);
-                    command.Parameters.AddWithValue("@backupNumber", job.BackupNumber);
-                    command.Parameters.AddWithValue("@createdAt", job.CreatedAt.ToString("o"));  // ISO 8601 format
-                    command.ExecuteNonQuery();
+                            // Nullable DeviceId support via reflection (works even if PendingJob doesn't define DeviceId)
+                            var deviceIdProp = job.GetType().GetProperty("DeviceId");
+                            if (deviceIdProp != null)
+                            {
+                                var deviceIdVal = deviceIdProp.GetValue(job, null);
+                                command.Parameters.AddWithValue("@deviceId", deviceIdVal ?? (object)DBNull.Value);
+                            }
+                            else
+                            {
+                                command.Parameters.AddWithValue("@deviceId", DBNull.Value);
+                            }
+
+                            command.Parameters.AddWithValue("@ip", job.Ip ?? string.Empty);
+                            command.Parameters.AddWithValue("@port", job.Port);
+                            command.Parameters.AddWithValue("@machineNo", job.MachineNo);
+                            command.Parameters.AddWithValue("@password", job.Password ?? string.Empty);
+                            command.Parameters.AddWithValue("@backupNumber", job.BackupNumber);
+                            command.Parameters.AddWithValue("@createdAt", job.CreatedAt.ToString("o"));  // ISO 8601 format
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error inserting pending job: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -5262,170 +5615,866 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
         public List<PendingJob> GetAllPendingJobs()
         {
             var jobs = new List<PendingJob>();
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT Id, Action, MemberId, EnrollmentId, DeviceId, Ip, Port, MachineNo, Password, BackupNumber, CreatedAt FROM PendingJobs ORDER BY CreatedAt ASC",
-                    connection))
-                using (var reader = command.ExecuteReader())
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    while (reader.Read())
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT Id, Action, MemberId, EnrollmentId, DeviceId, Ip, Port, MachineNo, Password, BackupNumber, CreatedAt FROM PendingJobs ORDER BY CreatedAt ASC",
+                        connection))
+                    using (var reader = command.ExecuteReader())
                     {
-                        var job = new PendingJob
+                        while (reader.Read())
                         {
-                            Action = reader.IsDBNull(reader.GetOrdinal("Action")) ? null : reader.GetString(reader.GetOrdinal("Action")),
-                            MemberId = reader.IsDBNull(reader.GetOrdinal("MemberId")) ? 0 : reader.GetInt32(reader.GetOrdinal("MemberId")),
-                            EnrollmentId = reader.IsDBNull(reader.GetOrdinal("EnrollmentId")) ? 0 : reader.GetInt32(reader.GetOrdinal("EnrollmentId")),
-                            Ip = reader.IsDBNull(reader.GetOrdinal("Ip")) ? null : reader.GetString(reader.GetOrdinal("Ip")),
-                            Port = reader.IsDBNull(reader.GetOrdinal("Port")) ? 0 : reader.GetInt32(reader.GetOrdinal("Port")),
-                            MachineNo = reader.IsDBNull(reader.GetOrdinal("MachineNo")) ? 0 : reader.GetInt32(reader.GetOrdinal("MachineNo")),
-                            Password = reader.IsDBNull(reader.GetOrdinal("Password")) ? null : reader.GetString(reader.GetOrdinal("Password")),
-                            BackupNumber = reader.IsDBNull(reader.GetOrdinal("BackupNumber")) ? 0 : reader.GetInt32(reader.GetOrdinal("BackupNumber")),
-                            CreatedAt = reader.IsDBNull(reader.GetOrdinal("CreatedAt")) ? DateTime.MinValue : DateTime.Parse(reader.GetString(reader.GetOrdinal("CreatedAt")))
-                        };
-
-                        // Try assign DeviceId if property exists on PendingJob
-                        int ordDeviceId = reader.GetOrdinal("DeviceId");
-                        if (!reader.IsDBNull(ordDeviceId))
-                        {
-                            var deviceIdProp = job.GetType().GetProperty("DeviceId");
-                            if (deviceIdProp != null && deviceIdProp.CanWrite)
+                            var job = new PendingJob
                             {
-                                deviceIdProp.SetValue(job, reader.GetInt32(ordDeviceId));
-                            }
-                        }
+                                Action = reader.IsDBNull(reader.GetOrdinal("Action")) ? null : reader.GetString(reader.GetOrdinal("Action")),
+                                MemberId = reader.IsDBNull(reader.GetOrdinal("MemberId")) ? 0 : reader.GetInt32(reader.GetOrdinal("MemberId")),
+                                EnrollmentId = reader.IsDBNull(reader.GetOrdinal("EnrollmentId")) ? 0 : reader.GetInt32(reader.GetOrdinal("EnrollmentId")),
+                                Ip = reader.IsDBNull(reader.GetOrdinal("Ip")) ? null : reader.GetString(reader.GetOrdinal("Ip")),
+                                Port = reader.IsDBNull(reader.GetOrdinal("Port")) ? 0 : reader.GetInt32(reader.GetOrdinal("Port")),
+                                MachineNo = reader.IsDBNull(reader.GetOrdinal("MachineNo")) ? 0 : reader.GetInt32(reader.GetOrdinal("MachineNo")),
+                                Password = reader.IsDBNull(reader.GetOrdinal("Password")) ? null : reader.GetString(reader.GetOrdinal("Password")),
+                                BackupNumber = reader.IsDBNull(reader.GetOrdinal("BackupNumber")) ? 0 : reader.GetInt32(reader.GetOrdinal("BackupNumber")),
+                                CreatedAt = reader.IsDBNull(reader.GetOrdinal("CreatedAt")) ? DateTime.MinValue : reader.GetDateTime(reader.GetOrdinal("CreatedAt"))
+                            };
 
-                        jobs.Add(job);
+                            int ordDeviceId = reader.GetOrdinal("DeviceId");
+                            if (!reader.IsDBNull(ordDeviceId))
+                            {
+                                var deviceIdProp = job.GetType().GetProperty("DeviceId");
+                                if (deviceIdProp != null && deviceIdProp.CanWrite)
+                                {
+                                    deviceIdProp.SetValue(job, reader.GetInt32(ordDeviceId));
+                                }
+                            }
+
+                            jobs.Add(job);
+                        }
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting all pending jobs: {ex.Message}");
             }
             return jobs;
         }
 
+
         public void DeletePendingJob(PendingJob job)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(
-                    @"DELETE FROM PendingJobs 
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var command = new SqlCommand(
+                            @"DELETE FROM PendingJobs 
               WHERE Action = @action 
                 AND MemberId = @memberId 
                 AND EnrollmentId = @enrollmentId 
                 AND Ip = @ip 
                 AND Port = @port 
                 AND MachineNo = @machineNo
-                AND (DeviceId = @deviceId OR (DeviceId IS NULL AND @deviceId IS NULL))", connection))
-                {
-                    command.Parameters.AddWithValue("@action", job.Action ?? string.Empty);
-                    command.Parameters.AddWithValue("@memberId", job.MemberId);
-                    command.Parameters.AddWithValue("@enrollmentId", job.EnrollmentId);
-                    command.Parameters.AddWithValue("@ip", job.Ip ?? string.Empty);
-                    command.Parameters.AddWithValue("@port", job.Port);
-                    command.Parameters.AddWithValue("@machineNo", job.MachineNo);
+                AND (DeviceId = @deviceId OR (DeviceId IS NULL AND @deviceId IS NULL))", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@action", job.Action ?? string.Empty);
+                            command.Parameters.AddWithValue("@memberId", job.MemberId);
+                            command.Parameters.AddWithValue("@enrollmentId", job.EnrollmentId);
+                            command.Parameters.AddWithValue("@ip", job.Ip ?? string.Empty);
+                            command.Parameters.AddWithValue("@port", job.Port);
+                            command.Parameters.AddWithValue("@machineNo", job.MachineNo);
 
-                    // Provide @deviceId parameter with null-awareness
-                    var deviceIdProp = job.GetType().GetProperty("DeviceId");
-                    if (deviceIdProp != null)
+                            // Provide @deviceId parameter with null-awareness
+                            var deviceIdProp = job.GetType().GetProperty("DeviceId");
+                            if (deviceIdProp != null)
+                            {
+                                var deviceIdVal = deviceIdProp.GetValue(job, null);
+                                command.Parameters.AddWithValue("@deviceId", deviceIdVal ?? (object)DBNull.Value);
+                            }
+                            else
+                            {
+                                command.Parameters.AddWithValue("@deviceId", DBNull.Value);
+                            }
+
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
                     {
-                        var deviceIdVal = deviceIdProp.GetValue(job, null);
-                        command.Parameters.AddWithValue("@deviceId", deviceIdVal ?? (object)DBNull.Value);
+                        transaction.Rollback();
+                        Console.WriteLine($"Error deleting pending job: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        
+
+        /// <summary>
+        /// Decides the attendance case based on staff devices configuration using SQL query.
+        /// If there's one device with "Check_In" type and another with "Check_Out" type, it's 2-way attendance.
+        /// If there's only one device or multiple devices with "Check_In/Check_Out" type, it's 1-way attendance.
+        /// </summary>
+        /// <returns>Returns "2way" if devices are configured for separate check-in/check-out, "1way" otherwise</returns>
+        public string DecideAttendanceCase()
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SqlCommand(@"
+                SELECT 
+                    SUM(CASE WHEN LOWER(ISNULL(StaffAttendanceType, '')) = 'check_in' THEN 1 ELSE 0 END) as CheckInCount,
+                    SUM(CASE WHEN LOWER(ISNULL(StaffAttendanceType, '')) = 'check_out' THEN 1 ELSE 0 END) as CheckOutCount,
+                    SUM(CASE WHEN LOWER(ISNULL(StaffAttendanceType, '')) = 'check_in/check_out' THEN 1 ELSE 0 END) as MixedCount,
+                    COUNT(*) as TotalDevices
+                FROM StaffDevices", connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            int checkInCount = Convert.ToInt32(reader["CheckInCount"]);
+                            int checkOutCount = Convert.ToInt32(reader["CheckOutCount"]);
+                            int mixedCount = Convert.ToInt32(reader["MixedCount"]);
+                            int totalDevices = Convert.ToInt32(reader["TotalDevices"]);
+
+                            LogHelper.Log($"Staff device analysis - Total: {totalDevices}, Check_In: {checkInCount}, Check_Out: {checkOutCount}, Mixed: {mixedCount}");
+
+                            if (totalDevices == 0)
+                            {
+                                LogHelper.Log("No staff devices available for attendance case decision");
+                                return "1way";
+                            }
+
+                            if (checkInCount > 0 && checkOutCount > 0)
+                            {
+                                LogHelper.Log("✅ 2-way attendance detected: Separate check-in and check-out devices found");
+                                return "2way";
+                            }
+
+                            LogHelper.Log("✅ 1-way attendance detected: Single device type configuration or mixed devices only");
+                            return "1way";
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error deciding attendance case: {ex.Message}");
+                return "1way";
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"Error in DecideAttendanceCase: {ex.Message}");
+                return "1way";
+            }
+
+            LogHelper.Log("Fallback: Defaulting to 1-way attendance");
+            return "1way";
+        }
+
+
+        /// <summary>
+        /// Determine whether the provided IP belongs to a staff device or a member device.
+        /// Returns a tuple: (exists, "staff"|"member"|null, deviceId)
+        /// </summary>
+        public (bool exists, string type, int deviceId) GetDeviceCategoryByIp(string deviceIp)
+        {
+            if (string.IsNullOrWhiteSpace(deviceIp))
+                return (false, null, 0);
+
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // Staff devices stored in StaffDevices with encrypted DeviceIP
+                    using (var cmd = new SqlCommand("SELECT TOP 1 StaffDeviceId FROM StaffDevices WHERE DeviceIP = @ip", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ip", Encrypt(deviceIp));
+                        var res = cmd.ExecuteScalar();
+                        if (res != null && res != DBNull.Value)
+                            return (true, "staff", Convert.ToInt32(res));
+                    }
+
+                    // Member (attendance) devices stored in Devices with encrypted DeviceIP
+                    using (var cmd2 = new SqlCommand("SELECT TOP 1 DeviceId FROM Devices WHERE DeviceIP = @ip", connection))
+                    {
+                        cmd2.Parameters.AddWithValue("@ip", Encrypt(deviceIp));
+                        var res2 = cmd2.ExecuteScalar();
+                        if (res2 != null && res2 != DBNull.Value)
+                            return (true, "member", Convert.ToInt32(res2));
+                    }
+
+                    return (false, null, 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetDeviceCategoryByIp][ERROR] IP={deviceIp} : {ex.Message}");
+                return (false, null, 0);
+            }
+        }
+
+
+        ////////////////////////////////////////////STAFF HELPERS////////////////////////////////////////////
+
+        /// <summary>
+        /// Ensures all biometric modalities for the given staff+device are synced, and if so
+        /// marks Staff.SyncStatus[staffDeviceId] = true.
+        /// Returns true when a DB change was made (flag was set true), false otherwise.
+        /// </summary>
+        public async Task<bool> CheckAndUpdateStaffDeviceSyncStatus(string staffId, int staffDeviceId)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                // Ensure a StaffLog exists for this staff + device
+                bool logExists = false;
+                using (var checkCmd = new SqlCommand(
+                    "SELECT TOP 1 1 FROM StaffLog WHERE StaffID = @staffId AND StaffDeviceId = @sdid",
+                    connection))
+                {
+                    checkCmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                    checkCmd.Parameters.AddWithValue("@sdid", staffDeviceId);
+                    logExists = (await checkCmd.ExecuteScalarAsync()) != null;
+                }
+
+                if (!logExists) return false;
+
+                // Ensure all biometric modalities in the StaffLog are already synced
+                bool allSynced = true;
+                using (var cmd = new SqlCommand(
+                    "SELECT BiometricData, SyncStatus FROM StaffLog WHERE StaffID = @staffId AND StaffDeviceId = @sdid",
+                    connection))
+                {
+                    cmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@sdid", staffDeviceId);
+
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var bioJson = Convert.ToString(reader["BiometricData"]) ?? "{}";
+                            var syncJson = Convert.ToString(reader["SyncStatus"]) ?? "{}";
+
+                            var biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(bioJson) ?? new Dictionary<string, string>();
+                            var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncJson) ?? new Dictionary<string, bool>();
+
+                            allSynced = biometricData.Keys.All(key =>
+                                syncStatus.ContainsKey(key) && syncStatus[key]);
+                        }
+                    }
+                }
+
+                if (!allSynced) return false;
+
+                // Mark Staff.SyncStatus[staffDeviceId] = true (if not already true)
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        Dictionary<int, bool> staffSyncStatus = new Dictionary<int, bool>();
+
+                        using (var cmd = new SqlCommand(
+                            "SELECT SyncStatus FROM Staff WHERE StaffID = @staffId",
+                            connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                            var result = await cmd.ExecuteScalarAsync();
+                            if (result != null && result != DBNull.Value)
+                            {
+                                staffSyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(result.ToString())
+                                                  ?? new Dictionary<int, bool>();
+                            }
+                        }
+
+                        // Skip DB write if already true
+                        bool alreadyTrue;
+                        if (staffSyncStatus.TryGetValue(staffDeviceId, out alreadyTrue) && alreadyTrue)
+                        {
+                            transaction.Commit();
+                            return false; // no change performed
+                        }
+
+                        staffSyncStatus[staffDeviceId] = true;
+
+                        using (var updateCmd = new SqlCommand(
+                            "UPDATE Staff SET SyncStatus = @syncStatus WHERE StaffID = @staffId",
+                            connection, transaction))
+                        {
+                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(staffSyncStatus));
+                            updateCmd.Parameters.AddWithValue("@staffId", staffId ?? string.Empty);
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+
+                        LogHelper.Log($"Updated staff {staffId} sync status for device {staffDeviceId}");
+
+                        transaction.Commit();
+                        return true; // changed
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        LogHelper.Log($"Error updating staff sync status: {ex.Message}");
+                        return false;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the AttendanceId for a staff (by StaffID).
+        /// Resolves EnrollmentID from Staff table, then looks up StaffAttendanceLog by EnrollmentID.
+        /// If checkIn provided matches CheckInTime it will be used, likewise checkOut for CheckOutTime.
+        /// Otherwise returns the latest non-empty AttendanceId for that enrollment.
+        /// </summary>
+        public string GetAttendanceIdForStaff(string staffId, DateTime? checkIn = null, DateTime? checkOut = null)
+        {
+            if (string.IsNullOrWhiteSpace(staffId)) return null;
+
+            try
+            {
+                using (var conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    int? enrollmentId = null;
+                    using (var cmd = new SqlCommand("SELECT TOP 1 EnrollmentID FROM Staff WHERE StaffID = @sid", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@sid", staffId);
+                        var r = cmd.ExecuteScalar();
+                        if (r == null || r == DBNull.Value) return null;
+                        enrollmentId = Convert.ToInt32(r);
+                    }
+
+                    if (!enrollmentId.HasValue) return null;
+
+                    string sql;
+                    if (checkIn.HasValue)
+                    {
+                        sql = "SELECT TOP 1 AttendanceId FROM StaffAttendanceLog WHERE EnrollmentID = @enr AND CheckInTime = @checkIn";
+                    }
+                    else if (checkOut.HasValue)
+                    {
+                        sql = "SELECT TOP 1 AttendanceId FROM StaffAttendanceLog WHERE EnrollmentID = @enr AND CheckOutTime = @checkOut";
                     }
                     else
                     {
-                        command.Parameters.AddWithValue("@deviceId", DBNull.Value);
+                        sql = "SELECT TOP 1 AttendanceId FROM StaffAttendanceLog WHERE EnrollmentID = @enr AND AttendanceId IS NOT NULL AND LTRIM(RTRIM(AttendanceId)) <> '' ORDER BY CheckInTime DESC";
                     }
 
-                    command.ExecuteNonQuery();
+                    using (var cmd2 = new SqlCommand(sql, conn))
+                    {
+                        cmd2.Parameters.AddWithValue("@enr", enrollmentId.Value);
+                        if (checkIn.HasValue) cmd2.Parameters.AddWithValue("@checkIn", checkIn.Value);
+                        if (checkOut.HasValue) cmd2.Parameters.AddWithValue("@checkOut", checkOut.Value);
+
+                        var result = cmd2.ExecuteScalar();
+                        return result == null || result == DBNull.Value ? null : result.ToString();
+                    }
                 }
+            }
+            catch (SqlException ex)
+            {
+                LogHelper.Log($"[GetAttendanceIdForStaff][ERROR] StaffID={staffId}: {ex.Message}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetAttendanceIdForStaff][ERROR] StaffID={staffId}: {ex.Message}");
+                return null;
             }
         }
 
 
 
-        /////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        ////////////////////////////////////// STAFF //////////////////////////////////////////
+        /// <summary>
+        /// Filters and updates all staff GLog records.
+        /// 2-way case:
+        ///   - Uses all unprocessed (Filter=0) rows from BOTH check-in & check-out devices together.
+        ///   - Pairs earliest check-in with earliest checkout AFTER it.
+        ///   - Skips (ignores) any extra check-ins occurring before that paired checkout.
+        ///   - Continues until no further checkout; keeps the earliest remaining check-in as an open session.
+        /// 1-way case: original alternating logic.
+        /// Call this ONCE after inserting all device logs for the cycle.
+        /// </summary>
+        public List<GLogRecord> FilterAndUpdateStaffGLogRecordsByDate()
+        {
+            var filteredRecords = new List<GLogRecord>();
+            try
+            {
+                string attendanceCase = DecideAttendanceCase();
+                LogHelper.Log($"[StaffPair] Starting pairing run. Case={attendanceCase}");
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var tx = connection.BeginTransaction())
+                    {
+                        // -------------- NEW: Re-open previously filtered rows for dates that received new logs --------------
+                        // Scenario: We first processed only Check_In device -> open check-in was marked Filter=1 Sync=1.
+                        // Later Check_Out logs arrive (Sync=0). We must reprocess the whole date & enrollment.
+                        if (attendanceCase == "2way")
+                        {
+                            string reopenSql = @"
+UPDATE StaffGLog
+SET Sync = 0,
+    Filter = 0
+WHERE EXISTS (
+    SELECT 1
+    FROM StaffGLog sg2
+    WHERE sg2.EnrollmentNumber = StaffGLog.EnrollmentNumber
+      AND CONVERT(DATE, sg2.DeviceTime) = CONVERT(DATE, StaffGLog.DeviceTime)
+      AND sg2.Sync = 0            -- new (still unpaired) rows just inserted (e.g. check-outs)
+);";
+                            using (var reopenCmd = new SqlCommand(reopenSql, connection, tx))
+                            {
+                                int reopened = reopenCmd.ExecuteNonQuery();
+                                LogHelper.Log($"[StaffPair] Reopened {reopened} previously processed rows for re-evaluation (if any).");
+                            }
+                        }
+                        // -------------------------------------------------------------------------------------------------------
+
+                        // Map device types
+                        var deviceTypeMap = new Dictionary<int, string>();
+                        using (var mapCmd = new SqlCommand("SELECT StaffDeviceId, LOWER(ISNULL(StaffAttendanceType,'')) t FROM StaffDevices", connection, tx))
+                        using (var r = mapCmd.ExecuteReader())
+                        {
+                            while (r.Read())
+                            {
+                                string raw = r.GetString(1);
+                                string eff = raw == "check_in" ? "Check_In"
+                                           : raw == "check_out" ? "Check_Out"
+                                           : "Mixed";
+                                deviceTypeMap[r.GetInt32(0)] = eff;
+                            }
+                        }
+
+                        // NOTE: We now always pick rows with Sync=0 (after reopen step they all get Sync=0 for affected dates)
+                        string selectSql = @"
+                            SELECT LogId, StaffDeviceId, EnrollmentNumber, DeviceTime, OriginalLine,
+                                   Sync, DeviceType, Filter, CreatedOn, UpdatedOn,
+                                   CONVERT(DATE, DeviceTime) AS RecordDate
+                            FROM StaffGLog
+                            WHERE Sync = 0
+                            ORDER BY EnrollmentNumber, CONVERT(DATE, DeviceTime), DeviceTime";
+                        var all = new List<dynamic>();
+                        using (var cmd = new SqlCommand(selectSql, connection, tx))
+                        using (var r = cmd.ExecuteReader())
+                        {
+                            while (r.Read())
+                            {
+                                int devId = r.GetInt32(1);
+                                string eff;
+                                if (!deviceTypeMap.TryGetValue(devId, out eff))
+                                    eff = "Unknown";
+                                if (attendanceCase == "2way" && eff == "Mixed")
+                                {
+                                    var stored = (r["DeviceType"]?.ToString() ?? "").ToLower();
+                                    if (stored == "check_in") eff = "Check_In";
+                                    else if (stored == "check_out") eff = "Check_Out";
+                                    else eff = "Unknown";
+                                }
+                                all.Add(new
+                                {
+                                    LogId = r.GetInt32(0),
+                                    StaffDeviceId = devId,
+                                    EnrollmentNumber = r["EnrollmentNumber"].ToString(),
+                                    DeviceTime = DateTime.Parse(r["DeviceTime"].ToString()),
+                                    DeviceTimeText = r["DeviceTime"].ToString(),
+                                    OriginalLine = r["OriginalLine"].ToString(),
+                                    Sync = Convert.ToBoolean(r["Sync"]),
+                                    OriginalDeviceType = r["DeviceType"]?.ToString() ?? "unknown",
+                                    EffectiveType = eff,
+                                    Filter = r["Filter"] != DBNull.Value && Convert.ToBoolean(r["Filter"]),
+                                    CreatedOn = r["CreatedOn"].ToString(),
+                                    UpdatedOn = r["UpdatedOn"].ToString(),
+                                    RecordDate = r["RecordDate"].ToString()
+                                });
+                            }
+                        }
+
+                        LogHelper.Log($"[StaffPair] Loaded {all.Count} rows for pairing after reopen phase.");
+
+                        var grouped = all.GroupBy(g => new { g.EnrollmentNumber, g.RecordDate }).ToList();
+                        var selectedIds = new HashSet<int>();
+                        var openIds = new HashSet<int>();
+                        var ignoredIds = new HashSet<int>();
+
+                        // --- UPDATED inside FilterAndUpdateStaffGLogRecordsByDate() loop over grouped ---
+                        foreach (var group in grouped)
+                        {
+                            LogHelper.Log($"[StaffPair] Group Enroll={group.Key.EnrollmentNumber} Date={group.Key.RecordDate} Total={group.Count()}");
+                            if (attendanceCase == "2way")
+                            {
+                                PairTwoWay(group.ToList(), selectedIds, openIds, ignoredIds, filteredRecords);
+                            }
+                            else
+                            {
+                                // One-way (single / mixed device) pairing
+                                PairOneWay(group.OrderBy(x => x.DeviceTime).ToList(), selectedIds, ignoredIds, filteredRecords);
+                            }
+                        }
+
+                        string ts = GetTimestamp();
+                        if (selectedIds.Count > 0)
+                        {
+                            string updateSelected = $"UPDATE StaffGLog SET Sync=1, Filter=1, UpdatedOn=@ts WHERE LogId IN ({string.Join(",", selectedIds)})";
+                            using (var us = new SqlCommand(updateSelected, connection, tx))
+                            {
+                                us.Parameters.AddWithValue("@ts", ts);
+                                int n = us.ExecuteNonQuery();
+                                LogHelper.Log($"[StaffPair] Marked {n} paired/open rows Filter=1 Sync=1.");
+                            }
+                        }
+                        var toIgnore = ignoredIds.Except(selectedIds).ToList();
+                        if (toIgnore.Count > 0)
+                        {
+                            string updateIgnored = $"UPDATE StaffGLog SET Sync=1, Filter=0, UpdatedOn=@ts WHERE LogId IN ({string.Join(",", toIgnore)})";
+                            using (var ui = new SqlCommand(updateIgnored, connection, tx))
+                            {
+                                ui.Parameters.AddWithValue("@ts", ts);
+                                int n = ui.ExecuteNonQuery();
+                                LogHelper.Log($"[StaffPair] Marked {n} ignored rows Filter=0 Sync=1.");
+                            }
+                        }
+
+                        tx.Commit();
+                        LogHelper.Log($"[StaffPair] Finished. Output filtered rows={filteredRecords.Count}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[StaffPair][ERROR] {ex.Message}");
+                throw;
+            }
+
+            return filteredRecords;
+        }
+
+        public string GetStaffDeviceAttendanceAction(int staffMachineNo)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand("SELECT TOP 1 StaffAttendanceType FROM StaffDevices WHERE MachineNo = @m", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@m", staffMachineNo);
+                        var result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return null;
+
+                        var raw = Convert.ToString(result)?.Trim();
+                        if (string.IsNullOrEmpty(raw)) return null;
+
+                        var norm = raw.ToLowerInvariant();
+
+                        // Common normalization patterns
+                        if (norm.Contains("check_in") || norm.Contains("check-in") || norm.Contains("check in"))
+                        {
+                            // If it also contains check_out, return combined
+                            if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out") || norm.Contains("/"))
+                                return "check-in/check-out";
+
+                            return "check-in";
+                        }
+
+                        if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out"))
+                        {
+                            return "check-out";
+                        }
+
+                        // fallback: return the raw normalized value to preserve info
+                        return norm;
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                LogHelper.Log($"[GetStaffDeviceAttendanceAction][ERROR] MachineNo={staffMachineNo}: {ex.Message}");
+                return null;
+            }
+        }
+
+        public string GetStaffIdByEnrollment(int enrollmentId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand("SELECT TOP 1 StaffID FROM Staff WHERE EnrollmentID = @enroll", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@enroll", enrollmentId);
+                        var result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return null;
+                        return Convert.ToString(result);
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                LogHelper.Log($"[GetStaffIdByEnrollment][ERROR] Enroll={enrollmentId}: {ex.Message}");
+                return null;
+            }
+        }
+
+        public string GetEffectiveStaffActionForDevice(int staffMachineNo, int enrollmentId, DateTime deviceTime)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    using (var cmd = new SqlCommand("SELECT TOP 1 StaffAttendanceType FROM StaffDevices WHERE MachineNo = @m", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@m", staffMachineNo);
+                        var raw = cmd.ExecuteScalar();
+                        if (raw == null || raw == DBNull.Value) return null;
+
+                        string type = Convert.ToString(raw)?.Trim();
+                        if (string.IsNullOrEmpty(type)) return null;
+
+                        string norm = type.ToLowerInvariant();
+
+                        // If explicitly single-mode, return that regardless of session state
+                        if (norm == "check_in" || norm == "check-in") return "check-in";
+                        if (norm == "check_out" || norm == "check-out") return "check-out";
+
+                        // Mixed / ambiguous / "both" / "check-in/check-out"
+                        // Logic: Resolve based on current local DB state within a 24-hour window
+                        using (var q = new SqlCommand(@"
+                            SELECT TOP 1 LogID
+                            FROM StaffAttendanceLog
+                            WHERE EnrollmentID = @enr 
+                              AND CheckOutTime IS NULL 
+                              AND CheckInTime >= DATEADD(HOUR, -24, @now)
+                            ORDER BY CheckInTime DESC", connection))
+                        {
+                            q.Parameters.AddWithValue("@enr", enrollmentId);
+                            q.Parameters.AddWithValue("@now", deviceTime); // Use the current device event time as the reference
+                            var result = q.ExecuteScalar();
+
+                            if (result != null && result != DBNull.Value)
+                            {
+                                // Found an open session within the last 24 hours -> This new event MUST be a Check-Out
+                                LogHelper.Log($"[GetEffectiveStaffAction] Open session found (LogID={result}) for Enroll={enrollmentId} within 24h. Resolving as check-out.");
+                                return "check-out";
+                            }
+
+                            // No open session within 24 hours -> This new event is a Check-In
+                            return "check-in";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetEffectiveStaffAction][ERROR] Machine={staffMachineNo}, Enroll={enrollmentId}: {ex.Message}");
+                return "check-in"; // Fallback
+            }
+        }
+
+        public DateTime? GetPairedCheckInTimeForStaff(string staffId, DateTime checkOutTime)
+        {
+            if (string.IsNullOrWhiteSpace(staffId)) return null;
+
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    // Resolve enrollment id for the staff
+                    int? enrollmentId = null;
+                    using (var ecmd = new SqlCommand("SELECT TOP 1 EnrollmentID FROM Staff WHERE StaffID = @sid", connection))
+                    {
+                        ecmd.Parameters.AddWithValue("@sid", staffId);
+                        var er = ecmd.ExecuteScalar();
+                        if (er == null || er == DBNull.Value) return null;
+                        enrollmentId = Convert.ToInt32(er);
+                    }
+
+                    if (!enrollmentId.HasValue) return null;
+
+                    const string query = @"
+                SELECT TOP 1 CheckInTime
+                FROM StaffAttendanceLog
+                WHERE EnrollmentID = @enr
+                  AND CheckOutTime = @checkOut
+                ";
+
+                    using (var command = new SqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@enr", enrollmentId.Value);
+                        command.Parameters.AddWithValue("@checkOut", checkOutTime.ToString("yyyy-MM-dd HH:mm:ss"));
+
+                        var result = command.ExecuteScalar();
+                        if (result != null && result != DBNull.Value)
+                        {
+                            var checkInText = Convert.ToString(result);
+                            if (DateTime.TryParse(checkInText, out var parsedCheckIn))
+                                return parsedCheckIn;
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                LogHelper.Log($"[GetPairedCheckInTimeForStaff][ERROR] StaffID={staffId}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetPairedCheckInTimeForStaff][ERROR] StaffID={staffId}: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        public int InsertStaffCheckInByStaffId(string staffId, string checkInValue)
+        {
+            if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkInValue))
+                return 0;
+
+            try
+            {
+                int? enrollmentId = null;
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    using (var cmd = new SqlCommand("SELECT TOP 1 EnrollmentID FROM Staff WHERE StaffID = @sid", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@sid", staffId);
+                        var result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return 0;
+                        enrollmentId = Convert.ToInt32(result);
+                    }
+
+                    if (!enrollmentId.HasValue) return 0;
+
+                    // Reuse existing InsertStaffAttendanceLog which handles duplicates and insert logic
+                    int newId = InsertStaffAttendanceLog(enrollmentId.Value, checkInValue);
+                    if (newId > 0)
+                        LogHelper.Log($"[InsertStaffCheckInByStaffId] Inserted check-in LogID={newId} StaffID={staffId} Enroll={enrollmentId} Time={checkInValue}");
+                    else
+                        LogHelper.Log($"[InsertStaffCheckInByStaffId] No insertion performed (possible duplicate) StaffID={staffId} Enroll={enrollmentId} Time={checkInValue}");
+
+                    return newId;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[InsertStaffCheckInByStaffId][ERROR] StaffID={staffId}: {ex.Message}");
+                return 0;
+            }
+        }
+
+        public bool InsertStaffCheckOutByStaffId(string staffId, string checkOutValue)
+        {
+            if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkOutValue))
+                return false;
+
+            try
+            {
+                int? enrollmentId = null;
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    using (var cmd = new SqlCommand("SELECT TOP 1 EnrollmentID FROM Staff WHERE StaffID = @sid", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@sid", staffId);
+                        var result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return false;
+                        enrollmentId = Convert.ToInt32(result);
+                    }
+                }
+
+                if (!enrollmentId.HasValue) return false;
+
+                // Reuse existing UpdateStaffAttendanceLogForCheckOut which implements pairing and validation
+                bool success = UpdateStaffAttendanceLogForCheckOut(enrollmentId.Value, checkOutValue);
+                LogHelper.Log($"[InsertStaffCheckOutByStaffId] StaffID={staffId} Enroll={enrollmentId} Time={checkOutValue} Success={success}");
+                return success;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[InsertStaffCheckOutByStaffId][ERROR] StaffID={staffId}: {ex.Message}");
+                return false;
+            }
+        }
 
         public Staff GetStaff(string staffId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT StaffID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, SyncStatus FROM Staff WHERE StaffID = @StaffID", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    command.Parameters.AddWithValue("@StaffID", staffId);
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT TOP 1 StaffID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, SyncStatus FROM Staff WHERE StaffID = @StaffID", connection))
+                    {
+                        command.Parameters.AddWithValue("@StaffID", staffId);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var syncStatusJson = reader.IsDBNull(7) ? "{}" : reader.GetString(7);
+                                return new Staff
+                                {
+                                    StaffID = reader.GetString(0),
+                                    Name = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                    Status = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    RFID = reader.IsDBNull(3) ? null : reader.GetString(3),
+                                    Picture = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    Fingerprint = !reader.IsDBNull(5) && reader.GetBoolean(5),
+                                    EnrollmentID = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
+                                    SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>()
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting staff: {ex.Message}");
+            }
+            return null;
+        }
+
+
+        public List<Staff> GetStaffs()
+        {
+            var staffs = new List<Staff>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT StaffID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, SyncStatus FROM Staff", connection))
                     using (var reader = command.ExecuteReader())
                     {
-                        if (reader.Read())
+                        while (reader.Read())
                         {
                             var syncStatusJson = reader.IsDBNull(7) ? "{}" : reader.GetString(7);
-                            return new Staff
+                            staffs.Add(new Staff
                             {
                                 StaffID = reader.GetString(0),
                                 Name = reader.IsDBNull(1) ? null : reader.GetString(1),
@@ -5435,43 +6484,18 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
                                 Fingerprint = !reader.IsDBNull(5) && reader.GetBoolean(5),
                                 EnrollmentID = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
                                 SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>()
-                            };
+                            });
                         }
                     }
                 }
             }
-            return null;
-        }
-
-        public List<Staff> GetStaffs()
-        {
-            var staffs = new List<Staff>();
-            using (var connection = new SQLiteConnection(connectionString))
+            catch (SqlException ex)
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT StaffID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, SyncStatus FROM Staff", connection))
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var syncStatusJson = reader.IsDBNull(7) ? "{}" : reader.GetString(7);
-                        staffs.Add(new Staff
-                        {
-                            StaffID = reader.GetString(0),
-                            Name = reader.IsDBNull(1) ? null : reader.GetString(1),
-                            Status = reader.IsDBNull(2) ? null : reader.GetString(2),
-                            RFID = reader.IsDBNull(3) ? null : reader.GetString(3),
-                            Picture = reader.IsDBNull(4) ? null : reader.GetString(4),
-                            Fingerprint = !reader.IsDBNull(5) && reader.GetBoolean(5),
-                            EnrollmentID = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
-                            SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>()
-                        });
-                    }
-                }
+                Console.WriteLine($"Error getting staffs: {ex.Message}");
             }
             return staffs;
         }
+
 
         public void UpsertStaff(JObject staff)
         {
@@ -5510,28 +6534,22 @@ WHERE LOWER(TRIM(IFNULL(m.Status, ''))) = 'active'
 
             string syncStatusJson = JsonConvert.SerializeObject(syncStatus);
 
-            using (var conn = new SQLiteConnection(connectionString))
+            using (var conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-                using (var tx = conn.BeginTransaction())
+                using (var transaction = conn.BeginTransaction())
                 {
                     try
                     {
-                        using (var cmd = new SQLiteCommand(conn))
+                        using (var cmd = new SqlCommand(@"
+MERGE Staff AS target
+USING (SELECT @id AS StaffID, @name AS Name, @status AS Status, @rfid AS RFID, @picture AS Picture, @fingerprint AS Fingerprint, @enrollment_id AS EnrollmentID, @syncStatus AS SyncStatus, @createdAt AS CreatedAt, @updatedAt AS UpdatedAt) AS source
+ON target.StaffID = source.StaffID
+WHEN MATCHED THEN
+    UPDATE SET Name = source.Name, Status = source.Status, RFID = source.RFID, Picture = source.Picture, Fingerprint = source.Fingerprint, EnrollmentID = source.EnrollmentID, SyncStatus = source.SyncStatus, UpdatedAt = source.UpdatedAt
+WHEN NOT MATCHED THEN
+    INSERT (StaffID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, SyncStatus, CreatedAt, UpdatedAt) VALUES (source.StaffID, source.Name, source.Status, source.RFID, source.Picture, source.Fingerprint, source.EnrollmentID, source.SyncStatus, source.CreatedAt, source.UpdatedAt);", conn, transaction))
                         {
-                            cmd.CommandText = @"
-INSERT INTO Staff 
-(StaffID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, SyncStatus, CreatedAt, UpdatedAt)
-VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @syncStatus, @createdAt, @updatedAt)
-ON CONFLICT(StaffID) DO UPDATE SET
-    Name = excluded.Name,
-    Status = excluded.Status,
-    RFID = excluded.RFID,
-    Picture = excluded.Picture,
-    Fingerprint = excluded.Fingerprint,
-    EnrollmentID = excluded.EnrollmentID,
-    SyncStatus = excluded.SyncStatus,
-    UpdatedAt = excluded.UpdatedAt;";
                             cmd.Parameters.AddWithValue("@id", staffId ?? "");
                             cmd.Parameters.AddWithValue("@name", name);
                             cmd.Parameters.AddWithValue("@status", status);
@@ -5544,11 +6562,11 @@ ON CONFLICT(StaffID) DO UPDATE SET
                             cmd.Parameters.AddWithValue("@updatedAt", timestamp);
                             cmd.ExecuteNonQuery();
                         }
-                        tx.Commit();
+                        transaction.Commit();
                     }
                     catch (Exception ex)
                     {
-                        tx.Rollback();
+                        transaction.Rollback();
                         LogHelper.Log($"Error upserting staff {staffId}: {ex.Message}");
                         throw;
                     }
@@ -5559,79 +6577,79 @@ ON CONFLICT(StaffID) DO UPDATE SET
         // Delete staff by ID
         public void DeleteStaffById(string staffId)
         {
-            using (var conn = new SQLiteConnection(connectionString))
+            using (var conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-                using (var cmd = new SQLiteCommand("DELETE FROM Staff WHERE StaffID = @id", conn))
+                using (var transaction = conn.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@id", staffId);
-                    cmd.ExecuteNonQuery();
+                    try
+                    {
+                        using (var cmd = new SqlCommand("DELETE FROM Staff WHERE StaffID = @id", conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@id", staffId);
+                            cmd.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error deleting staff: {ex.Message}");
+                        throw;
+                    }
                 }
             }
             LogHelper.Log($"🗑 Staff {staffId} deleted from local DB.");
         }
 
-        // Get staff ID (string) by EnrollmentID. Returns null when not found.
-        public string GetStaffIdByEnrollment(int enrollmentId)
-        {
-            try
-            {
-                using (var connection = new SQLiteConnection(connectionString))
-                {
-                    connection.Open();
-                    using (var cmd = new SQLiteCommand(
-                        "SELECT StaffID FROM Staff WHERE EnrollmentID = @enroll LIMIT 1", connection))
-                    {
-                        cmd.Parameters.AddWithValue("@enroll", enrollmentId);
-                        var result = cmd.ExecuteScalar();
-                        if (result == null || result == DBNull.Value) return null;
-                        return Convert.ToString(result);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[GetStaffIdByEnrollment][ERROR] {ex.Message}");
-            }
-            return null;
-        }
-
         // Insert a new staff device
         public void SaveStaffDevice(Device device)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    string timestamp = GetTimestamp();
+                    try
+                    {
+                        string timestamp = GetTimestamp();
 
-                    string encryptedSerial = Encrypt(device.DeviceSerial);
-                    string encryptedIP = Encrypt(device.DeviceIP);
+                        string encryptedSerial = Encrypt(device.DeviceSerial);
+                        string encryptedIP = Encrypt(device.DeviceIP);
 
-                    command.CommandText = @"
+                        using (var command = new SqlCommand(@"
 INSERT INTO StaffDevices 
 (Department, StaffAttendanceType, DeviceSerial, DeviceIP, Port, TimeZone, Location, ConnectionType, IsActive, LastSyncTime, FaceCapacity, RFIDCapacity, FingerCapacity, MachineNo, CreatedAt, UpdatedAt, Password) 
 VALUES 
-(@Department, @StaffAttendanceType, @DeviceSerial, @DeviceIP, @Port, @TimeZone, @Location, @ConnectionType, @IsActive, @LastSyncTime, @FaceCapacity, @RFIDCapacity, @FingerCapacity, @MachineNo, @CreatedAt, @UpdatedAt, @Password)";
-                    command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@StaffAttendanceType", device.StaffAttendanceType ?? "");
-                    command.Parameters.AddWithValue("@DeviceSerial", encryptedSerial);
-                    command.Parameters.AddWithValue("@DeviceIP", encryptedIP);
-                    command.Parameters.AddWithValue("@Port", device.Port);
-                    command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
-                    command.Parameters.AddWithValue("@Location", device.Location);
-                    command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
-                    command.Parameters.AddWithValue("@IsActive", device.IsActive);
-                    command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
-                    command.Parameters.AddWithValue("@CreatedAt", timestamp);
-                    command.Parameters.AddWithValue("@UpdatedAt", timestamp);
-                    command.Parameters.AddWithValue("@Password", device.Password);
-                    command.ExecuteNonQuery();
+(@Department, @StaffAttendanceType, @DeviceSerial, @DeviceIP, @Port, @TimeZone, @Location, @ConnectionType, @IsActive, @LastSyncTime, @FaceCapacity, @RFIDCapacity, @FingerCapacity, @MachineNo, @CreatedAt, @UpdatedAt, @Password)", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@StaffAttendanceType", device.StaffAttendanceType ?? "");
+                            command.Parameters.AddWithValue("@DeviceSerial", encryptedSerial);
+                            command.Parameters.AddWithValue("@DeviceIP", encryptedIP);
+                            command.Parameters.AddWithValue("@Port", device.Port);
+                            command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
+                            command.Parameters.AddWithValue("@Location", device.Location);
+                            command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
+                            command.Parameters.AddWithValue("@IsActive", device.IsActive);
+                            command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
+                            command.Parameters.AddWithValue("@CreatedAt", timestamp);
+                            command.Parameters.AddWithValue("@UpdatedAt", timestamp);
+                            command.Parameters.AddWithValue("@Password", device.Password);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error saving staff device: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -5639,10 +6657,14 @@ VALUES
         // Update an existing staff device
         public void UpdateStaffDevice(Device device)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand(@"
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var command = new SqlCommand(@"
 UPDATE StaffDevices
 SET 
     Department = @Department,
@@ -5659,37 +6681,60 @@ SET
     MachineNo = @MachineNo,
     Password = @Password,
     UpdatedAt = @UpdatedAt
-WHERE StaffDeviceId = @StaffDeviceId", connection))
-                {
-                    command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@StaffAttendanceType", device.StaffAttendanceType ?? "");
-                    command.Parameters.AddWithValue("@Port", device.Port);
-                    command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
-                    command.Parameters.AddWithValue("@Location", device.Location);
-                    command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
-                    command.Parameters.AddWithValue("@IsActive", device.IsActive);
-                    command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
-                    command.Parameters.AddWithValue("@Password", device.Password);
-                    command.Parameters.AddWithValue("@UpdatedAt", GetTimestamp());
-                    command.Parameters.AddWithValue("@StaffDeviceId", device.StaffDeviceId);
-                    command.ExecuteNonQuery();
+WHERE StaffDeviceId = @StaffDeviceId", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@Department", (object)device.Department ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@StaffAttendanceType", device.StaffAttendanceType ?? "");
+                            command.Parameters.AddWithValue("@Port", device.Port);
+                            command.Parameters.AddWithValue("@TimeZone", device.TimeZone);
+                            command.Parameters.AddWithValue("@Location", device.Location);
+                            command.Parameters.AddWithValue("@ConnectionType", device.ConnectionType);
+                            command.Parameters.AddWithValue("@IsActive", device.IsActive);
+                            command.Parameters.AddWithValue("@LastSyncTime", (object)device.LastSyncTime ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@FaceCapacity", (object)device.FaceCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@RFIDCapacity", (object)device.RFIDCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@FingerCapacity", (object)device.FingerCapacity ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@MachineNo", device.MachineNo);
+                            command.Parameters.AddWithValue("@Password", device.Password);
+                            command.Parameters.AddWithValue("@UpdatedAt", GetTimestamp());
+                            command.Parameters.AddWithValue("@StaffDeviceId", device.StaffDeviceId);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating staff device: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
+
         // Delete a staff device
         public void DeleteStaffDevice(int staffDeviceId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SQLiteCommand("DELETE FROM StaffDevices WHERE StaffDeviceId = @StaffDeviceId", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    command.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        using (var command = new SqlCommand("DELETE FROM StaffDevices WHERE StaffDeviceId = @StaffDeviceId", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
+                            command.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error deleting staff device: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -5698,69 +6743,71 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
         public List<Device> LoadStaffDevices()
         {
             var devices = new List<Device>();
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var command = new SQLiteCommand(
-                    "SELECT StaffDeviceId, Department, StaffAttendanceType, DeviceSerial, DeviceIP, Port, MachineNo, TimeZone, Location, ConnectionType, IsActive, LastSyncTime, FaceCapacity, RFIDCapacity, FingerCapacity, Password, CreatedAt, UpdatedAt FROM StaffDevices", connection))
-                using (var reader = command.ExecuteReader())
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    while (reader.Read())
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT StaffDeviceId, Department, StaffAttendanceType, DeviceSerial, DeviceIP, Port, MachineNo, TimeZone, Location, ConnectionType, IsActive, LastSyncTime, FaceCapacity, RFIDCapacity, FingerCapacity, Password, CreatedAt, UpdatedAt FROM StaffDevices", connection))
+                    using (var reader = command.ExecuteReader())
                     {
-                        devices.Add(new Device
+                        while (reader.Read())
                         {
-                            StaffDeviceId = reader.GetInt32(0),
-                            Department = reader.IsDBNull(1) ? null : reader.GetString(1),
-                            StaffAttendanceType = reader.IsDBNull(2) ? null : reader.GetString(2),
-                            DeviceSerial = Decrypt(reader.IsDBNull(3) ? null : reader.GetString(3)),
-                            DeviceIP = Decrypt(reader.IsDBNull(4) ? null : reader.GetString(4)),
-                            Port = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                            MachineNo = reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
-                            TimeZone = reader.IsDBNull(7) ? null : reader.GetString(7),
-                            Location = reader.IsDBNull(8) ? null : reader.GetString(8),
-                            ConnectionType = reader.IsDBNull(9) ? null : reader.GetString(9),
-                            IsActive = !reader.IsDBNull(10) && Convert.ToBoolean(reader.GetValue(10)),
-                            LastSyncTime = reader.IsDBNull(11) ? null : reader.GetString(11),
-                            FaceCapacity = reader.IsDBNull(12) ? 0 : reader.GetInt32(12),
-                            RFIDCapacity = reader.IsDBNull(13) ? 0 : reader.GetInt32(13),
-                            FingerCapacity = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
-                            Password = reader.IsDBNull(15) ? null : reader.GetString(15),
-                            CreatedAt = reader.IsDBNull(16) ? null : reader.GetString(16),
-                            UpdatedAt = reader.IsDBNull(17) ? null : reader.GetString(17)
-                        });
+                            devices.Add(new Device
+                            {
+                                StaffDeviceId = reader.GetInt32(0),
+                                Department = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                StaffAttendanceType = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                DeviceSerial = reader.IsDBNull(3) ? null : Decrypt(reader.GetString(3)),
+                                DeviceIP = reader.IsDBNull(4) ? null : Decrypt(reader.GetString(4)),
+                                Port = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
+                                MachineNo = reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
+                                TimeZone = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                Location = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                ConnectionType = reader.IsDBNull(9) ? null : reader.GetString(9),
+                                IsActive = !reader.IsDBNull(10) && reader.GetBoolean(10),
+                                LastSyncTime = reader.IsDBNull(11) ? null : reader.GetString(11),
+                                FaceCapacity = reader.IsDBNull(12) ? 0 : reader.GetInt32(12),
+                                RFIDCapacity = reader.IsDBNull(13) ? 0 : reader.GetInt32(13),
+                                FingerCapacity = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
+                                Password = reader.IsDBNull(15) ? null : reader.GetString(15),
+                                CreatedAt = reader.IsDBNull(16) ? null : reader.GetDateTime(16).ToString("yyyy-MM-dd HH:mm:ss"),
+                                UpdatedAt = reader.IsDBNull(17) ? null : reader.GetDateTime(17).ToString("yyyy-MM-dd HH:mm:ss")
+                            });
+                        }
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error loading staff devices: {ex.Message}");
             }
             return devices;
         }
 
-        public int GetNextStaffDeviceId()
-        {
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-                using (var cmd = new SQLiteCommand("SELECT IFNULL(MAX(StaffDeviceId), 0) + 1 FROM StaffDevices", connection))
-                {
-                    return Convert.ToInt32(cmd.ExecuteScalar());
-                }
-            }
-        }
-
         public bool StaffDeviceExists(string deviceIP, int machineNo)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var cmd = new SQLiteCommand("SELECT COUNT(1) FROM StaffDevices WHERE DeviceIP = @ip AND MachineNo = @machineNo", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    cmd.Parameters.AddWithValue("@ip", Encrypt(deviceIP));
-                    cmd.Parameters.AddWithValue("@machineNo", machineNo);
-                    var count = Convert.ToInt32(cmd.ExecuteScalar());
-                    return count > 0;
+                    connection.Open();
+                    using (var cmd = new SqlCommand("SELECT COUNT(1) FROM StaffDevices WHERE DeviceIP = @ip AND MachineNo = @machineNo", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ip", Encrypt(deviceIP));
+                        cmd.Parameters.AddWithValue("@machineNo", machineNo);
+                        var count = Convert.ToInt32(cmd.ExecuteScalar());
+                        return count > 0;
+                    }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error checking staff device exists: {ex.Message}");
+                return false;
+            }
         }
-
 
         /// <summary>
         /// Gets the staff device ID by machine number for staff devices.
@@ -5771,11 +6818,11 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    using (var cmd = new SQLiteCommand(
-                        "SELECT StaffDeviceId FROM StaffDevices WHERE MachineNo = @machineNo LIMIT 1", connection))
+                    using (var cmd = new SqlCommand(
+                        "SELECT TOP 1 StaffDeviceId FROM StaffDevices WHERE MachineNo = @machineNo", connection))
                     {
                         cmd.Parameters.AddWithValue("@machineNo", machineNo);
                         var result = cmd.ExecuteScalar();
@@ -5784,6 +6831,10 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting staff device ID by machine number: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 LogHelper.Log($"Error getting staff device ID for machine number {machineNo}: {ex.Message}");
@@ -5791,28 +6842,34 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
             return null;
         }
 
-
         // Query function to get staff device details by StaffDeviceId
         public (string ip, int machineNo, int port) GetStaffDeviceDetails(int staffDeviceId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-                using (var cmd = new SQLiteCommand("SELECT DeviceIP, MachineNo, Port FROM StaffDevices WHERE StaffDeviceId = @staffDeviceId", connection))
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    cmd.Parameters.AddWithValue("@staffDeviceId", staffDeviceId);
-                    using (var reader = cmd.ExecuteReader())
+                    connection.Open();
+                    using (var cmd = new SqlCommand("SELECT DeviceIP, MachineNo, Port FROM StaffDevices WHERE StaffDeviceId = @staffDeviceId", connection))
                     {
-                        if (reader.Read())
+                        cmd.Parameters.AddWithValue("@staffDeviceId", staffDeviceId);
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            var ipEncrypted = reader["DeviceIP"] != DBNull.Value ? reader["DeviceIP"].ToString() : null;
-                            string ip = string.IsNullOrEmpty(ipEncrypted) ? null : Decrypt(ipEncrypted);
-                            int machineNo = reader["MachineNo"] != DBNull.Value ? Convert.ToInt32(reader["MachineNo"]) : 0;
-                            int port = reader["Port"] != DBNull.Value ? Convert.ToInt32(reader["Port"]) : 0;
-                            return (ip, machineNo, port);
+                            if (reader.Read())
+                            {
+                                var ipEncrypted = reader["DeviceIP"] != DBNull.Value ? reader["DeviceIP"].ToString() : null;
+                                string ip = string.IsNullOrEmpty(ipEncrypted) ? null : Decrypt(ipEncrypted);
+                                int machineNo = reader["MachineNo"] != DBNull.Value ? Convert.ToInt32(reader["MachineNo"]) : 0;
+                                int port = reader["Port"] != DBNull.Value ? Convert.ToInt32(reader["Port"]) : 0;
+                                return (ip, machineNo, port);
+                            }
                         }
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting staff device details: {ex.Message}");
             }
             return (null, 0, 0);
         }
@@ -5821,15 +6878,26 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-
-                    using (var command = new SQLiteCommand("DELETE FROM StaffGLog WHERE StaffDeviceId = @StaffDeviceId", connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        command.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
-                        int rowsAffected = command.ExecuteNonQuery();
-                        LogHelper.Log($"✅ Deleted {rowsAffected} StaffGLog record(s) for StaffDeviceId {staffDeviceId}");
+                        try
+                        {
+                            using (var command = new SqlCommand("DELETE FROM StaffGLog WHERE StaffDeviceId = @StaffDeviceId", connection, transaction))
+                            {
+                                command.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
+                                int rowsAffected = command.ExecuteNonQuery();
+                                transaction.Commit();
+                                LogHelper.Log($"✅ Deleted {rowsAffected} StaffGLog record(s) for StaffDeviceId {staffDeviceId}");
+                            }
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error deleting StaffGLog records: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -5846,13 +6914,25 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
         {
             try
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    string query = "DELETE FROM StaffGLog";
-                    using (var command = new SQLiteCommand(query, connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        command.ExecuteNonQuery();
+                        try
+                        {
+                            string query = "DELETE FROM StaffGLog";
+                            using (var command = new SqlCommand(query, connection, transaction))
+                            {
+                                command.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error deleting all StaffGLogs: {ex.Message}");
+                        }
                     }
                 }
                 LogHelper.Log("✅ Successfully deleted all StaffGLog records from the database");
@@ -5863,387 +6943,428 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
             }
         }
 
-
         // Insert a staff GLog record
         public void InsertStaffGLog(int staffDeviceId, string enrollmentNumber, string deviceTime, string originalLine, bool sync, string deviceType, bool filter)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-
-                // Check for duplicate record
-                using (var checkCommand = new SQLiteCommand(@"
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Check for duplicate record
+                        using (var checkCommand = new SqlCommand(@"
             SELECT COUNT(*) FROM StaffGLog 
             WHERE StaffDeviceId = @StaffDeviceId 
             AND EnrollmentNumber = @EnrollmentNumber 
             AND DeviceTime = @DeviceTime 
-            AND OriginalLine = @OriginalLine", connection))
-                {
-                    checkCommand.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
-                    checkCommand.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
-                    checkCommand.Parameters.AddWithValue("@DeviceTime", deviceTime);
-                    checkCommand.Parameters.AddWithValue("@OriginalLine", originalLine);
+            AND OriginalLine = @OriginalLine", connection, transaction))
+                        {
+                            checkCommand.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
+                            checkCommand.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
+                            checkCommand.Parameters.AddWithValue("@DeviceTime", deviceTime);
+                            checkCommand.Parameters.AddWithValue("@OriginalLine", originalLine);
 
-                    int existingCount = Convert.ToInt32(checkCommand.ExecuteScalar());
-                    if (existingCount > 0)
-                    {
-                        // Duplicate found, skip insertion
-                        LogHelper.Log($"Duplicate StaffGLog record detected - skipping insert for enrollment {enrollmentNumber} at {deviceTime}");
-                        return;
-                    }
-                }
+                            int existingCount = Convert.ToInt32(checkCommand.ExecuteScalar());
+                            if (existingCount > 0)
+                            {
+                                // Duplicate found, skip insertion
+                                LogHelper.Log($"Duplicate StaffGLog record detected - skipping insert for enrollment {enrollmentNumber} at {deviceTime}");
+                                transaction.Commit();
+                                return;
+                            }
+                        }
 
-                // Insert new record
-                using (var command = new SQLiteCommand(connection))
-                {
-                    string timestamp = GetTimestamp();
-                    command.CommandText = @"
+                        // Insert new record
+                        using (var command = new SqlCommand(@"
                 INSERT INTO StaffGLog (StaffDeviceId, EnrollmentNumber, DeviceTime, OriginalLine, Sync, DeviceType, Filter, CreatedOn, UpdatedOn)
-                VALUES (@StaffDeviceId, @EnrollmentNumber, @DeviceTime, @OriginalLine, @Sync, @DeviceType, @Filter, @CreatedOn, @UpdatedOn)";
-                    command.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
-                    command.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
-                    command.Parameters.AddWithValue("@DeviceTime", deviceTime);
-                    command.Parameters.AddWithValue("@OriginalLine", originalLine);
-                    command.Parameters.AddWithValue("@Sync", sync);
-                    command.Parameters.AddWithValue("@DeviceType", deviceType);
-                    command.Parameters.AddWithValue("@Filter", filter);
-                    command.Parameters.AddWithValue("@CreatedOn", timestamp);
-                    command.Parameters.AddWithValue("@UpdatedOn", timestamp);
+                VALUES (@StaffDeviceId, @EnrollmentNumber, @DeviceTime, @OriginalLine, @Sync, @DeviceType, @Filter, @CreatedOn, @UpdatedOn)", connection, transaction))
+                        {
+                            string timestamp = GetTimestamp();
+                            command.Parameters.AddWithValue("@StaffDeviceId", staffDeviceId);
+                            command.Parameters.AddWithValue("@EnrollmentNumber", enrollmentNumber);
+                            command.Parameters.AddWithValue("@DeviceTime", deviceTime);
+                            command.Parameters.AddWithValue("@OriginalLine", originalLine);
+                            command.Parameters.AddWithValue("@Sync", sync);
+                            command.Parameters.AddWithValue("@DeviceType", deviceType);
+                            command.Parameters.AddWithValue("@Filter", filter);
+                            command.Parameters.AddWithValue("@CreatedOn", timestamp);
+                            command.Parameters.AddWithValue("@UpdatedOn", timestamp);
 
-                    command.ExecuteNonQuery();
-                    LogHelper.Log($"Successfully inserted StaffGLog record for enrollment {enrollmentNumber} at {deviceTime}");
+                            command.ExecuteNonQuery();
+                            transaction.Commit();
+                            LogHelper.Log($"Successfully inserted StaffGLog record for enrollment {enrollmentNumber} at {deviceTime}");
+                        }
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error inserting StaffGLog record: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
 
-        /// <summary>
-        /// For staff devices that are configured as "check-in/check-out" (or similar mixed values),
-        /// determine whether this incoming event for the given enrollment (and time) should be
-        /// treated as a "check-in" or "check-out".
-        /// Rules:
-        ///  - If device's StaffAttendanceType is explicit ("check_in" / "check-out") return that.
-        ///  - If device's StaffAttendanceType indicates both (e.g. "check-in/check-out", "check_in/check_out", "both")
-        ///    then examine StaffAttendanceLog for an open session (CheckOutTime IS NULL). If an open session exists
-        ///    return "check-out", otherwise return "check-in".
-        /// Returns null on error or when device record not found.
-        /// </summary>
-        public string GetEffectiveStaffActionForDevice(int staffMachineNo, int enrollmentId, DateTime deviceTime)
+        public int InsertStaffAttendanceLog(int enrollmentId, string checkInValue, string name)
         {
-            try
+            if (string.IsNullOrWhiteSpace(checkInValue))
+                return 0;
+
+            DateTime checkInDt;
+            if (!DateTime.TryParse(checkInValue, out checkInDt))
+                return 0;
+
+            string timestamp = GetTimestamp();
+            int newLogId = 0;
+
+            using (var connection = new SqlConnection(connectionString))
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
                 {
-                    connection.Open();
-
-                    using (var cmd = new SQLiteCommand(
-                        "SELECT StaffAttendanceType FROM StaffDevices WHERE MachineNo = @m LIMIT 1", connection))
+                    try
                     {
-                        cmd.Parameters.AddWithValue("@m", staffMachineNo);
-                        var raw = cmd.ExecuteScalar();
-                        if (raw == null || raw == DBNull.Value) return null;
-
-                        string type = Convert.ToString(raw)?.Trim();
-                        if (string.IsNullOrEmpty(type)) return null;
-
-                        string norm = type.ToLowerInvariant();
-
-                        // If explicitly single-mode
-                        if (norm.Contains("check_in") || norm.Contains("check-in") || norm.Contains("check in"))
-                            return "check-in";
-                        if (norm.Contains("check_out") || norm.Contains("check-out") || norm.Contains("check out"))
-                            return "check-out";
-
-                        // Mixed / ambiguous -> decide by looking for an open staff attendance session
-                        // Treat values like "check-in/check-out", "check_in/check_out", "both", "/" as mixed.
-                        if (norm.Contains("/") || norm.Contains("both") || norm.Contains("check"))
+                        // OPTIONAL index (run once; harmless if already exists)
+                        using (var idx = new SqlCommand(
+                            @"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.StaffAttendanceLog') AND name = 'IX_StaffAttendanceLog_Enrollment_CheckIn')
+                    CREATE INDEX IX_StaffAttendanceLog_Enrollment_CheckIn ON dbo.StaffAttendanceLog(EnrollmentID, CheckInTime);",
+                            connection, transaction))
                         {
-                            // Look for an open StaffAttendanceLog for this enrollment
-                            using (var q = new SQLiteCommand(@"
-                                SELECT LogID, CheckInTime
-                                FROM StaffAttendanceLog
-                                WHERE EnrollmentID = @enr AND CheckOutTime IS NULL
-                                ORDER BY datetime(CheckInTime) DESC
-                                LIMIT 1", connection))
+                            idx.ExecuteNonQuery();
+                        }
+
+                        // 1. If exact duplicate (same enrollment + same check-in timestamp) -> return existing
+                        using (var dupCmd = new SqlCommand(
+                            @"SELECT TOP 1 LogID FROM StaffAttendanceLog 
+                      WHERE EnrollmentID = @enrollmentId AND CheckInTime = @checkIn", connection, transaction))
+                        {
+                            dupCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                            dupCmd.Parameters.AddWithValue("@checkIn", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            var existing = dupCmd.ExecuteScalar();
+                            if (existing != null && existing != DBNull.Value)
                             {
-                                q.Parameters.AddWithValue("@enr", enrollmentId);
-                                using (var r = q.ExecuteReader())
-                                {
-                                    if (r.Read())
-                                    {
-                                        // There is an open session -> this event is a checkout
-                                        return "check-out";
-                                    }
-                                    else
-                                    {
-                                        // No open session -> treat as check-in
-                                        return "check-in";
-                                    }
-                                }
+                                transaction.Commit();
+                                return Convert.ToInt32(existing);
                             }
                         }
 
-                        // Fallback: return normalized raw value
-                        return norm;
+                        // 2. Prevent multiple OPEN logs for the same calendar date:
+                        using (var openSameDateCmd = new SqlCommand(
+                            @"SELECT TOP 1 LogID FROM StaffAttendanceLog
+                      WHERE EnrollmentID = @enrollmentId
+                        AND CheckOutTime IS NULL
+                        AND CONVERT(DATE, CheckInTime) = CONVERT(DATE, @checkInDate)
+                      ORDER BY CheckInTime DESC", connection, transaction))
+                        {
+                            openSameDateCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                            openSameDateCmd.Parameters.AddWithValue("@checkInDate", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            var openSameDate = openSameDateCmd.ExecuteScalar();
+                            if (openSameDate != null && openSameDate != DBNull.Value)
+                            {
+                                // Decide policy: either ignore or update existing open log's CheckInTime.
+                                // Here we IGNORE new duplicate-day check-in to avoid orphan pairs.
+                                transaction.Commit();
+                                return Convert.ToInt32(openSameDate);
+                            }
+                        }
+
+                        // 3. Insert new row (include Name)
+                        using (var insert = new SqlCommand(
+                            @"INSERT INTO StaffAttendanceLog
+                      (EnrollmentID, AttendanceId, Name, CheckInTime, CheckOutTime, CreatedAt, UpdatedAt)
+                      VALUES (@enrollmentId, NULL, @name, @checkIn, NULL, @createdAt, @updatedAt);
+                      SELECT SCOPE_IDENTITY();", connection, transaction))
+                        {
+                            insert.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                            insert.Parameters.AddWithValue("@name", (object)name ?? DBNull.Value);  // Use the passed name
+                            insert.Parameters.AddWithValue("@checkIn", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            insert.Parameters.AddWithValue("@createdAt", timestamp);
+                            insert.Parameters.AddWithValue("@updatedAt", timestamp);
+
+                            var result = insert.ExecuteScalar();
+                            newLogId = result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error inserting staff attendance log: {ex.Message}");
+                        return 0;
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[GetEffectiveStaffActionForDevice][ERROR] MachineNo={staffMachineNo}, Enroll={enrollmentId} : {ex.Message}");
-                return null;
-            }
+            return newLogId;
         }
 
         // Insert or update staff biometric log for a single staff/device
         public async Task InsertOrUpdateStaffLogAsync(string staffId, int staffDeviceId)
         {
             var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
-
-                // Load staff biometric sources
-                string rfid = null;
-                bool hasFingerprint = false;
-                int? enrollmentId = null;
-                string picture = null;
-                using (var cmd = new SQLiteCommand(
-                    "SELECT RFID, Fingerprint, EnrollmentID, Picture FROM Staff WHERE StaffID = @sid", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@sid", staffId);
-                    using (var r = await cmd.ExecuteReaderAsync())
+                    try
                     {
-                        if (await r.ReadAsync())
+                        // Load staff biometric sources
+                        string rfid = null;
+                        bool hasFingerprint = false;
+                        int? enrollmentId = null;
+                        string picture = null;
+                        using (var cmd = new SqlCommand(
+                            "SELECT RFID, Fingerprint, EnrollmentID, Picture FROM Staff WHERE StaffID = @sid", connection, transaction))
                         {
-                            rfid = r["RFID"] != DBNull.Value ? r["RFID"].ToString() : null;
-                            hasFingerprint = r["Fingerprint"] != DBNull.Value && Convert.ToBoolean(r["Fingerprint"]);
-                            enrollmentId = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null;
-                            picture = r["Picture"] != DBNull.Value ? r["Picture"].ToString() : null;
+                            cmd.Parameters.AddWithValue("@sid", staffId);
+                            using (var r = await cmd.ExecuteReaderAsync())
+                            {
+                                if (await r.ReadAsync())
+                                {
+                                    rfid = r["RFID"] != DBNull.Value ? r["RFID"].ToString() : null;
+                                    hasFingerprint = r["Fingerprint"] != DBNull.Value && Convert.ToBoolean(r["Fingerprint"]);
+                                    enrollmentId = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null;
+                                    picture = r["Picture"] != DBNull.Value ? r["Picture"].ToString() : null;
+                                }
+                            }
                         }
-                    }
-                }
 
-                // Face file check (reuse FACE folder pattern with StaffID file name if applicable)
-                var faceDir = Path.Combine(Directory.GetCurrentDirectory(), "FACE");
-                var facePath = Path.Combine(faceDir, $"{staffId}.jpg");
-                bool hasFace = !string.IsNullOrWhiteSpace(picture) && File.Exists(facePath);
+                        // Face file check (reuse FACE folder pattern with StaffID file name if applicable)
+                        var faceDir = Path.Combine(Directory.GetCurrentDirectory(), "FACE");
+                        var facePath = Path.Combine(faceDir, $"{staffId}.jpg");
+                        bool hasFace = !string.IsNullOrWhiteSpace(picture) && File.Exists(facePath);
 
-                // Prepare desired payload
-                var biometricData = new Dictionary<string, string>();
-                var syncStatus = new Dictionary<string, bool>();
-                if (!string.IsNullOrWhiteSpace(rfid))
-                {
-                    biometricData["RFID"] = rfid;
-                    syncStatus["RFID"] = false;
-                }
-                if (hasFace)
-                {
-                    biometricData["Face"] = facePath;
-                    syncStatus["Face"] = false;
-                }
-                if (hasFingerprint && enrollmentId.HasValue)
-                {
-                    biometricData["Fingerprint"] = enrollmentId.Value.ToString();
-                    syncStatus["Fingerprint"] = false;
-                }
-
-                // If nothing to sync, return
-                if (biometricData.Count == 0) return;
-
-                // Check existing StaffLog
-                bool exists = false;
-                Dictionary<string, string> existingBio = null;
-                Dictionary<string, bool> existingSync = null;
-                using (var check = new SQLiteCommand(
-                    "SELECT BiometricData, SyncStatus FROM StaffLog WHERE StaffID = @sid AND StaffDeviceId = @sdid", connection))
-                {
-                    check.Parameters.AddWithValue("@sid", staffId);
-                    check.Parameters.AddWithValue("@sdid", staffDeviceId);
-                    using (var r = await check.ExecuteReaderAsync())
-                    {
-                        if (await r.ReadAsync())
+                        // Prepare desired payload
+                        var biometricData = new Dictionary<string, string>();
+                        var syncStatus = new Dictionary<string, bool>();
+                        if (!string.IsNullOrWhiteSpace(rfid))
                         {
-                            exists = true;
-                            existingBio = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(r["BiometricData"])) ?? new Dictionary<string, string>();
-                            existingSync = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(r["SyncStatus"])) ?? new Dictionary<string, bool>();
+                            biometricData["RFID"] = rfid;
+                            syncStatus["RFID"] = false;
                         }
-                    }
-                }
-
-                // Merge and detect changes
-                bool needsUpdate = !exists;
-                if (exists)
-                {
-                    foreach (var kv in biometricData)
-                    {
-                        if (!existingBio.ContainsKey(kv.Key) || existingBio[kv.Key] != kv.Value)
+                        if (hasFace)
                         {
-                            needsUpdate = true;
-                            break;
+                            biometricData["Face"] = facePath;
+                            syncStatus["Face"] = false;
                         }
-                    }
-                    // Also remove stale modalities if present
-                    foreach (var k in existingBio.Keys.ToList())
-                    {
-                        if (!biometricData.ContainsKey(k))
+                        if (hasFingerprint && enrollmentId.HasValue)
                         {
-                            needsUpdate = true;
-                            break;
+                            biometricData["Fingerprint"] = enrollmentId.Value.ToString();
+                            syncStatus["Fingerprint"] = false;
                         }
-                    }
-                }
 
-                if (!needsUpdate) return;
-
-                // Merge old modalities (retain previous ones not present in new payload)
-                if (exists)
-                {
-                    foreach (var kv in existingBio)
-                    {
-                        if (!biometricData.ContainsKey(kv.Key))
+                        // If nothing to sync, return
+                        if (biometricData.Count == 0)
                         {
-                            biometricData[kv.Key] = kv.Value;
-                            syncStatus[kv.Key] = existingSync.ContainsKey(kv.Key) ? existingSync[kv.Key] : false;
+                            transaction.Commit();
+                            return;
                         }
-                    }
-                }
 
-                var bioJson = JsonConvert.SerializeObject(biometricData);
-                var syncJson = JsonConvert.SerializeObject(syncStatus);
+                        // Check existing StaffLog
+                        bool exists = false;
+                        Dictionary<string, string> existingBio = null;
+                        Dictionary<string, bool> existingSync = null;
+                        using (var check = new SqlCommand(
+                            "SELECT BiometricData, SyncStatus FROM StaffLog WHERE StaffID = @sid AND StaffDeviceId = @sdid", connection, transaction))
+                        {
+                            check.Parameters.AddWithValue("@sid", staffId);
+                            check.Parameters.AddWithValue("@sdid", staffDeviceId);
+                            using (var r = await check.ExecuteReaderAsync())
+                            {
+                                if (await r.ReadAsync())
+                                {
+                                    exists = true;
+                                    existingBio = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(r["BiometricData"])) ?? new Dictionary<string, string>();
+                                    existingSync = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(r["SyncStatus"])) ?? new Dictionary<string, bool>();
+                                }
+                            }
+                        }
 
-                if (exists)
-                {
-                    using (var upd = new SQLiteCommand(
-                        @"UPDATE StaffLog
-                  SET EnrollmentID = @enr,
-                      BiometricData = @bio,
-                      SyncStatus = @sync,
-                      UpdatedAt = @ts
-                  WHERE StaffID = @sid AND StaffDeviceId = @sdid", connection))
-                    {
-                        upd.Parameters.AddWithValue("@enr", enrollmentId ?? (object)DBNull.Value);
-                        upd.Parameters.AddWithValue("@bio", bioJson);
-                        upd.Parameters.AddWithValue("@sync", syncJson);
-                        upd.Parameters.AddWithValue("@ts", timestamp);
-                        upd.Parameters.AddWithValue("@sid", staffId);
-                        upd.Parameters.AddWithValue("@sdid", staffDeviceId);
-                        await upd.ExecuteNonQueryAsync();
+                        // Merge and detect changes
+                        bool needsUpdate = !exists;
+                        if (exists)
+                        {
+                            foreach (var kv in biometricData)
+                            {
+                                if (!existingBio.ContainsKey(kv.Key) || existingBio[kv.Key] != kv.Value)
+                                {
+                                    needsUpdate = true;
+                                    break;
+                                }
+                            }
+                            // Also remove stale modalities if present
+                            foreach (var k in existingBio.Keys.ToList())
+                            {
+                                if (!biometricData.ContainsKey(k))
+                                {
+                                    needsUpdate = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!needsUpdate)
+                        {
+                            transaction.Commit();
+                            return;
+                        }
+
+                        // Merge old modalities (retain previous ones not present in new payload)
+                        if (exists)
+                        {
+                            foreach (var kv in existingBio)
+                            {
+                                if (!biometricData.ContainsKey(kv.Key))
+                                {
+                                    biometricData[kv.Key] = kv.Value;
+                                    syncStatus[kv.Key] = existingSync.ContainsKey(kv.Key) ? existingSync[kv.Key] : false;
+                                }
+                            }
+                        }
+
+                        var bioJson = JsonConvert.SerializeObject(biometricData);
+                        var syncJson = JsonConvert.SerializeObject(syncStatus);
+
+                        if (exists)
+                        {
+                            using (var upd = new SqlCommand(
+                                @"UPDATE StaffLog
+                          SET EnrollmentID = @enr,
+                              BiometricData = @bio,
+                              SyncStatus = @sync,
+                              UpdatedAt = @ts
+                          WHERE StaffID = @sid AND StaffDeviceId = @sdid", connection, transaction))
+                            {
+                                upd.Parameters.AddWithValue("@enr", enrollmentId ?? (object)DBNull.Value);
+                                upd.Parameters.AddWithValue("@bio", bioJson);
+                                upd.Parameters.AddWithValue("@sync", syncJson);
+                                upd.Parameters.AddWithValue("@ts", timestamp);
+                                upd.Parameters.AddWithValue("@sid", staffId);
+                                upd.Parameters.AddWithValue("@sdid", staffDeviceId);
+                                await upd.ExecuteNonQueryAsync();
+                            }
+                        }
+                        else
+                        {
+                            using (var ins = new SqlCommand(
+                                @"INSERT INTO StaffLog (StaffID, StaffDeviceId, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt)
+                          VALUES (@sid, @sdid, @enr, @bio, @sync, @ts, @ts)", connection, transaction))
+                            {
+                                ins.Parameters.AddWithValue("@sid", staffId);
+                                ins.Parameters.AddWithValue("@sdid", staffDeviceId);
+                                ins.Parameters.AddWithValue("@enr", enrollmentId ?? (object)DBNull.Value);
+                                ins.Parameters.AddWithValue("@bio", bioJson);
+                                ins.Parameters.AddWithValue("@sync", syncJson);
+                                ins.Parameters.AddWithValue("@ts", timestamp);
+                                await ins.ExecuteNonQueryAsync();
+                            }
+                        }
+                        transaction.Commit();
                     }
-                }
-                else
-                {
-                    using (var ins = new SQLiteCommand(
-                        @"INSERT INTO StaffLog (StaffID, StaffDeviceId, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt)
-                  VALUES (@sid, @sdid, @enr, @bio, @sync, @ts, @ts)", connection))
+                    catch (SqlException ex)
                     {
-                        ins.Parameters.AddWithValue("@sid", staffId);
-                        ins.Parameters.AddWithValue("@sdid", staffDeviceId);
-                        ins.Parameters.AddWithValue("@enr", enrollmentId ?? (object)DBNull.Value);
-                        ins.Parameters.AddWithValue("@bio", bioJson);
-                        ins.Parameters.AddWithValue("@sync", syncJson);
-                        ins.Parameters.AddWithValue("@ts", timestamp);
-                        await ins.ExecuteNonQueryAsync();
+                        transaction.Rollback();
+                        Console.WriteLine($"Error inserting or updating staff log: {ex.Message}");
+                        throw;
                     }
                 }
             }
         }
-
-
-
-        // Utility: delete staff logs by staffId
-        public int DeleteStaffLogs(string staffId)
-        {
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-                using (var cmd = new SQLiteCommand("DELETE FROM StaffLog WHERE StaffID = @sid", connection))
-                {
-                    cmd.Parameters.AddWithValue("@sid", staffId);
-                    return cmd.ExecuteNonQuery();
-                }
-            }
-        }
-
 
         public async Task InsertLogsForAllStaffAsync(string staffId)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
-
-                try
+                using (var transaction = connection.BeginTransaction())
                 {
-                    // Get all active staff device IDs
-                    var staffDeviceIds = new List<int>();
-                    using (var cmd = new SQLiteCommand(
-                        "SELECT StaffDeviceId FROM StaffDevices WHERE IsActive = 1;", connection))
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    try
                     {
-                        while (await reader.ReadAsync())
+                        // Get all active staff device IDs
+                        var staffDeviceIds = new List<int>();
+                        using (var cmd = new SqlCommand(
+                            "SELECT StaffDeviceId FROM StaffDevices WHERE IsActive = 1;", connection, transaction))
+                        using (var reader = await cmd.ExecuteReaderAsync())
                         {
-                            staffDeviceIds.Add(reader.GetInt32(0));
+                            while (await reader.ReadAsync())
+                            {
+                                staffDeviceIds.Add(reader.GetInt32(0));
+                            }
                         }
-                    }
 
-                    if (staffDeviceIds.Count == 0)
+                        if (staffDeviceIds.Count == 0)
+                        {
+                            LogHelper.Log($"[Staff] No active staff devices found for StaffID {staffId}. Skipping.");
+                            transaction.Commit();
+                            return;
+                        }
+
+                        // Process each staff device: upsert StaffLog per device
+                        foreach (var staffDeviceId in staffDeviceIds)
+                        {
+                            try
+                            {
+                                await InsertOrUpdateStaffLogAsync(staffId, staffDeviceId);
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.Log($"[Staff] Error processing StaffDeviceId {staffDeviceId} for StaffID {staffId}: {ex.Message}");
+                            }
+                        }
+
+                        transaction.Commit();
+                        LogHelper.Log($"[Staff] Log processing complete for StaffID {staffId}. Success: 1, Failed: 0, Total: {staffDeviceIds.Count}");
+                    }
+                    catch (Exception ex)
                     {
-                        LogHelper.Log($"[Staff] No active staff devices found for StaffID {staffId}. Skipping.");
-                        return;
+                        transaction.Rollback();
+                        LogHelper.Log($"[Staff] Error inserting logs for StaffID {staffId}: {ex.Message}");
+                        LogHelper.Log($"[Staff] Log processing complete for StaffID {staffId}. Success: 0, Failed: 1, Total: 0");
                     }
-
-                    // Process each staff device: upsert StaffLog per device
-                    foreach (var staffDeviceId in staffDeviceIds)
-                    {
-                        try
-                        {
-                            await InsertOrUpdateStaffLogAsync(staffId, staffDeviceId);
-                        }
-                        catch (Exception ex)
-                        {
-                            LogHelper.Log($"[Staff] Error processing StaffDeviceId {staffDeviceId} for StaffID {staffId}: {ex.Message}");
-                        }
-                    }
-
-                    LogHelper.Log($"[Staff] Log processing complete for StaffID {staffId}. Success: 1, Failed: 0, Total: {staffDeviceIds.Count}");
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Log($"[Staff] Error inserting logs for StaffID {staffId}: {ex.Message}");
-                    LogHelper.Log($"[Staff] Log processing complete for StaffID {staffId}. Success: 0, Failed: 1, Total: 0");
                 }
             }
         }
+
         // Staff: fetch unsynced StaffLog entries
         public async Task<List<StaffLogEntry>> GetUnsyncedStaffLogEntriesAsync()
         {
             var result = new List<StaffLogEntry>();
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                await connection.OpenAsync();
-                using (var cmd = new SQLiteCommand(
-                    "SELECT Id, StaffID, StaffDeviceId, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt " +
-                    "FROM StaffLog WHERE SyncStatus LIKE '%false%'", connection))
-                using (var r = await cmd.ExecuteReaderAsync())
+                using (var connection = new SqlConnection(connectionString))
                 {
-                    while (await r.ReadAsync())
+                    await connection.OpenAsync();
+                    using (var cmd = new SqlCommand(
+                        "SELECT Id, StaffID, StaffDeviceId, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt " +
+                        "FROM StaffLog WHERE SyncStatus LIKE '%false%'", connection))
+                    using (var r = await cmd.ExecuteReaderAsync())
                     {
-                        var sync = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(r["SyncStatus"])) ?? new Dictionary<string, bool>();
-                        if (sync.Any(s => !s.Value))
+                        while (await r.ReadAsync())
                         {
-                            result.Add(new StaffLogEntry
+                            var sync = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(r["SyncStatus"])) ?? new Dictionary<string, bool>();
+                            if (sync.Any(s => !s.Value))
                             {
-                                Id = Convert.ToInt32(r["Id"]),
-                                StaffID = Convert.ToString(r["StaffID"]),
-                                StaffDeviceId = Convert.ToInt32(r["StaffDeviceId"]),
-                                EnrollmentID = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null,
-                                BiometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(r["BiometricData"])) ?? new Dictionary<string, string>(),
-                                SyncStatus = sync,
-                                CreatedAt = Convert.ToString(r["CreatedAt"]),
-                                UpdatedAt = Convert.ToString(r["UpdatedAt"])
-                            });
+                                result.Add(new StaffLogEntry
+                                {
+                                    Id = Convert.ToInt32(r["Id"]),
+                                    StaffID = Convert.ToString(r["StaffID"]),
+                                    StaffDeviceId = Convert.ToInt32(r["StaffDeviceId"]),
+                                    EnrollmentID = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null,
+                                    BiometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(r["BiometricData"])) ?? new Dictionary<string, string>(),
+                                    SyncStatus = sync,
+                                    CreatedAt = Convert.ToString(r["CreatedAt"]),
+                                    UpdatedAt = Convert.ToString(r["UpdatedAt"])
+                                });
+                            }
                         }
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting unsynced staff log entries: {ex.Message}");
             }
             return result;
         }
@@ -6251,220 +7372,75 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
         // Staff: update a single biometric sync flag in StaffLog
         public async Task UpdateStaffBiometricSyncStatusAsync(int staffLogId, string biometricType, bool isSynced)
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
-                using (var tx = connection.BeginTransaction())
+                using (var transaction = connection.BeginTransaction())
                 {
-                    Dictionary<string, bool> sync = null;
-                    using (var read = new SQLiteCommand("SELECT SyncStatus FROM StaffLog WHERE Id = @id", connection, tx))
+                    try
                     {
-                        read.Parameters.AddWithValue("@id", staffLogId);
-                        var raw = await read.ExecuteScalarAsync();
-                        if (raw == null || raw == DBNull.Value)
-                            throw new InvalidOperationException($"StaffLog entry {staffLogId} not found");
+                        Dictionary<string, bool> sync = null;
+                        using (var read = new SqlCommand("SELECT SyncStatus FROM StaffLog WHERE Id = @id", connection, transaction))
+                        {
+                            read.Parameters.AddWithValue("@id", staffLogId);
+                            var raw = await read.ExecuteScalarAsync();
+                            if (raw == null || raw == DBNull.Value)
+                                throw new InvalidOperationException($"StaffLog entry {staffLogId} not found");
 
-                        sync = JsonConvert.DeserializeObject<Dictionary<string, bool>>(raw.ToString()) ?? new Dictionary<string, bool>();
+                            sync = JsonConvert.DeserializeObject<Dictionary<string, bool>>(raw.ToString()) ?? new Dictionary<string, bool>();
+                        }
+
+                        sync[biometricType] = isSynced;
+
+                        using (var upd = new SqlCommand("UPDATE StaffLog SET SyncStatus = @sync, UpdatedAt = @ts WHERE Id = @id", connection, transaction))
+                        {
+                            upd.Parameters.AddWithValue("@sync", JsonConvert.SerializeObject(sync));
+                            upd.Parameters.AddWithValue("@ts", GetTimestamp());
+                            upd.Parameters.AddWithValue("@id", staffLogId);
+                            await upd.ExecuteNonQueryAsync();
+                        }
+
+                        transaction.Commit();
                     }
-
-                    sync[biometricType] = isSynced;
-
-                    using (var upd = new SQLiteCommand("UPDATE StaffLog SET SyncStatus = @sync, UpdatedAt = @ts WHERE Id = @id", connection, tx))
+                    catch (Exception ex)
                     {
-                        upd.Parameters.AddWithValue("@sync", JsonConvert.SerializeObject(sync));
-                        upd.Parameters.AddWithValue("@ts", GetTimestamp());
-                        upd.Parameters.AddWithValue("@id", staffLogId);
-                        await upd.ExecuteNonQueryAsync();
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating staff biometric sync status: {ex.Message}");
+                        throw;
                     }
-
-                    tx.Commit();
                 }
             }
         }
-
-
-        /// <summary>
-        /// Insert a staff check-in using Staff.StaffID (GUID/string).
-        /// This implementation does NOT call any other helpers — it performs its own DB work.
-        /// Returns the new StaffAttendanceLog.LogID on success, 0 on failure.
-        /// </summary>
-        public int InsertStaffCheckInByStaffId(string staffId, string checkInValue, string name = null)
-        {
-            if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkInValue))
-                return 0;
-
-            try
-            {
-                int? enrollmentId = null;
-                using (var connection = new SQLiteConnection(connectionString))
-                {
-                    connection.Open();
-
-                    using (var cmd = new SQLiteCommand("SELECT EnrollmentID FROM Staff WHERE StaffID = @sid LIMIT 1", connection))
-                    {
-                        cmd.Parameters.AddWithValue("@sid", staffId);
-                        var result = cmd.ExecuteScalar();
-                        if (result == null || result == DBNull.Value) return 0;
-                        enrollmentId = Convert.ToInt32(result);
-                    }
-
-                    if (!enrollmentId.HasValue) return 0;
-
-                    // Prevent exact-duplicate insert (same EnrollmentID + CheckInTime)
-                    using (var chk = new SQLiteCommand(@"SELECT COUNT(1) FROM StaffAttendanceLog 
-                                                        WHERE EnrollmentID = @enr AND CheckInTime = @chkIn LIMIT 1", connection))
-                    {
-                        chk.Parameters.AddWithValue("@enr", enrollmentId.Value);
-                        chk.Parameters.AddWithValue("@chkIn", checkInValue);
-                        var exists = Convert.ToInt32(chk.ExecuteScalar());
-                        if (exists > 0)
-                        {
-                            LogHelper.Log($"[InsertStaffCheckInByStaffId] Duplicate check-in suppressed StaffID={staffId} Enroll={enrollmentId} Time={checkInValue}");
-                            return 0;
-                        }
-                    }
-
-                    string attendanceId = Guid.NewGuid().ToString();
-                    string ts = GetTimestamp();
-
-                    using (var ins = new SQLiteCommand(@"
-                        INSERT INTO StaffAttendanceLog (EnrollmentID, AttendanceId, Name, CheckInTime, CheckOutTime, CreatedAt, UpdatedAt)
-                        VALUES (@enr, @aid, @name, @chkIn, NULL, @createdAt, @updatedAt);
-                        SELECT last_insert_rowid();", connection))
-                    {
-                        ins.Parameters.AddWithValue("@enr", enrollmentId.Value);
-                        ins.Parameters.AddWithValue("@aid", attendanceId);
-                        ins.Parameters.AddWithValue("@name", (object)name ?? string.Empty);
-                        ins.Parameters.AddWithValue("@chkIn", checkInValue);
-                        ins.Parameters.AddWithValue("@createdAt", ts);
-                        ins.Parameters.AddWithValue("@updatedAt", ts);
-
-                        var scalar = ins.ExecuteScalar();
-                        int newId = scalar == null ? 0 : Convert.ToInt32((long)scalar);
-                        LogHelper.Log($"[InsertStaffCheckInByStaffId] Inserted check-in LogID={newId} StaffID={staffId} Enroll={enrollmentId} Time={checkInValue}");
-                        return newId;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[InsertStaffCheckInByStaffId][ERROR] StaffID={staffId}: {ex.Message}");
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// Apply check-out for a staff identified by Staff.StaffID (GUID/string).
-        /// Does NOT reuse other helpers — updates the nearest open StaffAttendanceLog row directly.
-        /// Returns true on success, false otherwise.
-        /// </summary>
-        public bool InsertStaffCheckOutByStaffId(string staffId, string checkOutValue)
-        {
-            if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkOutValue))
-                return false;
-
-            try
-            {
-                int? enrollmentId = null;
-                using (var connection = new SQLiteConnection(connectionString))
-                {
-                    connection.Open();
-
-                    using (var cmd = new SQLiteCommand("SELECT EnrollmentID FROM Staff WHERE StaffID = @sid LIMIT 1", connection))
-                    {
-                        cmd.Parameters.AddWithValue("@sid", staffId);
-                        var result = cmd.ExecuteScalar();
-                        if (result == null || result == DBNull.Value) return false;
-                        enrollmentId = Convert.ToInt32(result);
-                    }
-
-                    if (!enrollmentId.HasValue) return false;
-
-                    // Parse check-out time for validation
-                    DateTime checkOutDt;
-                    if (!DateTime.TryParse(checkOutValue, out checkOutDt))
-                    {
-                        LogHelper.Log($"[InsertStaffCheckOutByStaffId] Invalid check-out time format: {checkOutValue}");
-                        return false;
-                    }
-
-                    // Find the most recent open StaffAttendanceLog for this enrollment
-                    int targetLogId = 0;
-                    string existingCheckIn = null;
-                    using (var sel = new SQLiteCommand(@"
-                        SELECT LogID, CheckInTime 
-                        FROM StaffAttendanceLog 
-                        WHERE EnrollmentID = @enr AND (CheckOutTime IS NULL OR TRIM(CheckOutTime) = '') 
-                        ORDER BY datetime(CheckInTime) DESC
-                        LIMIT 1", connection))
-                    {
-                        sel.Parameters.AddWithValue("@enr", enrollmentId.Value);
-                        using (var r = sel.ExecuteReader())
-                        {
-                            if (r.Read())
-                            {
-                                targetLogId = Convert.ToInt32(r["LogID"]);
-                                existingCheckIn = r["CheckInTime"] != DBNull.Value ? r["CheckInTime"].ToString() : null;
-                            }
-                        }
-                    }
-
-                    if (targetLogId == 0)
-                    {
-                        LogHelper.Log($"[InsertStaffCheckOutByStaffId] No open check-in found for StaffID={staffId} Enroll={enrollmentId}");
-                        return false;
-                    }
-
-                    // Validate chronological order if check-in exists
-                    if (!string.IsNullOrWhiteSpace(existingCheckIn) && DateTime.TryParse(existingCheckIn, out var chkInDt))
-                    {
-                        if (checkOutDt <= chkInDt)
-                        {
-                            LogHelper.Log($"[InsertStaffCheckOutByStaffId] Check-out {checkOutValue} is not after Check-in {existingCheckIn} for LogID={targetLogId}");
-                            return false;
-                        }
-                    }
-
-                    string ts = GetTimestamp();
-                    using (var upd = new SQLiteCommand(@"
-                        UPDATE StaffAttendanceLog
-                        SET CheckOutTime = @chkOut, UpdatedAt = @updatedAt
-                        WHERE LogID = @logId", connection))
-                    {
-                        upd.Parameters.AddWithValue("@chkOut", checkOutValue);
-                        upd.Parameters.AddWithValue("@updatedAt", ts);
-                        upd.Parameters.AddWithValue("@logId", targetLogId);
-                        int rows = upd.ExecuteNonQuery();
-                        LogHelper.Log($"[InsertStaffCheckOutByStaffId] Applied check-out LogID={targetLogId} StaffID={staffId} Enroll={enrollmentId} Time={checkOutValue} Success={rows > 0}");
-                        return rows > 0;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[InsertStaffCheckOutByStaffId][ERROR] StaffID={staffId}: {ex.Message}");
-                return false;
-            }
-        }
-
-
-
 
         public async Task<List<LogBiometricChange>> VerifyAndUpdateStaffLogBiometricsAsync(string staffId)
         {
             var changes = new List<LogBiometricChange>();
 
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
 
                 // Ensure staff exists in StaffLog
                 bool staffExistsInLog = false;
-                using (var checkCmd = new SQLiteCommand("SELECT 1 FROM StaffLog WHERE StaffID = @sid LIMIT 1", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    checkCmd.Parameters.AddWithValue("@sid", staffId);
-                    staffExistsInLog = (await checkCmd.ExecuteScalarAsync()) != null;
+                    try
+                    {
+                        using (var checkCmd = new SqlCommand("SELECT TOP 1 1 FROM StaffLog WHERE StaffID = @sid", connection, transaction))
+                        {
+                            checkCmd.Parameters.AddWithValue("@sid", staffId);
+                            staffExistsInLog = (await checkCmd.ExecuteScalarAsync()) != null;
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error checking staff existence in log: {ex.Message}");
+                        return changes;
+                    }
                 }
+
                 if (!staffExistsInLog)
                 {
                     LogHelper.Log($"[VerifyAndUpdateStaffLogBiometricsAsync] Staff {staffId} not found in StaffLog table. Skipping.");
@@ -6475,18 +7451,31 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
                 string rfid = null, picture = null;
                 bool hasFingerprint = false;
                 int? enrollmentId = null;
-                using (var cmd = new SQLiteCommand("SELECT RFID, Fingerprint, EnrollmentID, Picture FROM Staff WHERE StaffID = @sid", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@sid", staffId);
-                    using (var r = await cmd.ExecuteReaderAsync())
+                    try
                     {
-                        if (await r.ReadAsync())
+                        using (var cmd = new SqlCommand("SELECT RFID, Fingerprint, EnrollmentID, Picture FROM Staff WHERE StaffID = @sid", connection, transaction))
                         {
-                            rfid = r["RFID"] != DBNull.Value ? r["RFID"].ToString() : null;
-                            hasFingerprint = r["Fingerprint"] != DBNull.Value && Convert.ToBoolean(r["Fingerprint"]);
-                            enrollmentId = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null;
-                            picture = r["Picture"] != DBNull.Value ? r["Picture"].ToString() : null;
+                            cmd.Parameters.AddWithValue("@sid", staffId);
+                            using (var r = await cmd.ExecuteReaderAsync())
+                            {
+                                if (await r.ReadAsync())
+                                {
+                                    rfid = r["RFID"] != DBNull.Value ? r["RFID"].ToString() : null;
+                                    hasFingerprint = r["Fingerprint"] != DBNull.Value && Convert.ToBoolean(r["Fingerprint"]);
+                                    enrollmentId = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null;
+                                    picture = r["Picture"] != DBNull.Value ? r["Picture"].ToString() : null;
+                                }
+                            }
                         }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error loading staff biometrics: {ex.Message}");
+                        return changes;
                     }
                 }
 
@@ -6496,13 +7485,26 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
 
                 // Target staff devices present in StaffLog
                 var deviceIds = new List<int>();
-                using (var devCmd = new SQLiteCommand("SELECT DISTINCT StaffDeviceId FROM StaffLog WHERE StaffID = @sid", connection))
+                using (var transaction = connection.BeginTransaction())
                 {
-                    devCmd.Parameters.AddWithValue("@sid", staffId);
-                    using (var r = await devCmd.ExecuteReaderAsync())
+                    try
                     {
-                        while (await r.ReadAsync())
-                            deviceIds.Add(r.GetInt32(0));
+                        using (var devCmd = new SqlCommand("SELECT DISTINCT StaffDeviceId FROM StaffLog WHERE StaffID = @sid", connection, transaction))
+                        {
+                            devCmd.Parameters.AddWithValue("@sid", staffId);
+                            using (var r = await devCmd.ExecuteReaderAsync())
+                            {
+                                while (await r.ReadAsync())
+                                    deviceIds.Add(r.GetInt32(0));
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error getting staff device IDs: {ex.Message}");
+                        return changes;
                     }
                 }
 
@@ -6514,22 +7516,35 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
                     int? logEnrollmentId = null;
                     bool logExists = false;
 
-                    using (var logCmd = new SQLiteCommand(
-                        "SELECT Id, EnrollmentID, BiometricData, SyncStatus FROM StaffLog WHERE StaffID = @sid AND StaffDeviceId = @did",
-                        connection))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        logCmd.Parameters.AddWithValue("@sid", staffId);
-                        logCmd.Parameters.AddWithValue("@did", deviceId);
-                        using (var r = await logCmd.ExecuteReaderAsync())
+                        try
                         {
-                            if (await r.ReadAsync())
+                            using (var logCmd = new SqlCommand(
+                                "SELECT Id, EnrollmentID, BiometricData, SyncStatus FROM StaffLog WHERE StaffID = @sid AND StaffDeviceId = @did",
+                                connection, transaction))
                             {
-                                logExists = true;
-                                logId = r.GetInt32(0);
-                                logEnrollmentId = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null;
-                                biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(r["BiometricData"])) ?? new Dictionary<string, string>();
-                                syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(r["SyncStatus"])) ?? new Dictionary<string, bool>();
+                                logCmd.Parameters.AddWithValue("@sid", staffId);
+                                logCmd.Parameters.AddWithValue("@did", deviceId);
+                                using (var r = await logCmd.ExecuteReaderAsync())
+                                {
+                                    if (await r.ReadAsync())
+                                    {
+                                        logExists = true;
+                                        logId = r.GetInt32(0);
+                                        logEnrollmentId = r["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(r["EnrollmentID"]) : (int?)null;
+                                        biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(r["BiometricData"])) ?? new Dictionary<string, string>();
+                                        syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(r["SyncStatus"])) ?? new Dictionary<string, bool>();
+                                    }
+                                }
                             }
+                            transaction.Commit();
+                        }
+                        catch (SqlException ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error checking log existence: {ex.Message}");
+                            continue;
                         }
                     }
 
@@ -6618,25 +7633,49 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
                     // If nothing remains, delete the log
                     if (biometricData.Count == 0)
                     {
-                        using (var deleteCmd = new SQLiteCommand("DELETE FROM StaffLog WHERE Id = @id", connection))
+                        using (var transaction = connection.BeginTransaction())
                         {
-                            deleteCmd.Parameters.AddWithValue("@id", logId);
-                            await deleteCmd.ExecuteNonQueryAsync();
+                            try
+                            {
+                                using (var deleteCmd = new SqlCommand("DELETE FROM StaffLog WHERE Id = @id", connection, transaction))
+                                {
+                                    deleteCmd.Parameters.AddWithValue("@id", logId);
+                                    await deleteCmd.ExecuteNonQueryAsync();
+                                    transaction.Commit();
+                                }
+                            }
+                            catch (SqlException ex)
+                            {
+                                transaction.Rollback();
+                                Console.WriteLine($"Error deleting log: {ex.Message}");
+                            }
                         }
                         continue;
                     }
 
                     if (updated)
                     {
-                        using (var updateCmd = new SQLiteCommand(
-                            "UPDATE StaffLog SET BiometricData = @bio, SyncStatus = @sync, UpdatedAt = @ts WHERE Id = @id",
-                            connection))
+                        using (var transaction = connection.BeginTransaction())
                         {
-                            updateCmd.Parameters.AddWithValue("@bio", JsonConvert.SerializeObject(biometricData));
-                            updateCmd.Parameters.AddWithValue("@sync", JsonConvert.SerializeObject(syncStatus));
-                            updateCmd.Parameters.AddWithValue("@ts", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
-                            updateCmd.Parameters.AddWithValue("@id", logId);
-                            await updateCmd.ExecuteNonQueryAsync();
+                            try
+                            {
+                                using (var updateCmd = new SqlCommand(
+                                    "UPDATE StaffLog SET BiometricData = @bio, SyncStatus = @sync, UpdatedAt = @ts WHERE Id = @id",
+                                    connection, transaction))
+                                {
+                                    updateCmd.Parameters.AddWithValue("@bio", JsonConvert.SerializeObject(biometricData));
+                                    updateCmd.Parameters.AddWithValue("@sync", JsonConvert.SerializeObject(syncStatus));
+                                    updateCmd.Parameters.AddWithValue("@ts", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+                                    updateCmd.Parameters.AddWithValue("@id", logId);
+                                    await updateCmd.ExecuteNonQueryAsync();
+                                    transaction.Commit();
+                                }
+                            }
+                            catch (SqlException ex)
+                            {
+                                transaction.Rollback();
+                                Console.WriteLine($"Error updating log: {ex.Message}");
+                            }
                         }
                     }
                 }
@@ -6645,26 +7684,24 @@ WHERE StaffDeviceId = @StaffDeviceId", connection))
             return changes;
         }
 
-
-
         // Get active staff with biometrics but no logs
         public List<string> GetActiveStaffIdsWithBiometricsAndNoLogs()
         {
             var staffIds = new List<string>();
-
-            using (var connection = new SQLiteConnection(connectionString))
+            try
             {
-                connection.Open();
-
-                const string sql = @"
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    const string sql = @"
 SELECT s.StaffID
 FROM Staff s
-WHERE LOWER(TRIM(IFNULL(s.Status, ''))) = 'active'
+WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
   AND s.EnrollmentID IS NOT NULL
   AND (
-        TRIM(IFNULL(s.RFID, '')) <> ''
+        LTRIM(RTRIM(ISNULL(s.RFID, ''))) <> ''
      OR s.Fingerprint = 1
-     OR TRIM(IFNULL(s.Picture, '')) <> ''
+     OR LTRIM(RTRIM(ISNULL(s.Picture, ''))) <> ''
   )
   AND NOT EXISTS (
         SELECT 1
@@ -6672,385 +7709,608 @@ WHERE LOWER(TRIM(IFNULL(s.Status, ''))) = 'active'
         WHERE sl.StaffID = s.StaffID
   );";
 
-                using (var cmd = new SQLiteCommand(sql, connection))
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                        staffIds.Add(reader.GetString(0));
+                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                            staffIds.Add(reader.GetString(0));
+                    }
                 }
             }
-
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting active staff IDs with biometrics and no logs: {ex.Message}");
+            }
             return staffIds;
         }
 
 
-        // Fetch all staff attendance logs with resolved staff names and attendee IDs (staff IDs) by joining with Staff table on EnrollmentID
-        public List<dynamic> GetAllStaffAttendanceLogs()
+        public int InsertStaffAttendanceLog(int enrollmentId, string checkInValue)
         {
-            var results = new List<dynamic>();
+            if (string.IsNullOrWhiteSpace(checkInValue))
+                return 0;
 
-            using (var connection = new SQLiteConnection(connectionString))
+            DateTime checkInDt;
+            if (!DateTime.TryParse(checkInValue, out checkInDt))
+                return 0;
+
+            string timestamp = GetTimestamp();
+            int newLogId = 0;
+            // Generate a random GUID for the AttendanceId column
+            string randomAttendanceId = Guid.NewGuid().ToString();
+
+            // initial sync JSON for staff rows (same shape as AttendanceLogs)
+            string initialSyncJson = JsonConvert.SerializeObject(new Dictionary<string, bool> { { "checkIn", false }, { "checkOut", false } });
+
+            using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-
-                // Join StaffAttendanceLog with Staff on EnrollmentID to resolve AttendeeID (StaffID) and Name
-                string sql = @"
-            SELECT 
-                sal.LogID                        AS LogID,
-                sal.EnrollmentID                 AS EnrollmentID,
-                s.StaffID                        AS AttendeeID,
-                COALESCE(s.Name, sal.Name)       AS Name,
-                sal.CheckInTime                  AS CheckInTime,
-                sal.CheckOutTime                 AS CheckOutTime
-            FROM StaffAttendanceLog sal
-            LEFT JOIN Staff s 
-              ON s.EnrollmentID = sal.EnrollmentID
-            ORDER BY 
-                COALESCE(datetime(sal.CheckInTime), datetime(sal.CheckOutTime)) DESC,
-                sal.LogID DESC;";
-
-                using (var cmd = new SQLiteCommand(sql, connection))
-                using (var reader = cmd.ExecuteReader())
+                using (var transaction = connection.BeginTransaction())
                 {
-                    while (reader.Read())
+                    try
                     {
-                        results.Add(new
+                        // OPTIONAL index (run once; harmless if already exists)
+                        using (var idx = new SqlCommand(
+                            @"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.StaffAttendanceLog') AND name = 'IX_StaffAttendanceLog_Enrollment_CheckIn')
+            CREATE INDEX IX_StaffAttendanceLog_Enrollment_CheckIn ON dbo.StaffAttendanceLog(EnrollmentID, CheckInTime);",
+                            connection, transaction))
                         {
-                            LogID = reader.IsDBNull(reader.GetOrdinal("LogID")) ? 0 : reader.GetInt32(reader.GetOrdinal("LogID")),
-                            EnrollmentID = reader.IsDBNull(reader.GetOrdinal("EnrollmentID")) ? 0 : reader.GetInt32(reader.GetOrdinal("EnrollmentID")),
-                            AttendeeID = reader.IsDBNull(reader.GetOrdinal("AttendeeID")) ? string.Empty : reader.GetString(reader.GetOrdinal("AttendeeID")),
-                            Name = reader.IsDBNull(reader.GetOrdinal("Name")) ? string.Empty : reader.GetString(reader.GetOrdinal("Name")),
-                            CheckInTime = reader.IsDBNull(reader.GetOrdinal("CheckInTime")) ? string.Empty : reader.GetString(reader.GetOrdinal("CheckInTime")),
-                            CheckOutTime = reader.IsDBNull(reader.GetOrdinal("CheckOutTime")) ? string.Empty : reader.GetString(reader.GetOrdinal("CheckOutTime"))
-                        });
+                            idx.ExecuteNonQuery();
+                        }
+
+                        // 1. If exact duplicate (same enrollment + same check-in timestamp) -> return existing
+                        using (var dupCmd = new SqlCommand(
+                            @"SELECT TOP 1 LogID FROM StaffAttendanceLog 
+              WHERE EnrollmentID = @enrollmentId AND CheckInTime = @checkIn", connection, transaction))
+                        {
+                            dupCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                            dupCmd.Parameters.AddWithValue("@checkIn", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            var existing = dupCmd.ExecuteScalar();
+                            if (existing != null && existing != DBNull.Value)
+                            {
+                                transaction.Commit();
+                                return Convert.ToInt32(existing);
+                            }
+                        }
+
+                        // 2. Prevent multiple OPEN logs for the same calendar date:
+                        using (var openSameDateCmd = new SqlCommand(
+                            @"SELECT TOP 1 LogID FROM StaffAttendanceLog
+              WHERE EnrollmentID = @enrollmentId
+                AND CheckOutTime IS NULL
+                AND CONVERT(DATE, CheckInTime) = CONVERT(DATE, @checkInDate)
+              ORDER BY CheckInTime DESC", connection, transaction))
+                        {
+                            openSameDateCmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                            openSameDateCmd.Parameters.AddWithValue("@checkInDate", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            var openSameDate = openSameDateCmd.ExecuteScalar();
+                            if (openSameDate != null && openSameDate != DBNull.Value)
+                            {
+                                // Ignore new duplicate-day check-in to avoid orphan pairs.
+                                transaction.Commit();
+                                return Convert.ToInt32(openSameDate);
+                            }
+                        }
+
+                        // 3. Insert new row (Include generated randomAttendanceId)
+                        using (var insert = new SqlCommand(
+                            @"INSERT INTO StaffAttendanceLog
+              (EnrollmentID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, CreatedAt, UpdatedAt)
+              VALUES (@enrollmentId, @attendanceId, @checkIn, NULL, @syncStatus, @createdAt, @updatedAt);
+              SELECT SCOPE_IDENTITY();", connection, transaction))
+                        {
+                            insert.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                            insert.Parameters.AddWithValue("@attendanceId", randomAttendanceId);
+                            insert.Parameters.AddWithValue("@checkIn", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            insert.Parameters.AddWithValue("@syncStatus", initialSyncJson);
+                            insert.Parameters.AddWithValue("@createdAt", timestamp);
+                            insert.Parameters.AddWithValue("@updatedAt", timestamp);
+
+                            var result = insert.ExecuteScalar();
+                            newLogId = result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error inserting staff attendance log: {ex.Message}");
+                        return 0;
                     }
                 }
             }
+            return newLogId;
+        }
 
+
+
+        public bool UpdateStaffAttendanceLogForCheckOut(int enrollmentId, string checkOutValue)
+        {
+            if (string.IsNullOrWhiteSpace(checkOutValue))
+                return false;
+
+            DateTime checkOutDt;
+            if (!DateTime.TryParse(checkOutValue, out checkOutDt))
+                return false;
+
+            string timestamp = GetTimestamp();
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Ensure index exists (safe if already created)
+                        using (var idx = new SqlCommand(
+                            @"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.StaffAttendanceLog') AND name = 'IX_StaffAttendanceLog_Enrollment_Open')
+            CREATE INDEX IX_StaffAttendanceLog_Enrollment_Open ON dbo.StaffAttendanceLog(EnrollmentID, CheckOutTime, CheckInTime);",
+                            connection, transaction))
+                        {
+                            idx.ExecuteNonQuery();
+                        }
+
+                        // 1. Try same day open check-in (must be <= checkout)
+                        int? logId = null;
+                        DateTime chosenCheckIn = DateTime.MinValue;
+                        string existingSyncJson = null;
+
+                        using (var sameDay = new SqlCommand(
+                            @"SELECT TOP 1 LogID, CheckInTime, SyncStatus FROM StaffAttendanceLog
+                      WHERE EnrollmentID = @enrollmentId
+                        AND CheckOutTime IS NULL
+                        AND CONVERT(DATE, CheckInTime) = CONVERT(DATE, @checkOut)
+                        AND CheckInTime <= @checkOut
+                      ORDER BY CheckInTime DESC", connection, transaction))
+                        {
+                            sameDay.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                            sameDay.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            using (var r = sameDay.ExecuteReader())
+                            {
+                                if (r.Read())
+                                {
+                                    logId = r.GetInt32(0);
+                                    DateTime.TryParse(r.GetValue(1).ToString(), out chosenCheckIn);
+                                    existingSyncJson = r.IsDBNull(2) ? null : r.GetString(2);
+                                }
+                            }
+                        }
+
+                        // 2. If not found, try previous day (overnight session)
+                        if (!logId.HasValue)
+                        {
+                            using (var prevDay = new SqlCommand(
+                                @"SELECT TOP 1 LogID, CheckInTime, SyncStatus FROM StaffAttendanceLog
+                          WHERE EnrollmentID = @enrollmentId
+                            AND CheckOutTime IS NULL
+                            AND CONVERT(DATE, CheckInTime) = CONVERT(DATE, DATEADD(DAY, -1, @checkOut))
+                            AND CheckInTime <= @checkOut
+                          ORDER BY CheckInTime DESC", connection, transaction))
+                            {
+                                prevDay.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                                prevDay.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                                using (var r = prevDay.ExecuteReader())
+                                {
+                                    if (r.Read())
+                                    {
+                                        logId = r.GetInt32(0);
+                                        DateTime.TryParse(r.GetValue(1).ToString(), out chosenCheckIn);
+                                        existingSyncJson = r.IsDBNull(2) ? null : r.GetString(2);
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Fallback: any open log whose CheckInTime <= checkout (prevent pairing with future check-in)
+                        if (!logId.HasValue)
+                        {
+                            using (var anyOpen = new SqlCommand(
+                                @"SELECT TOP 1 LogID, CheckInTime, SyncStatus FROM StaffAttendanceLog
+                          WHERE EnrollmentID = @enrollmentId
+                            AND CheckOutTime IS NULL
+                            AND CheckInTime <= @checkOut
+                          ORDER BY CheckInTime DESC", connection, transaction))
+                            {
+                                anyOpen.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                                anyOpen.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                                using (var r = anyOpen.ExecuteReader())
+                                {
+                                    if (r.Read())
+                                    {
+                                        logId = r.GetInt32(0);
+                                        DateTime.TryParse(r.GetValue(1).ToString(), out chosenCheckIn);
+                                        existingSyncJson = r.IsDBNull(2) ? null : r.GetString(2);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!logId.HasValue)
+                        {
+                            // No suitable open check-in to pair -> ignore
+                            transaction.Commit();
+                            return false;
+                        }
+
+                        // Final guard: do not set a checkout earlier than its check-in
+                        if (chosenCheckIn != DateTime.MinValue && checkOutDt < chosenCheckIn)
+                        {
+                            transaction.Rollback();
+                            return false;
+                        }
+
+                        // Parse / update SyncStatus JSON: ensure keys exist and mark checkOut as needing sync (false)
+                        Dictionary<string, bool> syncDict;
+                        try
+                        {
+                            syncDict = !string.IsNullOrWhiteSpace(existingSyncJson)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingSyncJson) ?? new Dictionary<string, bool>()
+                                : new Dictionary<string, bool>();
+                        }
+                        catch
+                        {
+                            syncDict = new Dictionary<string, bool>();
+                        }
+
+                        if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
+                        syncDict["checkOut"] = false;
+
+                        using (var update = new SqlCommand(
+                            @"UPDATE StaffAttendanceLog
+                      SET CheckOutTime = @checkOut, SyncStatus = @syncStatus, UpdatedAt = @updatedAt
+                      WHERE LogID = @logId AND CheckOutTime IS NULL", connection, transaction))
+                        {
+                            update.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
+                            update.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncDict));
+                            update.Parameters.AddWithValue("@updatedAt", timestamp);
+                            update.Parameters.AddWithValue("@logId", logId.Value);
+                            var rowsAffected = update.ExecuteNonQuery();
+                            transaction.Commit();
+                            return rowsAffected > 0;
+                        }
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error updating staff attendance log for check-out: {ex.Message}");
+                        return false;
+                    }
+                }
+            }
+        }
+
+        public List<dynamic> GetAllStaffAttendanceLogs()
+        {
+            var results = new List<dynamic>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    string sql = @"
+        SELECT 
+            sal.LogID                        AS LogID,
+            sal.EnrollmentID                 AS EnrollmentID,
+            s.StaffID                        AS AttendeeID,
+            COALESCE(s.Name, '')             AS Name,
+            sal.AttendanceId                 AS AttendanceId,
+            sal.SyncStatus                   AS SyncStatus,
+            sal.CheckInTime                  AS CheckInTime,
+            sal.CheckOutTime                 AS CheckOutTime
+        FROM StaffAttendanceLog sal
+        LEFT JOIN Staff s 
+          ON s.EnrollmentID = sal.EnrollmentID
+        ORDER BY 
+            COALESCE(sal.CheckInTime, sal.CheckOutTime) DESC,
+            sal.LogID DESC;";
+
+                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            results.Add(new
+                            {
+                                LogID = reader.IsDBNull(reader.GetOrdinal("LogID")) ? 0 : reader.GetInt32(reader.GetOrdinal("LogID")),
+                                EnrollmentID = reader.IsDBNull(reader.GetOrdinal("EnrollmentID")) ? 0 : reader.GetInt32(reader.GetOrdinal("EnrollmentID")),
+                                AttendeeID = reader.IsDBNull(reader.GetOrdinal("AttendeeID")) ? string.Empty : reader.GetString(reader.GetOrdinal("AttendeeID")),
+                                Name = reader.IsDBNull(reader.GetOrdinal("Name")) ? string.Empty : reader.GetString(reader.GetOrdinal("Name")),
+                                AttendanceId = reader.IsDBNull(reader.GetOrdinal("AttendanceId")) ? string.Empty : reader.GetString(reader.GetOrdinal("AttendanceId")),
+                                SyncStatus = reader.IsDBNull(reader.GetOrdinal("SyncStatus")) ? string.Empty : reader.GetString(reader.GetOrdinal("SyncStatus")),
+                                CheckInTime = reader.IsDBNull(reader.GetOrdinal("CheckInTime")) ? string.Empty : reader.GetDateTime(reader.GetOrdinal("CheckInTime")).ToString("yyyy-MM-dd HH:mm:ss"),
+                                CheckOutTime = reader.IsDBNull(reader.GetOrdinal("CheckOutTime")) ? string.Empty : reader.GetDateTime(reader.GetOrdinal("CheckOutTime")).ToString("yyyy-MM-dd HH:mm:ss")
+                            });
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting all staff attendance logs: {ex.Message}");
+            }
             return results;
         }
 
 
+        
 
-
-
-        // Add the following method inside the DatabaseHelper class (near other device query helpers)
-        /// <summary>
-        /// Determine whether the provided IP belongs to a staff device or a member device.
-        /// Returns a tuple: (exists, "staff"|"member"|null, deviceId)
-        /// </summary>
-        public (bool exists, string type, int deviceId) GetDeviceCategoryByIp(string deviceIp)
+        public bool UpdateStaffAttendanceLogSyncStatus(
+            int enrollmentId,
+            string attendanceId,
+            DateTime? checkInTime = null,
+            DateTime? checkOutTime = null,
+            bool? checkIn = null,
+            bool? checkOut = null)
         {
-            if (string.IsNullOrWhiteSpace(deviceIp))
-                return (false, null, 0);
+            // Must supply exactly one flag.
+            bool hasCheckIn = checkIn.HasValue;
+            bool hasCheckOut = checkOut.HasValue;
+            if (!(hasCheckIn ^ hasCheckOut))
+                return false;
 
-            try
+            // For checkOut we require a non-empty attendanceId and checkOutTime
+            if (hasCheckOut && (string.IsNullOrWhiteSpace(attendanceId) || !checkOutTime.HasValue))
+                return false;
+
+            // For checkIn with attendanceId, require checkInTime
+            if (hasCheckIn && !string.IsNullOrWhiteSpace(attendanceId) && !checkInTime.HasValue)
+                return false;
+
+            using (var connection = new SqlConnection(connectionString))
             {
-                using (var connection = new SQLiteConnection(connectionString))
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
                 {
-                    connection.Open();
-
-                    // Staff devices stored in StaffDevices with encrypted DeviceIP
-                    using (var cmd = new SQLiteCommand("SELECT StaffDeviceId FROM StaffDevices WHERE DeviceIP = @ip LIMIT 1", connection))
+                    try
                     {
-                        cmd.Parameters.AddWithValue("@ip", Encrypt(deviceIp));
-                        var res = cmd.ExecuteScalar();
-                        if (res != null && res != DBNull.Value)
-                            return (true, "staff", Convert.ToInt32(res));
-                    }
+                        string existingJson = null;
+                        int targetLogId = 0;
+                        bool foundRecord = false;
 
-                    // Member (attendance) devices stored in Devices with encrypted DeviceIP
-                    using (var cmd2 = new SQLiteCommand("SELECT DeviceId FROM Devices WHERE DeviceIP = @ip LIMIT 1", connection))
-                    {
-                        cmd2.Parameters.AddWithValue("@ip", Encrypt(deviceIp));
-                        var res2 = cmd2.ExecuteScalar();
-                        if (res2 != null && res2 != DBNull.Value)
-                            return (true, "member", Convert.ToInt32(res2));
-                    }
-
-                    return (false, null, 0);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[GetDeviceCategoryByIp][ERROR] IP={deviceIp} : {ex.Message}");
-                return (false, null, 0);
-            }
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        /// <summary>
-        /// Decides the attendance case based on staff devices configuration using SQL query.
-        /// If there's one device with "Check_In" type and another with "Check_Out" type, it's 2-way attendance.
-        /// If there's only one device or multiple devices with "Check_In/Check_Out" type, it's 1-way attendance.
-        /// </summary>
-        /// <returns>Returns "2way" if devices are configured for separate check-in/check-out, "1way" otherwise</returns>
-        public string DecideAttendanceCase()
-        {
-            try
-            {
-                using (var connection = new SQLiteConnection(connectionString))
-                {
-                    connection.Open();
-
-                    // Query to count different attendance types
-                    using (var command = new SQLiteCommand(@"
-                SELECT 
-                    SUM(CASE WHEN LOWER(StaffAttendanceType) = 'check_in' THEN 1 ELSE 0 END) as CheckInCount,
-                    SUM(CASE WHEN LOWER(StaffAttendanceType) = 'check_out' THEN 1 ELSE 0 END) as CheckOutCount,
-                    SUM(CASE WHEN LOWER(StaffAttendanceType) = 'check_in/check_out' THEN 1 ELSE 0 END) as MixedCount,
-                    COUNT(*) as TotalDevices
-                FROM StaffDevices", connection))
-                    {
-                        using (var reader = command.ExecuteReader())
+                        // For check-in: require both attendanceId and checkInTime to match
+                        if (hasCheckIn && !string.IsNullOrWhiteSpace(attendanceId) && checkInTime.HasValue)
                         {
-                            if (reader.Read())
+                            using (var select = new SqlCommand(
+                                "SELECT TOP 1 LogID, SyncStatus FROM StaffAttendanceLog WHERE AttendanceId = @aid AND EnrollmentID = @enr AND CheckInTime = @checkInTime", connection, transaction))
                             {
-                                int checkInCount = Convert.ToInt32(reader["CheckInCount"]);
-                                int checkOutCount = Convert.ToInt32(reader["CheckOutCount"]);
-                                int mixedCount = Convert.ToInt32(reader["MixedCount"]);
-                                int totalDevices = Convert.ToInt32(reader["TotalDevices"]);
-
-                                LogHelper.Log($"Staff device analysis - Total: {totalDevices}, Check_In: {checkInCount}, Check_Out: {checkOutCount}, Mixed: {mixedCount}");
-
-                                // No devices found
-                                if (totalDevices == 0)
+                                select.Parameters.AddWithValue("@aid", attendanceId);
+                                select.Parameters.AddWithValue("@enr", enrollmentId);
+                                select.Parameters.AddWithValue("@checkInTime", checkInTime.Value);
+                                using (var reader = select.ExecuteReader())
                                 {
-                                    LogHelper.Log("No staff devices available for attendance case decision");
-                                    return "1way"; // Default to 1way if no devices
+                                    if (reader.Read())
+                                    {
+                                        targetLogId = reader.GetInt32(0);
+                                        existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                        foundRecord = true;
+                                    }
                                 }
-
-                                // If we have at least one Check_In device AND at least one Check_Out device = 2-way attendance
-                                if (checkInCount > 0 && checkOutCount > 0)
+                            }
+                        }
+                        // For check-out: require both attendanceId and checkOutTime to match
+                        else if (hasCheckOut && !string.IsNullOrWhiteSpace(attendanceId) && checkOutTime.HasValue)
+                        {
+                            using (var select = new SqlCommand(
+                                "SELECT TOP 1 LogID, SyncStatus FROM StaffAttendanceLog WHERE AttendanceId = @aid AND EnrollmentID = @enr AND CheckOutTime = @checkOutTime", connection, transaction))
+                            {
+                                select.Parameters.AddWithValue("@aid", attendanceId);
+                                select.Parameters.AddWithValue("@enr", enrollmentId);
+                                select.Parameters.AddWithValue("@checkOutTime", checkOutTime.Value);
+                                using (var reader = select.ExecuteReader())
                                 {
-                                    LogHelper.Log("✅ 2-way attendance detected: Separate check-in and check-out devices found");
-                                    return "2way";
+                                    if (reader.Read())
+                                    {
+                                        targetLogId = reader.GetInt32(0);
+                                        existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                        foundRecord = true;
+                                    }
                                 }
-
-                                // All other cases:
-                                // - Single device (regardless of type)
-                                // - Multiple devices but all same type (all Check_In, all Check_Out, or all Check_In/Check_Out)
-                                // - Any combination that doesn't have both Check_In AND Check_Out devices
-                                LogHelper.Log("✅ 1-way attendance detected: Single device type configuration or mixed devices only");
-                                return "1way";
                             }
                         }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error in DecideAttendanceCase: {ex.Message}");
-                return "1way"; // Default to 1way on error
-            }
-
-            // Fallback (should not reach here)
-            LogHelper.Log("Fallback: Defaulting to 1-way attendance");
-            return "1way";
-        }
-
-        /// <summary>
-        /// Filters and updates all staff GLog records.
-        /// 2-way case:
-        ///   - Uses all unprocessed (Filter=0) rows from BOTH check-in & check-out devices together.
-        ///   - Pairs earliest check-in with earliest checkout AFTER it.
-        ///   - Skips (ignores) any extra check-ins occurring before that paired checkout.
-        ///   - Continues until no further checkout; keeps the earliest remaining check-in as an open session.
-        /// 1-way case: original alternating logic.
-        /// Call this ONCE after inserting all device logs for the cycle.
-        /// </summary>
-        public List<GLogRecord> FilterAndUpdateStaffGLogRecordsByDate()
-        {
-            var filteredRecords = new List<GLogRecord>();
-            try
-            {
-                string attendanceCase = DecideAttendanceCase();
-                LogHelper.Log($"[StaffPair] Starting pairing run. Case={attendanceCase}");
-
-                using (var connection = new SQLiteConnection(connectionString))
-                {
-                    connection.Open();
-                    using (var tx = connection.BeginTransaction())
-                    {
-                        // -------------- NEW: Re-open previously filtered rows for dates that received new logs --------------
-                        // Scenario: We first processed only Check_In device -> open check-in was marked Filter=1 Sync=1.
-                        // Later Check_Out logs arrive (Sync=0). We must reprocess the whole date & enrollment.
-                        if (attendanceCase == "2way")
+                        // For check-in without attendanceId, fallback to latest log for enrollment
+                        else if (hasCheckIn && string.IsNullOrWhiteSpace(attendanceId))
                         {
-                            string reopenSql = @"
-UPDATE StaffGLog
-SET Sync = 0,
-    Filter = 0
-WHERE EXISTS (
-    SELECT 1
-    FROM StaffGLog sg2
-    WHERE sg2.EnrollmentNumber = StaffGLog.EnrollmentNumber
-      AND DATE(sg2.DeviceTime) = DATE(StaffGLog.DeviceTime)
-      AND sg2.Sync = 0            -- new (still unpaired) rows just inserted (e.g. check-outs)
-);";
-                            using (var reopenCmd = new SQLiteCommand(reopenSql, connection, tx))
+                            using (var selectLatest = new SqlCommand(
+                                @"SELECT TOP 1 LogID, SyncStatus 
+                  FROM StaffAttendanceLog 
+                  WHERE EnrollmentID = @enr 
+                  ORDER BY CheckInTime DESC", connection, transaction))
                             {
-                                int reopened = reopenCmd.ExecuteNonQuery();
-                                LogHelper.Log($"[StaffPair] Reopened {reopened} previously processed rows for re-evaluation (if any).");
-                            }
-                        }
-                        // -------------------------------------------------------------------------------------------------------
-
-                        // Map device types
-                        var deviceTypeMap = new Dictionary<int, string>();
-                        using (var mapCmd = new SQLiteCommand("SELECT StaffDeviceId, LOWER(IFNULL(StaffAttendanceType,'')) t FROM StaffDevices", connection, tx))
-                        using (var r = mapCmd.ExecuteReader())
-                        {
-                            while (r.Read())
-                            {
-                                string raw = r.GetString(1);
-                                string eff = raw == "check_in" ? "Check_In"
-                                           : raw == "check_out" ? "Check_Out"
-                                           : "Mixed";
-                                deviceTypeMap[r.GetInt32(0)] = eff;
-                            }
-                        }
-
-                        // NOTE: We now always pick rows with Sync=0 (after reopen step they all get Sync=0 for affected dates)
-                        string selectSql = @"
-                            SELECT LogId, StaffDeviceId, EnrollmentNumber, DeviceTime, OriginalLine,
-                                   Sync, DeviceType, Filter, CreatedOn, UpdatedOn,
-                                   DATE(DeviceTime) AS RecordDate
-                            FROM StaffGLog
-                            WHERE Sync = 0
-                            ORDER BY EnrollmentNumber, DATE(DeviceTime), DeviceTime";
-                        var all = new List<dynamic>();
-                        using (var cmd = new SQLiteCommand(selectSql, connection, tx))
-                        using (var r = cmd.ExecuteReader())
-                        {
-                            while (r.Read())
-                            {
-                                int devId = r.GetInt32(1);
-                                string eff;
-                                if (!deviceTypeMap.TryGetValue(devId, out eff))
-                                    eff = "Unknown";
-                                if (attendanceCase == "2way" && eff == "Mixed")
+                                selectLatest.Parameters.AddWithValue("@enr", enrollmentId);
+                                using (var reader = selectLatest.ExecuteReader())
                                 {
-                                    var stored = (r["DeviceType"]?.ToString() ?? "").ToLower();
-                                    if (stored == "check_in") eff = "Check_In";
-                                    else if (stored == "check_out") eff = "Check_Out";
-                                    else eff = "Unknown";
+                                    if (reader.Read())
+                                    {
+                                        targetLogId = reader.GetInt32(0);
+                                        existingJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                        foundRecord = true;
+                                    }
                                 }
-                                all.Add(new
-                                {
-                                    LogId = r.GetInt32(0),
-                                    StaffDeviceId = devId,
-                                    EnrollmentNumber = r["EnrollmentNumber"].ToString(),
-                                    DeviceTime = DateTime.Parse(r["DeviceTime"].ToString()),
-                                    DeviceTimeText = r["DeviceTime"].ToString(),
-                                    OriginalLine = r["OriginalLine"].ToString(),
-                                    Sync = Convert.ToBoolean(r["Sync"]),
-                                    OriginalDeviceType = r["DeviceType"]?.ToString() ?? "unknown",
-                                    EffectiveType = eff,
-                                    Filter = r["Filter"] != DBNull.Value && Convert.ToBoolean(r["Filter"]),
-                                    CreatedOn = r["CreatedOn"].ToString(),
-                                    UpdatedOn = r["UpdatedOn"].ToString(),
-                                    RecordDate = r["RecordDate"].ToString()
-                                });
                             }
                         }
 
-                        LogHelper.Log($"[StaffPair] Loaded {all.Count} rows for pairing after reopen phase.");
-
-                        var grouped = all.GroupBy(g => new { g.EnrollmentNumber, g.RecordDate }).ToList();
-                        var selectedIds = new HashSet<int>();
-                        var openIds = new HashSet<int>();
-                        var ignoredIds = new HashSet<int>();
-
-                        // --- UPDATED inside FilterAndUpdateStaffGLogRecordsByDate() loop over grouped ---
-                        foreach (var group in grouped)
+                        if (!foundRecord)
                         {
-                            LogHelper.Log($"[StaffPair] Group Enroll={group.Key.EnrollmentNumber} Date={group.Key.RecordDate} Total={group.Count()}");
-                            if (attendanceCase == "2way")
+                            transaction.Rollback();
+                            return false;
+                        }
+
+                        // Parse existing sync status
+                        Dictionary<string, bool> flags;
+                        try
+                        {
+                            flags = JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingJson ?? "") ?? new Dictionary<string, bool>();
+                        }
+                        catch
+                        {
+                            flags = new Dictionary<string, bool>();
+                        }
+
+                        // Ensure keys exist
+                        if (!flags.ContainsKey("checkIn")) flags["checkIn"] = false;
+                        if (!flags.ContainsKey("checkOut")) flags["checkOut"] = false;
+
+                        // Only update the field we're directly changing, not both fields
+                        bool valueChanged = false;
+                        if (hasCheckIn)
+                        {
+                            if (flags["checkIn"] != checkIn.Value)
                             {
-                                PairTwoWay(group.ToList(), selectedIds, openIds, ignoredIds, filteredRecords);
+                                flags["checkIn"] = checkIn.Value;
+                                valueChanged = true;
                             }
                             else
                             {
-                                // One-way (single / mixed device) pairing
-                                PairOneWay(group.OrderBy(x => x.DeviceTime).ToList(), selectedIds, ignoredIds, filteredRecords);
+                                transaction.Rollback();
+                                return false;
                             }
                         }
-
-
-                        string ts = GetTimestamp();
-                        if (selectedIds.Count > 0)
+                        else if (hasCheckOut)
                         {
-                            string updateSelected = $"UPDATE StaffGLog SET Sync=1, Filter=1, UpdatedOn=@ts WHERE LogId IN ({string.Join(",", selectedIds)})";
-                            using (var us = new SQLiteCommand(updateSelected, connection, tx))
+                            if (flags["checkOut"] != checkOut.Value)
                             {
-                                us.Parameters.AddWithValue("@ts", ts);
-                                int n = us.ExecuteNonQuery();
-                                LogHelper.Log($"[StaffPair] Marked {n} paired/open rows Filter=1 Sync=1.");
+                                flags["checkOut"] = checkOut.Value;
+                                valueChanged = true;
                             }
-                        }
-                        var toIgnore = ignoredIds.Except(selectedIds).ToList();
-                        if (toIgnore.Count > 0)
-                        {
-                            string updateIgnored = $"UPDATE StaffGLog SET Sync=1, Filter=0, UpdatedOn=@ts WHERE LogId IN ({string.Join(",", toIgnore)})";
-                            using (var ui = new SQLiteCommand(updateIgnored, connection, tx))
+                            else
                             {
-                                ui.Parameters.AddWithValue("@ts", ts);
-                                int n = ui.ExecuteNonQuery();
-                                LogHelper.Log($"[StaffPair] Marked {n} ignored rows Filter=0 Sync=1.");
+                                transaction.Rollback();
+                                return false;
                             }
                         }
 
-                        tx.Commit();
-                        LogHelper.Log($"[StaffPair] Finished. Output filtered rows={filteredRecords.Count}");
+                        if (valueChanged)
+                        {
+                            using (var update = new SqlCommand(
+                                "UPDATE StaffAttendanceLog SET SyncStatus = @json, UpdatedAt = @ts WHERE LogID = @lid", connection, transaction))
+                            {
+                                update.Parameters.AddWithValue("@json", JsonConvert.SerializeObject(flags));
+                                update.Parameters.AddWithValue("@ts", GetTimestamp());
+                                update.Parameters.AddWithValue("@lid", targetLogId);
+                                int rowsUpdated = update.ExecuteNonQuery();
+
+                                if (rowsUpdated > 0)
+                                {
+                                    transaction.Commit();
+                                    return true;
+                                }
+                                else
+                                {
+                                    transaction.Rollback();
+                                    return false;
+                                }
+                            }
+                        }
+
+                        transaction.Rollback();
+                        return false;
+                    }
+                    catch (SqlException)
+                    {
+                        transaction.Rollback();
+                        return false;
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[StaffPair][ERROR] {ex.Message}");
-                throw;
-            }
-
-            return filteredRecords;
         }
+
+public bool UpdateStaffAttendanceLogFromCloud(
+    int enrollmentId,
+    DateTime checkInTime,
+    DateTime? checkOutTime,
+    string attendanceId,
+    bool setCheckInSynced,
+    bool setCheckOutSynced)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // Find the log row by enrollment + exact check-in time
+                            int logId = 0;
+                            string existingSyncStatusJson = null;
+
+                            using (var cmd = new SqlCommand(
+                                @"SELECT TOP 1 LogID, SyncStatus 
+                  FROM StaffAttendanceLog
+                  WHERE EnrollmentID = @enrollmentId
+                    AND CheckInTime = @checkIn", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@enrollmentId", enrollmentId);
+                                cmd.Parameters.AddWithValue("@checkIn", checkInTime);
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    if (reader.Read())
+                                    {
+                                        logId = reader.GetInt32(0);
+                                        existingSyncStatusJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                    }
+                                }
+                            }
+
+                            if (logId == 0)
+                            {
+                                transaction.Rollback();
+                                return false;
+                            }
+
+                            // Parse / update SyncStatus JSON
+                            var syncDict = !string.IsNullOrWhiteSpace(existingSyncStatusJson)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(existingSyncStatusJson) ?? new Dictionary<string, bool>()
+                                : new Dictionary<string, bool>();
+
+                            if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
+                            if (!syncDict.ContainsKey("checkOut")) syncDict["checkOut"] = false;
+
+                            if (setCheckInSynced) syncDict["checkIn"] = true;
+                            if (setCheckOutSynced) syncDict["checkOut"] = true;
+
+                            string newSyncJson = JsonConvert.SerializeObject(syncDict);
+                            string timestamp = GetTimestamp();
+
+                            using (var update = new SqlCommand(
+                                @"UPDATE StaffAttendanceLog
+                  SET AttendanceId = @attendanceId,
+                      SyncStatus   = @syncStatus,
+                      UpdatedAt    = @updatedAt
+                  WHERE LogID = @logId", connection, transaction))
+                            {
+                                update.Parameters.AddWithValue("@attendanceId", (object)attendanceId ?? DBNull.Value);
+                                update.Parameters.AddWithValue("@syncStatus", newSyncJson);
+                                update.Parameters.AddWithValue("@updatedAt", timestamp);
+                                update.Parameters.AddWithValue("@logId", logId);
+
+                                update.ExecuteNonQuery();
+                            }
+                            transaction.Commit();
+                        }
+                        catch (SqlException)
+                        {
+                            transaction.Rollback();
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+
+
+
+
+
 
 
 

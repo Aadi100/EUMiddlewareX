@@ -87,7 +87,12 @@ namespace smart_attendance_middleware
 
             if (id != null) record["id"] = id;
             if (!string.IsNullOrWhiteSpace(checkinTime)) record["checkin_time"] = checkinTime;
-            if (!string.IsNullOrWhiteSpace(checkoutTime)) record["checkout_time"] = checkoutTime;
+            if (!string.IsNullOrWhiteSpace(checkoutTime))
+            {
+                record["checkout_time"] = checkoutTime;
+                // Only include source_out when there is a checkout value
+                record["source_out"] = "biometric";
+            }
 
             var payload = new JObject
             {
@@ -121,7 +126,6 @@ namespace smart_attendance_middleware
                 }
             }
         }
-
 
         /// <summary>
         /// Uploads multiple attendance records in one request to the same endpoint.
@@ -327,6 +331,29 @@ namespace smart_attendance_middleware
             await _processor.HandleHttpEvent("attendance.response", response).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Uploads multiple attendance records and passes the response to the Processor.
+        /// </summary>
+        public async Task PostAttendanceRecordsBulkAsync(
+            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, long? id)> records,
+            CancellationToken token = default(CancellationToken))
+        {
+            if (_processor == null)
+            {
+                LogHelper.Log("❌ Processor not initialized in HttpHandler. Cannot process bulk attendance response.");
+                return;
+            }
+
+            var response = await UploadAttendanceRecordsAsync(records, token).ConfigureAwait(false);
+            if (response == null)
+            {
+                LogHelper.Log("❌ Failed to upload bulk attendance records, no response to process.");
+                return;
+            }
+
+            // Route to the bulk response handler in Processor
+            await _processor.HandleHttpEvent("attendance.response.bulk", response).ConfigureAwait(false);
+        }
 
 
 

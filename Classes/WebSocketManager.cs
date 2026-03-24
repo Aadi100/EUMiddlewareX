@@ -20,61 +20,7 @@ namespace smart_attendance_middleware
         public object Data { get; set; }
     }
 
-    public class MemberCreated 
-    { 
-        public int id; 
-        public string name; 
-        public string status; 
-        public bool face; 
-        public string rfid; 
-        public bool fingerprint; 
-        public string package_expiry; 
-        public DateTime created_at; 
-    }
-    public class MemberUpdated 
-    { 
-        public int id; 
-        public string name; 
-        public string status; 
-        public bool face; 
-        public string rfid; 
-        public bool fingerprint; 
-        public string package_expiry; 
-        public DateTime updated_at; 
-    }
-    public class MemberDeleted 
-    { 
-        public int id; 
-        public string name; 
-        public string status; 
-        public bool face; 
-        public string rfid; 
-        public bool fingerprint; 
-        public string package_expiry; 
-        public DateTime deleted_at; 
-    }
-    public class NotificationStatus { public int id; public string status; public string rfid; }
-    public class AttendanceNotification
-    {
-        public string id;
-        [JsonProperty("in")]
-        public string CheckIn;
-        [JsonProperty("out")]
-        public string CheckOut;
-        public int member_id;
-        public string status;
-    }
 
-    public class AttendanceUpdated
-    {
-        public string action { get; set; }
-        public Attendance attendance { get; set; }
-        public OldAttendance old_attendance { get; set; }
-        public string timestamp { get; set; }
-        public int gym_id { get; set; }
-        public int branch_id { get; set; }
-        public string channel { get; set; }
-    }
 
     public class Attendance
     {
@@ -82,16 +28,11 @@ namespace smart_attendance_middleware
         public string check_in { get; set; }
         public string check_out { get; set; }
         public string source { get; set; }
+        public string source_out { get; set; }
+        public bool is_staff { get; set; }
         public bool is_manual { get; set; }
         public string reason { get; set; }
         public Member member { get; set; }
-    }
-
-    public class OldAttendance
-    {
-        public string id { get; set; }
-        public bool is_manual { get; set; }
-        public object member { get; set; }
     }
 
     public class UserCreated
@@ -124,7 +65,6 @@ namespace smart_attendance_middleware
         private const string PusherProtocolVersion = "7";
         private const string PusherClientName = "csharp";
         private const string PusherClientVersion = "1.0.0";
-        private string _period = "";
 
         private ClientWebSocket _websocket;
         private CancellationTokenSource _cts;
@@ -146,14 +86,7 @@ namespace smart_attendance_middleware
         public event EventHandler<string> StatusChanged;
         public event EventHandler<string> ErrorOccurred;
         public event EventHandler<LiveUpdateEventArgs> LiveUpdate;
-        public event EventHandler AllMembersSynced;
 
-        private int _currentMemberPage = 1;
-        private int _lastMemberPage = 1;
-        private int _membersPerPage = 20;
-        private int _version = 1;
-        private bool _isPaginatedSyncInProgress = false;
-        private int _lastRequestedPage = 0; // Guard to track the last page requested
         private TaskCompletionSource<bool> _subscriptionTcs; // subscription confirmation
         public DateTime LastPongReceived { get; private set; } = DateTime.MinValue;
 
@@ -609,23 +542,13 @@ namespace smart_attendance_middleware
                         OnStatusChanged("Subscription confirmed by server.");
                         return;
 
-                    case "member_created":
-                        parsedData = JsonConvert.DeserializeObject<MemberCreated>(dataStr);
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member_created", Data = JObject.Parse(dataStr) });
-                        break;
-
-                    case "member_updated":
-                        parsedData = JsonConvert.DeserializeObject<MemberUpdated>(dataStr);
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member_updated", Data = JObject.Parse(dataStr) });
-                        break;
-
-                    case "member_deleted":
-                        parsedData = JsonConvert.DeserializeObject<MemberDeleted>(dataStr);
-                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member_deleted", Data = JObject.Parse(dataStr) });
+                    case "attendance_created":
+                        parsedData = JsonConvert.DeserializeObject<Attendance>(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "attendance_created", Data = JObject.Parse(dataStr) });
                         break;
 
                     case "attendance_updated":
-                        parsedData = JsonConvert.DeserializeObject<AttendanceUpdated>(dataStr);
+                        parsedData = JsonConvert.DeserializeObject<Attendance>(dataStr);
                         LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "attendance_updated", Data = JObject.Parse(dataStr) });
                         break;
 

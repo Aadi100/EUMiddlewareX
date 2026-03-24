@@ -1,6 +1,7 @@
 ﻿using AxFPCLOCK_SVRLib;
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -18,20 +19,6 @@ namespace smart_attendance_middleware
         private readonly DatabaseHelper _dbHelper = new DatabaseHelper();
         private readonly StaffAttendenceServerFunctions _staffAttendanceFunctions = new StaffAttendenceServerFunctions();
 
-
-        // Add this method to your AttendanceServerForm class
-        public void SetWebSocketManager(WebSocketManager wsManager)
-        {
-            if (wsManager == null)
-            {
-                LogHelper.Log("[AttendanceServer] Cannot set null WebSocketManager");
-                return;
-            }
-
-            // Pass it to the AttendenceServerFunctions instance
-            _attendanceFunctions.SetWebSocketManager(wsManager);
-            LogHelper.Log("[AttendanceServer] WebSocketManager has been set");
-        }
 
         /// <summary>
         /// Public entry-point for test/simulation to inject synthetic attendance events through the same pipeline
@@ -258,7 +245,6 @@ namespace smart_attendance_middleware
 
         // Instance state
         private int nIndex = 0;
-        private int Recordnumber = 0;
         private int _openedPort;
         private bool _connected;
         private bool _autoMode;
@@ -386,6 +372,7 @@ namespace smart_attendance_middleware
             {
                 // Use DatabaseHelper to determine whether this IP belongs to a staff or member device
                 var category = _dbHelper.GetDeviceCategoryByIp(ipOnly);
+                LogHelper.Log($"[ForwardAttendanceData] Device category for IP={ipOnly}: exists={category.exists}, type={category.type}, deviceId={category.deviceId}");
 
                 if (category.exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase))
                 {
@@ -401,6 +388,23 @@ namespace smart_attendance_middleware
                     return;
                 }
 
+                // --- Member pipeline section ---
+                string staffEnrollmentsRaw = _dbHelper.GetSetting("staff_enrollment_ids");
+                if (!string.IsNullOrEmpty(staffEnrollmentsRaw))
+                {
+                    // Clean the JSON-like formatting: remove [ ] and " 
+                    string cleaned = staffEnrollmentsRaw.Trim('[', ']').Replace("\"", "");
+                    
+                    var staffIds = cleaned.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                          .Select(s => s.Trim());
+                                          
+                    if (staffIds.Contains(enroll.ToString()))
+                    {
+                        LogHelper.Log($"[ForwardAttendanceData] Skipping Enroll={enroll} in member pipeline Staff is passing through member device");
+                        return;
+                    }
+                }
+
                 // Default / member pipeline
                 var mrec = new AttendenceServerFunctions.AttendanceRecord
                 {
@@ -413,16 +417,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                // On any error, fallback to member pipeline to avoid losing events
-                LogHelper.Log($"[ForwardAttendanceData] Routing error for IP={ip}: {ex.Message}. Falling back to member pipeline.");
-                var fallback = new AttendenceServerFunctions.AttendanceRecord
-                {
-                    DevID = devId,
-                    IP = ip,
-                    Enroll = enroll,
-                    Time = time
-                };
-                _attendanceFunctions.Process(fallback);
+                LogHelper.Log($"[ForwardAttendanceData][ERROR] Routing error for IP={ip}: {ex.Message}");
             }
         }
 
@@ -441,8 +436,12 @@ namespace smart_attendance_middleware
                 try { axFPCLOCK_Svr1.SendResultandTime(e.linkindex, e.vnDeviceID, e.anSEnrollNumber, 1); } catch { }
                 return;
             }
+            // 1. Clean the incoming IP early
+            string cleanedIP = e.astrDeviceIP?.Replace(" ", "") ?? string.Empty;
+
+            // 2. Update the log summary to use the cleaned IP (optional, for visibility)
             string rawSummary =
-                $"link={e.linkindex}, DevID={e.vnDeviceID}, SN={e.anSN}, IP={e.astrDeviceIP}:{e.anDevicePort}, " +
+                $"link={e.linkindex}, DevID={e.vnDeviceID}, SN={e.anSN}, IP={cleanedIP}:{e.anDevicePort}, " +
                 $"Enroll={e.anSEnrollNumber}, VerifyMode={e.anVerifyMode}, InOut={e.anInOutMode}, Time={e.anLogDate:yyyy-MM-dd HH:mm:ss}";
             LogHelper.Log("[AttendanceServer] ▼ Received GLogData: " + rawSummary);
 
@@ -552,7 +551,7 @@ namespace smart_attendance_middleware
                 {
                     ForwardAttendanceData(
                         e.vnDeviceID,
-                        e.astrDeviceIP + ":" + e.anDevicePort,
+                        cleanedIP + ":" + e.anDevicePort,
                         e.anSEnrollNumber,
                         e.anLogDate);
                 }

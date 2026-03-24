@@ -274,13 +274,6 @@ namespace smart_attendance_middleware
             // Stop keep-alive progress
             _serverProgressKeepAlive = false;
 
-            // Pass the WebSocketManager to the AttendanceServerForm instance
-            var attendanceServer = AttendanceServerForm.Instance;
-            if (attendanceServer != null && _wsManager != null)
-            {
-                attendanceServer.SetWebSocketManager(_wsManager);
-                LogHelper.Log("[Dashboard] WebSocketManager passed to AttendanceServer.");
-            }
         }
 
         private async void OnAttendanceLogSyncCompleted()
@@ -709,32 +702,35 @@ namespace smart_attendance_middleware
         {
             try
             {
-                ShowLoader("UI timers...");
+                UpdateLoaderMessage("Initializing UI timers...");
                 attendancePanelTimer = new System.Windows.Forms.Timer { Interval = 5000 };
                 attendancePanelTimer.Tick += (s, args) => UpdateAttendancePanels();
                 attendancePanelTimer.Start();
 
                 _processor.update_session();
 
-                ShowLoader("Starting General Log Sync Service...");
+                UpdateLoaderMessage("Starting General Log Sync Service...");
                 await ServiceManager.StartLogSyncServiceAsync(_deviceFunctions);
 
-                ShowLoader("Starting Attendance Log Sync Service...");
+                UpdateLoaderMessage("Starting Member Attendance Sync...");
                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
                 AttendanceLogSyncService.InitialSyncCompleted += OnAttendanceLogSyncCompleted;
-                await ServiceManager.StartAttendanceLogSyncServiceAsync(_wsManager);
+                await ServiceManager.StartAttendanceLogSyncServiceAsync();
 
-                ShowLoader("Starting Periodic Maintenance Service...");
+                UpdateLoaderMessage("Starting Staff Attendance Sync...");
+                await ServiceManager.StartStaffAttendanceLogSyncServiceAsync();
+
+                UpdateLoaderMessage("Starting Periodic Maintenance Service...");
                 await ServiceManager.StartPeriodicMaintenanceServiceAsync(this);
 
-                ShowLoader("Starting Email Backup Service...");
+                UpdateLoaderMessage("Starting Email Backup Service...");
                 if (_emailBackupService == null)
                 {
                     _emailBackupService = new EmailBackupService(_dbHelper);
                 }
                 _emailBackupService.Start();
 
-                ShowLoader("Connection monitors...");
+                UpdateLoaderMessage("Configuring connection monitors...");
                 ConnectionStatusChecker.Instance.SetWebSocketManager(_wsManager);
                 ConnectionStatusChecker.Instance.InternetStatusChanged -= OnInternetStatusChanged;
                 ConnectionStatusChecker.Instance.InternetStatusChanged += OnInternetStatusChanged;
@@ -750,7 +746,7 @@ namespace smart_attendance_middleware
 
                 ConnectionStatusChecker.Instance.Start();
 
-                ShowLoader("Scanning devices...");
+                UpdateLoaderMessage("Scanning hardware devices...");
                 try
                 {
                     await RefreshDeviceStatus();
@@ -760,12 +756,13 @@ namespace smart_attendance_middleware
                     LogHelper.Log("[StartServicesAsync] Error refreshing device status: " + ex.Message);
                 }
 
-                ShowLoader("Finalizing...");
+                UpdateLoaderMessage("Finalizing startup...");
             }
             catch (Exception ex)
             {
                 LogHelper.Log("[StartServicesAsync][ERROR] " + ex.Message);
-                ShowLoader("Startup error. See logs.");
+                UpdateLoaderMessage("Startup error! Check logs.");
+                await Task.Delay(2000); // Allow user to see error message
             }
         }
 

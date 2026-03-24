@@ -30,7 +30,7 @@ namespace smart_attendance_middleware.Classes
                 SimulationEvents.RaiseSimulationStarted(until);
 
                 // Same pipeline that AttendanceServerForm uses internally
-                var fn = new AttendenceServerFunctions(_ws);
+                var fn = new AttendenceServerFunctions();
                 fn._dbHelper = _db;
 
                 // Devices (attendance devices only)

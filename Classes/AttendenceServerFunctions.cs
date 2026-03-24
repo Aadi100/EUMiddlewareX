@@ -1,6 +1,6 @@
 ﻿using smart_attendance_middleware.Classes;
 using System;
-using System.Data.SQLite;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Media;
@@ -12,60 +12,21 @@ namespace smart_attendance_middleware
 {
     public class AttendenceServerFunctions
     {
-
         public DatabaseHelper _dbHelper;
-        public WebSocketManager _wsManager;
-        private Processor _processor;
+        private Processor _processor; 
         private HttpHandler _httpHandler;
+
         public AttendenceServerFunctions(DatabaseHelper dbHelper)
         {
             _dbHelper = dbHelper ?? new DatabaseHelper();
             _httpHandler = new HttpHandler(_dbHelper);
         }
 
-        public AttendenceServerFunctions(WebSocketManager wsManager)
-        {
-            _dbHelper = new DatabaseHelper();
-            _wsManager = wsManager;
-
-            if (_wsManager != null)
-            {
-                _processor = new Processor(_dbHelper, _wsManager, this);
-                _httpHandler = new HttpHandler(_dbHelper, _processor);
-            }
-            else
-            {
-                _httpHandler = new HttpHandler(_dbHelper);
-            }
-        }
-
         public AttendenceServerFunctions()
         {
             _dbHelper = new DatabaseHelper();
-            _httpHandler = new HttpHandler(_dbHelper);
-        }
-
-        // Method to set the WebSocketManager if needed after construction
-        public void SetWebSocketManager(WebSocketManager wsManager)
-        {
-            if (wsManager == null)
-            {
-                LogHelper.Log("[AttendenceServerFunctions] Ignoring attempt to set null WebSocketManager");
-                return;
-            }
-
-            _wsManager = wsManager;
-            LogHelper.Log("[AttendenceServerFunctions] WebSocketManager successfully set");
-
-            // Create processor only if not already created
-            if (_processor == null && _wsManager != null)
-            {
-                _processor = new Processor(_dbHelper, _wsManager, this);
-                LogHelper.Log("[AttendenceServerFunctions] Processor created with WebSocketManager");
-
-                // Recreate HttpHandler with Processor so it can process attendance/member responses
-                _httpHandler = new HttpHandler(_dbHelper, _processor);
-            }
+            _processor = new Processor(_dbHelper, null, this);
+            _httpHandler = new HttpHandler(_dbHelper, _processor);
         }
 
         public sealed class AttendanceRecord
@@ -86,7 +47,7 @@ namespace smart_attendance_middleware
         }
 
         // Inside the Process method, add a WebSocketManager check and attempt to get it from the application state
-       
+
         public virtual async void Process(AttendanceRecord record)
         {
             if (record == null) return;
@@ -94,30 +55,12 @@ namespace smart_attendance_middleware
             // Use ONLY record.Time for all persistence & UI (do not replace with DateTime.Now)
             DateTime deviceTime = record.Time;
 
-            LogHelper.Log(string.Format("[AttendanceProcess] MachineNo={0}, IP={1}, Enroll={2}, Time={3:yyyy-MM-dd HH:mm:ss}",
+            LogHelper.Log(string.Format("[MemberAttendanceProcess] MachineNo={0}, IP={1}, Enroll={2}, Time={3:yyyy-MM-dd HH:mm:ss}",
                 record.DevID, record.IP, record.Enroll, deviceTime));
 
             if (_dbHelper == null)
                 _dbHelper = new DatabaseHelper();
 
-            //Check if WebSocketManager is missing and try to get it from Dashboard if available
-            if (_wsManager == null)
-            {
-                // Log that we're attempting to get WebSocketManager
-                LogHelper.Log("[AttendanceProcess] WebSocketManager not set, attempting to retrieve from application state...");
-
-                // Try to find the Dashboard form which should have the WebSocketManager
-                var dashboard = Application.OpenForms.OfType<Dashboard>().FirstOrDefault();
-                if (dashboard != null && dashboard._wsManager != null)
-                {
-                    LogHelper.Log("[AttendanceProcess] Found WebSocketManager in Dashboard, setting it now");
-                    SetWebSocketManager(dashboard._wsManager);
-                }
-                else
-                {
-                    LogHelper.Log("[AttendanceProcess] Could not find WebSocketManager in application state");
-                }
-            }
 
             // --- debounce guard BEFORE processing DB mutation ---
             try
@@ -135,13 +78,13 @@ namespace smart_attendance_middleware
                         "Debounce Setting Required",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
-                    LogHelper.Log("[AttendanceProcess][Debounce] Missing/invalid debounce setting. Aborting event processing.");
+                    LogHelper.Log("[MemberAttendanceProcess][Debounce] Missing/invalid debounce setting. Aborting event processing.");
                     return; // do not process further until a valid value is saved
                 }
 
                 if (string.IsNullOrEmpty(action) || !memberId.HasValue)
                 {
-                    LogHelper.Log("[AttendanceProcess] Debounce check skipped (missing action or memberId)");
+                    LogHelper.Log("[MemberAttendanceProcess] Debounce check skipped (missing action or memberId)");
                 }
                 else
                 {
@@ -157,21 +100,21 @@ namespace smart_attendance_middleware
                                 var diff = deviceTime - openCheckInTime.Value;
                                 if (diff.TotalSeconds < debounceSeconds)
                                 {
-                                    LogHelper.Log($"[AttendanceProcess][Debounce] CHECK-OUT ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
+                                    LogHelper.Log($"[MemberAttendanceProcess][Debounce] CHECK-OUT ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
                                     return; // exit early
                                 }
                             }
                             else
                             {
-                                LogHelper.Log("[AttendanceProcess][Debounce] Open session found but no check-in time; proceeding.");
+                                LogHelper.Log("[MemberAttendanceProcess][Debounce] Open session found but no check-in time; proceeding.");
                             }
                         }
                         else
                         {
-                            LogHelper.Log("[AttendanceProcess][Debounce] No open session for checkout; passing to handler.");
+                            LogHelper.Log("[MemberAttendanceProcess][Debounce] No open session for checkout; passing to handler.");
                         }
                     }
-                    
+
                     else if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
                     {
                         int openLogId = _dbHelper.GetOpenAttendanceLogId(memberId.Value);
@@ -189,7 +132,7 @@ namespace smart_attendance_middleware
                                 if (diff.TotalSeconds < completedSessionCheckInDebounceSeconds)
                                 {
                                     LogHelper.Log(
-                                        $"[AttendanceProcess][Debounce] CHECK-IN ignored after completed session " +
+                                        $"[MemberAttendanceProcess][Debounce] CHECK-IN ignored after completed session " +
                                         $"(Δ={diff.TotalSeconds:F0}s < {completedSessionCheckInDebounceSeconds}s) " +
                                         $"Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
                                     return;
@@ -198,7 +141,7 @@ namespace smart_attendance_middleware
                             else
                             {
                                 LogHelper.Log(
-                                    $"[AttendanceProcess][Debounce] CHECK-IN completed-session debounce check skipped (no last checkout). " +
+                                    $"[MemberAttendanceProcess][Debounce] CHECK-IN completed-session debounce check skipped (no last checkout). " +
                                     $"Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
                             }
                         }
@@ -212,7 +155,7 @@ namespace smart_attendance_middleware
                                 if (diff.TotalSeconds < debounceSeconds)
                                 {
                                     LogHelper.Log(
-                                        $"[AttendanceProcess][Debounce] CHECK-IN ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) " +
+                                        $"[MemberAttendanceProcess][Debounce] CHECK-IN ignored (Δ={diff.TotalSeconds:F0}s < {debounceSeconds}s) " +
                                         $"Member={memberId} Time={deviceTime:yyyy-MM-dd HH:mm:ss}");
                                     return;
                                 }
@@ -223,7 +166,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception exDebounce)
             {
-                LogHelper.Log($"[AttendanceProcess][Debounce][ERROR] {exDebounce.Message}");
+                LogHelper.Log($"[MemberAttendanceProcess][Debounce][ERROR] {exDebounce.Message}");
                 // Fail-open: proceed to normal handling
             }
 
@@ -258,27 +201,29 @@ namespace smart_attendance_middleware
                 // -------------------------------------------------------
 
                 // Log attendance to the server using the WebSocketManager
-                await LogAttendanceToServer(result);
+                await LogMemberAttendanceToServer(result);
             }
         }
 
 
-        private async Task LogAttendanceToServer(AttendanceEventResult result)
+        private async Task LogMemberAttendanceToServer(AttendanceEventResult result)
         {
             if (result == null) return;
 
             try
             {
+                // Ensure HttpHandler is initialized if missing
                 if (_httpHandler == null)
                 {
-                    LogHelper.Log("[LogAttendanceToServer] HttpHandler not initialized.");
-                    return;
+                    if (_dbHelper == null) _dbHelper = new DatabaseHelper();
+                    _httpHandler = new HttpHandler(_dbHelper);
+                    LogHelper.Log("[LogMemberAttendanceToServer] HttpHandler was missing; initialized now.");
                 }
 
                 int enrollmentId = result.EnrollmentId;
                 if (enrollmentId <= 0)
                 {
-                    LogHelper.Log($"[LogAttendanceToServer] Cannot log to server: Invalid enrollment ID for Member={result.MemberId}");
+                    LogHelper.Log($"[LogMemberAttendanceToServer] Cannot log to server: Invalid enrollment ID for Member={result.MemberId}");
                     return;
                 }
 
@@ -300,7 +245,7 @@ namespace smart_attendance_middleware
                     }
                     else
                     {
-                        LogHelper.Log($"[LogAttendanceToServer] Unsupported action '{result.Action}'");
+                        LogHelper.Log($"[LogMemberAttendanceToServer] Unsupported action '{result.Action}'");
                         return;
                     }
                 }
@@ -311,7 +256,7 @@ namespace smart_attendance_middleware
 
                 if (string.IsNullOrEmpty(resolvedId))
                 {
-                    LogHelper.Log($"[LogAttendanceToServer] Cannot log to server: No attendance ID for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
+                    LogHelper.Log($"[LogMemberAttendanceToServer] Cannot log to server: No attendance ID for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
                     return;
                 }
 
@@ -331,7 +276,7 @@ namespace smart_attendance_middleware
                         id: resolvedId
                     );
 
-                    LogHelper.Log($"[LogAttendanceToServer] CHECK-IN sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss} (normalized to UTC +00)");
+                    LogHelper.Log($"[LogMemberAttendanceToServer] CHECK-IN sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss} (normalized to UTC +00)");
                 }
                 else if (result.Action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
                 {
@@ -360,12 +305,12 @@ namespace smart_attendance_middleware
                         id: resolvedId
                     );
 
-                    LogHelper.Log($"[LogAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} (normalized to UTC +00)");
+                    LogHelper.Log($"[LogMemberAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} (normalized to UTC +00)");
                 }
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"[LogAttendanceToServer] Error: {ex.Message}");
+                LogHelper.Log($"[LogMemberAttendanceToServer] Error: {ex.Message}");
             }
         }
 
@@ -376,14 +321,14 @@ namespace smart_attendance_middleware
                 string action = _dbHelper.GetDeviceAttendanceAction(machineNo);
                 if (action == null)
                 {
-                    LogHelper.Log($"[AttendanceProcess] Unknown MachineNo {machineNo}. Ignored.");
+                    LogHelper.Log($"[MemberAttendanceProcess] Unknown MachineNo {machineNo}. Ignored.");
                     return null;
                 }
 
                 int? memberId = _dbHelper.GetMemberIdByEnrollment(enrollmentId);
                 if (!memberId.HasValue)
                 {
-                    LogHelper.Log($"[AttendanceProcess] EnrollmentID {enrollmentId} not linked to any member. Ignored.");
+                    LogHelper.Log($"[MemberAttendanceProcess] EnrollmentID {enrollmentId} not linked to any member. Ignored.");
                     return null;
                 }
 
@@ -397,13 +342,13 @@ namespace smart_attendance_middleware
                     if (dup.synced)
                     {
                         // Already processed and acknowledged by cloud – suppress entirely.
-                        LogHelper.Log($"[AttendanceProcess] Suppressed re-streamed {action} (already synced) Member={memberId} Time={deviceTimeStr}");
+                        LogHelper.Log($"[MemberAttendanceProcess] Suppressed re-streamed {action} (already synced) Member={memberId} Time={deviceTimeStr}");
                         return null;
                     }
                     else
                     {
                         // This avoids double entries but allows cloud sync to complete.
-                        LogHelper.Log($"[AttendanceProcess] Duplicate {action} detected for Member={memberId} at {deviceTimeStr}, Ignoring.");
+                        LogHelper.Log($"[MemberAttendanceProcess] Duplicate {action} detected for Member={memberId} at {deviceTimeStr}, Ignoring.");
                         return null; // Changed to null to avoid double sending; handled in Process method
                     }
                 }
@@ -416,7 +361,7 @@ namespace smart_attendance_middleware
                     // gate == true means no open session -> allow insert
                     if (!gate)
                     {
-                        LogHelper.Log($"[AttendanceProcess] Duplicate/open CHECK-IN blocked for Member={memberId} at {deviceTimeStr}");
+                        LogHelper.Log($"[MemberAttendanceProcess] Duplicate/open CHECK-IN blocked for Member={memberId} at {deviceTimeStr}");
                         return null;
                     }
 
@@ -424,7 +369,7 @@ namespace smart_attendance_middleware
                     try
                     {
                         int logId = _dbHelper.InsertAttendanceLog(memberId.Value, deviceTimeStr);
-                        LogHelper.Log($"[AttendanceProcess] CHECK-IN stored Member={memberId} LogID={logId} Time={deviceTimeStr}");
+                        LogHelper.Log($"[MemberAttendanceProcess] CHECK-IN stored Member={memberId} LogID={logId} Time={deviceTimeStr}");
                     }
                     finally
                     {
@@ -440,7 +385,7 @@ namespace smart_attendance_middleware
                         try
                         {
                             _dbHelper.UpdateAttendanceLogForCheckOut(memberId.Value, deviceTimeStr);
-                            LogHelper.Log($"[AttendanceProcess] CHECK-OUT applied Member={memberId} Time={deviceTimeStr}");
+                            LogHelper.Log($"[MemberAttendanceProcess] CHECK-OUT applied Member={memberId} Time={deviceTimeStr}");
                         }
                         finally
                         {
@@ -449,13 +394,13 @@ namespace smart_attendance_middleware
                     }
                     else
                     {
-                        LogHelper.Log($"[AttendanceProcess] CHECK-OUT ignored for Member={memberId} at {deviceTimeStr} (no open session)");
+                        LogHelper.Log($"[MemberAttendanceProcess] CHECK-OUT ignored for Member={memberId} at {deviceTimeStr} (no open session)");
                         return null;
                     }
                 }
                 else
                 {
-                    LogHelper.Log($"[AttendanceProcess] Unsupported action '{action}' for MachineNo={machineNo}. Ignored.");
+                    LogHelper.Log($"[MemberAttendanceProcess] Unsupported action '{action}' for MachineNo={machineNo}. Ignored.");
                     return null;
                 }
 
@@ -471,7 +416,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"[AttendanceProcess][ERROR] {ex.Message}");
+                LogHelper.Log($"[MemberAttendanceProcess][ERROR] {ex.Message}");
                 return null;
             }
 

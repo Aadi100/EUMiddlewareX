@@ -1,10 +1,11 @@
-﻿using smart_attendance_middleware.UI;
-using System.Drawing;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using smart_attendance_middleware.Classes;
 using smart_attendance_middleware.Services;
+using smart_attendance_middleware.UI;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -50,8 +51,14 @@ namespace smart_attendance_middleware
             switch (eventType)
             {
 
+                case "attendance_created":
+                    HandleAttendance(data);
+                    ShowUsersNotification(data, "Attendance Created", "A new attendance record has been created.");
+                    break;
+
                 case "attendance_updated":
                     HandleAttendance(data);
+                    ShowUsersNotification(data, "Attendance Updated", "An attendance record has been updated.");
                     break;
 
                 case "user_created":
@@ -61,10 +68,10 @@ namespace smart_attendance_middleware
                         SyncUserFromCloud(userData);
                         _ = Task.Run(async () =>
                         {
-                            await HandleMemberFaceImage(userData);
-                            HandleMemberCreation();
+                            await HandleUsersFaceImage(userData);
+                            HandleUsersCreation();
                         });
-                        ShowMemberNotification(userData, "User Created", "A new user has been created.");
+                        ShowUsersNotification(userData, "User Created", "A new user has been created.");
                     }
                     break;
 
@@ -76,16 +83,16 @@ namespace smart_attendance_middleware
                         {
                             await _deviceFunctions.StatusSync(userDataUpd);
                             SyncUserFromCloud(userDataUpd);
-                            await HandleMemberFaceImage(userDataUpd);
-                            await HandleUpdateMember(userDataUpd);
+                            await HandleUsersFaceImage(userDataUpd);
+                            await HandleUpdateUsers(userDataUpd);
                         });
-                        ShowMemberNotification(userDataUpd, "User Updated", "User details have been updated.");
+                        ShowUsersNotification(userDataUpd, "User Updated", "User details have been updated.");
                     }
                     break;
 
                 //case "notification.member_deleted":
                 //    HandleDeletedMember(data);
-                //    ShowMemberNotification(data, "Member Deleted", "A member has been removed.");
+                //    ShowUsersNotification(data, "User Deleted", "A user has been removed.");
                 //    break;
 
                 //case "notification.status":
@@ -114,12 +121,13 @@ namespace smart_attendance_middleware
             switch (eventType)
             {
                 case "attendance.response":
-                    var records = data["records"] as JArray;
-                    ShowMemberNotification(data, "Attendance Response", "Attendance response received from server.");
-                    if (records != null && records.Count > 0)
-                        HandleHttpAttendanceResponseBulk(data);
-                    else
-                        HandleHttpAttendanceResponseSingle(data);
+                    ShowUsersNotification(data, "Attendance Response", "Attendance response received from server.");
+                    HandleHttpAttendanceResponseSingle(data);
+                    break;
+
+                case "attendance.response.bulk":
+                    ShowUsersNotification(data, "Bulk Attendance Response", "Bulk attendance response received from server.");
+                    HandleHttpAttendanceResponseBulk(data);
                     break;
 
                 case "member.all":
@@ -230,6 +238,7 @@ namespace smart_attendance_middleware
             {
                 string staffId = staff["id"]?.ToString();
                 string status = staff["status"]?.Value<string>() ?? string.Empty;
+                int? enrollmentId = staff["enrollment_id"]?.Type == JTokenType.Integer ? staff["enrollment_id"].Value<int>() : (int?)null;
 
                 bool hasFace = staff["face"]?.Type != JTokenType.Null && staff["face"]?.Value<bool>() == true;
                 if (!hasFace && staff["picture"] != null)
@@ -238,6 +247,51 @@ namespace smart_attendance_middleware
                 }
 
                 LogHelper.Log($"👤 Handling staff member {staffId} (status={status})");
+
+                // Check if this is a new staff member
+                bool isNewStaff = _dbHelper.GetStaff(staffId) == null;
+
+                // Update enrollment IDs list only for add or remove operations
+                if (enrollmentId.HasValue)
+                {
+                    string key = "staff_enrollment_ids";
+                    string currentJson = _dbHelper.GetSetting(key) ?? "[]";
+                    List<string> enrollmentIds;
+                    try
+                    {
+                        enrollmentIds = JsonConvert.DeserializeObject<List<string>>(currentJson) ?? new List<string>();
+                    }
+                    catch
+                    {
+                        enrollmentIds = new List<string>();
+                    }
+                    string enrollmentIdStr = enrollmentId.Value.ToString();
+                    bool listChanged = false;
+
+                    if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
+                        status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (enrollmentIds.Remove(enrollmentIdStr))
+                        {
+                            listChanged = true;
+                            LogHelper.Log($"Removed enrollment ID {enrollmentIdStr} from staff enrollment IDs list.");
+                        }
+                    }
+                    else if (isNewStaff)
+                    {
+                        if (!enrollmentIds.Contains(enrollmentIdStr))
+                        {
+                            enrollmentIds.Add(enrollmentIdStr);
+                            listChanged = true;
+                            LogHelper.Log($"Added enrollment ID {enrollmentIdStr} to staff enrollment IDs list.");
+                        }
+                    }
+
+                    if (listChanged)
+                    {
+                        _dbHelper.SaveJsonArraySetting(key, enrollmentIds);
+                    }
+                }
 
                 if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
                     status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
@@ -271,7 +325,7 @@ namespace smart_attendance_middleware
         /// Checks FACE directory for existing image, deletes if found, and downloads new image if available.
         /// </summary>
         /// <param name="memberData">Member data containing face image information</param>
-        private async Task HandleMemberFaceImage(JObject memberData)
+        private async Task HandleUsersFaceImage(JObject memberData)
         {
             try
             {
@@ -354,6 +408,7 @@ namespace smart_attendance_middleware
 
         /// <summary>
         /// Handles attendance update events from WebSocket, only processing manual updates.
+        /// Supports staff (GUID id + enrollment_id) and regular members (int id).
         /// </summary>
         private async void HandleAttendance(JObject data)
         {
@@ -370,7 +425,15 @@ namespace smart_attendance_middleware
                 }
 
                 string attendanceId = attendance["id"]?.ToString();
-                int memberId = attendance["member"]?["id"]?.Value<int>() ?? 0;
+                var memberObj = attendance["member"] as JObject;
+                if (memberObj == null)
+                {
+                    LogHelper.Log("⚠️ Attendance payload missing member object.");
+                    return;
+                }
+
+                // Determine if this is a staff record
+                bool isStaff = memberObj["is_staff"]?.Type != JTokenType.Null && memberObj["is_staff"]?.Value<bool>() == true;
 
                 string checkInStr = attendance["check_in"]?.ToString();
                 string checkOutStr = attendance["check_out"]?.ToString();
@@ -384,38 +447,101 @@ namespace smart_attendance_middleware
                 await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceUpdated_Write", DbTaskPriority.High);
                 try
                 {
-                    if (hasCheckIn && DateTime.TryParse(checkInStr, out when))
+                    if (isStaff)
                     {
-                        LogHelper.Log($"Processed manual attendance update for member {memberId} with check-in at {when:yyyy-MM-dd HH:mm:ss} and AttendanceId {attendanceId}");
-                        bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
-                            memberId,
-                            attendanceId,
-                            checkInTime: when,
-                            checkOutTime: null,
-                            checkIn: true,
-                            checkOut: null
-                        );
-                        LogHelper.Log(updated
-                            ? $"✅ Updated sync status for check-in: Member {memberId}, AttendanceId {attendanceId}"
-                            : $"ℹ️ No change for check-in sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                        anyUpdateDone |= updated;
-                    }
+                        // Staff: use enrollment_id (int). Staff primary id is GUID string and should NOT be parsed as int.
+                        int enrollmentId = memberObj["enrollment_id"]?.Type == JTokenType.Integer
+                            ? memberObj["enrollment_id"].Value<int>()
+                            : 0;
 
-                    if (hasCheckOut && DateTime.TryParse(checkOutStr, out when))
+                        if (enrollmentId == 0 || string.IsNullOrWhiteSpace(attendanceId))
+                        {
+                            LogHelper.Log("⚠️ Invalid STAFF attendance payload (missing enrollment_id or id).");
+                        }
+                        else
+                        {
+                            if (hasCheckIn && DateTime.TryParse(checkInStr, out when))
+                            {
+                                LogHelper.Log($"Processed manual STAFF attendance update for enrollment {enrollmentId} with check-in at {when:yyyy-MM-dd HH:mm:ss} and AttendanceId {attendanceId}");
+                                bool updated = _dbHelper.UpdateStaffAttendanceLogSyncStatus(
+                                    enrollmentId,
+                                    attendanceId,
+                                    checkInTime: when,
+                                    checkOutTime: null,
+                                    checkIn: true,
+                                    checkOut: null
+                                );
+                                LogHelper.Log(updated
+                                    ? $"✅ Updated STAFF sync status for check-in: Enrollment {enrollmentId}, AttendanceId {attendanceId}"
+                                    : $"ℹ️ No change for STAFF check-in sync (already up-to-date or row not found): Enrollment {enrollmentId}, AttendanceId {attendanceId}");
+                                anyUpdateDone |= updated;
+                            }
+
+                            if (hasCheckOut && DateTime.TryParse(checkOutStr, out when))
+                            {
+                                LogHelper.Log($"Updated manual STAFF attendance update for enrollment {enrollmentId} with check-out at {when:yyyy-MM-dd HH:mm:ss} using AttendanceId {attendanceId}");
+                                bool updated = _dbHelper.UpdateStaffAttendanceLogSyncStatus(
+                                    enrollmentId,
+                                    attendanceId,
+                                    checkInTime: null,
+                                    checkOutTime: when,
+                                    checkIn: null,
+                                    checkOut: true
+                                );
+                                LogHelper.Log(updated
+                                    ? $"✅ Updated STAFF sync status for check-out: Enrollment {enrollmentId}, AttendanceId {attendanceId}"
+                                    : $"ℹ️ No change for STAFF check-out sync (already up-to-date or row not found): Enrollment {enrollmentId}, AttendanceId {attendanceId}");
+                                anyUpdateDone |= updated;
+                            }
+                        }
+                    }
+                    else
                     {
-                        LogHelper.Log($"Updated manual attendance update for member {memberId} with check-out at {when:yyyy-MM-dd HH:mm:ss} using AttendanceId {attendanceId}");
-                        bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
-                            memberId,
-                            attendanceId,
-                            checkInTime: null,
-                            checkOutTime: when,
-                            checkIn: null,
-                            checkOut: true
-                        );
-                        LogHelper.Log(updated
-                            ? $"✅ Updated sync status for check-out: Member {memberId}, AttendanceId {attendanceId}"
-                            : $"ℹ️ No change for check-out sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                        anyUpdateDone |= updated;
+                        // Member: id must be integer
+                        int memberId = memberObj["id"]?.Type == JTokenType.Integer
+                            ? memberObj["id"].Value<int>()
+                            : 0;
+
+                        if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
+                        {
+                            LogHelper.Log("⚠️ Invalid member attendance record (missing member_id or id). Skipping.");
+                        }
+                        else
+                        {
+                            if (hasCheckIn && DateTime.TryParse(checkInStr, out when))
+                            {
+                                LogHelper.Log($"Processed manual attendance update for member {memberId} with check-in at {when:yyyy-MM-dd HH:mm:ss} and AttendanceId {attendanceId}");
+                                bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                                    memberId,
+                                    attendanceId,
+                                    checkInTime: when,
+                                    checkOutTime: null,
+                                    checkIn: true,
+                                    checkOut: null
+                                );
+                                LogHelper.Log(updated
+                                    ? $"✅ Updated sync status for check-in: Member {memberId}, AttendanceId {attendanceId}"
+                                    : $"ℹ️ No change for check-in sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
+                                anyUpdateDone |= updated;
+                            }
+
+                            if (hasCheckOut && DateTime.TryParse(checkOutStr, out when))
+                            {
+                                LogHelper.Log($"Updated manual attendance update for member {memberId} with check-out at {when:yyyy-MM-dd HH:mm:ss} using AttendanceId {attendanceId}");
+                                bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
+                                    memberId,
+                                    attendanceId,
+                                    checkInTime: null,
+                                    checkOutTime: when,
+                                    checkIn: null,
+                                    checkOut: true
+                                );
+                                LogHelper.Log(updated
+                                    ? $"✅ Updated sync status for check-out: Member {memberId}, AttendanceId {attendanceId}"
+                                    : $"ℹ️ No change for check-out sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
+                                anyUpdateDone |= updated;
+                            }
+                        }
                     }
                 }
                 finally
@@ -424,7 +550,12 @@ namespace smart_attendance_middleware
                 }
 
                 if (anyUpdateDone)
-                    LogHelper.Log($"✅ Manual attendance update sync completed for member {memberId}, AttendanceId {attendanceId}");
+                {
+                    if (isStaff)
+                        LogHelper.Log($"✅ Manual STAFF attendance update sync completed for enrollment {memberObj["enrollment_id"]?.ToString() ?? "unknown"}, AttendanceId {attendanceId}");
+                    else
+                        LogHelper.Log($"✅ Manual attendance update sync completed for member {memberObj["id"]?.ToString() ?? "unknown"}, AttendanceId {attendanceId}");
+                }
             }
             catch (Exception ex)
             {
@@ -657,7 +788,7 @@ namespace smart_attendance_middleware
 
 
 
-        private async Task HandleUpdateMember(JObject data)
+        private async Task HandleUpdateUsers(JObject data)
         {
             try
             {
@@ -681,7 +812,7 @@ namespace smart_attendance_middleware
         }
 
 
-        private async void HandleMemberCreation()
+        private async void HandleUsersCreation()
         {
             try
             {
@@ -701,7 +832,7 @@ namespace smart_attendance_middleware
         ///<summary>
         /// Shows a notification for a member-related event.
         ///</summary>
-        private void ShowMemberNotification(JObject data, string title, string defaultMessage)
+        private void ShowUsersNotification(JObject data, string title, string defaultMessage)
         {
             try
             {
@@ -738,83 +869,6 @@ namespace smart_attendance_middleware
 
         ////////////////////////////////HTTP Methods//////////////////////////////////////
 
-
-        /// <summary>
-        /// Handles bulk member data returned from the cloud.
-        /// </summary>
-
-        //private async Task HandleHttpAllMembers(JObject data)
-        //{
-        //    try
-        //    {
-        //        LogHelper.Log($"📦 Received all members data : {data.ToString()}");
-
-        //        var membersArray = data["members"] as JArray;
-        //        if (membersArray == null)
-        //        {
-        //            LogHelper.Log("❌ 'members' array not found in response.");
-        //            return;
-        //        }
-
-        //        // Use reflection to call the private SaveMemberPicturesAsync method
-        //        try
-        //        {
-        //            var saveMethod = typeof(WebSocketManager).GetMethod("SaveMemberPicturesAsync",
-        //                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        //            if (saveMethod != null)
-        //            {
-        //                // The method expects a dynamic object, JObject should work if the structure is correct.
-        //                await (Task)saveMethod.Invoke(_wsManager, new object[] { data });
-        //                LogHelper.Log("🖼️ Queued member picture download process.");
-        //            }
-        //            else
-        //            {
-        //                LogHelper.Log("❌ Could not find SaveMemberPicturesAsync method to download images.");
-        //            }
-        //        }
-        //        catch (Exception exImg)
-        //        {
-        //            LogHelper.Log($"❌ Error invoking SaveMemberPicturesAsync: {exImg.Message}");
-        //        }
-
-        //        int upsertedOrSynced = 0;
-        //        int deletedOrExpired = 0;
-
-        //        foreach (var memberObj in membersArray)
-        //        {
-        //            try
-        //            {
-        //                var member = (JObject)memberObj;
-        //                var status = member["status"]?.Value<string>() ?? string.Empty;
-
-        //                // Reuse existing logic for delete/expire vs upsert
-        //                SyncUserFromCloud(member);
-
-        //                if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
-        //                    status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
-        //                {
-        //                    deletedOrExpired++;
-        //                }
-        //                else
-        //                {
-        //                    upsertedOrSynced++;
-        //                }
-        //            }
-        //            catch (Exception exItem)
-        //            {
-        //                LogHelper.Log($"⚠️ Error processing member in bulk: {exItem.Message}");
-        //            }
-        //        }
-
-        //        LogHelper.Log($"✅ {upsertedOrSynced} members synced/upserted, 🗑 {deletedOrExpired} deleted/expired.");
-
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        LogHelper.Log($"❌ HandleAllMembers error: {ex.Message}");
-        //    }
-        //}
 
         private async Task HandleHttpAllMembers(JObject data)
         {
@@ -931,6 +985,78 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"📍 Attendance single response received: {data.ToString(Newtonsoft.Json.Formatting.None)}");
 
                 string attendanceId = data["id"]?.ToString();
+                bool isStaff = data["is_staff"]?.Type != JTokenType.Null && data["is_staff"]?.Value<bool>() == true;
+
+                if (isStaff)
+                {
+                    // For staff, prefer explicit enrollment_id, fall back to member_id if present
+                    int enrollmentId = data["enrollment_id"]?.Value<int>() ?? data["member_id"]?.Value<int>() ?? 0;
+                    if (enrollmentId == 0 || string.IsNullOrWhiteSpace(attendanceId))
+                    {
+                        LogHelper.Log("⚠️ Invalid single STAFF attendance payload (missing enrollment_id or id).");
+                        return;
+                    }
+
+                    string checkInIso = data["check_in"]?.ToString();
+                    string checkOutIso = data["check_out"]?.ToString();
+
+                    DateTime checkInLocal; string checkInFmt;
+                    DateTime checkOutLocal; string checkOutFmt;
+
+                    bool hasCheckIn = CommonUtils.TryParseIsoToLocal(checkInIso, out checkInLocal, out checkInFmt);
+                    bool hasCheckOut = CommonUtils.TryParseIsoToLocal(checkOutIso, out checkOutLocal, out checkOutFmt);
+
+                    bool anyUpdateDone = false;
+
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceResponseSingle_Write_Staff", DbTaskPriority.High);
+                    try
+                    {
+                        if (hasCheckIn)
+                        {
+                            LogHelper.Log($"Processed STAFF attendance log for enrollment {enrollmentId} with check-in at {checkInFmt} and AttendanceId {attendanceId}");
+                            bool updated = _dbHelper.UpdateStaffAttendanceLogSyncStatus(
+                                enrollmentId,
+                                attendanceId,
+                                checkInTime: checkInLocal,
+                                checkOutTime: null,
+                                checkIn: true,
+                                checkOut: null
+                            );
+                            LogHelper.Log(updated
+                                ? $"✅ Updated STAFF sync status for check-in: Enrollment {enrollmentId}, AttendanceId {attendanceId}"
+                                : $"ℹ️ No change for STAFF check-in sync (already up-to-date or row not found): Enrollment {enrollmentId}, AttendanceId {attendanceId}");
+                            anyUpdateDone |= updated;
+                        }
+
+                        if (hasCheckOut)
+                        {
+                            LogHelper.Log($"Updated STAFF attendance log for enrollment {enrollmentId} with check-out at {checkOutFmt} using AttendanceId {attendanceId}");
+                            bool updated = _dbHelper.UpdateStaffAttendanceLogSyncStatus(
+                                enrollmentId,
+                                attendanceId,
+                                checkInTime: null,
+                                checkOutTime: checkOutLocal,
+                                checkIn: null,
+                                checkOut: true
+                            );
+                            LogHelper.Log(updated
+                                ? $"✅ Updated STAFF sync status for check-out: Enrollment {enrollmentId}, AttendanceId {attendanceId}"
+                                : $"ℹ️ No change for STAFF check-out sync (already up-to-date or row not found): Enrollment {enrollmentId}, AttendanceId {attendanceId}");
+                            anyUpdateDone |= updated;
+                        }
+                    }
+                    finally
+                    {
+                        DatabaseQueueManager.ReleaseDbWriteLock("HandleAttendanceResponseSingle_Write_Staff");
+                    }
+
+                    if (anyUpdateDone)
+                        LogHelper.Log($"✅ STAFF Attendance sync completed for enrollment {enrollmentId}, AttendanceId {attendanceId}");
+
+                    return;
+                }
+
+                // Member (non-staff) branch (existing behavior)
                 int memberId = data["member_id"]?.Value<int>() ?? 0;
                 if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
                 {
@@ -938,27 +1064,27 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                string checkInIso = data["check_in"]?.ToString();
-                string checkOutIso = data["check_out"]?.ToString();
+                string checkInIsoM = data["check_in"]?.ToString();
+                string checkOutIsoM = data["check_out"]?.ToString();
 
-                DateTime checkInLocal; string checkInFmt;
-                DateTime checkOutLocal; string checkOutFmt;
+                DateTime checkInLocalM; string checkInFmtM;
+                DateTime checkOutLocalM; string checkOutFmtM;
 
-                bool hasCheckIn = CommonUtils.TryParseIsoToLocal(checkInIso, out checkInLocal, out checkInFmt);
-                bool hasCheckOut = CommonUtils.TryParseIsoToLocal(checkOutIso, out checkOutLocal, out checkOutFmt);
+                bool hasCheckInM = CommonUtils.TryParseIsoToLocal(checkInIsoM, out checkInLocalM, out checkInFmtM);
+                bool hasCheckOutM = CommonUtils.TryParseIsoToLocal(checkOutIsoM, out checkOutLocalM, out checkOutFmtM);
 
-                bool anyUpdateDone = false;
+                bool anyUpdateDoneM = false;
 
                 await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceResponseSingle_Write", DbTaskPriority.High);
                 try
                 {
-                    if (hasCheckIn)
+                    if (hasCheckInM)
                     {
-                        LogHelper.Log($"Processed attendance log for member {memberId} with check-in at {checkInFmt} and AttendanceId {attendanceId}");
+                        LogHelper.Log($"Processed attendance log for member {memberId} with check-in at {checkInFmtM} and AttendanceId {attendanceId}");
                         bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
                             memberId,
                             attendanceId,
-                            checkInTime: checkInLocal,
+                            checkInTime: checkInLocalM,
                             checkOutTime: null,
                             checkIn: true,
                             checkOut: null
@@ -966,24 +1092,24 @@ namespace smart_attendance_middleware
                         LogHelper.Log(updated
                             ? $"✅ Updated sync status for check-in: Member {memberId}, AttendanceId {attendanceId}"
                             : $"ℹ️ No change for check-in sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                        anyUpdateDone |= updated;
+                        anyUpdateDoneM |= updated;
                     }
 
-                    if (hasCheckOut)
+                    if (hasCheckOutM)
                     {
-                        LogHelper.Log($"Updated attendance log for member {memberId} with check-out at {checkOutFmt} using AttendanceId {attendanceId}");
+                        LogHelper.Log($"Updated attendance log for member {memberId} with check-out at {checkOutFmtM} using AttendanceId {attendanceId}");
                         bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
                             memberId,
                             attendanceId,
                             checkInTime: null,
-                            checkOutTime: checkOutLocal,
+                            checkOutTime: checkOutLocalM,
                             checkIn: null,
                             checkOut: true
                         );
                         LogHelper.Log(updated
                             ? $"✅ Updated sync status for check-out: Member {memberId}, AttendanceId {attendanceId}"
                             : $"ℹ️ No change for check-out sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                        anyUpdateDone |= updated;
+                        anyUpdateDoneM |= updated;
                     }
                 }
                 finally
@@ -991,7 +1117,7 @@ namespace smart_attendance_middleware
                     DatabaseQueueManager.ReleaseDbWriteLock("HandleAttendanceResponseSingle_Write");
                 }
 
-                if (anyUpdateDone)
+                if (anyUpdateDoneM)
                     LogHelper.Log($"✅ Attendance sync completed for member {memberId}, AttendanceId {attendanceId}");
             }
             catch (Exception ex)
@@ -999,6 +1125,7 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"❌ HandleAttendanceResponseSingle error: {ex.Message}");
             }
         }
+
 
         /// <summary>
         /// Handles bulk attendance response from the cloud.
@@ -1017,83 +1144,85 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                bool anyUpdateDone = false;
+                int totalUpdated = 0;
 
-                await DatabaseQueueManager.EnterDbWriteLockAsync("HandleAttendanceResponseBulk_Write", DbTaskPriority.High);
-                try
+                // We process the records and call the bulk DB update methods which handle their own transactions and logging
+                foreach (var recToken in records)
                 {
-                    foreach (var recToken in records)
+                    var rec = recToken as JObject;
+                    if (rec == null) continue;
+
+                    string attendanceId = rec["id"]?.ToString();
+                    bool isStaff = rec["is_staff"]?.Type != JTokenType.Null && rec["is_staff"]?.Value<bool>() == true;
+
+                    // support both naming conventions used across single/bulk payloads
+                    string checkInIso = rec["checkin_time"]?.ToString() ?? rec["check_in"]?.ToString();
+                    string checkOutIso = rec["checkout_time"]?.ToString() ?? rec["check_out"]?.ToString();
+
+                    DateTime checkInLocal; string checkInFmt;
+                    DateTime checkOutLocal; string checkOutFmt;
+
+                    bool hasCheckIn = CommonUtils.TryParseIsoToLocal(checkInIso, out checkInLocal, out checkInFmt);
+                    bool hasCheckOut = CommonUtils.TryParseIsoToLocal(checkOutIso, out checkOutLocal, out checkOutFmt);
+
+                    if (!hasCheckIn)
                     {
-                        var rec = recToken as JObject;
-                        if (rec == null) continue;
+                        LogHelper.Log($"⚠️ Skipping record in bulk response: Missing or invalid check-in time for ID {attendanceId}");
+                        continue;
+                    }
 
-                        string attendanceId = rec["id"]?.ToString();
-                        int memberId = rec["member_id"]?.Value<int>() ?? 0;
-
-                        if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
+                    if (isStaff)
+                    {
+                        int enrollmentId = rec["enrollment_id"]?.Value<int>() ?? rec["member_id"]?.Value<int>() ?? 0;
+                        if (enrollmentId == 0 || string.IsNullOrWhiteSpace(attendanceId))
                         {
-                            LogHelper.Log("⚠️ Invalid record (missing member_id or id). Skipping.");
+                            LogHelper.Log("⚠️ Invalid STAFF record in bulk (missing enrollment_id or id). Skipping.");
                             continue;
                         }
 
-                        string checkInIso = rec["checkin_time"]?.ToString();
-                        string checkOutIso = rec["checkout_time"]?.ToString();
+                        // Use the bulk helper which looks up the record by enrollment + check-in time
+                        bool success = _dbHelper.UpdateStaffAttendanceLogBulk(
+                            enrollmentId,
+                            checkInLocal,
+                            hasCheckOut ? (DateTime?)checkOutLocal : null,
+                            attendanceId,
+                            setCheckInSynced: true,
+                            setCheckOutSynced: hasCheckOut
+                        );
 
-                        DateTime checkInLocal; string checkInFmt;
-                        DateTime checkOutLocal; string checkOutFmt;
-
-                        bool hasCheckIn = CommonUtils.TryParseIsoToLocal(checkInIso, out checkInLocal, out checkInFmt);
-                        bool hasCheckOut = CommonUtils.TryParseIsoToLocal(checkOutIso, out checkOutLocal, out checkOutFmt);
-
-                        if (hasCheckIn)
+                        if (success) totalUpdated++;
+                    }
+                    else
+                    {
+                        int memberId = rec["member_id"]?.Value<int>() ?? 0;
+                        if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
                         {
-                            LogHelper.Log($"Processed attendance log for member {memberId} with check-in at {checkInFmt} and AttendanceId {attendanceId}");
-                            bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
-                                memberId,
-                                attendanceId,
-                                checkInTime: checkInLocal,
-                                checkOutTime: null,
-                                checkIn: true,
-                                checkOut: null
-                            );
-                            LogHelper.Log(updated
-                                ? $"✅ Updated sync status for check-in: Member {memberId}, AttendanceId {attendanceId}"
-                                : $"ℹ️ No change for check-in sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                            anyUpdateDone |= updated;
+                            LogHelper.Log("⚠️ Invalid member record in bulk (missing member_id or id). Skipping.");
+                            continue;
                         }
 
-                        if (hasCheckOut)
-                        {
-                            LogHelper.Log($"Updated attendance log for member {memberId} with check-out at {checkOutFmt} using AttendanceId {attendanceId}");
-                            bool updated = _dbHelper.UpdateAttendanceLogSyncStatus(
-                                memberId,
-                                attendanceId,
-                                checkInTime: null,
-                                checkOutTime: checkOutLocal,
-                                checkIn: null,
-                                checkOut: true
-                            );
-                            LogHelper.Log(updated
-                                ? $"✅ Updated sync status for check-out: Member {memberId}, AttendanceId {attendanceId}"
-                                : $"ℹ️ No change for check-out sync (already up-to-date or row not found): Member {memberId}, AttendanceId {attendanceId}");
-                            anyUpdateDone |= updated;
-                        }
+                        // Use the bulk helper which looks up the record by memberId + check-in time
+                        bool success = _dbHelper.UpdateAttendanceLogBulkMembers(
+                            memberId,
+                            checkInLocal,
+                            hasCheckOut ? (DateTime?)checkOutLocal : null,
+                            attendanceId,
+                            setCheckInSynced: true,
+                            setCheckOutSynced: hasCheckOut
+                        );
+
+                        if (success) totalUpdated++;
                     }
                 }
-                finally
-                {
-                    DatabaseQueueManager.ReleaseDbWriteLock("HandleAttendanceResponseBulk_Write");
-                }
 
-                if (anyUpdateDone)
-                    LogHelper.Log("✅ Attendance sync completed for one or more records in bulk response.");
+                if (totalUpdated > 0)
+                    LogHelper.Log($"✅ Bulk attendance status update completed. Successfully updated {totalUpdated}/{records.Count} records.");
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"❌ HandleAttendanceResponseBulk error: {ex.Message}");
+                LogHelper.Log($"❌ HandleHttpAttendanceResponseBulk error: {ex.Message}");
             }
         }
-
 
         //////////////////////////////////////////////////////////////////////////////////////
 

@@ -19,7 +19,9 @@ public class StaffAttendanceLogSyncService : IDisposable
     private Task _syncTask;
 
     private readonly DatabaseHelper _dbHelper;
-    private readonly WebSocketManager _wsManager;
+    private HttpHandler _httpHandler;
+    private Processor _processor;
+    private readonly StaffAttendenceServerFunctions _staffServerFunctions;
 
     public static event Action InitialSyncCompleted;
 
@@ -31,10 +33,13 @@ public class StaffAttendanceLogSyncService : IDisposable
     // Optional: enable continuous looping like the original service
     private bool _continuousSyncEnabled = false;
 
-    public StaffAttendanceLogSyncService(WebSocketManager wsManager)
+    // Constructor updated to remove wsManager
+    public StaffAttendanceLogSyncService()
     {
         _dbHelper = new DatabaseHelper();
-        _wsManager = wsManager;
+        _staffServerFunctions = new StaffAttendenceServerFunctions();
+        _processor = new Processor(_dbHelper, null, _staffServerFunctions);
+        _httpHandler = new HttpHandler(_dbHelper, _processor);
     }
 
     public void Start()
@@ -735,7 +740,7 @@ public class StaffAttendanceLogSyncService : IDisposable
 
                     if (string.Equals(actionToApply, "check-in", StringComparison.OrdinalIgnoreCase))
                     {
-                        int newId = _dbHelper.InsertStaffCheckInByStaffId(staffId, ts, null);
+                        int newId = _dbHelper.InsertStaffCheckInByStaffId(staffId, ts);
                         if (newId > 0)
                         {
                             inserted++;
@@ -789,5 +794,77 @@ public class StaffAttendanceLogSyncService : IDisposable
         Stop();
         _cts?.Dispose();
         LogHelper.Log("Staff attendance log sync service disposed");
+    }
+
+    // Add the sync method
+    public async Task<int> SyncUnsyncedStaffAttendanceLogsAsync(CancellationToken token)
+    {
+        const int maxBatchSize = 100;
+
+        try
+        {
+            LogHelper.Log("Checking for unsynced staff attendance logs...");
+            var unsyncedLogs = await _dbHelper.CheckUnsyncedStaffAttendanceLogsAsync().ConfigureAwait(false);
+
+            if (unsyncedLogs == null || unsyncedLogs.Count == 0)
+            {
+                LogHelper.Log("No unsynced staff attendance logs found.");
+                return 0;
+            }
+
+            var gmtSetting = _dbHelper.GetSetting("GMT");
+
+            // Prepare items for batching
+            var items = unsyncedLogs
+                .Select(log => new
+                {
+                    log.EnrollmentId,
+                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.FormatWithGmt(log.CheckInTime, gmtSetting) : null,
+                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.FormatWithGmt(log.CheckOutTime, gmtSetting) : null,
+                    Id = log.AttendanceId
+                })
+                .Where(x => x.CheckIn != null || x.CheckOut != null)
+                .ToList();
+
+            LogHelper.Log($"Found {items.Count} unsynced staff logs formatted with GMT {gmtSetting}. Sending bulk...");
+
+            int totalBatchesProcessed = 0;
+
+            for (int i = 0; i < items.Count; i += maxBatchSize)
+            {
+                if (token.IsCancellationRequested) break;
+
+                var batch = items.Skip(i).Take(maxBatchSize)
+                    .Select(x => {
+                        long? longId = null;
+                        if (long.TryParse(x.Id, out long parsedId)) longId = parsedId;
+                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, longId);
+                    })
+                    .ToList();
+
+                LogHelper.Log($"➡ Sending bulk staff batch {totalBatchesProcessed + 1} ({batch.Count} items)");
+
+                try
+                {
+                    // Call the bulk wrapper. Note: Processor logic must handle 'is_staff' 
+                    // in the JSON response to call UpdateStaffAttendanceLogBulk.
+                    await _httpHandler.PostAttendanceRecordsBulkAsync(batch, token).ConfigureAwait(false);
+                    
+                    totalBatchesProcessed++;
+                    LogHelper.Log($"✅ Staff batch {totalBatchesProcessed} processing triggered.");
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"❌ Error sending bulk staff batch: {ex.Message}");
+                }
+            }
+
+            return items.Count;
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Log($"Error during staff bulk sync: {ex.Message}");
+            return 0;
+        }
     }
 }

@@ -7,6 +7,7 @@ public static class ServiceManager
 {
     public static LogSyncService LogSyncService { get; private set; }
     public static AttendanceLogSyncService AttendanceLogSyncService { get; private set; }
+    public static StaffAttendanceLogSyncService StaffAttendanceLogSyncService { get; private set; }
     public static PeriodicMaintenanceService PeriodicMaintenanceService { get; private set; }
 
     public static Task StartLogSyncServiceAsync(DeviceFunctions deviceFunctions)
@@ -17,7 +18,7 @@ public static class ServiceManager
             LogSyncService.Start();
         }
 
-        return LogSyncService.Started;
+        return Task.CompletedTask;
     }
 
     public static void StopLogSyncService()
@@ -26,15 +27,15 @@ public static class ServiceManager
         LogSyncService = null;
     }
 
-    public static Task StartAttendanceLogSyncServiceAsync(WebSocketManager wsManager)
+    public static Task StartAttendanceLogSyncServiceAsync()
     {
         if (AttendanceLogSyncService == null)
         {
-            AttendanceLogSyncService = new AttendanceLogSyncService(wsManager);
+            AttendanceLogSyncService = new AttendanceLogSyncService();
             AttendanceLogSyncService.Start();
         }
 
-        return AttendanceLogSyncService.Started;
+        return Task.CompletedTask;
     }
 
     public static void StopAttendanceLogSyncService()
@@ -47,6 +48,27 @@ public static class ServiceManager
         }
     }
 
+    public static Task StartStaffAttendanceLogSyncServiceAsync()
+    {
+        if (StaffAttendanceLogSyncService == null)
+        {
+            StaffAttendanceLogSyncService = new StaffAttendanceLogSyncService();
+            StaffAttendanceLogSyncService.Start();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public static void StopStaffAttendanceLogSyncService()
+    {
+        if (StaffAttendanceLogSyncService != null)
+        {
+            StaffAttendanceLogSyncService.Stop();
+            StaffAttendanceLogSyncService.Dispose();
+            StaffAttendanceLogSyncService = null;
+        }
+    }
+
     public static Task StartPeriodicMaintenanceServiceAsync(Dashboard dashboard)
     {
         if (PeriodicMaintenanceService == null)
@@ -55,7 +77,7 @@ public static class ServiceManager
             PeriodicMaintenanceService.Start();
         }
 
-        return PeriodicMaintenanceService.Started;
+        return Task.CompletedTask;
     }
 
     public static void StopPeriodicMaintenanceService()
@@ -73,6 +95,7 @@ public static class ServiceManager
     {
         StopLogSyncService();
         StopAttendanceLogSyncService();
+        StopStaffAttendanceLogSyncService();
         StopPeriodicMaintenanceService();
         LogHelper.Log("🛑 All services stopped");
     }

@@ -8,59 +8,17 @@ using System.Windows.Forms;
 
 namespace smart_attendance_middleware
 {
-    public class StaffAttendenceServerFunctions
+    public class StaffAttendenceServerFunctions 
     {
         public DatabaseHelper _dbHelper;
-        public WebSocketManager _wsManager;
-        private Processor _processor;
+        private Processor _processor; 
         private HttpHandler _httpHandler;
-
-        public StaffAttendenceServerFunctions(DatabaseHelper dbHelper)
-        {
-            _dbHelper = dbHelper ?? new DatabaseHelper();
-            _httpHandler = new HttpHandler(_dbHelper);
-        }
-
-        public StaffAttendenceServerFunctions(WebSocketManager wsManager)
-        {
-            _dbHelper = new DatabaseHelper();
-            _wsManager = wsManager;
-
-            if (_wsManager != null)
-            {
-                _processor = new Processor(_dbHelper, _wsManager, this);
-                _httpHandler = new HttpHandler(_dbHelper, _processor);
-            }
-            else
-            {
-                _httpHandler = new HttpHandler(_dbHelper);
-            }
-        }
 
         public StaffAttendenceServerFunctions()
         {
             _dbHelper = new DatabaseHelper();
-            _httpHandler = new HttpHandler(_dbHelper);
-        }
-
-        // Method to set the WebSocketManager after construction
-        public void SetWebSocketManager(WebSocketManager wsManager)
-        {
-            if (wsManager == null)
-            {
-                LogHelper.Log("[StaffAttendenceServerFunctions] Ignoring attempt to set null WebSocketManager");
-                return;
-            }
-
-            _wsManager = wsManager;
-            LogHelper.Log("[StaffAttendenceServerFunctions] WebSocketManager successfully set");
-
-            if (_processor == null && _wsManager != null)
-            {
-                _processor = new Processor(_dbHelper, _wsManager, this);
-                LogHelper.Log("[StaffAttendenceServerFunctions] Processor created with WebSocketManager");
-                _httpHandler = new HttpHandler(_dbHelper, _processor);
-            }
+            _processor = new Processor(_dbHelper, null, this); 
+            _httpHandler = new HttpHandler(_dbHelper, _processor);
         }
 
         public sealed class StaffAttendanceRecord
@@ -95,22 +53,6 @@ namespace smart_attendance_middleware
 
             if (_dbHelper == null)
                 _dbHelper = new DatabaseHelper();
-
-            // Attempt to obtain WebSocketManager from application state if missing
-            if (_wsManager == null)
-            {
-                LogHelper.Log("[StaffAttendanceProcess] WebSocketManager not set, attempting to retrieve from application state...");
-                var dashboard = Application.OpenForms.OfType<Dashboard>().FirstOrDefault();
-                if (dashboard != null && dashboard._wsManager != null)
-                {
-                    LogHelper.Log("[StaffAttendanceProcess] Found WebSocketManager in Dashboard, setting it now");
-                    SetWebSocketManager(dashboard._wsManager);
-                }
-                else
-                {
-                    LogHelper.Log("[StaffAttendanceProcess] Could not find WebSocketManager in application state");
-                }
-            }
 
             // Resolve action and staffId once and reuse them
             string resolvedAction = null;
@@ -362,7 +304,7 @@ namespace smart_attendance_middleware
                 {
                     if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
                     {
-                        int newLogId = _dbHelper.InsertStaffCheckInByStaffId(staffId, deviceTimeStr, null);
+                        int newLogId = _dbHelper.InsertStaffCheckInByStaffId(staffId, deviceTimeStr);
                         if (newLogId <= 0)
                         {
                             LogHelper.Log($"[StaffAttendanceProcess] Staff check-in for Enroll={enrollmentId} ignored/suppressed (possible duplicate/debounce).");
@@ -416,10 +358,12 @@ namespace smart_attendance_middleware
 
             try
             {
+                // Ensure HttpHandler is initialized if missing
                 if (_httpHandler == null)
                 {
-                    LogHelper.Log("[LogStaffAttendanceToServer] HttpHandler not initialized for staff logging.");
-                    return;
+                    if (_dbHelper == null) _dbHelper = new DatabaseHelper();
+                    _httpHandler = new HttpHandler(_dbHelper);
+                    LogHelper.Log("[LogStaffAttendanceToServer] HttpHandler was missing; initialized now for staff.");
                 }
 
                 int enrollmentId = result.EnrollmentId;

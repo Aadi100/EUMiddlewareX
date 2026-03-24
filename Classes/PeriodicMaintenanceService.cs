@@ -18,6 +18,7 @@ namespace smart_attendance_middleware.Classes
     /// - Syncing unsynced attendance logs every 10 minutes
     /// - Disabling inactive users every 8 hours (first run after initial 10-minute delay)
     /// - Fetching device sync status every 6 hours (first run immediately, then every 6 hours)
+    /// - One-time cleanup of completed and synced attendance logs (Older than 2 Days) upon startup
     /// 
     /// Note: UpdateSyncStatusLabels is now scheduled to run once, 10 seconds after each successful
     /// execution of ExecuteFetchDeviceSyncStatusAsync(). A one-shot timer is used and disposed after firing.
@@ -51,6 +52,7 @@ namespace smart_attendance_middleware.Classes
         // Attendance sync helper and cancellation for periodic unsynced sync
         private AttendanceLogSyncService _attendanceSyncService;
         private CancellationTokenSource _unsyncedSyncCts;
+        private StaffAttendanceLogSyncService _staffAttendanceSyncService;
 
         // Setting keys for tracking clear times
         private const string LAST_CLEAR_TIME_KEY = "LastLogClearTime";
@@ -103,10 +105,8 @@ namespace smart_attendance_middleware.Classes
                     _startedTcs.TrySetResult(true);
                 }
 
-                // NOTE:
-                // _updateTimer is no longer started here as a standalone periodic timer.
-                // Instead, UpdateSyncStatusLabels is scheduled to run 10 minutes after each FetchDeviceSyncStatus execution.
-                // This ties the Update cycles to the Fetch cycles.
+                // Trigger a one-time cleanup of old synced logs
+                Task.Run(async () => await ExecuteOneTimeSyncedLogCleanup());
 
                 // Start log clear timer with initial 15-minute delay, then check every hour
                 _logClearTimer = new Timer(
@@ -334,7 +334,6 @@ namespace smart_attendance_middleware.Classes
         /// </summary>
         private async Task ExecuteSyncUnsyncedAttendanceLogsAsync()
         {
-
             if (_syncInProgress)
             {
                 LogHelper.Log("⚠️ Sync already in progress, skipping this cycle.");
@@ -344,7 +343,7 @@ namespace smart_attendance_middleware.Classes
             _syncInProgress = true;
             try
             {
-                LogHelper.Log("🔁 Executing periodic SyncUnsyncedAttendanceLogs...");
+                LogHelper.Log("🔁 Executing periodic SyncUnsyncedAttendanceLogs (Members & Staff)...");
 
                 if (_dashboard.IsDisposed)
                 {
@@ -352,29 +351,54 @@ namespace smart_attendance_middleware.Classes
                     return;
                 }
 
-                // Lazy initialize AttendanceLogSyncService using a new WebSocketManager (keeps it internal to this timer)
-                if (_attendanceSyncService == null)
-                {
-                    try
-                    {
-                        _attendanceSyncService = new AttendanceLogSyncService(_wsManager);
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Log($"❌ Error creating AttendanceLogSyncService: {ex.Message}");
-                        return;
-                    }
-                }
-
+                // Initialize cancellation token if needed
                 if (_unsyncedSyncCts == null || _unsyncedSyncCts.IsCancellationRequested)
                 {
                     _unsyncedSyncCts = new CancellationTokenSource();
                 }
-
                 var token = _unsyncedSyncCts.Token;
 
-                int syncedCount = await _attendanceSyncService.SyncUnsyncedAttendanceLogsAsync(token);
-                LogHelper.Log($"✅ SyncUnsyncedAttendanceLogs completed - {syncedCount} records synced");
+                // 1) MEMBER SYNC
+                if (_attendanceSyncService == null)
+                {
+                    try
+                    {
+                        // Constructor now takes no arguments based on previous refactoring
+                        _attendanceSyncService = new AttendanceLogSyncService();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"❌ Error creating AttendanceLogSyncService: {ex.Message}");
+                    }
+                }
+
+                if (_attendanceSyncService != null)
+                {
+                    int syncedCount = await _attendanceSyncService.SyncUnsyncedAttendanceLogsAsync(token).ConfigureAwait(false);
+                    LogHelper.Log($"✅ SyncUnsyncedAttendanceLogs (Members) completed - {syncedCount} records synced");
+                }
+
+                if (token.IsCancellationRequested) return;
+
+                // 2) STAFF SYNC
+                if (_staffAttendanceSyncService == null)
+                {
+                    try
+                    {
+                        // Constructor now takes no arguments based on previous refactoring
+                        _staffAttendanceSyncService = new StaffAttendanceLogSyncService();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"❌ Error creating StaffAttendanceLogSyncService: {ex.Message}");
+                    }
+                }
+
+                if (_staffAttendanceSyncService != null)
+                {
+                    int staffSyncedCount = await _staffAttendanceSyncService.SyncUnsyncedStaffAttendanceLogsAsync(token).ConfigureAwait(false);
+                    LogHelper.Log($"✅ SyncUnsyncedStaffAttendanceLogs (Staff) completed - {staffSyncedCount} records synced");
+                }
             }
             catch (TaskCanceledException)
             {
@@ -802,6 +826,37 @@ namespace smart_attendance_middleware.Classes
                 Stop();
                 _disposed = true;
                 LogHelper.Log("🗑️ PeriodicMaintenanceService disposed");
+            }
+        }
+
+        /// <summary>
+        /// Executes a one-time cleanup of completed and synced attendance logs older than 2 days.
+        /// </summary>
+        private async Task ExecuteOneTimeSyncedLogCleanup()
+        {
+            try
+            {
+                LogHelper.Log("🧹 Executing one-time cleanup of synced attendance logs (Older than 2 days)...");
+
+                await DatabaseQueueManager.EnterDbWriteLockAsync("OneTimeSyncedLogCleanup", DbTaskPriority.Low);
+                try
+                {
+                    // Delete logs older than 2 days
+                    int deletedCount = _dbHelper.DeleteOldSyncedAttendanceLogs(2);
+
+                    if (deletedCount > 0)
+                        LogHelper.Log($"✅ One-time log cleanup completed - Removed {deletedCount} completed and synced records");
+                    else
+                        LogHelper.Log("Keep syntax as of others in this class - No old synced attendance logs found to clean");
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("OneTimeSyncedLogCleanup");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error during one-time synced log cleanup: {ex.Message}");
             }
         }
     }

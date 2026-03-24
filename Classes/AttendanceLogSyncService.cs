@@ -3,7 +3,7 @@ using smart_attendance_middleware.Classes;
 using smart_attendance_middleware.Services;
 using System;
 using System.Collections.Generic;
-using System.Data.SQLite;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -22,7 +22,6 @@ public class AttendanceLogSyncService : IDisposable
     private Task _syncTask;
 
     private readonly DatabaseHelper _dbHelper;
-    private readonly WebSocketManager _wsManager;
     public readonly AttendenceServerFunctions _attendenceServerFunctions;
     public HttpHandler _httpHandler;
     private Processor _processor; 
@@ -50,21 +49,15 @@ public class AttendanceLogSyncService : IDisposable
         public bool NeedsCheckOutSync { get; set; }
     }
 
-    public AttendanceLogSyncService(WebSocketManager wsManager)
+    // Constructor updated to remove wsManager
+    public AttendanceLogSyncService()
     {
         _dbHelper = new DatabaseHelper();
-        _wsManager = wsManager;
-
-        // Ensure AttendenceServerFunctions builds its own processor too
-        _attendenceServerFunctions = new AttendenceServerFunctions(_wsManager);
-
-        // Create a Processor for HttpHandler to process responses via PostAttendanceRecordAsync
-        _processor = new Processor(_dbHelper, _wsManager, _attendenceServerFunctions);
-
-        // Construct HttpHandler WITH Processor to avoid "Processor not initialized" errors
+        _attendenceServerFunctions = new AttendenceServerFunctions();
+        _processor = new Processor(_dbHelper, null, _attendenceServerFunctions);
         _httpHandler = new HttpHandler(_dbHelper, _processor);
     }
-
+    
     public void Start()
     {
         if (_syncTask != null && !_syncTask.IsCompleted)
@@ -579,6 +572,7 @@ public class AttendanceLogSyncService : IDisposable
     }
 
     //Sync unsynced attendance logs in bulk
+    //Sync unsynced attendance logs in bulk
     public async Task<int> SyncUnsyncedAttendanceLogsAsync(CancellationToken token)
     {
         const int maxBatchSize = 100;
@@ -594,136 +588,76 @@ public class AttendanceLogSyncService : IDisposable
                 return 0;
             }
 
+            var gmtSetting = _dbHelper.GetSetting("GMT");
+
             // Prepare items for batching
             var items = unsyncedLogs
                 .Select(log => new
                 {
-                    Id = log.AttendanceId,
-                    AttendeeId = log.MemberId,
-                    CheckIn = log.CheckInTime != DateTime.MinValue ? log.CheckInTime.ToString("yyyy-MM-dd HH:mm:ss") : null,
-                    CheckOut = log.CheckOutTime != DateTime.MinValue ? log.CheckOutTime.ToString("yyyy-MM-dd HH:mm:ss") : null,
-                    log.NeedsCheckInSync,
-                    log.NeedsCheckOutSync
+                    log.EnrollmentId,
+                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.FormatWithGmt(log.CheckInTime, gmtSetting) : null,
+                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.FormatWithGmt(log.CheckOutTime, gmtSetting) : null,
+                    Id = log.AttendanceId
                 })
                 .Where(x => x.CheckIn != null || x.CheckOut != null)
                 .ToList();
 
-            LogHelper.Log($"Found {items.Count} unsynced attendance logs. Sending via bulk HTTP...");
+            LogHelper.Log($"Found {items.Count} unsynced attendance logs formatted with GMT {gmtSetting}. Sending via bulk HTTP...");
 
-            int totalSynced = 0;
+            int totalBatchesProcessed = 0;
 
-            using (var http = new HttpHandler(_dbHelper))
+            // Ensure HttpHandler is ready AND wired to Processor
+            if (_httpHandler == null)
             {
-                for (int i = 0; i < items.Count; i += maxBatchSize)
+                if (_processor == null)
                 {
-                    if (token.IsCancellationRequested) break;
+                    _processor = new Processor(_dbHelper, null, _attendenceServerFunctions);
+                }
+                _httpHandler = new HttpHandler(_dbHelper, _processor);
+            }
 
-                    var batch = items.Skip(i).Take(maxBatchSize).ToList();
+            for (int i = 0; i < items.Count; i += maxBatchSize)
+            {
+                if (token.IsCancellationRequested) break;
 
-                    // Build the request payload using BulkAttendanceRequest and BulkAttendanceItem
-                    var request = new BulkAttendanceRequest
-                    {
-                        Attendances = batch.Select(x => new BulkAttendanceItem
-                        {
-                            Id = x.Id,
-                            AttendeeId = x.AttendeeId,
-                            CheckIn = x.CheckIn,
-                            CheckOut = x.CheckOut
-                        }).ToList()
-                    };
+                var batch = items.Skip(i).Take(maxBatchSize)
+                    .Select(x => {
+                        long? longId = null;
+                        if (long.TryParse(x.Id, out long parsedId)) longId = parsedId;
+                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, longId);
+                    })
+                    .ToList();
 
-                    if (request.Attendances.Count == 0)
-                        continue;
+                LogHelper.Log($"➡ Sending bulk attendance batch {totalBatchesProcessed + 1} with {batch.Count} items");
 
-                    string requestJson = JsonConvert.SerializeObject(request, Formatting.Indented);
-                    LogHelper.Log("📤 Bulk attendance REQUEST JSON:");
-                    LogHelper.Log(requestJson);
+                try
+                {
+                    // Use the wrapper method which handles passing the response to the Processor
+                    await _httpHandler.PostAttendanceRecordsBulkAsync(batch, token).ConfigureAwait(false);
 
-                    LogHelper.Log($"➡ Sending bulk attendance batch with {request.Attendances.Count} items");
-
-                    BulkAttendanceResponse response = null;
-
-                    try
-                    {
-                        //FIXME 
-                        //response = await http.SendBulkAttendanceAsync(request, token).ConfigureAwait(false);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Log($"❌ Error sending bulk attendance batch: {ex.Message}");
-                    }
-
-                    if (response == null)
-                    {
-                        LogHelper.Log("❌ Bulk attendance response was null.");
-                        continue;
-                    }
-
-                    string responseJson = JsonConvert.SerializeObject(response, Formatting.Indented);
-                    LogHelper.Log("📥 Bulk attendance RESPONSE JSON:");
-                    LogHelper.Log(responseJson);
-
-                    if (!response.Success)
-                    {
-                        LogHelper.Log($"❌ Bulk attendance API returned failure: {response.Message}");
-                        continue;
-                    }
-
-                    int processed = response.Data != null ? response.Data.Processed : 0;
-                    LogHelper.Log($"✅ Bulk attendance sent. Processed={processed}, Total={response.Data?.Total}");
-
-                    totalSynced += processed;
-
-                    // Update local AttendanceLogs based on returned attendances
-                    if (response.Data != null && response.Data.Attendances != null)
-                    {
-                        foreach (var a in response.Data.Attendances)
-                        {
-                            int memberId = a.MemberId;
-                            DateTime checkIn;
-                            if (!DateTime.TryParse(a.CheckIn, out checkIn))
-                            {
-                                LogHelper.Log($"⚠️ Skipping attendance from response; invalid check_in: {a.CheckIn}");
-                                continue;
-                            }
-
-                            DateTime? checkOut = null;
-                            if (!string.IsNullOrWhiteSpace(a.CheckOut))
-                            {
-                                DateTime tmp;
-                                if (DateTime.TryParse(a.CheckOut, out tmp))
-                                    checkOut = tmp;
-                            }
-
-                            bool setCheckInSynced = true;
-                            bool setCheckOutSynced = checkOut.HasValue;
-
-                            _dbHelper.UpdateAttendanceLogFromCloud(
-                                memberId,
-                                checkIn,
-                                checkOut,
-                                a.Id,                // attendanceId from server
-                                setCheckInSynced,
-                                setCheckOutSynced);
-                        }
-                    }
+                    totalBatchesProcessed++;
+                    LogHelper.Log($"✅ Batch {totalBatchesProcessed} processing triggered. Handled via Processor.");
+                }
+                catch (TaskCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"❌ Error sending bulk attendance batch: {ex.Message}");
                 }
             }
 
-            LogHelper.Log($"Completed bulk syncing {totalSynced} attendance logs");
-            return totalSynced;
+            LogHelper.Log($"Completed batching {totalBatchesProcessed} groups of attendance sync.");
+            return items.Count;
         }
         catch (Exception ex)
         {
             LogHelper.Log($"Error during attendance bulk log sync: {ex.Message}");
             return 0;
         }
-        
     }
+
 
     private async Task LogAttendanceToServerAsync(object resultObj)
     {
@@ -756,7 +690,7 @@ public class AttendanceLogSyncService : IDisposable
                 // If _processor is not set for any reason, create it now
                 if (_processor == null)
                 {
-                    _processor = new Processor(_dbHelper, _wsManager, _attendenceServerFunctions);
+                    _processor = new Processor(_dbHelper, null, _attendenceServerFunctions);
                 }
                 _httpHandler = new HttpHandler(_dbHelper, _processor);
             }
