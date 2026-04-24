@@ -29,7 +29,7 @@ namespace smart_attendance_middleware
         private readonly System.Windows.Forms.Timer _flushTimer = new System.Windows.Forms.Timer();
 
         // Limits and batch size to prevent UI stalls
-        private const int MaxRows = 2000;        // hard cap per grid
+        private const int MaxRows = 500;         // Increased limit to prevent losing data visually
         private const int FlushBatchSize = 250;  // max rows to add per tick
         private const int FlushIntervalMs = 200; // batching cadence
 
@@ -126,11 +126,12 @@ namespace smart_attendance_middleware
             txtLog.Clear();
 
             _cts = new CancellationTokenSource();
-            _sim = new AttendanceSimulator(_db, _ws);
+            int minutes = (int)numHours.Value;
+            _sim = new AttendanceSimulator(_db, _ws, minutes);
 
             // Run simulator background
             Task.Run(() => _sim.RunAsync(_cts.Token));
-            AppendLog("Simulation requested to start for 1 hour.");
+            AppendLog($"Simulation requested to start for {minutes} minute(s).");
             lblStatus.Text = "Running";
             UpdateUiState();
         }
@@ -292,6 +293,7 @@ namespace smart_attendance_middleware
             var running = _cts != null;
             btnStart.Enabled = !running;
             btnStop.Enabled = running;
+            numHours.Enabled = !running;
         }
 
         private sealed class EmitRow

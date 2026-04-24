@@ -120,6 +120,28 @@ namespace smart_attendance_middleware
             this.label48 = new System.Windows.Forms.Label();
             this.pnl_setup = new System.Windows.Forms.Panel();
             this.subpnl_setup = new System.Windows.Forms.Panel();
+            this.btn_backupcleanup = new System.Windows.Forms.Button();
+            this.chk_database = new System.Windows.Forms.CheckBox();
+            this.btn_save_backuptype = new System.Windows.Forms.Button();
+            this.chk_logs = new System.Windows.Forms.CheckBox();
+            this.chk_glogs = new System.Windows.Forms.CheckBox();
+            this.num_retention = new System.Windows.Forms.NumericUpDown();
+            this.btn_save_retentiondays = new System.Windows.Forms.Button();
+            this.btn_backupmode = new System.Windows.Forms.Button();
+            this.btn_save_smtpport = new System.Windows.Forms.Button();
+            this.btn_save_backupemailto = new System.Windows.Forms.Button();
+            this.btn_save_smtppassword = new System.Windows.Forms.Button();
+            this.btn_save_smtpuser = new System.Windows.Forms.Button();
+            this.btn_save_drivecredentials = new System.Windows.Forms.Button();
+            this.btn_save_drivefolderid = new System.Windows.Forms.Button();
+            this.txt_smtpport = new System.Windows.Forms.TextBox();
+            this.txt_backupemailto = new System.Windows.Forms.TextBox();
+            this.txt_smtppassword = new System.Windows.Forms.TextBox();
+            this.txt_smtpuser = new System.Windows.Forms.TextBox();
+            this.txt_drivecredentials = new System.Windows.Forms.TextBox();
+            this.txt_drivefolderid = new System.Windows.Forms.TextBox();
+            this.chk_drive = new System.Windows.Forms.CheckBox();
+            this.chk_email = new System.Windows.Forms.CheckBox();
             this.btn_cardcopy = new System.Windows.Forms.Button();
             this.txt_staffcardid = new System.Windows.Forms.TextBox();
             this.btn_attendence_sim = new System.Windows.Forms.Button();
@@ -130,7 +152,6 @@ namespace smart_attendance_middleware
             this.btn_getinfo = new System.Windows.Forms.Button();
             this.txt_enrollid = new System.Windows.Forms.TextBox();
             this.num_debounce = new System.Windows.Forms.NumericUpDown();
-            this.lbl_debounce = new System.Windows.Forms.Label();
             this.btn_savedebounce = new System.Windows.Forms.Button();
             this.label42 = new System.Windows.Forms.Label();
             this.label43 = new System.Windows.Forms.Label();
@@ -147,6 +168,7 @@ namespace smart_attendance_middleware
             this.btn_filterattendencestaff = new System.Windows.Forms.Button();
             this.lst_staffattendence = new System.Windows.Forms.ListView();
             this.lbl_staffmanagment = new System.Windows.Forms.Label();
+            this.btn_test_connection = new System.Windows.Forms.Button();
             this.pnl_deviceManager.SuspendLayout();
             this.pnl_device.SuspendLayout();
             this.panel2.SuspendLayout();
@@ -165,6 +187,7 @@ namespace smart_attendance_middleware
             this.panel6.SuspendLayout();
             this.pnl_setup.SuspendLayout();
             this.subpnl_setup.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.num_retention)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.num_debounce)).BeginInit();
             this.pnl_staffsManagment.SuspendLayout();
             this.tab_staff.SuspendLayout();
@@ -731,7 +754,7 @@ namespace smart_attendance_middleware
             this.btn_attendencemanagment.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.btn_attendencemanagment.Size = new System.Drawing.Size(191, 46);
             this.btn_attendencemanagment.TabIndex = 5;
-            this.btn_attendencemanagment.Text = "Attendence Managment";
+            this.btn_attendencemanagment.Text = "Member Managment";
             this.btn_attendencemanagment.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.btn_attendencemanagment.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
             // 
@@ -1213,6 +1236,29 @@ namespace smart_attendance_middleware
             // subpnl_setup
             // 
             this.subpnl_setup.BackColor = System.Drawing.Color.White;
+            this.subpnl_setup.Controls.Add(this.btn_test_connection);
+            this.subpnl_setup.Controls.Add(this.btn_backupcleanup);
+            this.subpnl_setup.Controls.Add(this.chk_database);
+            this.subpnl_setup.Controls.Add(this.btn_save_backuptype);
+            this.subpnl_setup.Controls.Add(this.chk_logs);
+            this.subpnl_setup.Controls.Add(this.chk_glogs);
+            this.subpnl_setup.Controls.Add(this.num_retention);
+            this.subpnl_setup.Controls.Add(this.btn_save_retentiondays);
+            this.subpnl_setup.Controls.Add(this.btn_backupmode);
+            this.subpnl_setup.Controls.Add(this.btn_save_smtpport);
+            this.subpnl_setup.Controls.Add(this.btn_save_backupemailto);
+            this.subpnl_setup.Controls.Add(this.btn_save_smtppassword);
+            this.subpnl_setup.Controls.Add(this.btn_save_smtpuser);
+            this.subpnl_setup.Controls.Add(this.btn_save_drivecredentials);
+            this.subpnl_setup.Controls.Add(this.btn_save_drivefolderid);
+            this.subpnl_setup.Controls.Add(this.txt_smtpport);
+            this.subpnl_setup.Controls.Add(this.txt_backupemailto);
+            this.subpnl_setup.Controls.Add(this.txt_smtppassword);
+            this.subpnl_setup.Controls.Add(this.txt_smtpuser);
+            this.subpnl_setup.Controls.Add(this.txt_drivecredentials);
+            this.subpnl_setup.Controls.Add(this.txt_drivefolderid);
+            this.subpnl_setup.Controls.Add(this.chk_drive);
+            this.subpnl_setup.Controls.Add(this.chk_email);
             this.subpnl_setup.Controls.Add(this.btn_cardcopy);
             this.subpnl_setup.Controls.Add(this.txt_staffcardid);
             this.subpnl_setup.Controls.Add(this.btn_attendence_sim);
@@ -1223,17 +1269,240 @@ namespace smart_attendance_middleware
             this.subpnl_setup.Controls.Add(this.btn_getinfo);
             this.subpnl_setup.Controls.Add(this.txt_enrollid);
             this.subpnl_setup.Controls.Add(this.num_debounce);
-            this.subpnl_setup.Controls.Add(this.lbl_debounce);
             this.subpnl_setup.Controls.Add(this.btn_savedebounce);
-            this.subpnl_setup.Location = new System.Drawing.Point(20, 80);
+            this.subpnl_setup.Location = new System.Drawing.Point(20, 71);
             this.subpnl_setup.Name = "subpnl_setup";
-            this.subpnl_setup.Size = new System.Drawing.Size(680, 489);
+            this.subpnl_setup.Size = new System.Drawing.Size(680, 498);
             this.subpnl_setup.TabIndex = 2;
+            this.subpnl_setup.Paint += new System.Windows.Forms.PaintEventHandler(this.subpnl_setup_Paint);
+            // 
+            // btn_backupcleanup
+            // 
+            this.btn_backupcleanup.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_backupcleanup.Location = new System.Drawing.Point(563, 282);
+            this.btn_backupcleanup.Name = "btn_backupcleanup";
+            this.btn_backupcleanup.Size = new System.Drawing.Size(101, 32);
+            this.btn_backupcleanup.TabIndex = 75;
+            this.btn_backupcleanup.Text = "Cleanup";
+            this.btn_backupcleanup.UseVisualStyleBackColor = true;
+            this.btn_backupcleanup.Click += new System.EventHandler(this.btn_backupcleanup_Click);
+            // 
+            // chk_database
+            // 
+            this.chk_database.AutoSize = true;
+            this.chk_database.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_database.Location = new System.Drawing.Point(153, 201);
+            this.chk_database.Name = "chk_database";
+            this.chk_database.Size = new System.Drawing.Size(46, 21);
+            this.chk_database.TabIndex = 74;
+            this.chk_database.Text = "DB";
+            this.chk_database.UseVisualStyleBackColor = true;
+            // 
+            // btn_save_backuptype
+            // 
+            this.btn_save_backuptype.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_backuptype.Location = new System.Drawing.Point(214, 193);
+            this.btn_save_backuptype.Name = "btn_save_backuptype";
+            this.btn_save_backuptype.Size = new System.Drawing.Size(128, 32);
+            this.btn_save_backuptype.TabIndex = 73;
+            this.btn_save_backuptype.Text = "Backup Type";
+            this.btn_save_backuptype.UseVisualStyleBackColor = true;
+            this.btn_save_backuptype.Click += new System.EventHandler(this.btn_save_backuptype_Click);
+            // 
+            // chk_logs
+            // 
+            this.chk_logs.AutoSize = true;
+            this.chk_logs.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_logs.Location = new System.Drawing.Point(21, 201);
+            this.chk_logs.Name = "chk_logs";
+            this.chk_logs.Size = new System.Drawing.Size(58, 21);
+            this.chk_logs.TabIndex = 72;
+            this.chk_logs.Text = "Logs";
+            this.chk_logs.UseVisualStyleBackColor = true;
+            // 
+            // chk_glogs
+            // 
+            this.chk_glogs.AutoSize = true;
+            this.chk_glogs.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_glogs.Location = new System.Drawing.Point(81, 201);
+            this.chk_glogs.Name = "chk_glogs";
+            this.chk_glogs.Size = new System.Drawing.Size(64, 21);
+            this.chk_glogs.TabIndex = 71;
+            this.chk_glogs.Text = "Glogs";
+            this.chk_glogs.UseVisualStyleBackColor = true;
+            // 
+            // num_retention
+            // 
+            this.num_retention.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.num_retention.Location = new System.Drawing.Point(16, 110);
+            this.num_retention.Name = "num_retention";
+            this.num_retention.Size = new System.Drawing.Size(113, 26);
+            this.num_retention.TabIndex = 70;
+            // 
+            // btn_save_retentiondays
+            // 
+            this.btn_save_retentiondays.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_retentiondays.Location = new System.Drawing.Point(156, 106);
+            this.btn_save_retentiondays.Name = "btn_save_retentiondays";
+            this.btn_save_retentiondays.Size = new System.Drawing.Size(112, 32);
+            this.btn_save_retentiondays.TabIndex = 69;
+            this.btn_save_retentiondays.Text = "Retention Days";
+            this.btn_save_retentiondays.UseVisualStyleBackColor = true;
+            this.btn_save_retentiondays.Click += new System.EventHandler(this.btn_save_retentiondays_Click);
+            // 
+            // btn_backupmode
+            // 
+            this.btn_backupmode.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_backupmode.Location = new System.Drawing.Point(563, 185);
+            this.btn_backupmode.Name = "btn_backupmode";
+            this.btn_backupmode.Size = new System.Drawing.Size(105, 32);
+            this.btn_backupmode.TabIndex = 68;
+            this.btn_backupmode.Text = "Backup";
+            this.btn_backupmode.UseVisualStyleBackColor = true;
+            this.btn_backupmode.Click += new System.EventHandler(this.btn_backupmode_Click);
+            // 
+            // btn_save_smtpport
+            // 
+            this.btn_save_smtpport.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_smtpport.Location = new System.Drawing.Point(214, 276);
+            this.btn_save_smtpport.Name = "btn_save_smtpport";
+            this.btn_save_smtpport.Size = new System.Drawing.Size(129, 32);
+            this.btn_save_smtpport.TabIndex = 67;
+            this.btn_save_smtpport.Text = "Smtp Port";
+            this.btn_save_smtpport.UseVisualStyleBackColor = true;
+            this.btn_save_smtpport.Click += new System.EventHandler(this.btn_save_smtpport_Click);
+            // 
+            // btn_save_backupemailto
+            // 
+            this.btn_save_backupemailto.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_backupemailto.Location = new System.Drawing.Point(214, 234);
+            this.btn_save_backupemailto.Name = "btn_save_backupemailto";
+            this.btn_save_backupemailto.Size = new System.Drawing.Size(128, 32);
+            this.btn_save_backupemailto.TabIndex = 66;
+            this.btn_save_backupemailto.Text = "Backup Email";
+            this.btn_save_backupemailto.UseVisualStyleBackColor = true;
+            this.btn_save_backupemailto.Click += new System.EventHandler(this.btn_save_backupemailto_Click);
+            // 
+            // btn_save_smtppassword
+            // 
+            this.btn_save_smtppassword.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_smtppassword.Location = new System.Drawing.Point(214, 361);
+            this.btn_save_smtppassword.Name = "btn_save_smtppassword";
+            this.btn_save_smtppassword.Size = new System.Drawing.Size(129, 32);
+            this.btn_save_smtppassword.TabIndex = 65;
+            this.btn_save_smtppassword.Text = "Smtp Password";
+            this.btn_save_smtppassword.UseVisualStyleBackColor = true;
+            this.btn_save_smtppassword.Click += new System.EventHandler(this.btn_save_smtppassword_Click);
+            // 
+            // btn_save_smtpuser
+            // 
+            this.btn_save_smtpuser.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_smtpuser.Location = new System.Drawing.Point(214, 320);
+            this.btn_save_smtpuser.Name = "btn_save_smtpuser";
+            this.btn_save_smtpuser.Size = new System.Drawing.Size(129, 32);
+            this.btn_save_smtpuser.TabIndex = 64;
+            this.btn_save_smtpuser.Text = "Smtp User";
+            this.btn_save_smtpuser.UseVisualStyleBackColor = true;
+            this.btn_save_smtpuser.Click += new System.EventHandler(this.btn_save_smtpuser_Click);
+            // 
+            // btn_save_drivecredentials
+            // 
+            this.btn_save_drivecredentials.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_drivecredentials.Location = new System.Drawing.Point(563, 320);
+            this.btn_save_drivecredentials.Name = "btn_save_drivecredentials";
+            this.btn_save_drivecredentials.Size = new System.Drawing.Size(102, 32);
+            this.btn_save_drivecredentials.TabIndex = 63;
+            this.btn_save_drivecredentials.Text = "Save Drive Credentials";
+            this.btn_save_drivecredentials.UseVisualStyleBackColor = true;
+            this.btn_save_drivecredentials.Click += new System.EventHandler(this.btn_save_drivecredentials_Click);
+            // 
+            // btn_save_drivefolderid
+            // 
+            this.btn_save_drivefolderid.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_save_drivefolderid.Location = new System.Drawing.Point(562, 234);
+            this.btn_save_drivefolderid.Name = "btn_save_drivefolderid";
+            this.btn_save_drivefolderid.Size = new System.Drawing.Size(105, 38);
+            this.btn_save_drivefolderid.TabIndex = 62;
+            this.btn_save_drivefolderid.Text = "Folder ID";
+            this.btn_save_drivefolderid.UseVisualStyleBackColor = true;
+            this.btn_save_drivefolderid.Click += new System.EventHandler(this.btn_save_drivefolderid_Click);
+            // 
+            // txt_smtpport
+            // 
+            this.txt_smtpport.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_smtpport.Location = new System.Drawing.Point(16, 282);
+            this.txt_smtpport.Name = "txt_smtpport";
+            this.txt_smtpport.Size = new System.Drawing.Size(183, 26);
+            this.txt_smtpport.TabIndex = 61;
+            // 
+            // txt_backupemailto
+            // 
+            this.txt_backupemailto.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_backupemailto.Location = new System.Drawing.Point(16, 237);
+            this.txt_backupemailto.Name = "txt_backupemailto";
+            this.txt_backupemailto.Size = new System.Drawing.Size(183, 26);
+            this.txt_backupemailto.TabIndex = 60;
+            // 
+            // txt_smtppassword
+            // 
+            this.txt_smtppassword.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_smtppassword.Location = new System.Drawing.Point(16, 361);
+            this.txt_smtppassword.Name = "txt_smtppassword";
+            this.txt_smtppassword.PasswordChar = '*';
+            this.txt_smtppassword.Size = new System.Drawing.Size(183, 26);
+            this.txt_smtppassword.TabIndex = 59;
+            // 
+            // txt_smtpuser
+            // 
+            this.txt_smtpuser.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_smtpuser.Location = new System.Drawing.Point(16, 320);
+            this.txt_smtpuser.Name = "txt_smtpuser";
+            this.txt_smtpuser.Size = new System.Drawing.Size(183, 26);
+            this.txt_smtpuser.TabIndex = 58;
+            // 
+            // txt_drivecredentials
+            // 
+            this.txt_drivecredentials.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_drivecredentials.Location = new System.Drawing.Point(357, 279);
+            this.txt_drivecredentials.Multiline = true;
+            this.txt_drivecredentials.Name = "txt_drivecredentials";
+            this.txt_drivecredentials.Size = new System.Drawing.Size(199, 114);
+            this.txt_drivecredentials.TabIndex = 57;
+            // 
+            // txt_drivefolderid
+            // 
+            this.txt_drivefolderid.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txt_drivefolderid.Location = new System.Drawing.Point(362, 237);
+            this.txt_drivefolderid.Name = "txt_drivefolderid";
+            this.txt_drivefolderid.Size = new System.Drawing.Size(194, 26);
+            this.txt_drivefolderid.TabIndex = 56;
+            // 
+            // chk_drive
+            // 
+            this.chk_drive.AutoSize = true;
+            this.chk_drive.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_drive.Location = new System.Drawing.Point(362, 188);
+            this.chk_drive.Name = "chk_drive";
+            this.chk_drive.Size = new System.Drawing.Size(64, 24);
+            this.chk_drive.TabIndex = 55;
+            this.chk_drive.Text = "Drive";
+            this.chk_drive.UseVisualStyleBackColor = true;
+            // 
+            // chk_email
+            // 
+            this.chk_email.AutoSize = true;
+            this.chk_email.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_email.Location = new System.Drawing.Point(471, 188);
+            this.chk_email.Name = "chk_email";
+            this.chk_email.Size = new System.Drawing.Size(67, 24);
+            this.chk_email.TabIndex = 54;
+            this.chk_email.Text = "Email";
+            this.chk_email.UseVisualStyleBackColor = true;
             // 
             // btn_cardcopy
             // 
             this.btn_cardcopy.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_cardcopy.Location = new System.Drawing.Point(152, 179);
+            this.btn_cardcopy.Location = new System.Drawing.Point(156, 147);
             this.btn_cardcopy.Name = "btn_cardcopy";
             this.btn_cardcopy.Size = new System.Drawing.Size(113, 32);
             this.btn_cardcopy.TabIndex = 53;
@@ -1244,7 +1513,7 @@ namespace smart_attendance_middleware
             // txt_staffcardid
             // 
             this.txt_staffcardid.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_staffcardid.Location = new System.Drawing.Point(16, 185);
+            this.txt_staffcardid.Location = new System.Drawing.Point(16, 153);
             this.txt_staffcardid.Name = "txt_staffcardid";
             this.txt_staffcardid.ReadOnly = true;
             this.txt_staffcardid.Size = new System.Drawing.Size(113, 26);
@@ -1253,9 +1522,9 @@ namespace smart_attendance_middleware
             // btn_attendence_sim
             // 
             this.btn_attendence_sim.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_attendence_sim.Location = new System.Drawing.Point(271, 133);
+            this.btn_attendence_sim.Location = new System.Drawing.Point(562, 81);
             this.btn_attendence_sim.Name = "btn_attendence_sim";
-            this.btn_attendence_sim.Size = new System.Drawing.Size(113, 32);
+            this.btn_attendence_sim.Size = new System.Drawing.Size(106, 32);
             this.btn_attendence_sim.TabIndex = 51;
             this.btn_attendence_sim.Text = "Simulator";
             this.btn_attendence_sim.UseVisualStyleBackColor = true;
@@ -1264,9 +1533,9 @@ namespace smart_attendance_middleware
             // btn_settime
             // 
             this.btn_settime.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_settime.Location = new System.Drawing.Point(152, 133);
+            this.btn_settime.Location = new System.Drawing.Point(559, 39);
             this.btn_settime.Name = "btn_settime";
-            this.btn_settime.Size = new System.Drawing.Size(113, 32);
+            this.btn_settime.Size = new System.Drawing.Size(108, 32);
             this.btn_settime.TabIndex = 50;
             this.btn_settime.Text = "Set Time";
             this.btn_settime.UseVisualStyleBackColor = true;
@@ -1275,7 +1544,7 @@ namespace smart_attendance_middleware
             // btn_disableuser
             // 
             this.btn_disableuser.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_disableuser.Location = new System.Drawing.Point(391, 87);
+            this.btn_disableuser.Location = new System.Drawing.Point(390, 22);
             this.btn_disableuser.Name = "btn_disableuser";
             this.btn_disableuser.Size = new System.Drawing.Size(113, 32);
             this.btn_disableuser.TabIndex = 49;
@@ -1286,7 +1555,7 @@ namespace smart_attendance_middleware
             // btn_enableuser
             // 
             this.btn_enableuser.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_enableuser.Location = new System.Drawing.Point(271, 87);
+            this.btn_enableuser.Location = new System.Drawing.Point(270, 22);
             this.btn_enableuser.Name = "btn_enableuser";
             this.btn_enableuser.Size = new System.Drawing.Size(113, 32);
             this.btn_enableuser.TabIndex = 48;
@@ -1297,29 +1566,29 @@ namespace smart_attendance_middleware
             // btn_getdb
             // 
             this.btn_getdb.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_getdb.Location = new System.Drawing.Point(16, 133);
+            this.btn_getdb.Location = new System.Drawing.Point(563, 119);
             this.btn_getdb.Name = "btn_getdb";
-            this.btn_getdb.Size = new System.Drawing.Size(113, 32);
+            this.btn_getdb.Size = new System.Drawing.Size(105, 60);
             this.btn_getdb.TabIndex = 47;
-            this.btn_getdb.Text = "Get Details";
+            this.btn_getdb.Text = "Manual Backup";
             this.btn_getdb.UseVisualStyleBackColor = true;
             this.btn_getdb.Click += new System.EventHandler(this.btn_getdb_Click);
             // 
             // btn_getinfo
             // 
             this.btn_getinfo.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_getinfo.Location = new System.Drawing.Point(152, 87);
+            this.btn_getinfo.Location = new System.Drawing.Point(151, 22);
             this.btn_getinfo.Name = "btn_getinfo";
             this.btn_getinfo.Size = new System.Drawing.Size(113, 32);
             this.btn_getinfo.TabIndex = 46;
-            this.btn_getinfo.Text = "Get Info";
+            this.btn_getinfo.Text = "User Info";
             this.btn_getinfo.UseVisualStyleBackColor = true;
             this.btn_getinfo.Click += new System.EventHandler(this.btn_getinfo_Click);
             // 
             // txt_enrollid
             // 
             this.txt_enrollid.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_enrollid.Location = new System.Drawing.Point(16, 87);
+            this.txt_enrollid.Location = new System.Drawing.Point(16, 25);
             this.txt_enrollid.Name = "txt_enrollid";
             this.txt_enrollid.Size = new System.Drawing.Size(113, 26);
             this.txt_enrollid.TabIndex = 45;
@@ -1328,30 +1597,20 @@ namespace smart_attendance_middleware
             // num_debounce
             // 
             this.num_debounce.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.num_debounce.Location = new System.Drawing.Point(16, 43);
+            this.num_debounce.Location = new System.Drawing.Point(16, 68);
             this.num_debounce.Name = "num_debounce";
             this.num_debounce.Size = new System.Drawing.Size(113, 26);
             this.num_debounce.TabIndex = 44;
             this.num_debounce.ValueChanged += new System.EventHandler(this.num_debounce_ValueChanged);
             // 
-            // lbl_debounce
-            // 
-            this.lbl_debounce.AutoSize = true;
-            this.lbl_debounce.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbl_debounce.Location = new System.Drawing.Point(12, 13);
-            this.lbl_debounce.Name = "lbl_debounce";
-            this.lbl_debounce.Size = new System.Drawing.Size(83, 20);
-            this.lbl_debounce.TabIndex = 43;
-            this.lbl_debounce.Text = "Debounce";
-            // 
             // btn_savedebounce
             // 
             this.btn_savedebounce.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_savedebounce.Location = new System.Drawing.Point(152, 39);
+            this.btn_savedebounce.Location = new System.Drawing.Point(156, 64);
             this.btn_savedebounce.Name = "btn_savedebounce";
-            this.btn_savedebounce.Size = new System.Drawing.Size(113, 32);
+            this.btn_savedebounce.Size = new System.Drawing.Size(112, 32);
             this.btn_savedebounce.TabIndex = 41;
-            this.btn_savedebounce.Text = "Save";
+            this.btn_savedebounce.Text = "Debounce";
             this.btn_savedebounce.UseVisualStyleBackColor = true;
             this.btn_savedebounce.Click += new System.EventHandler(this.btn_savedebounce_Click);
             // 
@@ -1515,12 +1774,23 @@ namespace smart_attendance_middleware
             this.lbl_staffmanagment.TabIndex = 56;
             this.lbl_staffmanagment.Text = "Staff Management";
             // 
+            // btn_test_connection
+            // 
+            this.btn_test_connection.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_test_connection.Location = new System.Drawing.Point(563, 364);
+            this.btn_test_connection.Name = "btn_test_connection";
+            this.btn_test_connection.Size = new System.Drawing.Size(101, 32);
+            this.btn_test_connection.TabIndex = 76;
+            this.btn_test_connection.Text = "Connect";
+            this.btn_test_connection.UseVisualStyleBackColor = true;
+            this.btn_test_connection.Click += new System.EventHandler(this.btn_test_connection_Click);
+            // 
             // DeviceManager
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.ClientSize = new System.Drawing.Size(881, 575);
+            this.ClientSize = new System.Drawing.Size(881, 552);
             this.Controls.Add(this.pnl_staffsManagment);
             this.Controls.Add(this.pnl_setup);
             this.Controls.Add(this.pnl_attendence);
@@ -1561,6 +1831,7 @@ namespace smart_attendance_middleware
             this.pnl_setup.PerformLayout();
             this.subpnl_setup.ResumeLayout(false);
             this.subpnl_setup.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.num_retention)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.num_debounce)).EndInit();
             this.pnl_staffsManagment.ResumeLayout(false);
             this.pnl_staffsManagment.PerformLayout();
@@ -1664,7 +1935,6 @@ namespace smart_attendance_middleware
         private Button btn_savedebounce;
         private Label label42;
         private Label label43;
-        private Label lbl_debounce;
         private NumericUpDown num_debounce;
         private Label btn_setupmanage;
         private Button btn_getinfo;
@@ -1694,5 +1964,28 @@ namespace smart_attendance_middleware
         private Label lbl_staffmanagment;
         private TextBox txt_staffcardid;
         private Button btn_cardcopy;
+        private CheckBox chk_drive;
+        private CheckBox chk_email;
+        private Button btn_save_drivefolderid;
+        private TextBox txt_smtpport;
+        private TextBox txt_backupemailto;
+        private TextBox txt_smtppassword;
+        private TextBox txt_smtpuser;
+        private TextBox txt_drivecredentials;
+        private TextBox txt_drivefolderid;
+        private Button btn_save_smtpport;
+        private Button btn_save_backupemailto;
+        private Button btn_save_smtppassword;
+        private Button btn_save_smtpuser;
+        private Button btn_save_drivecredentials;
+        private Button btn_backupmode;
+        private CheckBox chk_database;
+        private Button btn_save_backuptype;
+        private CheckBox chk_logs;
+        private CheckBox chk_glogs;
+        private NumericUpDown num_retention;
+        private Button btn_save_retentiondays;
+        private Button btn_backupcleanup;
+        private Button btn_test_connection;
     }
 }

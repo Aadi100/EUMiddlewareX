@@ -30,6 +30,8 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(AddNewDevice));
             this.pnl_device = new System.Windows.Forms.Panel();
+            this.chk_isstaff = new System.Windows.Forms.CheckBox();
+            this.btn_load = new System.Windows.Forms.Button();
             this.txt_password = new System.Windows.Forms.TextBox();
             this.lbl_password = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
@@ -61,8 +63,6 @@
             this.label9 = new System.Windows.Forms.Label();
             this.lbl_saving_status = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
-            this.btn_load = new System.Windows.Forms.Button();
-            this.chk_isstaff = new System.Windows.Forms.CheckBox();
             this.pnl_device.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -70,7 +70,6 @@
             // 
             this.pnl_device.BackColor = System.Drawing.Color.White;
             this.pnl_device.Controls.Add(this.chk_isstaff);
-            this.pnl_device.Controls.Add(this.btn_load);
             this.pnl_device.Controls.Add(this.txt_password);
             this.pnl_device.Controls.Add(this.lbl_password);
             this.pnl_device.Controls.Add(this.label4);
@@ -105,6 +104,28 @@
             this.pnl_device.Size = new System.Drawing.Size(767, 462);
             this.pnl_device.TabIndex = 3;
             this.pnl_device.Paint += new System.Windows.Forms.PaintEventHandler(this.pnl_device_Paint);
+            // 
+            // chk_isstaff
+            // 
+            this.chk_isstaff.AutoSize = true;
+            this.chk_isstaff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_isstaff.Location = new System.Drawing.Point(17, 329);
+            this.chk_isstaff.Name = "chk_isstaff";
+            this.chk_isstaff.Size = new System.Drawing.Size(56, 21);
+            this.chk_isstaff.TabIndex = 48;
+            this.chk_isstaff.Text = "Staff";
+            this.chk_isstaff.UseVisualStyleBackColor = true;
+            // 
+            // btn_load
+            // 
+            this.btn_load.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn_load.Location = new System.Drawing.Point(827, 117);
+            this.btn_load.Name = "btn_load";
+            this.btn_load.Size = new System.Drawing.Size(94, 27);
+            this.btn_load.TabIndex = 5;
+            this.btn_load.Text = "Load Preset";
+            this.btn_load.UseVisualStyleBackColor = true;
+            this.btn_load.Click += new System.EventHandler(this.btn_load_Click);
             // 
             // txt_password
             // 
@@ -432,28 +453,6 @@
             this.label1.TabIndex = 4;
             this.label1.Text = "Add New Device";
             // 
-            // btn_load
-            // 
-            this.btn_load.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_load.Location = new System.Drawing.Point(640, 21);
-            this.btn_load.Name = "btn_load";
-            this.btn_load.Size = new System.Drawing.Size(94, 27);
-            this.btn_load.TabIndex = 5;
-            this.btn_load.Text = "Load Preset";
-            this.btn_load.UseVisualStyleBackColor = true;
-            this.btn_load.Click += new System.EventHandler(this.btn_load_Click);
-            // 
-            // chk_isstaff
-            // 
-            this.chk_isstaff.AutoSize = true;
-            this.chk_isstaff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.chk_isstaff.Location = new System.Drawing.Point(17, 329);
-            this.chk_isstaff.Name = "chk_isstaff";
-            this.chk_isstaff.Size = new System.Drawing.Size(56, 21);
-            this.chk_isstaff.TabIndex = 48;
-            this.chk_isstaff.Text = "Staff";
-            this.chk_isstaff.UseVisualStyleBackColor = true;
-            // 
             // AddNewDevice
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -461,6 +460,7 @@
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.ClientSize = new System.Drawing.Size(766, 536);
             this.Controls.Add(this.label1);
+            this.Controls.Add(this.btn_load);
             this.Controls.Add(this.pnl_device);
             this.Controls.Add(this.lbl_saving_status);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;

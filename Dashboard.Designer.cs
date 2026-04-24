@@ -1313,7 +1313,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1834, 636);
+            this.ClientSize = new System.Drawing.Size(1305, 636);
             this.Controls.Add(this.lbl_Fingerprints);
             this.Controls.Add(this.btn_fingerprintno);
             this.Controls.Add(this.lbl_NoDevices);

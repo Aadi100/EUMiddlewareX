@@ -44,6 +44,7 @@ namespace smart_attendance_middleware
             public int EnrollmentId { get; set; }
             public string Action { get; set; }
             public DateTime EventTime { get; set; } // Echo of device timestamp
+            public string AttendanceId { get; set; }
         }
 
         // Inside the Process method, add a WebSocketManager check and attempt to get it from the application state
@@ -230,33 +231,12 @@ namespace smart_attendance_middleware
                 // Read GMT offset from settings (e.g., "+05", "-03", "+05:30")
                 var gmtSetting = _dbHelper.GetSetting("GMT");
 
-                // Resolve attendance ID by action-specific timestamp under DB lock
-                string resolvedId = null;
-                await DatabaseQueueManager.EnterDbWriteLockAsync("ResolveAttendanceIdForMember", DbTaskPriority.High);
-                try
-                {
-                    if (result.Action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
-                    {
-                        resolvedId = _dbHelper.GetAttendanceIdForMember(result.MemberId, result.EventTime, null);
-                    }
-                    else if (result.Action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
-                    {
-                        resolvedId = _dbHelper.GetAttendanceIdForMember(result.MemberId, null, result.EventTime);
-                    }
-                    else
-                    {
-                        LogHelper.Log($"[LogMemberAttendanceToServer] Unsupported action '{result.Action}'");
-                        return;
-                    }
-                }
-                finally
-                {
-                    DatabaseQueueManager.ReleaseDbWriteLock("ResolveAttendanceIdForMember");
-                }
+                // instead of performing an unreliable database lookup by timestamp.
+                string resolvedId = result.AttendanceId;
 
                 if (string.IsNullOrEmpty(resolvedId))
                 {
-                    LogHelper.Log($"[LogMemberAttendanceToServer] Cannot log to server: No attendance ID for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss}");
+                    LogHelper.Log($"[LogMemberAttendanceToServer] Cannot log to server: No attendance ID received from DB operation for Member={result.MemberId}");
                     return;
                 }
 
@@ -305,7 +285,7 @@ namespace smart_attendance_middleware
                         id: resolvedId
                     );
 
-                    LogHelper.Log($"[LogMemberAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} (normalized to UTC +00)");
+                    LogHelper.Log($"[LogMemberAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss} (normalized to UTC +00)");
                 }
             }
             catch (Exception ex)
@@ -313,7 +293,6 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"[LogMemberAttendanceToServer] Error: {ex.Message}");
             }
         }
-
         private async Task<AttendanceEventResult> HandleAttendanceEvent(int machineNo, int enrollmentId, DateTime deviceTime)
         {
             try
@@ -333,32 +312,29 @@ namespace smart_attendance_middleware
                 }
 
                 string deviceTimeStr = deviceTime.ToString("yyyy-MM-dd HH:mm:ss");
+                string attendanceId = null;
 
                 // Duplicate + sync check (exact timestamp match)
-                // Requires DatabaseHelper.CheckAttendanceDuplicateAndSynced(memberId, deviceTime, action)
                 var dup = _dbHelper.CheckAttendanceDuplicateAndSynced(memberId.Value, deviceTime, action);
                 if (dup.exists)
                 {
                     if (dup.synced)
                     {
-                        // Already processed and acknowledged by cloud – suppress entirely.
                         LogHelper.Log($"[MemberAttendanceProcess] Suppressed re-streamed {action} (already synced) Member={memberId} Time={deviceTimeStr}");
                         return null;
                     }
                     else
                     {
-                        // This avoids double entries but allows cloud sync to complete.
                         LogHelper.Log($"[MemberAttendanceProcess] Duplicate {action} detected for Member={memberId} at {deviceTimeStr}, Ignoring.");
-                        return null; // Changed to null to avoid double sending; handled in Process method
+                        return null;
                     }
                 }
 
-                // Unified gate (today + previous-day open session logic) only for non-duplicates
+                // Unified gate (today + previous-day open session logic)
                 bool gate = _dbHelper.CanProcessAttendance(memberId.Value, deviceTime, action);
 
                 if (action == "check-in")
                 {
-                    // gate == true means no open session -> allow insert
                     if (!gate)
                     {
                         LogHelper.Log($"[MemberAttendanceProcess] Duplicate/open CHECK-IN blocked for Member={memberId} at {deviceTimeStr}");
@@ -368,8 +344,14 @@ namespace smart_attendance_middleware
                     await DatabaseQueueManager.EnterDbWriteLockAsync("InsertAttendanceLog", DbTaskPriority.Medium);
                     try
                     {
-                        int logId = _dbHelper.InsertAttendanceLog(memberId.Value, deviceTimeStr);
-                        LogHelper.Log($"[MemberAttendanceProcess] CHECK-IN stored Member={memberId} LogID={logId} Time={deviceTimeStr}");
+                        // Use the updated tuple return from DatabaseHelper
+                        var result = _dbHelper.InsertAttendanceLog(memberId.Value, deviceTimeStr);
+                        attendanceId = result.AttendanceId;
+
+                        if (result.LogId > 0)
+                            LogHelper.Log($"[MemberAttendanceProcess] CHECK-IN stored Member={memberId} LogID={result.LogId} GUID={attendanceId} Time={deviceTimeStr}");
+                        else
+                            return null; // DB insert failed (e.g. timestamp validation)
                     }
                     finally
                     {
@@ -378,14 +360,17 @@ namespace smart_attendance_middleware
                 }
                 else if (action == "check-out")
                 {
-                    // gate == true means there IS an open session -> allow checkout update
                     if (gate)
                     {
                         await DatabaseQueueManager.EnterDbWriteLockAsync("UpdateAttendanceLogForCheckOut", DbTaskPriority.Medium);
                         try
                         {
                             _dbHelper.UpdateAttendanceLogForCheckOut(memberId.Value, deviceTimeStr);
-                            LogHelper.Log($"[MemberAttendanceProcess] CHECK-OUT applied Member={memberId} Time={deviceTimeStr}");
+
+                            // For Check-out, we must fetch the AttendanceId of the session we just updated.
+                            attendanceId = _dbHelper.GetAttendanceIdForMember(memberId.Value, null, deviceTime);
+
+                            LogHelper.Log($"[MemberAttendanceProcess] CHECK-OUT applied Member={memberId} GUID={attendanceId} Time={deviceTimeStr}");
                         }
                         finally
                         {
@@ -404,6 +389,11 @@ namespace smart_attendance_middleware
                     return null;
                 }
 
+                // If we couldn't resolve an ID, we shouldn't continue to the server logging step.
+                if (string.IsNullOrEmpty(attendanceId))
+                {
+                    LogHelper.Log($"[MemberAttendanceProcess] Warning: Could not resolve Attendance GUID for Member={memberId}. Server sync may fail.");
+                }
 
                 return new AttendanceEventResult
                 {
@@ -411,7 +401,8 @@ namespace smart_attendance_middleware
                     MemberId = memberId.Value,
                     EnrollmentId = enrollmentId,
                     Action = action,
-                    EventTime = deviceTime
+                    EventTime = deviceTime,
+                    AttendanceId = attendanceId 
                 };
             }
             catch (Exception ex)
@@ -419,7 +410,6 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"[MemberAttendanceProcess][ERROR] {ex.Message}");
                 return null;
             }
-
         }
 
         public object ProcessAttendanceEvent(int machineNo, int enrollmentId, DateTime deviceTime)

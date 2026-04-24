@@ -54,11 +54,11 @@ namespace smart_attendance_middleware
         public int branch_id { get; set; }
         public string channel { get; set; }
     }
-
     public class WebSocketManager
     {
         // Pusher/Soketi defaults
-        private const string DefaultHost = "ws-stg.fitnessmarvel.com";
+        private const string DefaultHost = "eu.ws.fitnessmarvel.com";
+        //private const string DefaultHost = "ws-stg.fitnessmarvel.com";
         private const int DefaultTlsPort = 443;
         private const int DefaultWsPort = 6001;
         private const string DefaultAppKey = "ab28e935c0c63b8fabb4";
@@ -560,6 +560,11 @@ namespace smart_attendance_middleware
                     case "user_updated":
                         parsedData = JsonConvert.DeserializeObject<UserUpdated>(dataStr);
                         LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "user_updated", Data = JObject.Parse(dataStr) });
+                        break;
+
+                    case "member_status":
+                        parsedData = JObject.Parse(dataStr);
+                        LiveUpdate?.Invoke(this, new LiveUpdateEventArgs { EventType = "member_status", Data = parsedData });
                         break;
 
                     default:

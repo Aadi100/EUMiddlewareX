@@ -11,6 +11,8 @@
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Label lblRemaining;
         private System.Windows.Forms.Timer timer1;
+        private System.Windows.Forms.NumericUpDown numHours;
+        private System.Windows.Forms.Label lblHours;
         private System.Windows.Forms.GroupBox groupEmits;
         private System.Windows.Forms.GroupBox groupPairs;
         private System.Windows.Forms.GroupBox groupLog;
@@ -33,6 +35,8 @@
             this.lblStatus = new System.Windows.Forms.Label();
             this.lblRemaining = new System.Windows.Forms.Label();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
+            this.numHours = new System.Windows.Forms.NumericUpDown();
+            this.lblHours = new System.Windows.Forms.Label();
             this.layoutRoot = new System.Windows.Forms.TableLayoutPanel();
             this.groupEmits = new System.Windows.Forms.GroupBox();
             this.gridEmits = new System.Windows.Forms.DataGridView();
@@ -45,6 +49,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.gridEmits)).BeginInit();
             this.groupPairs.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridPairs)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numHours)).BeginInit();
             this.groupLog.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -54,7 +59,7 @@
             this.btnStart.Name = "btnStart";
             this.btnStart.Size = new System.Drawing.Size(94, 29);
             this.btnStart.TabIndex = 0;
-            this.btnStart.Text = "Start (1h)";
+            this.btnStart.Text = "Start";
             this.btnStart.UseVisualStyleBackColor = true;
             this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
@@ -87,6 +92,37 @@
             this.lblRemaining.TabIndex = 3;
             this.lblRemaining.Text = "Remaining: 00:00:00";
             this.lblRemaining.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // numHours
+            // 
+            this.numHours.Location = new System.Drawing.Point(212, 17);
+            this.numHours.Maximum = new decimal(new int[] {
+            1440, // Increased to allow up to 24 hours in minutes
+            0,
+            0,
+            0});
+            this.numHours.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numHours.Name = "numHours";
+            this.numHours.Size = new System.Drawing.Size(53, 20);
+            this.numHours.TabIndex = 5;
+            this.numHours.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            // 
+            // lblHours
+            // 
+            this.lblHours.AutoSize = true;
+            this.lblHours.Location = new System.Drawing.Point(271, 20);
+            this.lblHours.Name = "lblHours";
+            this.lblHours.Size = new System.Drawing.Size(53, 13);
+            this.lblHours.TabIndex = 6;
+            this.lblHours.Text = "minute(s)"; // Changed from hour(s)
             // 
             // layoutRoot
             // 
@@ -191,6 +227,8 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(908, 750);
+            this.Controls.Add(this.lblHours);
+            this.Controls.Add(this.numHours);
             this.Controls.Add(this.layoutRoot);
             this.Controls.Add(this.lblRemaining);
             this.Controls.Add(this.lblStatus);
@@ -206,8 +244,10 @@
             ((System.ComponentModel.ISupportInitialize)(this.gridEmits)).EndInit();
             this.groupPairs.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridPairs)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numHours)).EndInit();
             this.groupLog.ResumeLayout(false);
             this.ResumeLayout(false);
+            this.PerformLayout();
         }
     }
 }

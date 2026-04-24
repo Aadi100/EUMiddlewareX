@@ -28,9 +28,14 @@ namespace smart_attendance_middleware.Classes
         private readonly int _initialDelay = 10 * 60 * 1000;   // 10 minutes in milliseconds
         private readonly int _clearLogCheckInterval = 9 * 60 * 60 * 1000; // Check every 9 hours for log clearing
         private readonly int _pendingJobsInterval = 60 * 60 * 1000; // 60 minutes in milliseconds
+        //private readonly int _pendingJobsInterval = 6 * 60 * 1000; // 60 minutes in milliseconds
+
         private readonly int _unsyncedInterval = 10 * 60 * 1000; // 10 minutes in milliseconds
         private readonly int _disableInactiveUsersInterval = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+        //private readonly int _disableInactiveUsersInterval = 6 * 60 * 1000; // 6 minutes in milliseconds
+
         private readonly int _fetchDeviceSyncStatusInterval = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+        private readonly int _forceCheckOutInterval = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
         private readonly int _delayAfterFetchForUpdate = 10 * 1000; // 10 sec
 
         private bool _syncInProgress = false;
@@ -41,6 +46,7 @@ namespace smart_attendance_middleware.Classes
         private Timer _unsyncedLogsTimer;
         private Timer _disableInactiveUsersTimer;
         private Timer _fetchDeviceSyncStatusTimer;
+        private Timer _forceCheckOutTimer;
 
         private readonly Dashboard _dashboard;
         private readonly DatabaseHelper _dbHelper;
@@ -91,7 +97,7 @@ namespace smart_attendance_middleware.Classes
 
             lock (_lockObject)
             {
-                if (_updateTimer != null || _logClearTimer != null || _pendingJobsTimer != null || _unsyncedLogsTimer != null || _disableInactiveUsersTimer != null || _fetchDeviceSyncStatusTimer != null)
+                if (_updateTimer != null || _logClearTimer != null || _pendingJobsTimer != null || _unsyncedLogsTimer != null || _disableInactiveUsersTimer != null || _fetchDeviceSyncStatusTimer != null || _forceCheckOutTimer != null)
                 {
                     LogHelper.Log("⚠️ PeriodicMaintenanceService already started");
                     return;
@@ -107,6 +113,13 @@ namespace smart_attendance_middleware.Classes
 
                 // Trigger a one-time cleanup of old synced logs
                 Task.Run(async () => await ExecuteOneTimeSyncedLogCleanup());
+
+                // Trigger a one-time cleanup of members expired more than 2 months ago after initial delay
+                Task.Run(async () => 
+                {
+                    await Task.Delay(_initialDelay);
+                    await ExecuteOneTimeLongExpiredMembersCleanup();
+                });
 
                 // Start log clear timer with initial 15-minute delay, then check every hour
                 _logClearTimer = new Timer(
@@ -147,7 +160,15 @@ namespace smart_attendance_middleware.Classes
                     period: _fetchDeviceSyncStatusInterval
                 );
 
-                LogHelper.Log($"⏰ Timers started - LogClear check: every {_clearLogCheckInterval / 60000} minutes, PendingJobs: every {_pendingJobsInterval / 60000} minutes, UnsyncedAttendanceSync: every {_unsyncedInterval / 60000} minutes, DisableInactiveUsers: every {_disableInactiveUsersInterval / 3600000} hours, FetchDeviceSyncStatus: every {_fetchDeviceSyncStatusInterval / 60000} minutes. UpdateSyncStatusLabels will be scheduled 10 minutes after each fetch.");
+                // Start force check-out timer with initial delay, then every 3 hours
+                _forceCheckOutTimer = new Timer(
+                    callback: async _ => await ExecuteForceCheckOutOperation(),
+                    state: null,
+                    dueTime: _initialDelay,
+                    period: _forceCheckOutInterval
+                );
+
+                LogHelper.Log($"⏰ Timers started - LogClear check: every {_clearLogCheckInterval / 60000} minutes, PendingJobs: every {_pendingJobsInterval / 60000} minutes, UnsyncedAttendanceSync: every {_unsyncedInterval / 60000} minutes, DisableInactiveUsers: every {_disableInactiveUsersInterval / 3600000} hours, FetchDeviceSyncStatus: every {_fetchDeviceSyncStatusInterval / 60000} minutes, ForceCheckOut: every {_forceCheckOutInterval / 3600000} hours. UpdateSyncStatusLabels will be scheduled 10 minutes after each fetch.");
             }
         }
 
@@ -198,6 +219,13 @@ namespace smart_attendance_middleware.Classes
                     _fetchDeviceSyncStatusTimer.Change(Timeout.Infinite, 0);
                     _fetchDeviceSyncStatusTimer.Dispose();
                     _fetchDeviceSyncStatusTimer = null;
+                }
+
+                if (_forceCheckOutTimer != null)
+                {
+                    _forceCheckOutTimer.Change(Timeout.Infinite, 0);
+                    _forceCheckOutTimer.Dispose();
+                    _forceCheckOutTimer = null;
                 }
 
                 // Cancel and dispose of the unsynced sync cancellation token and dispose sync service
@@ -819,6 +847,33 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
+        /// <summary>
+        /// Executes the Force Check-Out operation periodically
+        /// </summary>
+        private async Task ExecuteForceCheckOutOperation()
+        {
+            try
+            {
+                LogHelper.Log("🔄 Executing periodic Force Check-Out process...");
+
+                if (_dashboard.IsDisposed)
+                {
+                    LogHelper.Log("⚠️ Dashboard is disposed, skipping Force Check-Out");
+                    return;
+                }
+
+                // ProcessForceCheckOutAsync requires dbHelper and httpHandler
+                var httpHandler = new HttpHandler(_dbHelper);
+                await CommonUtils.ProcessForceCheckOutAsync(_dbHelper, httpHandler).ConfigureAwait(false);
+
+                LogHelper.Log("✅ Periodic Force Check-Out process completed");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error executing Force Check-Out: {ex.Message}");
+            }
+        }
+
         public void Dispose()
         {
             if (!_disposed)
@@ -830,24 +885,17 @@ namespace smart_attendance_middleware.Classes
         }
 
         /// <summary>
-        /// Executes a one-time cleanup of completed and synced attendance logs older than 2 days.
+        /// Executes a one-time cleanup of completed and synced attendance logs based on 'BackupRetentionDays' setting.
         /// </summary>
         private async Task ExecuteOneTimeSyncedLogCleanup()
         {
             try
             {
-                LogHelper.Log("🧹 Executing one-time cleanup of synced attendance logs (Older than 2 days)...");
-
                 await DatabaseQueueManager.EnterDbWriteLockAsync("OneTimeSyncedLogCleanup", DbTaskPriority.Low);
                 try
                 {
-                    // Delete logs older than 2 days
-                    int deletedCount = _dbHelper.DeleteOldSyncedAttendanceLogs(2);
-
-                    if (deletedCount > 0)
-                        LogHelper.Log($"✅ One-time log cleanup completed - Removed {deletedCount} completed and synced records");
-                    else
-                        LogHelper.Log("Keep syntax as of others in this class - No old synced attendance logs found to clean");
+                    // Executes cleanup using the utility method which handles settings logic and logging
+                    await CommonUtils.CleanupOldSyncedAttendanceLogsAsync(_dbHelper).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -857,6 +905,28 @@ namespace smart_attendance_middleware.Classes
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Error during one-time synced log cleanup: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Executes a one-time cleanup of members whose package has been expired for more than 2 months.
+        /// Performs cascading delete: Device Data -> Log Table -> AttendanceLogs -> Member Table.
+        /// </summary>
+        private async Task ExecuteOneTimeLongExpiredMembersCleanup()
+        {
+            try
+            {
+                LogHelper.Log("🧹 Starting one-time cleanup for members expired > 2 months...");
+
+                // This utility method handles identifying members, 
+                // deleting from physical devices, and then cascading DB deletion.
+                await CommonUtils.ProcessLongExpiredMembersCleanupAsync(_dbHelper).ConfigureAwait(false);
+
+                LogHelper.Log("✅ One-time long-expired members cleanup completed.");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error during one-time long-expired members cleanup: {ex.Message}");
             }
         }
     }

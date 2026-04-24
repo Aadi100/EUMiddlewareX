@@ -55,7 +55,7 @@ namespace smart_attendance_middleware
         private string originalButtonText;
         private System.Windows.Forms.Timer attendancePanelTimer;
         private bool _uiReady = false;
-        private const int MaxLogLines = 10000000;
+        private const int MaxLogLines = 10;
         private HttpHandler _httpHandler;
 
         private readonly object _loaderLock = new object();
@@ -66,7 +66,7 @@ namespace smart_attendance_middleware
         private Label loadingLabel;
         private bool servicesInitialized = false;
         private smart_attendance_middleware.UI.LoaderPopupForm _loaderPopup;
-        private EmailBackupService _emailBackupService;
+        private BackupService _backupService;
         private bool _attendanceInitialSyncHandled = false;
         private volatile bool _serverProgressKeepAlive = false;
 
@@ -723,13 +723,12 @@ namespace smart_attendance_middleware
                 UpdateLoaderMessage("Starting Periodic Maintenance Service...");
                 await ServiceManager.StartPeriodicMaintenanceServiceAsync(this);
 
-                UpdateLoaderMessage("Starting Email Backup Service...");
-                if (_emailBackupService == null)
+                UpdateLoaderMessage("Starting Backup Service...");
+                if (_backupService == null)
                 {
-                    _emailBackupService = new EmailBackupService(_dbHelper);
+                    _backupService = new BackupService(_dbHelper);
                 }
-                _emailBackupService.Start();
-
+                _backupService.Start();
                 UpdateLoaderMessage("Configuring connection monitors...");
                 ConnectionStatusChecker.Instance.SetWebSocketManager(_wsManager);
                 ConnectionStatusChecker.Instance.InternetStatusChanged -= OnInternetStatusChanged;
@@ -888,13 +887,13 @@ namespace smart_attendance_middleware
             {
                 LogHelper.Log("🔄 WebSocket reconnection triggered by subscription checker...");
 
-                // Check if we have an API key and devices configured
-                var existingDevices = _dbHelper.LoadDevices();
-                if (existingDevices == null || existingDevices.Count == 0)
-                {
-                    LogHelper.Log("❌ No devices configured - skipping reconnection");
-                    return;
-                }
+                //// Check if we have an API key and devices configured
+                //var existingDevices = _dbHelper.LoadDevices();
+                //if (existingDevices == null || existingDevices.Count == 0)
+                //{
+                //    LogHelper.Log("❌ No devices configured - skipping reconnection");
+                //    return;
+                //}
 
                 string apiKey = _dbHelper.GetSetting("APIKey");
                 if (string.IsNullOrWhiteSpace(apiKey))
@@ -1026,8 +1025,8 @@ namespace smart_attendance_middleware
                 // Stop the connection status checker service
                 ConnectionStatusChecker.Instance.Stop();
 
-                _emailBackupService?.Stop();
-                _emailBackupService?.Dispose();
+                _backupService?.Stop();
+                _backupService?.Dispose();
 
                 // Stop and dispose the WebSocket manager if needed
                 if (_wsManager != null)
@@ -2373,6 +2372,8 @@ namespace smart_attendance_middleware
             }
             dash.UpdateLoaderMessage(message);
         }
+
+        
 
         /////////////////////////////////////////////////////////////////////////////////
     }

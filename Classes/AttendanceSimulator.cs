@@ -12,21 +12,23 @@ namespace smart_attendance_middleware.Classes
         private readonly DatabaseHelper _db;
         private readonly WebSocketManager _ws;
         private readonly Random _rng = new Random();
+        private readonly int _durationMinutes;
 
-        public AttendanceSimulator(DatabaseHelper dbHelper, WebSocketManager wsManager)
+        public AttendanceSimulator(DatabaseHelper dbHelper, WebSocketManager wsManager, int durationMinutes = 1)
         {
             _db = dbHelper ?? throw new ArgumentNullException(nameof(dbHelper));
             _ws = wsManager ?? throw new ArgumentNullException(nameof(wsManager));
+            _durationMinutes = durationMinutes > 0 ? durationMinutes : 1;
         }
 
         public async Task RunAsync(CancellationToken token)
         {
-            // Hard-limit runtime to 1 hour (respects external cancellation too)
+            // Hard-limit runtime (respects external cancellation too)
             using (var cts = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
-                cts.CancelAfter(TimeSpan.FromHours(1));
+                cts.CancelAfter(TimeSpan.FromMinutes(_durationMinutes));
                 var hardStop = cts.Token;
-                var until = DateTime.UtcNow.AddHours(1);
+                var until = DateTime.UtcNow.AddMinutes(_durationMinutes);
                 SimulationEvents.RaiseSimulationStarted(until);
 
                 // Same pipeline that AttendanceServerForm uses internally
@@ -129,8 +131,8 @@ namespace smart_attendance_middleware.Classes
                 }
                 finally
                 {
-                    LogHelper.Log("[SIM] Simulation stopped (cancellation or 1-hour limit reached).");
-                    SimulationEvents.RaiseSimulationStopped("Cancelled or 1-hour limit reached");
+                    LogHelper.Log("[SIM] Simulation stopped (cancellation or limit reached).");
+                    SimulationEvents.RaiseSimulationStopped("Cancelled or duration limit reached");
                 }
             }
         }
@@ -192,6 +194,9 @@ namespace smart_attendance_middleware.Classes
 
             fn.Process(rec);
 
+            // Give async-void pipeline time to execute and commit to DB
+            await Task.Delay(1000, token).ConfigureAwait(false);
+
             // Try to surface pairing info (best-effort)
             try
             {
@@ -202,7 +207,7 @@ namespace smart_attendance_middleware.Classes
 
                 if (string.Equals(action, "check-in", StringComparison.OrdinalIgnoreCase))
                 {
-                    attendanceId = _db.GetAttendanceIdForMember(member.MemberID, checkIn: deviceTime, checkOut: null);
+                    attendanceId = _db.GetAttendanceIdForMember(member.MemberID, checkIn: deviceTime);
                     note = attendanceId != null ? "Check-in created" : "Check-in not recorded (filtered/duplicate?)";
                     SimulationEvents.RaisePaired(new SimulationEvents.PairingEventArgs
                     {
@@ -217,7 +222,7 @@ namespace smart_attendance_middleware.Classes
                 }
                 else if (string.Equals(action, "check-out", StringComparison.OrdinalIgnoreCase))
                 {
-                    attendanceId = _db.GetAttendanceIdForMember(member.MemberID, checkIn: null, checkOut: deviceTime);
+                    attendanceId = _db.GetAttendanceIdForMember(member.MemberID, checkOut: deviceTime);
                     if (attendanceId != null)
                     {
                         pairedCheckIn = _db.GetPairedCheckInTime(member.MemberID, deviceTime);

@@ -1319,12 +1319,22 @@ namespace smart_attendance_middleware.Classes
                         {
                             try
                             {
-                                int memberId = memberToken["id"] != null ? (int)memberToken["id"] : 0;
+                                // Try 'id' first, then 'member_id' if 'id' is null or missing
+                                int memberId = 0;
+                                if (memberToken["id"] != null)
+                                {
+                                    memberId = (int)memberToken["id"];
+                                }
+                                else if (memberToken["member_id"] != null)
+                                {
+                                    memberId = (int)memberToken["member_id"];
+                                }
+
                                 string cloudStatus = memberToken["status"] != null ? (string)memberToken["status"] : null;
 
                                 if (memberId == 0)
                                 {
-                                    LogHelper.Log("⚠️ Member entry missing valid 'id'. Skipping.");
+                                    LogHelper.Log("⚠️ Member entry missing valid 'id' or 'member_id'. Skipping.");
                                     continue;
                                 }
 

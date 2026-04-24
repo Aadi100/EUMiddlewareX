@@ -22,7 +22,7 @@ namespace smart_attendance_middleware
         private readonly DatabaseHelper _dbHelper;
         private readonly Processor _processor;
 
-        private const string BaseUrl = "https://ws-stg.fitnessmarvel.com";
+        private const string BaseUrl = "https://eu.ws.fitnessmarvel.com";
         private const string GetMembersEndpoint = "/api/sync/members-staff";
         private const string UploadAttendanceEndpoint = "/api/attendance/upload";
 

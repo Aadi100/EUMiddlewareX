@@ -646,6 +646,63 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt'
             return backupCode.ToString();
         }
 
+        public string EncryptSetting(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText)) return null;
+            using (Aes aesAlg = Aes.Create())
+            {
+                aesAlg.Key = EncryptionKey;
+                aesAlg.IV = new byte[16];
+                ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+                using (MemoryStream msEncrypt = new MemoryStream())
+                {
+                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    {
+                        using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                        {
+                            swEncrypt.Write(plainText);
+                        }
+                        return Convert.ToBase64String(msEncrypt.ToArray());
+                    }
+                }
+            }
+        }
+
+        public string DecryptSetting(string cipherText)
+        {
+            if (string.IsNullOrEmpty(cipherText)) return null;
+            try
+            {
+                using (Aes aesAlg = Aes.Create())
+                {
+                    aesAlg.Key = EncryptionKey;
+                    aesAlg.IV = new byte[16];
+                    ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+                    using (MemoryStream msDecrypt = new MemoryStream(Convert.FromBase64String(cipherText)))
+                    {
+                        using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                        {
+                            using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                            {
+                                return srDecrypt.ReadToEnd();
+                            }
+                        }
+                    }
+                }
+            }
+            catch { return null; }
+        }
+
+        public void SaveEncryptedSetting(string key, string value)
+        {
+            SaveSetting(key, EncryptSetting(value));
+        }
+
+        public string GetDecryptedSetting(string key)
+        {
+            return DecryptSetting(GetSetting(key));
+        }
+
         //Default developer user creation with hashed password and backup code
         private void DefaultDevUser(SqlConnection connection)
         {
@@ -1348,8 +1405,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
         }
 
 
-        //Attendance Log Code
-        public int InsertAttendanceLog(int memberId, string checkInValue)
+        public (int LogId, string AttendanceId) InsertAttendanceLog(int memberId, string checkInValue)
         {
             string syncStatusJson = JsonConvert.SerializeObject(new { checkIn = false, checkOut = false });
             string timestamp = GetTimestamp();
@@ -1364,23 +1420,22 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                     try
                     {
                         // Check if the provided check-in time is later than the member's last check-out time
-                        DateTime checkInDateTime;
-                        if (DateTime.TryParse(checkInValue, out checkInDateTime))
+                        if (DateTime.TryParse(checkInValue, out DateTime checkInDateTime))
                         {
                             DateTime lastCheckOutTime = GetLastCheckOutTime(memberId);
                             if (checkInDateTime <= lastCheckOutTime)
                             {
                                 LogHelper.Log($"❌ Check-in time {checkInValue} is not later than the member's last check-out time {lastCheckOutTime}.");
                                 transaction.Rollback();
-                                return 0; // Or throw an exception, depending on your error handling policy
+                                return (0, null);
                             }
                         }
 
                         using (var command = new SqlCommand(
                             @"INSERT INTO AttendanceLogs
-              (MemberID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, CreatedAt, UpdatedAt)
-              VALUES (@memberId, @attendanceId, @checkIn, NULL, @syncStatus, @createdAt, @updatedAt);
-              SELECT SCOPE_IDENTITY();", connection, transaction))
+                      (MemberID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, CreatedAt, UpdatedAt)
+                      VALUES (@memberId, @attendanceId, @checkIn, NULL, @syncStatus, @createdAt, @updatedAt);
+                      SELECT SCOPE_IDENTITY();", connection, transaction))
                         {
                             command.Parameters.AddWithValue("@memberId", memberId);
                             command.Parameters.AddWithValue("@attendanceId", attendanceId);
@@ -1397,14 +1452,14 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                     catch (SqlException ex)
                     {
                         transaction.Rollback();
-                        Console.WriteLine($"Error inserting attendance log: {ex.Message}");
-                        return 0;
+                        LogHelper.Log($"Error inserting attendance log: {ex.Message}");
+                        return (0, null);
                     }
                 }
             }
-            return newLogId;
+            // Return both so the caller doesn't have to query the DB again
+            return (newLogId, attendanceId);
         }
-
 
         public void UpdateAttendanceLogForCheckOut(int memberId, string checkOutValue)
         {
@@ -1952,17 +2007,30 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                 {
                     conn.Open();
                     string sql;
+
+                    // We use a 1-second window (ABS(DATEDIFF)) to account for millisecond 
+                    // precision differences between C# and SQL's DATETIME2.
                     if (checkIn.HasValue)
                     {
-                        sql = "SELECT TOP 1 AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND CheckInTime = @checkIn";
+                        sql = @"SELECT TOP 1 AttendanceId FROM AttendanceLogs 
+                        WHERE MemberID = @mid 
+                        AND ABS(DATEDIFF(SECOND, CheckInTime, @checkIn)) <= 1 
+                        ORDER BY ABS(DATEDIFF(MILLISECOND, CheckInTime, @checkIn)) ASC";
                     }
                     else if (checkOut.HasValue)
                     {
-                        sql = "SELECT TOP 1 AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND CheckOutTime = @checkOut";
+                        sql = @"SELECT TOP 1 AttendanceId FROM AttendanceLogs 
+                        WHERE MemberID = @mid 
+                        AND ABS(DATEDIFF(SECOND, CheckOutTime, @checkOut)) <= 1 
+                        ORDER BY ABS(DATEDIFF(MILLISECOND, CheckOutTime, @checkOut)) ASC";
                     }
                     else
                     {
-                        sql = "SELECT TOP 1 AttendanceId FROM AttendanceLogs WHERE MemberID = @mid AND AttendanceId IS NOT NULL AND LTRIM(RTRIM(AttendanceId)) <> '' ORDER BY CheckInTime DESC";
+                        sql = @"SELECT TOP 1 AttendanceId FROM AttendanceLogs 
+                        WHERE MemberID = @mid 
+                        AND AttendanceId IS NOT NULL 
+                        AND LTRIM(RTRIM(AttendanceId)) <> '' 
+                        ORDER BY CheckInTime DESC";
                     }
 
                     using (var cmd = new SqlCommand(sql, conn))
@@ -1970,6 +2038,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                         cmd.Parameters.AddWithValue("@mid", memberId);
                         if (checkIn.HasValue) cmd.Parameters.AddWithValue("@checkIn", checkIn.Value);
                         if (checkOut.HasValue) cmd.Parameters.AddWithValue("@checkOut", checkOut.Value);
+
                         var result = cmd.ExecuteScalar();
                         return result == null || result == DBNull.Value ? null : result.ToString();
                     }
@@ -1977,7 +2046,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
             }
             catch (SqlException ex)
             {
-                Console.WriteLine($"Error getting attendance ID for member: {ex.Message}");
+                LogHelper.Log($"SQL Error getting attendance ID for member {memberId}: {ex.Message}");
                 return null;
             }
             catch (Exception ex)
@@ -2311,6 +2380,11 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
         /// <summary>
         /// Deletes completed and synced attendance logs for both members and staff that are older than the specified number of days.
         /// </summary>
+        /// <summary>
+        /// Deletes attendance logs that are fully synced (check-in and check-out) 
+        /// and older than the specified retention days.
+        /// Covers both AttendanceLogs (Members) and StaffAttendanceLog (Staff).
+        /// </summary>
         public int DeleteOldSyncedAttendanceLogs(int daysOld)
         {
             try
@@ -2322,24 +2396,23 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                     {
                         try
                         {
-                            // Logic: CheckIn and CheckOut must exist, and the SyncStatus JSON must indicate both are synced (true)
-                            // For Members
+                            // Delete from Member records
                             string memberSql = @"
-                        DELETE FROM AttendanceLogs 
-                        WHERE CheckInTime IS NOT NULL 
-                          AND CheckOutTime IS NOT NULL 
-                          AND SyncStatus LIKE '%""checkIn"":true%' 
-                          AND SyncStatus LIKE '%""checkOut"":true%'
-                          AND CheckInTime < DATEADD(DAY, -@days, GETDATE())";
+                                DELETE FROM AttendanceLogs 
+                                WHERE CheckInTime IS NOT NULL 
+                                  AND CheckOutTime IS NOT NULL 
+                                  AND SyncStatus LIKE '%""checkIn"":true%' 
+                                  AND SyncStatus LIKE '%""checkOut"":true%'
+                                  AND CheckInTime < DATEADD(DAY, -@days, GETDATE())";
 
-                            // For Staff
+                            // Delete from Staff records
                             string staffSql = @"
-                        DELETE FROM StaffAttendanceLog 
-                        WHERE CheckInTime IS NOT NULL 
-                          AND CheckOutTime IS NOT NULL 
-                          AND SyncStatus LIKE '%""checkIn"":true%' 
-                          AND SyncStatus LIKE '%""checkOut"":true%'
-                          AND CheckInTime < DATEADD(DAY, -@days, GETDATE())";
+                                DELETE FROM StaffAttendanceLog 
+                                WHERE CheckInTime IS NOT NULL 
+                                  AND CheckOutTime IS NOT NULL 
+                                  AND SyncStatus LIKE '%""checkIn"":true%' 
+                                  AND SyncStatus LIKE '%""checkOut"":true%'
+                                  AND CheckInTime < DATEADD(DAY, -@days, GETDATE())";
 
                             int totalDeleted = 0;
 
@@ -2361,7 +2434,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                         catch (SqlException ex)
                         {
                             transaction.Rollback();
-                            LogHelper.Log($"❌ SQL Error in DeleteOldSyncedAttendanceLogs: {ex.Message}");
+                            LogHelper.Log($"❌ SQL Error during attendance log cleanup: {ex.Message}");
                             return 0;
                         }
                     }
@@ -2369,8 +2442,111 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"❌ Error in DeleteOldSyncedAttendanceLogs: {ex.Message}");
+                LogHelper.Log($"❌ Critical error in DeleteOldSyncedAttendanceLogs: {ex.Message}");
                 return 0;
+            }
+        }
+
+        /// <summary>
+        /// Identifies members whose package expired more than the specified months threshold.
+        /// </summary>
+        public List<Member> GetExpiredMembersForCleanup(int monthsThreshold = 2)
+        {
+            var expiredMembers = new List<Member>();
+            DateTime thresholdDate = DateTime.Today.AddMonths(-monthsThreshold);
+
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(@"
+                        SELECT MemberID, EnrollmentID, Name, PackageExpiry 
+                        FROM Members 
+                        WHERE PackageExpiry IS NOT NULL AND PackageExpiry <> ''", connection))
+                    {
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                string expiryStr = reader["PackageExpiry"].ToString();
+                                if (DateTime.TryParse(expiryStr, out DateTime expiryDate))
+                                {
+                                    if (expiryDate < thresholdDate)
+                                    {
+                                        expiredMembers.Add(new Member
+                                        {
+                                            MemberID = Convert.ToInt32(reader["MemberID"]),
+                                            EnrollmentID = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : (int?)null,
+                                            Name = reader["Name"].ToString(),
+                                            PackageExpiry = expiryStr
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Cleanup] Error fetching expired members: {ex.Message}");
+            }
+
+            return expiredMembers;
+        }
+
+        /// <summary>
+        /// Deletes all database records (Log, AttendanceLogs, and Members) for a specific member ID.
+        /// </summary>
+        public bool DeleteExpiredMemberFromDb(int memberId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // 1. Delete from Log table
+                            using (var cmd = new SqlCommand("DELETE FROM Log WHERE MemberID = @mid", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@mid", memberId);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            // 2. Delete from AttendanceLogs table
+                            using (var cmd = new SqlCommand("DELETE FROM AttendanceLogs WHERE MemberID = @mid", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@mid", memberId);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            // 3. Delete from Members table
+                            using (var cmd = new SqlCommand("DELETE FROM Members WHERE MemberID = @mid", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@mid", memberId);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            LogHelper.Log($"[DbCleanup] Failed for member {memberId}: {ex.Message}");
+                            return false;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DbCleanup] Critical error for member {memberId}: {ex.Message}");
+                return false;
             }
         }
 
@@ -3223,7 +3399,7 @@ WHERE DeviceId = @DeviceId", connection, transaction))
             }
         }
 
-        // Get active members with biometrics but no logs
+        // Get active members with biometrics but no logs or mismatched logs
         public List<int> GetActiveMemberIdsWithBiometricsAndNoLogs()
         {
             var memberIds = new List<int>();
@@ -3233,8 +3409,9 @@ WHERE DeviceId = @DeviceId", connection, transaction))
                 {
                     connection.Open();
                     const string sql = @"
-SELECT m.MemberID
+SELECT DISTINCT m.MemberID
 FROM Members m
+LEFT JOIN Log l ON m.MemberID = l.MemberID
 WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
   AND m.EnrollmentID IS NOT NULL
   AND (
@@ -3242,10 +3419,10 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
      OR m.Fingerprint = 1
      OR LTRIM(RTRIM(ISNULL(m.Picture, ''))) <> ''
   )
-  AND NOT EXISTS (
-        SELECT 1
-        FROM Log l
-        WHERE l.MemberID = m.MemberID
+  AND (
+        l.MemberID IS NULL 
+     OR (m.RFID IS NOT NULL AND l.BiometricData NOT LIKE '%' + m.RFID + '%')
+     OR (m.Picture IS NOT NULL AND l.BiometricData NOT LIKE '%Face%')
   );";
 
                     using (var cmd = new SqlCommand(sql, connection))
@@ -3258,7 +3435,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
             }
             catch (SqlException ex)
             {
-                Console.WriteLine($"Error getting active member IDs with biometrics and no logs: {ex.Message}");
+                Console.WriteLine($"Error getting active member IDs with biometrics: {ex.Message}");
             }
             return memberIds;
         }
@@ -7684,7 +7861,7 @@ WHERE StaffDeviceId = @StaffDeviceId", connection, transaction))
             return changes;
         }
 
-        // Get active staff with biometrics but no logs
+        // Get active staff with biometrics but no logs or mismatched logs
         public List<string> GetActiveStaffIdsWithBiometricsAndNoLogs()
         {
             var staffIds = new List<string>();
@@ -7694,8 +7871,9 @@ WHERE StaffDeviceId = @StaffDeviceId", connection, transaction))
                 {
                     connection.Open();
                     const string sql = @"
-SELECT s.StaffID
+SELECT DISTINCT s.StaffID
 FROM Staff s
+LEFT JOIN StaffLog sl ON s.StaffID = sl.StaffID
 WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
   AND s.EnrollmentID IS NOT NULL
   AND (
@@ -7703,10 +7881,10 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
      OR s.Fingerprint = 1
      OR LTRIM(RTRIM(ISNULL(s.Picture, ''))) <> ''
   )
-  AND NOT EXISTS (
-        SELECT 1
-        FROM StaffLog sl
-        WHERE sl.StaffID = s.StaffID
+  AND (
+        sl.StaffID IS NULL
+     OR (s.RFID IS NOT NULL AND sl.BiometricData NOT LIKE '%' + s.RFID + '%')
+     OR (s.Picture IS NOT NULL AND sl.BiometricData NOT LIKE '%Face%')
   );";
 
                     using (var cmd = new SqlCommand(sql, connection))
@@ -7719,7 +7897,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
             }
             catch (SqlException ex)
             {
-                Console.WriteLine($"Error getting active staff IDs with biometrics and no logs: {ex.Message}");
+                Console.WriteLine($"Error getting active staff IDs with biometrics: {ex.Message}");
             }
             return staffIds;
         }

@@ -21,6 +21,7 @@ namespace smart_attendance_middleware
         private WebSocketManager _wsManager;
         private Processor _processor;
         private DeviceFunctions _deviceFunctions = new DeviceFunctions();
+        private BackupService _backupService;
         //private AxFP_CLOCK pOcxObject;
 
         private readonly List<(int Id, string Name, long CardId, string ImagePath)> _staffEntries = new List<(int, string, long, string)>();
@@ -38,6 +39,7 @@ namespace smart_attendance_middleware
             InitializeComponent();
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
+            _backupService = new BackupService(_dbHelper);
             listViewDevices.SelectedIndexChanged += listViewDevices_SelectedIndexChanged;
             InitializeWebSocketManager();
 
@@ -198,43 +200,54 @@ namespace smart_attendance_middleware
             }
         }
 
-
-
-
         private void DeviceManager_Load(object sender, EventArgs e)
         {
-            SetupDeviceList(); // creates columns and sample rows
-            pnl_deviceManager.Visible = true; // Show device manager panel
-            pnl_deviceManager.Location = new Point(186, 0); // Set location
-            pnl_staffsManagment.Visible = false;
-            btn_deleteUser.Enabled = false;
-            btn_change_password.Enabled = false;
-            btn_editUser.Enabled = false;
-            lbl_apikey_status.Text = "";
-            listViewDevices.SelectedItems.Clear(); // Clear selection
-            ClearDeviceFields(); // Clear device fields on load
-            update_session(); // Update session with device data
-            InitializeMemberList();
-            InitializeMemberListForStats();       // dynamic name suggestions
-            InitializeMembersListView();  // members list view setup
+            try
+            {
+                // Start the global loader
+                Dashboard.GlobalStartLoader("Loading Device Manager...");
 
-            // Wire events
-            flt_members.Click += flt_members_Click;
-            txt_memb_name.TextChanged += txt_memb_name_TextChanged;
+                SetupDeviceList(); // creates columns and sample rows
+                pnl_deviceManager.Visible = true; // Show device manager panel
+                pnl_deviceManager.Location = new Point(186, 0); // Set location
+                pnl_staffsManagment.Visible = false;
+                btn_deleteUser.Enabled = false;
+                btn_change_password.Enabled = false;
+                btn_editUser.Enabled = false;
+                lbl_apikey_status.Text = "";
+                listViewDevices.SelectedItems.Clear(); // Clear selection
+                ClearDeviceFields(); // Clear device fields on load
+                update_session(); // Update session with device data
+                InitializeMemberList();
+                InitializeMemberListForStats();       // dynamic name suggestions
+                InitializeMembersListView();  // members list view setup
 
-            InitializeStaffSuggestions();
-            InitializeStaffsListView();
-            btn_stafffilter.Click += btn_stafffilter_Click;
-            txt_staff.TextChanged += txt_staff_TextChanged;
-            lst_staffs.ItemActivate -= lst_staffs_ItemActivate;
-            lst_staffs.ItemActivate += lst_staffs_ItemActivate;
+                // Wire events
+                flt_members.Click += flt_members_Click;
+                txt_memb_name.TextChanged += txt_memb_name_TextChanged;
 
-            InitializeStaffAttendanceSuggestions();
-            InitializeStaffAttendanceListView();
-            btn_filterattendencestaff.Click += btn_filterattendencestaff_Click;
-            txt_staffname.TextChanged += txt_staffname_TextChanged;
-            date_staffattendence.ValueChanged += date_staffattendence_ValueChanged;
+                InitializeStaffSuggestions();
+                InitializeStaffsListView();
+                btn_stafffilter.Click += btn_stafffilter_Click;
+                txt_staff.TextChanged += txt_staff_TextChanged;
+                lst_staffs.ItemActivate -= lst_staffs_ItemActivate;
+                lst_staffs.ItemActivate += lst_staffs_ItemActivate;
 
+                InitializeStaffAttendanceSuggestions();
+                InitializeStaffAttendanceListView();
+                btn_filterattendencestaff.Click += btn_filterattendencestaff_Click;
+                txt_staffname.TextChanged += txt_staffname_TextChanged;
+                date_staffattendence.ValueChanged += date_staffattendence_ValueChanged;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DeviceManager] Error during load: {ex.Message}");
+            }
+            finally
+            {
+                // Stop the global loader
+                Dashboard.GlobalStopLoader();
+            }
         }
 
         private void DeviceManager_closing(object sender, FormClosingEventArgs e)
@@ -3042,6 +3055,170 @@ namespace smart_attendance_middleware
         }
 
 
+        //private async void EnrollStaffFromListView(string staffIdentifier, string staffName, string enrollmentIdStr = null)
+        //{
+        //    // Input validation
+        //    if (string.IsNullOrWhiteSpace(staffName))
+        //    {
+        //        MessageBox.Show("Staff name is required.", "Validation Error",
+        //            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        //        return;
+        //    }
+
+        //    Cursor = Cursors.WaitCursor;
+
+        //    try
+        //    {
+        //        LogHelper.Log($"[EnrollStaffFromListView] Starting enrollment for staff '{staffName}' (Identifier: {staffIdentifier})");
+
+        //        // Resolve the staff record from DB using common keys (StaffID or Id)
+        //        int? enrollmentId = null;
+        //        object dbStaff = null;
+        //        try
+        //        {
+        //            var staffList = _dbHelper.GetStaffs() ?? new List<Staff>();
+        //            dbStaff = staffList.FirstOrDefault(s =>
+        //            {
+        //                var sid = s?.GetType().GetProperty("StaffID")?.GetValue(s)?.ToString();
+        //                var id = s?.GetType().GetProperty("Id")?.GetValue(s)?.ToString();
+        //                return string.Equals(sid, staffIdentifier, StringComparison.OrdinalIgnoreCase)
+        //                       || string.Equals(id, staffIdentifier, StringComparison.OrdinalIgnoreCase);
+        //            });
+
+        //            if (dbStaff != null)
+        //            {
+        //                // Try extract enrollment id from DB staff record (common property names)
+        //                var enrolProp = dbStaff.GetType().GetProperty("EnrollmentID") ?? dbStaff.GetType().GetProperty("EnrollmentId");
+        //                if (enrolProp != null)
+        //                {
+        //                    var val = enrolProp.GetValue(dbStaff)?.ToString();
+        //                    if (!string.IsNullOrWhiteSpace(val) && int.TryParse(val, out int parsedEnrol) && parsedEnrol > 0)
+        //                        enrollmentId = parsedEnrol;
+        //                }
+        //            }
+        //        }
+        //        catch (Exception dbEx)
+        //        {
+        //            LogHelper.Log($"[EnrollStaffFromListView] Warning - DB extraction failed: {dbEx.Message}");
+        //        }
+
+        //        // If enrollmentId not provided in tag / db, try parse enrollmentIdStr argument
+        //        if (!enrollmentId.HasValue && !string.IsNullOrWhiteSpace(enrollmentIdStr))
+        //        {
+        //            if (int.TryParse(enrollmentIdStr, out int parsed))
+        //                enrollmentId = parsed;
+        //        }
+
+        //        // If still no enrollmentId, we cannot safely call the device APIs that require numeric enrollment IDs
+        //        if (!enrollmentId.HasValue || enrollmentId.Value <= 0)
+        //        {
+        //            MessageBox.Show(
+        //                $"Cannot enroll '{staffName}'. No numeric Enrollment ID found for this staff.\n\n" +
+        //                "Please ensure the staff record has a valid EnrollmentID (numeric) in the database.",
+        //                "Missing Enrollment ID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        //            LogHelper.Log($"[EnrollStaffFromListView] Aborted - EnrollmentID missing for staff '{staffName}' (Identifier: {staffIdentifier})");
+        //            return;
+        //        }
+
+        //        int enrollId = enrollmentId.Value;
+
+        //        // Check for duplicate enrollment in the in-memory buffer by enrollment id
+        //        var already = _enrolledStaffBuffer.FirstOrDefault(x => x.Id == enrollId);
+        //        if (already != default)
+        //        {
+        //            MessageBox.Show($"Enrollment ID {enrollId} is already enrolled in the buffer. Cannot enroll twice.",
+        //                "Duplicate Entry", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        //            return;
+        //        }
+
+        //        // Extract card ID and face image from DB staff object if available
+        //        long staffCardId = 0;
+        //        string imagePathFromDb = null;
+        //        if (dbStaff != null)
+        //        {
+        //            try
+        //            {
+        //                var rfidProp = dbStaff.GetType().GetProperty("RFID");
+        //                if (rfidProp != null && long.TryParse(rfidProp.GetValue(dbStaff)?.ToString() ?? "0", out long rfid))
+        //                {
+        //                    staffCardId = rfid;
+        //                    LogHelper.Log($"[EnrollStaffFromListView] Found Card ID: {staffCardId} for enrollment {enrollId}");
+        //                }
+
+        //                var picProp = dbStaff.GetType().GetProperty("Picture");
+        //                if (picProp != null)
+        //                {
+        //                    imagePathFromDb = picProp.GetValue(dbStaff)?.ToString();
+        //                    LogHelper.Log($"[EnrollStaffFromListView] Found image path: {(string.IsNullOrWhiteSpace(imagePathFromDb) ? "None" : imagePathFromDb)} for enrollment {enrollId}");
+        //                }
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                LogHelper.Log($"[EnrollStaffFromListView] Warning extracting RFID/Picture: {ex.Message}");
+        //            }
+        //        }
+
+        //        // Copy image from DB path to local FACE directory (use "FACE" folder)
+        //        string storedImagePath = null;
+        //        if (!string.IsNullOrWhiteSpace(imagePathFromDb) && File.Exists(imagePathFromDb))
+        //        {
+        //            try
+        //            {
+        //                // Ensure FACE directory exists and use it
+        //                string faceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FACE");
+        //                Directory.CreateDirectory(faceDir);
+
+        //                string fileName = $"{Guid.NewGuid()}{Path.GetExtension(imagePathFromDb)}";
+        //                storedImagePath = Path.Combine(faceDir, fileName);
+        //                File.Copy(imagePathFromDb, storedImagePath, true);
+        //                LogHelper.Log($"[EnrollStaffFromListView] Image copied to: {storedImagePath}");
+        //            }
+        //            catch (Exception imgEx)
+        //            {
+        //                LogHelper.Log($"[EnrollStaffFromListView] Warning - Image copy failed: {imgEx.Message}");
+        //                storedImagePath = null; // Allow enrollment without image
+        //            }
+        //        }
+
+        //        // Validate: at least one biometric required
+        //        bool hasImage = storedImagePath != null && File.Exists(storedImagePath);
+        //        bool hasCard = staffCardId > 0;
+
+        //        if (!hasImage && !hasCard)
+        //        {
+        //            MessageBox.Show($"❌ No Card ID or Face Image found for '{staffName}'.\n\nCannot enroll without biometric data.",
+        //                "Insufficient Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        //            LogHelper.Log($"[EnrollStaffFromListView] Enrollment cancelled - no biometric data for staff '{staffName}' (EnrollmentID: {enrollId})");
+        //            return;
+        //        }
+
+        //        // Add to in-memory buffer using the numeric enrollment ID
+        //        _enrolledStaffBuffer.Add((enrollId, staffName, storedImagePath ?? string.Empty));
+
+        //        // Enroll across all devices using the numeric enrollment ID
+        //        await EnrollStaffAcrossAllDevicesAsync(enrollId, staffName, staffCardId, storedImagePath ?? string.Empty);
+
+        //        MessageBox.Show(
+        //            $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) enrolled successfully!\n\n" +
+        //            $"Card ID: {(hasCard ? staffCardId.ToString() : "Not used")}\n" +
+        //            $"Face Image: {(hasImage ? "Yes" : "No")}",
+        //            "Enrollment Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+        //        LogHelper.Log($"[EnrollStaffFromListView] ✓ Successfully enrolled staff '{staffName}' (Enrollment ID: {enrollId})");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        LogHelper.Log($"[EnrollStaffFromListView] ❌ Error: {ex.Message}\n{ex.StackTrace}");
+        //        MessageBox.Show($"❌ Enrollment failed: {ex.Message}", "Error",
+        //            MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //    }
+        //    finally
+        //    {
+        //        Cursor = Cursors.Default;
+        //    }
+        //}
+
+
         private async void EnrollStaffFromListView(string staffIdentifier, string staffName, string enrollmentIdStr = null)
         {
             // Input validation
@@ -3120,11 +3297,13 @@ namespace smart_attendance_middleware
 
                 // Extract card ID and face image from DB staff object if available
                 long staffCardId = 0;
-                string imagePathFromDb = null;
+                string storedImagePath = null;
+
                 if (dbStaff != null)
                 {
                     try
                     {
+                        // Get RFID/Card ID
                         var rfidProp = dbStaff.GetType().GetProperty("RFID");
                         if (rfidProp != null && long.TryParse(rfidProp.GetValue(dbStaff)?.ToString() ?? "0", out long rfid))
                         {
@@ -3132,38 +3311,39 @@ namespace smart_attendance_middleware
                             LogHelper.Log($"[EnrollStaffFromListView] Found Card ID: {staffCardId} for enrollment {enrollId}");
                         }
 
-                        var picProp = dbStaff.GetType().GetProperty("Picture");
-                        if (picProp != null)
+                        // Get StaffID to resolve local face image from FACE directory
+                        var staffIdProp = dbStaff.GetType().GetProperty("StaffID");
+                        string staffIdForImage = staffIdProp?.GetValue(dbStaff)?.ToString() ?? staffIdentifier;
+
+                        // Resolve face image from FACE directory using StaffID (not the Picture URL)
+                        string faceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FACE");
+
+                        // Try different extensions with StaffID as filename
+                        string[] candidates =
                         {
-                            imagePathFromDb = picProp.GetValue(dbStaff)?.ToString();
-                            LogHelper.Log($"[EnrollStaffFromListView] Found image path: {(string.IsNullOrWhiteSpace(imagePathFromDb) ? "None" : imagePathFromDb)} for enrollment {enrollId}");
+                    Path.Combine(faceDir, staffIdForImage + ".jpg"),
+                    Path.Combine(faceDir, staffIdForImage + ".png"),
+                    Path.Combine(faceDir, staffIdForImage + ".jpeg")
+                };
+
+                        foreach (var candidate in candidates)
+                        {
+                            if (File.Exists(candidate))
+                            {
+                                storedImagePath = candidate;
+                                LogHelper.Log($"[EnrollStaffFromListView] Found face image at: {storedImagePath}");
+                                break;
+                            }
+                        }
+
+                        if (string.IsNullOrEmpty(storedImagePath))
+                        {
+                            LogHelper.Log($"[EnrollStaffFromListView] No local face image found for StaffID: {staffIdForImage} in FACE directory");
                         }
                     }
                     catch (Exception ex)
                     {
-                        LogHelper.Log($"[EnrollStaffFromListView] Warning extracting RFID/Picture: {ex.Message}");
-                    }
-                }
-
-                // Copy image from DB path to local FACE directory (use "FACE" folder)
-                string storedImagePath = null;
-                if (!string.IsNullOrWhiteSpace(imagePathFromDb) && File.Exists(imagePathFromDb))
-                {
-                    try
-                    {
-                        // Ensure FACE directory exists and use it
-                        string faceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FACE");
-                        Directory.CreateDirectory(faceDir);
-
-                        string fileName = $"{Guid.NewGuid()}{Path.GetExtension(imagePathFromDb)}";
-                        storedImagePath = Path.Combine(faceDir, fileName);
-                        File.Copy(imagePathFromDb, storedImagePath, true);
-                        LogHelper.Log($"[EnrollStaffFromListView] Image copied to: {storedImagePath}");
-                    }
-                    catch (Exception imgEx)
-                    {
-                        LogHelper.Log($"[EnrollStaffFromListView] Warning - Image copy failed: {imgEx.Message}");
-                        storedImagePath = null; // Allow enrollment without image
+                        LogHelper.Log($"[EnrollStaffFromListView] Warning extracting RFID/Image: {ex.Message}");
                     }
                 }
 
@@ -3438,6 +3618,253 @@ namespace smart_attendance_middleware
             }
         }
 
+        private void subpnl_setup_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void btn_save_drivefolderid_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string folderId = txt_drivefolderid.Text.Trim();
+                if (string.IsNullOrWhiteSpace(folderId))
+                {
+                    MessageBox.Show("Please enter a valid Google Drive Folder ID.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                _dbHelper.SaveSetting("GoogleDriveFolderId", folderId);
+                LogHelper.Log($"[Backup] Saved GoogleDriveFolderId: {folderId}");
+                MessageBox.Show("Google Drive Folder ID saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_drivefolderid: {ex.Message}");
+            }
+        }
+
+        private void btn_save_drivecredentials_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string json = txt_drivecredentials.Text.Trim();
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    MessageBox.Show("Please paste the credentials JSON content.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Verify if it's valid JSON before saving
+                try { Newtonsoft.Json.Linq.JObject.Parse(json); }
+                catch { MessageBox.Show("The content is not a valid JSON string.", "Invalid Format", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+
+                _dbHelper.SaveEncryptedSetting("GoogleDriveCredentialsJson", json);
+                LogHelper.Log("[Backup] Saved and Encrypted Google Drive Credentials.");
+                MessageBox.Show("Google Drive credentials saved and encrypted successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                txt_drivecredentials.Clear(); // Clear for security
+
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_drivecredentials: {ex.Message}");
+            }
+        }
+
+        private void btn_save_smtpuser_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string user = txt_smtpuser.Text.Trim();
+                if (string.IsNullOrWhiteSpace(user)) return;
+
+                _dbHelper.SaveEncryptedSetting("SmtpUser", user);
+                LogHelper.Log("[Backup] Saved and Encrypted SMTP User.");
+                MessageBox.Show("SMTP User saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_smtpuser: {ex.Message}");
+            }
+        }
+
+        private void btn_save_smtppassword_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string pass = txt_smtppassword.Text.Trim();
+                if (string.IsNullOrWhiteSpace(pass)) return;
+
+                _dbHelper.SaveEncryptedSetting("SmtpPassword", pass);
+                LogHelper.Log("[Backup] Saved and Encrypted SMTP Password.");
+                MessageBox.Show("SMTP Password saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                txt_smtppassword.Clear();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_smtppassword: {ex.Message}");
+            }
+        }
+
+        private void btn_save_backupemailto_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string email = txt_backupemailto.Text.Trim();
+                if (string.IsNullOrWhiteSpace(email)) return;
+
+                _dbHelper.SaveSetting("BackupEmailTo", email);
+                LogHelper.Log($"[Backup] Saved Backup recipient email: {email}");
+                MessageBox.Show("Backup recipient email saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_backupemailto: {ex.Message}");
+            }
+        }
+
+        private void btn_save_smtpport_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string port = txt_smtpport.Text.Trim();
+
+                if (!string.IsNullOrEmpty(port)) _dbHelper.SaveSetting("SmtpPort", port);
+
+                LogHelper.Log($"[Backup] Saved SMTP Connection (Host/Port).");
+                MessageBox.Show("SMTP Connection settings saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_smtpport: {ex.Message}");
+            }
+        }
+
+        private void btn_backupmode_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Assuming you have CheckBoxes or RadioButtons for Mode selection
+                // Here we save based on the state of your UI toggle controls
+                bool emailEnabled = chk_email.Checked;
+                bool driveEnabled = chk_drive.Checked;
+
+                _dbHelper.SaveSetting("EnableEmailBackup", emailEnabled.ToString().ToLower());
+                _dbHelper.SaveSetting("EnableGoogleDriveBackup", driveEnabled.ToString().ToLower());
+
+                LogHelper.Log($"[Backup] Mode Updated: Email={emailEnabled}, Drive={driveEnabled}");
+                MessageBox.Show($"Backup mode updated successfully.\nEmail: {emailEnabled}\nDrive: {driveEnabled}", "Mode Updated", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_backupmode: {ex.Message}");
+            }
+        }
+
+        private void btn_save_retentiondays_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Reading numeric value from num_retention
+                int days = (int)num_retention.Value;
+
+                _dbHelper.SaveSetting("BackupRetentionDays", days.ToString());
+
+                LogHelper.Log($"[Backup] Saved BackupRetentionDays: {days} days");
+                MessageBox.Show("Retention policy saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_retentiondays: {ex.Message}");
+                MessageBox.Show("Failed to save retention policy.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btn_save_backuptype_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Reading boolean values from the content checkboxes
+                bool includeLogs = chk_logs.Checked;
+                bool includeGLogs = chk_glogs.Checked;
+                bool includeDB = chk_database.Checked;
+
+                // Save preferences to database
+                _dbHelper.SaveSetting("BackupIncludeLogs", includeLogs.ToString().ToLower());
+                _dbHelper.SaveSetting("BackupIncludeGLogs", includeGLogs.ToString().ToLower());
+                _dbHelper.SaveSetting("BackupIncludeDatabase", includeDB.ToString().ToLower());
+
+                LogHelper.Log($"[Backup] Content settings updated: Logs={includeLogs}, GLogs={includeGLogs}, DB={includeDB}");
+                MessageBox.Show($"Backup preferences updated:\nLogs: {includeLogs}\nGLogs: {includeGLogs}\nDatabase: {includeDB}",
+                    "Settings Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Backup][ERROR] btn_save_backuptype: {ex.Message}");
+                MessageBox.Show("Failed to save backup preferences.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async void btn_backupcleanup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 1. Get required settings from Database
+                string folderId = _dbHelper.GetSetting("GoogleDriveFolderId");
+                string retentionStr = _dbHelper.GetSetting("BackupRetentionDays");
+
+                // 2. Validations
+                if (string.IsNullOrEmpty(folderId))
+                {
+                    MessageBox.Show("Google Drive Folder ID is not configured. Please save it first.", "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!int.TryParse(retentionStr, out int days) || days <= 0)
+                {
+                    MessageBox.Show("Retention policy is invalid or not set. Please save a value above 0 in Retention Days.", "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 3. User Confirmation
+                var confirm = MessageBox.Show($"Are you sure you want to scan Google Drive and PERMANENTLY DELETE backup files older than {days} days?",
+                                            "Confirm Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                if (confirm != DialogResult.Yes) return;
+
+                // 4. Execution
+                btn_backupcleanup.Enabled = false;
+                Cursor = Cursors.WaitCursor;
+
+                int deleted = await CommonUtils.CleanupOldDriveFilesAsync(folderId, days, _dbHelper);
+
+                // 5. Result Feedback
+                if (deleted >= 0)
+                {
+                    MessageBox.Show($"Drive cleanup successful!\nTotal files removed: {deleted}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Drive cleanup failed. Please check the system logs for details (likely an authentication error).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[UI] Error in btn_backupcleanup_Click: {ex.Message}");
+                MessageBox.Show($"An unexpected error occurred: {ex.Message}", "Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btn_backupcleanup.Enabled = true;
+                Cursor = Cursors.Default;
+            }
+        }
+
+        private void btn_test_connection_Click(object sender, EventArgs e)
+        {
+            // Trigger initial backup after 5 seconds
+            _backupService?.TriggerBackupAfterDelay(TimeSpan.FromSeconds(5));
+        }
 
         //////////////////////////////////////////////////////////////////////////////////////
     }

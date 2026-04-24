@@ -1,15 +1,21 @@
-﻿using smart_attendance_middleware.Services;
+﻿using Google.Apis.Auth.OAuth2; 
+using Google.Apis.Drive.v3;
+using Google.Apis.Services;
+using Google.Apis.Upload;
+using Google.Apis.Util.Store;
+using smart_attendance_middleware.Services;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
+using System.Net.NetworkInformation;
+using System.Text; 
 using System.Threading;
 using System.Threading.Tasks;
-using System.Configuration;
-using System.Net.NetworkInformation;
 
 namespace smart_attendance_middleware.Classes
 {
@@ -64,67 +70,74 @@ namespace smart_attendance_middleware.Classes
         }
 
         /// <summary>
-        /// Creates a DB snapshot via DatabaseHelper and creates a ZIP containing:
-        /// - the snapshot .db
-        /// - all files inside /Logs (copies *.txt safely when in-use)
+        /// Creates a ZIP containing conditionally:
+        /// - the snapshot .db (if includeDb is true)
+        /// - all files inside /Logs (if includeLogs is true)
         /// Returns the zip path; otherwise null.
         /// </summary>
-        public static string CreateDatabaseSnapshotAndZipLogs(DatabaseHelper dbHelper)
+        public static string CreateDatabaseSnapshotAndZipLogs(DatabaseHelper dbHelper, bool includeDb = true, bool includeLogs = true)
         {
             if (dbHelper == null) throw new ArgumentNullException(nameof(dbHelper));
+            if (!includeDb && !includeLogs) return null;
 
             string tempRoot = null;
             string snapshotPath = null;
 
             try
             {
-                snapshotPath = dbHelper.CreateDatabaseSnapshot();
-                if (string.IsNullOrWhiteSpace(snapshotPath) || !File.Exists(snapshotPath))
-                {
-                    LogHelper.Log("DB snapshot creation failed (snapshot path missing).");
-                    return null;
-                }
-
                 tempRoot = CreateTempWorkDir("SmartAttendanceBackupBundle");
                 var workDir = Path.Combine(tempRoot, "bundle");
                 Directory.CreateDirectory(workDir);
 
-                // Copy snapshot into workdir
-                var snapshotCopy = Path.Combine(workDir, Path.GetFileName(snapshotPath));
-                File.Copy(snapshotPath, snapshotCopy, overwrite: true);
-
-                // Collect /Logs
-                string logsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                var logsOutDir = Path.Combine(workDir, "Logs");
-                Directory.CreateDirectory(logsOutDir);
-
-                if (Directory.Exists(logsDir))
+                if (includeDb)
                 {
-                    foreach (var file in Directory.GetFiles(logsDir, "*.*", SearchOption.TopDirectoryOnly))
+                    snapshotPath = dbHelper.CreateDatabaseSnapshot();
+                    if (!string.IsNullOrWhiteSpace(snapshotPath) && File.Exists(snapshotPath))
                     {
-                        try
-                        {
-                            var dest = Path.Combine(logsOutDir, Path.GetFileName(file));
-                            if (file.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
-                            {
-                                var copied = CopyFileAllowOpen(file, dest, maxAttempts: 5, delayMs: 300);
-                                if (copied == null)
-                                    LogHelper.Log($"Skipped log (copy failed): {file}");
-                            }
-                            else
-                            {
-                                File.Copy(file, dest, overwrite: true);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            LogHelper.Log($"Failed copying log file '{file}': {ex.Message}");
-                        }
+                        var snapshotCopy = Path.Combine(workDir, Path.GetFileName(snapshotPath));
+                        File.Copy(snapshotPath, snapshotCopy, overwrite: true);
+                    }
+                    else
+                    {
+                        LogHelper.Log("DB snapshot requested but creation failed.");
                     }
                 }
-                else
+
+                if (includeLogs)
                 {
-                    LogHelper.Log($"Logs directory not found: {logsDir}");
+                    // Collect /Logs
+                    string logsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+                    var logsOutDir = Path.Combine(workDir, "Logs");
+                    Directory.CreateDirectory(logsOutDir);
+
+                    if (Directory.Exists(logsDir))
+                    {
+                        foreach (var file in Directory.GetFiles(logsDir, "*.*", SearchOption.TopDirectoryOnly))
+                        {
+                            try
+                            {
+                                var dest = Path.Combine(logsOutDir, Path.GetFileName(file));
+                                if (file.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var copied = CopyFileAllowOpen(file, dest, maxAttempts: 5, delayMs: 300);
+                                    if (copied == null)
+                                        LogHelper.Log($"Skipped log (copy failed): {file}");
+                                }
+                                else
+                                {
+                                    File.Copy(file, dest, overwrite: true);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.Log($"Failed copying log file '{file}': {ex.Message}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        LogHelper.Log($"Logs directory not found: {logsDir}");
+                    }
                 }
 
                 // Zip it
@@ -154,10 +167,6 @@ namespace smart_attendance_middleware.Classes
                 {
                     LogHelper.Log($"Failed deleting temp db snapshot: {ex.Message}");
                 }
-
-                // IMPORTANT:
-                // Do NOT delete tempRoot here, because the ZIP we return is stored inside tempRoot.
-                // Caller (CreateAndEmailDbLogsAndGLogsAsync) will delete the ZIP after emailing.
             }
         }
 
@@ -266,40 +275,50 @@ namespace smart_attendance_middleware.Classes
         {
             if (dbHelper == null) throw new ArgumentNullException(nameof(dbHelper));
 
+            // Load backup content settings
+            bool incLogs = dbHelper.GetSetting("BackupIncludeLogs")?.ToLower() == "true";
+            bool incGLogs = dbHelper.GetSetting("BackupIncludeGLogs")?.ToLower() == "true";
+            bool incDb = dbHelper.GetSetting("BackupIncludeDatabase")?.ToLower() == "true";
+
+            if (!incLogs && !incGLogs && !incDb)
+            {
+                LogHelper.Log("Backup email skipped: All backup content types are disabled in settings.");
+                return false;
+            }
+
             string logsDbZip = null;
             string glogsZip = null;
 
             try
             {
-                LogHelper.Log("Starting bundle creation (DB snapshot + Logs).");
-                logsDbZip = CreateDatabaseSnapshotAndZipLogs(dbHelper);
-                if (string.IsNullOrWhiteSpace(logsDbZip) || !File.Exists(logsDbZip))
+                if (incLogs || incDb)
                 {
-                    LogHelper.Log("Failed to create DB+Logs ZIP.");
+                    LogHelper.Log($"Starting bundle creation (DB={incDb}, Logs={incLogs}).");
+                    logsDbZip = CreateDatabaseSnapshotAndZipLogs(dbHelper, incDb, incLogs);
+                }
+
+                if (incGLogs)
+                {
+                    LogHelper.Log("Starting GLogs download+zip.");
+                    glogsZip = await DownloadGLogsAndZipAsync(dbHelper).ConfigureAwait(false);
+                }
+
+                if (string.IsNullOrWhiteSpace(logsDbZip) && string.IsNullOrWhiteSpace(glogsZip))
+                {
+                    LogHelper.Log("Nothing to email (ZIPs were empty or failed).");
                     return false;
                 }
 
-                LogHelper.Log("Starting GLogs download+zip.");
-                glogsZip = await DownloadGLogsAndZipAsync(dbHelper).ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(glogsZip) || !File.Exists(glogsZip))
-                {
-                    LogHelper.Log("Failed to create GLogs ZIP.");
-                    return false;
-                }
+                // Fetch credentials from decrypted database settings instead of App.config
+                var to = dbHelper.GetDecryptedSetting("BackupEmailTo");
+                var user = dbHelper.GetDecryptedSetting("SmtpUser");
+                var pass = dbHelper.GetDecryptedSetting("SmtpPassword");
+                var host = dbHelper.GetDecryptedSetting("SmtpHost");
+                var portStr = dbHelper.GetDecryptedSetting("SmtpPort");
 
-                // SMTP settings (same keys you already use elsewhere)
-                var to = ConfigurationManager.AppSettings["BackupEmailTo"];
-                var user = ConfigurationManager.AppSettings["SmtpUser"];
-                var pass = ConfigurationManager.AppSettings["SmtpPassword"];
-                var host = ConfigurationManager.AppSettings["SmtpHost"];
-                var portStr = ConfigurationManager.AppSettings["SmtpPort"];
-
-                if (string.IsNullOrWhiteSpace(to) ||
-                    string.IsNullOrWhiteSpace(user) ||
-                    string.IsNullOrWhiteSpace(pass) ||
-                    string.IsNullOrWhiteSpace(host))
+                if (string.IsNullOrWhiteSpace(to) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass) || string.IsNullOrWhiteSpace(host))
                 {
-                    LogHelper.Log("Missing SMTP settings in App.config (BackupEmailTo, SmtpUser, SmtpPassword, SmtpHost).");
+                    LogHelper.Log("Missing SMTP settings in database (BackupEmailTo, SmtpUser, SmtpPassword, SmtpHost).");
                     return false;
                 }
 
@@ -310,21 +329,21 @@ namespace smart_attendance_middleware.Classes
                     msg.From = new MailAddress(user);
                     msg.To.Add(to);
                     msg.Subject = $"SmartAttendance Backup Bundle {DateTime.Now:yyyy-MM-dd HH:mm}";
-                    msg.Body =
-                        "Backup bundle attached.\n\n" +
-                        "Attachments:\n" +
-                        "- DB snapshot + all /Logs (ZIP)\n" +
-                        "- Downloaded GLogs from active devices (ZIP)\n";
+                    msg.Body = "Backup bundle attached.\n\n" + "Included components:\n" +
+                               (incDb ? "- DB snapshot\n" : "") +
+                               (incLogs ? "- System /Logs\n" : "") +
+                               (incGLogs ? "- Device GLogs\n" : "");
 
-                    msg.Attachments.Add(new Attachment(logsDbZip));
-                    msg.Attachments.Add(new Attachment(glogsZip));
+                    if (!string.IsNullOrEmpty(logsDbZip) && File.Exists(logsDbZip))
+                        msg.Attachments.Add(new Attachment(logsDbZip));
+                    if (!string.IsNullOrEmpty(glogsZip) && File.Exists(glogsZip))
+                        msg.Attachments.Add(new Attachment(glogsZip));
 
                     using (var client = new SmtpClient(host, port))
                     {
                         client.EnableSsl = true;
                         client.Credentials = new NetworkCredential(user, pass);
                         ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-
                         await client.SendMailAsync(msg).ConfigureAwait(false);
                     }
                 }
@@ -339,26 +358,10 @@ namespace smart_attendance_middleware.Classes
             }
             finally
             {
-                // Cleanup created ZIPs (they live in temp dirs)
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(logsDbZip) && File.Exists(logsDbZip))
-                        File.Delete(logsDbZip);
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Log($"Failed deleting logs/db zip '{logsDbZip}': {ex.Message}");
-                }
-
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(glogsZip) && File.Exists(glogsZip))
-                        File.Delete(glogsZip);
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Log($"Failed deleting glogs zip '{glogsZip}': {ex.Message}");
-                }
+                if (!string.IsNullOrWhiteSpace(logsDbZip) && File.Exists(logsDbZip))
+                    try { File.Delete(logsDbZip); } catch { }
+                if (!string.IsNullOrWhiteSpace(glogsZip) && File.Exists(glogsZip))
+                    try { File.Delete(glogsZip); } catch { }
             }
         }
 
@@ -544,5 +547,379 @@ namespace smart_attendance_middleware.Classes
             return false;
         }
 
+    public static async Task<bool> UploadToGoogleDriveAsync(string filePath, string folderId, DatabaseHelper db)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return false;
+
+            try
+            {
+                // 1. Get the OAuth Client Secret from DB
+                string clientSecretJson = db.GetDecryptedSetting("GoogleDriveCredentialsJson");
+                if (string.IsNullOrEmpty(clientSecretJson))
+                {
+                    LogHelper.Log("[Drive] Error: OAuth Client Secret (Desktop) not found in DB.");
+                    return false;
+                }
+
+                UserCredential credential;
+                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(clientSecretJson)))
+                {
+                    // This will look for a 'token.json' folder in your bin directory to store the login
+                    string credPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "token.json");
+
+                    credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                        GoogleClientSecrets.FromStream(stream).Secrets,
+                        new[] { DriveService.Scope.DriveFile },
+                        "user",
+                        CancellationToken.None,
+                        new FileDataStore(credPath, true));
+                }
+
+                // 2. Create the Drive Service
+                var service = new DriveService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "SmartAttendanceMiddleware",
+                });
+
+                // 3. Prepare Metadata
+                var fileMetadata = new Google.Apis.Drive.v3.Data.File()
+                {
+                    Name = Path.GetFileName(filePath),
+                    Parents = new List<string> { folderId }
+                };
+
+                // 4. Upload
+                using (var stream = new FileStream(filePath, FileMode.Open))
+                {
+                    var request = service.Files.Create(fileMetadata, stream, "application/zip");
+                    request.Fields = "id";
+
+                    LogHelper.Log($"[Drive] Starting upload using User Account: {Path.GetFileName(filePath)}");
+                    var progress = await request.UploadAsync();
+
+                    if (progress.Status == Google.Apis.Upload.UploadStatus.Failed)
+                    {
+                        LogHelper.Log($"[Drive] Upload failed: {progress.Exception?.Message}");
+                        return false;
+                    }
+                }
+
+                LogHelper.Log($"[Drive] Backup successful! Saved to your personal Google Drive storage.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Drive] CRITICAL ERROR: {ex.Message}");
+                return false;
+            }
+        }
+
+
+    public static async Task<bool> CreateAndUploadBackupToDriveAsync(DatabaseHelper dbHelper)
+        {
+            if (dbHelper == null) throw new ArgumentNullException(nameof(dbHelper));
+
+            // Load backup content settings
+            bool incLogs = dbHelper.GetSetting("BackupIncludeLogs")?.ToLower() == "true";
+            bool incGLogs = dbHelper.GetSetting("BackupIncludeGLogs")?.ToLower() == "true";
+            bool incDb = dbHelper.GetSetting("BackupIncludeDatabase")?.ToLower() == "true";
+
+            if (!incLogs && !incGLogs && !incDb)
+            {
+                LogHelper.Log("Google Drive backup skipped: All backup content types are disabled in settings.");
+                return false;
+            }
+
+            string logsDbZip = null;
+            string glogsZip = null;
+            string folderId = dbHelper.GetSetting("GoogleDriveFolderId");
+
+            if (string.IsNullOrEmpty(folderId))
+            {
+                LogHelper.Log("Google Drive backup skipped: GoogleDriveFolderId not found in database settings.");
+                return false;
+            }
+
+            try
+            {
+                LogHelper.Log($"BackupService: generating ZIP bundles for Google Drive (DB={incDb}, Logs={incLogs}, GLogs={incGLogs})...");
+                
+                if (incLogs || incDb)
+                    logsDbZip = CreateDatabaseSnapshotAndZipLogs(dbHelper, incDb, incLogs);
+                
+                if (incGLogs)
+                    glogsZip = await DownloadGLogsAndZipAsync(dbHelper).ConfigureAwait(false);
+
+                bool success = true;
+
+                if (!string.IsNullOrEmpty(logsDbZip) && File.Exists(logsDbZip))
+                {
+                    success &= await UploadToGoogleDriveAsync(logsDbZip, folderId, dbHelper).ConfigureAwait(false);
+                }
+
+                if (!string.IsNullOrEmpty(glogsZip) && File.Exists(glogsZip))
+                {
+                    success &= await UploadToGoogleDriveAsync(glogsZip, folderId, dbHelper).ConfigureAwait(false);
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"CreateAndUploadBackupToDriveAsync failed: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(logsDbZip) && File.Exists(logsDbZip))
+                    try { File.Delete(logsDbZip); } catch { }
+                if (!string.IsNullOrWhiteSpace(glogsZip) && File.Exists(glogsZip))
+                    try { File.Delete(glogsZip); } catch { }
+            }
+        }
+
+        public static async Task<int> CleanupOldDriveFilesAsync(string folderId, int days, DatabaseHelper db)
+        {
+            int deletedCount = 0;
+            try
+            {
+                // 1. Setup Auth (Same logic as Upload)
+                string credentialsJson = db.GetDecryptedSetting("GoogleDriveCredentialsJson");
+                if (string.IsNullOrEmpty(credentialsJson)) return 0;
+
+                UserCredential credential;
+                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
+                {
+                    credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                        GoogleClientSecrets.FromStream(stream).Secrets,
+                        new[] { DriveService.Scope.DriveFile },
+                        "user",
+                        CancellationToken.None,
+                        new FileDataStore(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "token.json"), true));
+                }
+
+                var service = new DriveService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "SmartAttendanceMiddleware",
+                });
+
+                // 2. Calculate threshold date
+                DateTime threshold = DateTime.Now.AddDays(-days);
+                LogHelper.Log($"[Drive] Cleaning up files older than {threshold:yyyy-MM-dd}...");
+
+                // 3. List files in the specific folder
+                var listRequest = service.Files.List();
+                listRequest.Q = $"'{folderId}' in parents and trashed = false";
+                listRequest.Fields = "files(id, name, createdTime)";
+
+                var response = await listRequest.ExecuteAsync();
+
+                if (response.Files != null)
+                {
+                    foreach (var file in response.Files)
+                    {
+                        if (file.CreatedTime.HasValue && file.CreatedTime.Value < threshold)
+                        {
+                            LogHelper.Log($"[Drive] Deleting old backup: {file.Name} (Created: {file.CreatedTime})");
+                            await service.Files.Delete(file.Id).ExecuteAsync();
+                            deletedCount++;
+                        }
+                    }
+                }
+
+                return deletedCount;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Drive] Cleanup Failed: {ex.Message}");
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Retrieves 'BackupRetentionDays' from settings and deletes synced attendance logs 
+        /// (both member and staff) that are older than that many days.
+        /// </summary>
+        public static async Task<int> CleanupOldSyncedAttendanceLogsAsync(DatabaseHelper dbHelper)
+        {
+            if (dbHelper == null) throw new ArgumentNullException(nameof(dbHelper));
+
+            try
+            {
+                // 1. Get retention days from settings
+                string retentionStr = dbHelper.GetSetting("BackupRetentionDays");
+                if (!int.TryParse(retentionStr, out int days) || days <= 0)
+                {
+                    LogHelper.Log("Cleanup skipped: 'BackupRetentionDays' not set or invalid.");
+                    return 0;
+                }
+
+                LogHelper.Log($"Starting cleanup of synced attendance logs older than {days} days...");
+
+                // 2. Execute deletion logic via DatabaseHelper
+                // Note: DeleteOldSyncedAttendanceLogs is synchronous in DatabaseHelper, 
+                // but we wrap it in Task.Run to keep the UI responsive if called from UI thread.
+                int totalDeleted = await Task.Run(() => dbHelper.DeleteOldSyncedAttendanceLogs(days)).ConfigureAwait(false);
+
+                if (totalDeleted > 0)
+                {
+                    LogHelper.Log($"Cleanup complete. Total records deleted: {totalDeleted}");
+                }
+                else
+                {
+                    LogHelper.Log("Cleanup complete. No records matched the criteria.");
+                }
+
+                return totalDeleted;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"CleanupOldSyncedAttendanceLogsAsync failed: {ex.Message}");
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Identifies members expired by more than 2 months (e.g., if today is 13 April 2026, 
+        /// members expired on or before 13 Jan 2026).
+        /// Performs cleanup in order:
+        /// 1. Delete user biometric data from all active devices.
+        /// 2. Delete database records (Log table -> AttendanceLogs table -> Member table).
+        /// </summary>
+        public static async Task ProcessLongExpiredMembersCleanupAsync(DatabaseHelper dbHelper)
+        {
+            if (dbHelper == null) throw new ArgumentNullException(nameof(dbHelper));
+
+            try
+            {
+                LogHelper.Log("Starting cleanup for members expired more than 2 months ago...");
+
+                // Get the list of members before any deletion occurs
+                List<Member> expiredMembers = dbHelper.GetExpiredMembersForCleanup(monthsThreshold: 2);
+
+                if (expiredMembers.Count == 0)
+                {
+                    LogHelper.Log("No members found with expiry older than 2 months.");
+                    return;
+                }
+
+                var activeDevices = dbHelper.LoadDevices()?.Where(d => d.IsActive).ToList() ?? new List<Device>();
+
+                foreach (var member in expiredMembers)
+                {
+                    LogHelper.Log($"[Processing Cleanup] Member: {member.Name} (ID: {member.MemberID}, Enrollment: {member.EnrollmentID})");
+
+                    // --- STEP 1: DEVICE LEVEL CLEANUP ---
+                    // EnrollmentID is required to delete from physical devices
+                    if (member.EnrollmentID.HasValue && activeDevices.Count > 0)
+                    {
+                        foreach (var device in activeDevices)
+                        {
+                            try
+                            {
+                                // Delete user and all their biometric data (BackupNumber 15 = All) from device
+                                bool deviceSuccess = await DeviceService.DeleteEnrollmentData(
+                                    device.DeviceIP,
+                                    device.Port,
+                                    device.MachineNo,
+                                    device.Password,
+                                    member.EnrollmentID.Value,
+                                    1, // Default enrollment machine ID
+                                    15 // BackupNumber 15 usually removes all templates/data for the user
+                                ).ConfigureAwait(false);
+
+                                if (deviceSuccess)
+                                    LogHelper.Log($"[DeviceCleanup] Removed EnrollID {member.EnrollmentID} from {device.DeviceIP}");
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.Log($"[DeviceCleanup] Failed for EnrollID {member.EnrollmentID} on {device.DeviceIP}: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    // --- STEP 2: DATABASE LEVEL CLEANUP ---
+                    // This deletes records from Log, AttendanceLogs, and finally the Members table
+                    bool dbSuccess = dbHelper.DeleteExpiredMemberFromDb(member.MemberID);
+                    if (dbSuccess)
+                    {
+                        LogHelper.Log($"[DbCleanup] Successfully deleted records for {member.Name} (ID: {member.MemberID})");
+                    }
+                }
+
+                LogHelper.Log($"Cleanup complete. Total expired members processed: {expiredMembers.Count}");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"ProcessLongExpiredMembersCleanupAsync fatal error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Checks attendance logs for sessions with no check-out. 
+        /// If the current time exceeds check-in time by 6 hours, 
+        /// it forces a check-out exactly 6 hours after check-in, 
+        /// updates the database, and sends the update to the server.
+        /// </summary>
+        public static async Task ProcessForceCheckOutAsync(DatabaseHelper dbHelper, HttpHandler httpHandler)
+        {
+            if (dbHelper == null || httpHandler == null) return;
+
+            try
+            {
+                var logs = dbHelper.GetAllAttendanceLogs();
+                var now = DateTime.Now;
+
+                foreach (var log in logs)
+                {
+                    // Check if CheckOutTime is missing and CheckInTime exists
+                    if (string.IsNullOrEmpty(log.CheckOutTime) && !string.IsNullOrEmpty(log.CheckInTime))
+                    {
+                        if (DateTime.TryParse(log.CheckInTime, out DateTime checkInTime))
+                        {
+                            // If more than 6 hours have passed since check-in
+                            if ((now - checkInTime).TotalHours >= 6)
+                            {
+                                DateTime forcedCheckOutTime = checkInTime.AddHours(6);
+                                string forcedCheckOutStr = forcedCheckOutTime.ToString("yyyy-MM-dd HH:mm:ss");
+
+                                LogHelper.Log($"[ForceCheckOut] MemberID: {log.MemberID}, LogID: {log.LogID}. No checkout for >6 hours. Forcing checkout at {forcedCheckOutStr}");
+
+                                // 1. Update Database
+                                dbHelper.UpdateAttendanceLogForCheckOut(log.MemberID, forcedCheckOutStr);
+
+                                // 2. Send to Server
+                                // We need the member's EnrollmentID for the server upload.
+                                var member = dbHelper.GetMember(log.MemberID);
+                                if (member != null && member.EnrollmentID.HasValue)
+                                {
+                                    // Format times to ISO 8601 for the server
+                                    string isoCheckIn = checkInTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                                    string isoCheckOut = forcedCheckOutTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+                                    LogHelper.Log($"[ForceCheckOut] Syncing forced checkout to server for EnrollmentID: {member.EnrollmentID}");
+                                    await httpHandler.PostAttendanceRecordAsync(
+                                        member.EnrollmentID.Value,
+                                        isoCheckIn,
+                                        isoCheckOut,
+                                        log.AttendanceId
+                                    ).ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    LogHelper.Log($"[ForceCheckOut] Skip server sync: EnrollmentID not found for MemberID {log.MemberID}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[ForceCheckOut][ERROR] {ex.Message}");
+            }
+        }
     }
 }

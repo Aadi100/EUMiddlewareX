@@ -52,16 +52,19 @@ namespace smart_attendance_middleware
             {
 
                 case "attendance_created":
+                    LogHelper.Log("Received attendance_created event. Processing attendance update...");
                     HandleAttendance(data);
                     ShowUsersNotification(data, "Attendance Created", "A new attendance record has been created.");
                     break;
 
                 case "attendance_updated":
+                    LogHelper.Log("Received attendance_updated event. Processing attendance update...");
                     HandleAttendance(data);
                     ShowUsersNotification(data, "Attendance Updated", "An attendance record has been updated.");
                     break;
 
                 case "user_created":
+                    LogHelper.Log("Received user_created event. Processing new user...");
                     var userData = data["user"] as JObject;
                     if (userData != null)
                     {
@@ -76,6 +79,7 @@ namespace smart_attendance_middleware
                     break;
 
                 case "user_updated":
+                    LogHelper.Log("Received user_updated event. Processing user update...");
                     var userDataUpd = data["user"] as JObject;
                     if (userDataUpd != null)
                     {
@@ -95,16 +99,42 @@ namespace smart_attendance_middleware
                 //    ShowUsersNotification(data, "User Deleted", "A user has been removed.");
                 //    break;
 
-                //case "notification.status":
-                //    _ = Task.Run(async () =>
-                //    {
-                //        await _deviceFunctions.StatusSync(data);
-                //        HandleStatusChange(data);
-                //    });
-                //    ShowMemberNotification(data, "Member Status Changed", "A member's status has been changed.");
+                case "member_status":
+                    LogHelper.Log("Received member_status event. Processing status synchronization...");
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // 1. StatusSync handles complex hardware logic (Enable/Disable/Delete)
+                            // and has a built-in PendingJob queue for offline devices.
+                            await _deviceFunctions.StatusSync(data);
 
-                //    break;
+                            // 2. Perform the final local database status toggle
+                            // This ensures the local 'Status' column matches the Cloud 'status' string.
+                            int memberId = data["id"]?.Value<int>() ?? 0;
+                            string newStatus = data["status"]?.Value<string>() ?? string.Empty;
 
+                            if (memberId > 0 && !string.IsNullOrEmpty(newStatus))
+                            {
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("Processor_MemberStatus_Update", DbTaskPriority.High);
+                                try
+                                {
+                                    _dbHelper.UpdateMemberStatus(memberId, newStatus);
+                                }
+                                finally
+                                {
+                                    DatabaseQueueManager.ReleaseDbWriteLock("Processor_MemberStatus_Update");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            LogHelper.Log($"❌ Error processing member_status event: {ex.Message}");
+                        }
+                    });
+
+                    ShowUsersNotification(data, "Member Status Changed", "A member's status has been synchronized.");
+                    break;
                 default:
                     LogHelper.Log($"⚠️ Unhandled event type: {eventType}");
                     break;
@@ -564,103 +594,6 @@ namespace smart_attendance_middleware
         }
 
 
-
-        /// <summary>
-        /// Handles real-time member status updates (active/inactive).
-        /// </summary>
-        private async void HandleStatusChange(JObject data)
-        {
-            try
-            {
-                int memberId = data["id"]?.Value<int>() ?? 0;
-                string newStatus = data["status"]?.Value<string>()?.ToLower() ?? string.Empty;
-
-                if (memberId == 0)
-                {
-                    LogHelper.Log("⚠️ Invalid member ID in status update");
-                    return;
-                }
-                if (string.IsNullOrEmpty(newStatus) || (newStatus != "active" && newStatus != "inactive"))
-                {
-                    LogHelper.Log($"⚠️ Invalid status value '{newStatus}' for member {memberId}");
-                    return;
-                }
-
-                bool shouldEnable = newStatus == "active";
-
-                // DB write only for status update
-                await DatabaseQueueManager.EnterDbWriteLockAsync("HandleStatusChange_UpdateStatus", DbTaskPriority.High);
-                try
-                {
-                    bool statusUpdated = _dbHelper.UpdateMemberStatus(memberId, shouldEnable ? "Active" : "Inactive");
-                    if (!statusUpdated)
-                    {
-                        LogHelper.Log($"⚠️ Failed to update status for member {memberId}");
-                        return;
-                    }
-                }
-                finally
-                {
-                    DatabaseQueueManager.ReleaseDbWriteLock("HandleStatusChange_UpdateStatus");
-                }
-
-                // DB reads and network I/O outside lock
-                var devices = _dbHelper.GetDetails(memberId);
-                if (devices.Count == 0)
-                {
-                    LogHelper.Log($"ℹ️ No devices found for member {memberId}");
-                    return;
-                }
-
-                foreach (var device in devices)
-                {
-                    try
-                    {
-                        var allDevices = _dbHelper.LoadDevices();
-                        var currentDevice = allDevices.FirstOrDefault(d => d.MachineNo == device.machineNo);
-                        if (currentDevice == null)
-                        {
-                            LogHelper.Log($"⚠️ Device with machine number {device.machineNo} not found");
-                            continue;
-                        }
-
-                        var (deviceExists, syncStatus, memberStatus) = _dbHelper.GetMemberDeviceSyncStatus(memberId, currentDevice.DeviceId);
-                        if (!deviceExists || !syncStatus)
-                        {
-                            LogHelper.Log($"ℹ️ Skipping device {device.machineNo} (exists={deviceExists}, sync={syncStatus})");
-                            continue;
-                        }
-
-                        bool success = await DeviceService.SetUserEnabledStatus(
-                            device.ip,
-                            device.port,
-                            device.machineNo,
-                            device.password,
-                            device.enrollmentNumber,
-                            device.enrollmentNumber,
-                            device.backupNumber,
-                            shouldEnable);
-
-                        if (success)
-                            LogHelper.Log($"✅ {(shouldEnable ? "Enabled" : "Disabled")} member {memberId} on device {device.machineNo}");
-                        else
-                            LogHelper.Log($"⚠️ Failed to {(shouldEnable ? "enable" : "disable")} member {memberId} on device {device.machineNo}");
-                    }
-                    catch (Exception exDev)
-                    {
-                        LogHelper.Log($"❌ Error processing device {device.machineNo} for member {memberId}: {exDev.Message}");
-                    }
-                }
-
-                LogHelper.Log($"🏁 Completed status update for member {memberId}");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ HandleStatusChange error: {ex.Message}");
-            }
-        }
-
-
         private async void HandleDeletedMember(JObject data)
         {
             try
@@ -974,31 +907,34 @@ namespace smart_attendance_middleware
             }
         }
 
-        /// <summary>
-        /// Handles single attendance response from the cloud.
-        /// </summary>
-        /// <param name="data"></param>
         public async void HandleHttpAttendanceResponseSingle(JObject data)
         {
             try
             {
                 LogHelper.Log($"📍 Attendance single response received: {data.ToString(Newtonsoft.Json.Formatting.None)}");
 
-                string attendanceId = data["id"]?.ToString();
-                bool isStaff = data["is_staff"]?.Type != JTokenType.Null && data["is_staff"]?.Value<bool>() == true;
+                // Check if the data contains a 'records' array and extract the first record
+                JObject record = data;
+                if (data["records"] is JArray records && records.Count > 0)
+                {
+                    record = (JObject)records[0];
+                }
+
+                string attendanceId = record["id"]?.ToString();
+                bool isStaff = record["is_staff"]?.Type != JTokenType.Null && record["is_staff"]?.Value<bool>() == true;
 
                 if (isStaff)
                 {
                     // For staff, prefer explicit enrollment_id, fall back to member_id if present
-                    int enrollmentId = data["enrollment_id"]?.Value<int>() ?? data["member_id"]?.Value<int>() ?? 0;
+                    int enrollmentId = record["enrollment_id"]?.Value<int>() ?? record["member_id"]?.Value<int>() ?? 0;
                     if (enrollmentId == 0 || string.IsNullOrWhiteSpace(attendanceId))
                     {
                         LogHelper.Log("⚠️ Invalid single STAFF attendance payload (missing enrollment_id or id).");
                         return;
                     }
 
-                    string checkInIso = data["check_in"]?.ToString();
-                    string checkOutIso = data["check_out"]?.ToString();
+                    string checkInIso = record["check_in"]?.ToString() ?? record["checkin_time"]?.ToString();
+                    string checkOutIso = record["check_out"]?.ToString() ?? record["checkout_time"]?.ToString();
 
                     DateTime checkInLocal; string checkInFmt;
                     DateTime checkOutLocal; string checkOutFmt;
@@ -1056,16 +992,16 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                // Member (non-staff) branch (existing behavior)
-                int memberId = data["member_id"]?.Value<int>() ?? 0;
+                // Member (non-staff) branch
+                int memberId = record["member_id"]?.Value<int>() ?? 0;
                 if (memberId == 0 || string.IsNullOrWhiteSpace(attendanceId))
                 {
                     LogHelper.Log("⚠️ Invalid single attendance payload (missing member_id or id).");
                     return;
                 }
 
-                string checkInIsoM = data["check_in"]?.ToString();
-                string checkOutIsoM = data["check_out"]?.ToString();
+                string checkInIsoM = record["check_in"]?.ToString() ?? record["checkin_time"]?.ToString();
+                string checkOutIsoM = record["check_out"]?.ToString() ?? record["checkout_time"]?.ToString();
 
                 DateTime checkInLocalM; string checkInFmtM;
                 DateTime checkOutLocalM; string checkOutFmtM;

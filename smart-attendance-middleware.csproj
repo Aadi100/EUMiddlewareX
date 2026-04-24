@@ -197,7 +197,7 @@
     <Compile Include="Classes\AttendenceServerFunctions.cs" />
     <Compile Include="Classes\DeviceFunctions.cs" />
     <Compile Include="Classes\DeviceService.cs" />
-    <Compile Include="Classes\EmailBackupService.cs" />
+    <Compile Include="Classes\BackupService.cs" />
     <Compile Include="Classes\LogSyncService.cs" />
     <Compile Include="Classes\NetworkHelper.cs" />
     <Compile Include="Classes\OcxFpreaderInvoker.cs" />
