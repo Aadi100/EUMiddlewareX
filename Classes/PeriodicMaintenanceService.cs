@@ -35,7 +35,7 @@ namespace smart_attendance_middleware.Classes
         //private readonly int _disableInactiveUsersInterval = 6 * 60 * 1000; // 6 minutes in milliseconds
 
         private readonly int _fetchDeviceSyncStatusInterval = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-        private readonly int _forceCheckOutInterval = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+        private readonly int _forceCheckOutInterval = 1 * 60 * 60 * 1000; // 1 hour in milliseconds
         private readonly int _delayAfterFetchForUpdate = 10 * 1000; // 10 sec
 
         private bool _syncInProgress = false;

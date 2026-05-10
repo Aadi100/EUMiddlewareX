@@ -361,6 +361,66 @@ namespace smart_attendance_middleware
             _connected = false;
         }
 
+        //private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time)
+        //{
+        //    // Normalize IP (strip port if present)
+        //    string ipOnly = ip ?? string.Empty;
+        //    int colon = ipOnly.IndexOf(':');
+        //    if (colon >= 0) ipOnly = ipOnly.Substring(0, colon);
+
+        //    try
+        //    {
+        //        // Use DatabaseHelper to determine whether this IP belongs to a staff or member device
+        //        var category = _dbHelper.GetDeviceCategoryByIp(ipOnly);
+        //        LogHelper.Log($"[ForwardAttendanceData] Device category for IP={ipOnly}: exists={category.exists}, type={category.type}, deviceId={category.deviceId}");
+
+        //        if (category.exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase))
+        //        {
+        //            // Route to staff pipeline
+        //            var srec = new StaffAttendenceServerFunctions.StaffAttendanceRecord
+        //            {
+        //                DevID = devId,
+        //                IP = ip,
+        //                Enroll = enroll,
+        //                Time = time
+        //            };
+        //            _staffAttendanceFunctions.Process(srec);
+        //            return;
+        //        }
+
+        //        // --- Member pipeline section ---
+        //        string staffEnrollmentsRaw = _dbHelper.GetSetting("staff_enrollment_ids");
+        //        if (!string.IsNullOrEmpty(staffEnrollmentsRaw))
+        //        {
+        //            // Clean the JSON-like formatting: remove [ ] and " 
+        //            string cleaned = staffEnrollmentsRaw.Trim('[', ']').Replace("\"", "");
+
+        //            var staffIds = cleaned.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+        //                                  .Select(s => s.Trim());
+
+        //            if (staffIds.Contains(enroll.ToString()))
+        //            {
+        //                LogHelper.Log($"[ForwardAttendanceData] Skipping Enroll={enroll} in member pipeline Staff is passing through member device");
+        //                return;
+        //            }
+        //        }
+
+        //        // Default / member pipeline
+        //        var mrec = new AttendenceServerFunctions.AttendanceRecord
+        //        {
+        //            DevID = devId,
+        //            IP = ip,
+        //            Enroll = enroll,
+        //            Time = time
+        //        };
+        //        _attendanceFunctions.Process(mrec);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        LogHelper.Log($"[ForwardAttendanceData][ERROR] Routing error for IP={ip}: {ex.Message}");
+        //    }
+        //}
+
         private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time)
         {
             // Normalize IP (strip port if present)
@@ -370,11 +430,11 @@ namespace smart_attendance_middleware
 
             try
             {
-                // Use DatabaseHelper to determine whether this IP belongs to a staff or member device
-                var category = _dbHelper.GetDeviceCategoryByIp(ipOnly);
-                LogHelper.Log($"[ForwardAttendanceData] Device category for IP={ipOnly}: exists={category.exists}, type={category.type}, deviceId={category.deviceId}");
+                // Look up device category from in-memory session — no DB call
+                bool exists = AppSession.DeviceCategoryMap.TryGetValue(ipOnly, out var category);
+                LogHelper.Log($"[ForwardAttendanceData] Device category for IP={ipOnly}: exists={exists}, type={category.type}, deviceId={category.deviceId}");
 
-                if (category.exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase))
+                if (exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase))
                 {
                     // Route to staff pipeline
                     var srec = new StaffAttendenceServerFunctions.StaffAttendanceRecord
@@ -388,21 +448,11 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                // --- Member pipeline section ---
-                string staffEnrollmentsRaw = _dbHelper.GetSetting("staff_enrollment_ids");
-                if (!string.IsNullOrEmpty(staffEnrollmentsRaw))
+                // Check staff enrollment IDs from in-memory session — no DB call
+                if (AppSession.StaffEnrollmentIds.Contains(enroll.ToString()))
                 {
-                    // Clean the JSON-like formatting: remove [ ] and " 
-                    string cleaned = staffEnrollmentsRaw.Trim('[', ']').Replace("\"", "");
-                    
-                    var staffIds = cleaned.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                          .Select(s => s.Trim());
-                                          
-                    if (staffIds.Contains(enroll.ToString()))
-                    {
-                        LogHelper.Log($"[ForwardAttendanceData] Skipping Enroll={enroll} in member pipeline Staff is passing through member device");
-                        return;
-                    }
+                    LogHelper.Log($"[ForwardAttendanceData] Skipping Enroll={enroll} in member pipeline Staff is passing through member device");
+                    return;
                 }
 
                 // Default / member pipeline
@@ -420,7 +470,6 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"[ForwardAttendanceData][ERROR] Routing error for IP={ip}: {ex.Message}");
             }
         }
-
 
         // Device event
         private void axFPCLOCK_Svr1_OnReceiveGLogData(object sender, _DFPCLOCK_SvrEvents_OnReceiveGLogDataEvent e)

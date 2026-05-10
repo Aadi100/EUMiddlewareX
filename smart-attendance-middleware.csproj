@@ -214,6 +214,9 @@
     <Compile Include="Classes\SimulationEvents.cs" />
     <Compile Include="Classes\StaffAttendanceLogSyncService.cs" />
     <Compile Include="Classes\StaffAttendenceServerFunctions.cs" />
+    <Compile Include="Controls\RectangularLoader.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="SimulatorForm.cs">
       <SubType>Form</SubType>
     </Compile>

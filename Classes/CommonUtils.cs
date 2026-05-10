@@ -827,7 +827,7 @@ namespace smart_attendance_middleware.Classes
                                     device.Password,
                                     member.EnrollmentID.Value,
                                     1, // Default enrollment machine ID
-                                    15 // BackupNumber 15 usually removes all templates/data for the user
+                                    12 // BackupNumber 12 usually removes all templates/data for the user
                                 ).ConfigureAwait(false);
 
                                 if (deviceSuccess)
@@ -874,12 +874,10 @@ namespace smart_attendance_middleware.Classes
 
                 foreach (var log in logs)
                 {
-                    // Check if CheckOutTime is missing and CheckInTime exists
                     if (string.IsNullOrEmpty(log.CheckOutTime) && !string.IsNullOrEmpty(log.CheckInTime))
                     {
                         if (DateTime.TryParse(log.CheckInTime, out DateTime checkInTime))
                         {
-                            // If more than 6 hours have passed since check-in
                             if ((now - checkInTime).TotalHours >= 6)
                             {
                                 DateTime forcedCheckOutTime = checkInTime.AddHours(6);
@@ -887,21 +885,20 @@ namespace smart_attendance_middleware.Classes
 
                                 LogHelper.Log($"[ForceCheckOut] MemberID: {log.MemberID}, LogID: {log.LogID}. No checkout for >6 hours. Forcing checkout at {forcedCheckOutStr}");
 
-                                // 1. Update Database
+                                // 1. Update local Database (This works, as seen in your screenshot)
                                 dbHelper.UpdateAttendanceLogForCheckOut(log.MemberID, forcedCheckOutStr);
 
-                                // 2. Send to Server
-                                // We need the member's EnrollmentID for the server upload.
+                                // 2. Send to Server (This is where the error triggered)
                                 var member = dbHelper.GetMember(log.MemberID);
-                                if (member != null && member.EnrollmentID.HasValue)
+                                // Changed .HasValue to > 0 to prevent the 'int' definition error
+                                if (member != null && member.EnrollmentID > 0)
                                 {
-                                    // Format times to ISO 8601 for the server
                                     string isoCheckIn = checkInTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
                                     string isoCheckOut = forcedCheckOutTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                                     LogHelper.Log($"[ForceCheckOut] Syncing forced checkout to server for EnrollmentID: {member.EnrollmentID}");
                                     await httpHandler.PostAttendanceRecordAsync(
-                                        member.EnrollmentID.Value,
+                                        (int)member.EnrollmentID, 
                                         isoCheckIn,
                                         isoCheckOut,
                                         log.AttendanceId

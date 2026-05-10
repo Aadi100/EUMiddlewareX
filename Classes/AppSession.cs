@@ -12,13 +12,12 @@ namespace smart_attendance_middleware
         public static DateTime LoginTime { get; set; }
 
         public static List<Device> DeviceList { get; set; } = new List<Device>();
-
         public static List<Device> StaffDeviceList { get; set; } = new List<Device>();
 
         // Last check-in details
         public static LastAttendanceDetails LastCheckIn { get; set; }
 
-        // Last check-out details  
+        // Last check-out details
         public static LastAttendanceDetails LastCheckOut { get; set; }
 
         // Sync status
@@ -27,6 +26,12 @@ namespace smart_attendance_middleware
         public static List<smart_attendance_middleware.Classes.DeviceFunctions.PendingJob> PendingJobs { get; set; }
             = new List<smart_attendance_middleware.Classes.DeviceFunctions.PendingJob>();
 
+        // Keyed by normalized IP, value is (type: "member"/"staff", deviceId)
+        public static Dictionary<string, (string type, int deviceId)> DeviceCategoryMap { get; set; }
+            = new Dictionary<string, (string type, int deviceId)>(StringComparer.OrdinalIgnoreCase);
+
+        public static HashSet<string> StaffEnrollmentIds { get; set; }
+            = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public static void ClearSession()
         {
@@ -35,9 +40,12 @@ namespace smart_attendance_middleware
             LoggedInUserID = -1;
             LoginTime = DateTime.MinValue;
             DeviceList.Clear();
+            StaffDeviceList.Clear();
             LastCheckIn = null;
             LastCheckOut = null;
             PendingJobs.Clear();
+            DeviceCategoryMap.Clear();
+            StaffEnrollmentIds.Clear();
         }
     }
 

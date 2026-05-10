@@ -155,7 +155,13 @@ namespace smart_attendance_middleware
             var array = new JArray();
             foreach (var r in records)
             {
-                // enrollment_id is required
+                // Skip records with invalid enrollment ID — should already be filtered upstream
+                if (r.enrollmentId <= 0)
+                {
+                    LogHelper.Log($"⚠️ Skipping record with invalid enrollment_id={r.enrollmentId}");
+                    continue;
+                }
+
                 var rec = new JObject
                 {
                     ["enrollment_id"] = r.enrollmentId,
@@ -164,7 +170,10 @@ namespace smart_attendance_middleware
 
                 if (r.id.HasValue) rec["id"] = r.id.Value;
                 if (!string.IsNullOrWhiteSpace(r.checkinTime)) rec["checkin_time"] = r.checkinTime;
-                if (!string.IsNullOrWhiteSpace(r.checkoutTime)) rec["checkout_time"] = r.checkoutTime;
+                if (!string.IsNullOrWhiteSpace(r.checkoutTime))
+                {
+                    rec["checkout_time"] = r.checkoutTime;
+                    rec["source_out"] = "biometric";                    }
 
                 array.Add(rec);
             }

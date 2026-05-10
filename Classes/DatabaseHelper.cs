@@ -2751,15 +2751,18 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
+                    // Joined with Members to retrieve the EnrollmentID
                     string query = @"
                 SELECT 
                     al.AttendanceId, 
                     al.MemberID, 
                     al.CheckInTime, 
                     al.CheckOutTime, 
-                    al.SyncStatus
+                    al.SyncStatus,
+                    m.EnrollmentID
                 FROM 
                     AttendanceLogs al
+                INNER JOIN Members m ON al.MemberID = m.MemberID
                 WHERE 
                     al.SyncStatus LIKE '%false%'";
 
@@ -2780,6 +2783,9 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
 
                             string syncStatusJson = reader.IsDBNull(4) ? "{}" : reader.GetString(4);
 
+                            // Retrieve EnrollmentID from the join results
+                            int enrollmentId = reader.IsDBNull(5) ? 0 : reader.GetInt32(5);
+
                             Dictionary<string, bool> syncStatus;
                             try
                             {
@@ -2799,6 +2805,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                                 {
                                     AttendanceId = attendanceId,
                                     MemberId = memberId,
+                                    EnrollmentId = enrollmentId,
                                     CheckInTime = checkInTime,
                                     CheckOutTime = checkOutTime ?? DateTime.MinValue,
                                     NeedsCheckInSync = needsCheckInSync,
@@ -2822,7 +2829,6 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
             }
             return unsyncedLogs;
         }
-
 
         // Get all attendance logs
         public List<dynamic> GetAllAttendanceLogs()

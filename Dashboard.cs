@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
 using smart_attendance_middleware.Classes;
+using smart_attendance_middleware.Controls;
 using smart_attendance_middleware.Services;
 using System;
 using System.Collections.Generic;
@@ -109,10 +110,60 @@ namespace smart_attendance_middleware
             // Initialize your WebView2 control
             InitializeWebView2();
 
+            BiometricLoader = rectangularLoader1;
+
             this.FormClosing += Dashboard_FormClosing;
 
 
         }
+
+
+
+
+
+        // ── Rectangular biometric loader (drag-dropped in Designer) ────────────
+
+        /// <summary>
+        /// Exposes the Designer-placed RectangularLoader so service classes
+        /// can drive it without holding a Dashboard reference.
+        /// </summary>
+        public static RectangularLoader BiometricLoader { get; private set; }
+
+        /// <summary>Starts the biometric loader from any thread.</summary>
+        public static void GlobalStartBiometricLoader(string message = null)
+        {
+            var loader = BiometricLoader;
+            if (loader == null || loader.IsDisposed) return;
+
+            Action act = () => loader.Start(message);
+            if (loader.InvokeRequired) loader.BeginInvoke(act);
+            else act();
+        }
+
+        /// <summary>Updates the active label while the loader is running, from any thread.</summary>
+        public static void GlobalUpdateBiometricLoader(string message)
+        {
+            var loader = BiometricLoader;
+            if (loader == null || loader.IsDisposed) return;
+
+            Action act = () => { loader.ActiveText = message ?? string.Empty; };
+            if (loader.InvokeRequired) loader.BeginInvoke(act);
+            else act();
+        }
+
+        /// <summary>Stops the loader and returns it to idle, from any thread.</summary>
+        public static void GlobalStopBiometricLoader()
+        {
+            var loader = BiometricLoader;
+            if (loader == null || loader.IsDisposed) return;
+
+            Action act = () => loader.Stop();
+            if (loader.InvokeRequired) loader.BeginInvoke(act);
+            else act();
+        }
+
+
+
 
 
         private void ShowLoader(string message = null)

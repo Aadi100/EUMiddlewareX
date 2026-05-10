@@ -725,8 +725,13 @@ namespace smart_attendance_middleware
         {
             try
             {
-                // 1. Extract member data
-                int memberId = data["member_id"]?.Value<int>() ?? 0;
+                int memberId = data["id"]?.Value<int>() ?? 0;
+
+                if (memberId <= 0)
+                {
+                    LogHelper.Log("⚠️ HandleUpdateUsers: no valid id in payload, skipping.");
+                    return;
+                }
 
                 LogHelper.Log($"🔍 Processing update for member {memberId}");
 
@@ -1167,13 +1172,38 @@ namespace smart_attendance_middleware
         {
             try
             {
+                // Member devices
                 List<Device> devices = _dbHelper.LoadDevices();
                 AppSession.DeviceList = devices;
 
-
+                // Staff devices
                 List<Device> staffDevices = _dbHelper.LoadStaffDevices();
                 AppSession.StaffDeviceList = staffDevices;
 
+                // ← ADD: rebuild device category map from both lists
+                var categoryMap = new Dictionary<string, (string type, int deviceId)>(StringComparer.OrdinalIgnoreCase);
+                foreach (var d in devices)
+                    if (!string.IsNullOrEmpty(d.DeviceIP))
+                        categoryMap[d.DeviceIP] = ("member", d.DeviceId);
+                foreach (var d in staffDevices)
+                    if (!string.IsNullOrEmpty(d.DeviceIP))
+                        categoryMap[d.DeviceIP] = ("staff", d.DeviceId);
+                AppSession.DeviceCategoryMap = categoryMap;
+
+                // ← ADD: rebuild staff enrollment IDs set
+                string raw = _dbHelper.GetSetting("staff_enrollment_ids");
+                var staffEnrollmentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrEmpty(raw))
+                {
+                    string cleaned = raw.Trim('[', ']').Replace("\"", "");
+                    foreach (var id in cleaned.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        string trimmed = id.Trim();
+                        if (!string.IsNullOrEmpty(trimmed))
+                            staffEnrollmentIds.Add(trimmed);
+                    }
+                }
+                AppSession.StaffEnrollmentIds = staffEnrollmentIds;
             }
             catch (Exception ex)
             {

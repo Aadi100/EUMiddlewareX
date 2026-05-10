@@ -108,6 +108,7 @@
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
             this.process1 = new System.Diagnostics.Process();
+            this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
             this.panel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.cuiPanel6.SuspendLayout();
@@ -157,12 +158,12 @@
             this.panel2.Controls.Add(this.cuiPanel1);
             this.panel2.Location = new System.Drawing.Point(0, 73);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(1307, 567);
+            this.panel2.Size = new System.Drawing.Size(1307, 616);
             this.panel2.TabIndex = 41;
             // 
             // prg_server
             // 
-            this.prg_server.Location = new System.Drawing.Point(-20, 554);
+            this.prg_server.Location = new System.Drawing.Point(-24, 606);
             this.prg_server.Name = "prg_server";
             this.prg_server.Size = new System.Drawing.Size(1385, 10);
             this.prg_server.TabIndex = 15;
@@ -190,7 +191,7 @@
             this.cuiPanel6.PanelColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(234)))), ((int)(((byte)(226)))));
             this.cuiPanel6.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
             this.cuiPanel6.Rounding = new System.Windows.Forms.Padding(12);
-            this.cuiPanel6.Size = new System.Drawing.Size(618, 396);
+            this.cuiPanel6.Size = new System.Drawing.Size(618, 475);
             this.cuiPanel6.TabIndex = 4;
             // 
             // cuiPanel7
@@ -204,7 +205,7 @@
             this.cuiPanel7.PanelColor = System.Drawing.Color.Transparent;
             this.cuiPanel7.PanelOutlineColor = System.Drawing.Color.Transparent;
             this.cuiPanel7.Rounding = new System.Windows.Forms.Padding(0);
-            this.cuiPanel7.Size = new System.Drawing.Size(616, 337);
+            this.cuiPanel7.Size = new System.Drawing.Size(616, 429);
             this.cuiPanel7.TabIndex = 14;
             // 
             // lst_missing_fingerprints
@@ -212,7 +213,7 @@
             this.lst_missing_fingerprints.HideSelection = false;
             this.lst_missing_fingerprints.Location = new System.Drawing.Point(6, 3);
             this.lst_missing_fingerprints.Name = "lst_missing_fingerprints";
-            this.lst_missing_fingerprints.Size = new System.Drawing.Size(607, 318);
+            this.lst_missing_fingerprints.Size = new System.Drawing.Size(607, 423);
             this.lst_missing_fingerprints.TabIndex = 42;
             this.lst_missing_fingerprints.UseCompatibleStateImageBehavior = false;
             this.lst_missing_fingerprints.Visible = false;
@@ -222,9 +223,9 @@
             this.aiChat.AllowExternalDrop = true;
             this.aiChat.CreationProperties = null;
             this.aiChat.DefaultBackgroundColor = System.Drawing.Color.White;
-            this.aiChat.Location = new System.Drawing.Point(1, 0);
+            this.aiChat.Location = new System.Drawing.Point(1, 6);
             this.aiChat.Name = "aiChat";
-            this.aiChat.Size = new System.Drawing.Size(612, 333);
+            this.aiChat.Size = new System.Drawing.Size(612, 420);
             this.aiChat.Source = new System.Uri("file:///E:/[PRODUCTION]/[ABDULHADI-LATEST-VERSION]/ailogs.html", System.UriKind.Absolute);
             this.aiChat.TabIndex = 0;
             this.aiChat.ZoomFactor = 1D;
@@ -335,6 +336,7 @@
             // 
             // cuiPanel5
             // 
+            this.cuiPanel5.Controls.Add(this.rectangularLoader1);
             this.cuiPanel5.Controls.Add(this.panel3);
             this.cuiPanel5.Controls.Add(this.btn_managegym);
             this.cuiPanel5.Controls.Add(this.cuiSeparator1);
@@ -348,7 +350,7 @@
             this.cuiPanel5.PanelColor = System.Drawing.Color.White;
             this.cuiPanel5.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
             this.cuiPanel5.Rounding = new System.Windows.Forms.Padding(12);
-            this.cuiPanel5.Size = new System.Drawing.Size(304, 504);
+            this.cuiPanel5.Size = new System.Drawing.Size(304, 583);
             this.cuiPanel5.TabIndex = 4;
             // 
             // panel3
@@ -577,7 +579,7 @@
             // 
             this.lbl_adminsetting.AutoSize = true;
             this.lbl_adminsetting.BackColor = System.Drawing.Color.Transparent;
-            this.lbl_adminsetting.Location = new System.Drawing.Point(213, 475);
+            this.lbl_adminsetting.Location = new System.Drawing.Point(222, 547);
             this.lbl_adminsetting.Name = "lbl_adminsetting";
             this.lbl_adminsetting.Size = new System.Drawing.Size(77, 13);
             this.lbl_adminsetting.TabIndex = 24;
@@ -766,7 +768,7 @@
             this.cuiPanel1.PanelColor = System.Drawing.Color.White;
             this.cuiPanel1.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
             this.cuiPanel1.Rounding = new System.Windows.Forms.Padding(12);
-            this.cuiPanel1.Size = new System.Drawing.Size(304, 504);
+            this.cuiPanel1.Size = new System.Drawing.Size(304, 583);
             this.cuiPanel1.TabIndex = 2;
             // 
             // btn_adddevice
@@ -791,7 +793,7 @@
             this.btn_adddevice.ImageAutoCenter = true;
             this.btn_adddevice.ImageExpand = new System.Drawing.Point(0, 0);
             this.btn_adddevice.ImageOffset = new System.Drawing.Point(0, 0);
-            this.btn_adddevice.Location = new System.Drawing.Point(17, 439);
+            this.btn_adddevice.Location = new System.Drawing.Point(17, 518);
             this.btn_adddevice.Name = "btn_adddevice";
             this.btn_adddevice.NormalBackground = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
             this.btn_adddevice.NormalForeColor = System.Drawing.Color.White;
@@ -1307,13 +1309,33 @@
             this.process1.StartInfo.UserName = "";
             this.process1.SynchronizingObject = this;
             // 
+            // rectangularLoader1
+            // 
+            this.rectangularLoader1.ActiveText = "";
+            this.rectangularLoader1.BackColor = System.Drawing.Color.Transparent;
+            this.rectangularLoader1.BarHeight = 6;
+            this.rectangularLoader1.CornerRadius = 10;
+            this.rectangularLoader1.EndColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(107)))), ((int)(((byte)(255)))));
+            this.rectangularLoader1.IdleForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(130)))), ((int)(((byte)(180)))));
+            this.rectangularLoader1.IdleText = "● Idle — waiting for activity";
+            this.rectangularLoader1.LoaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
+            this.rectangularLoader1.Location = new System.Drawing.Point(19, 478);
+            this.rectangularLoader1.MiddleColor = System.Drawing.Color.FromArgb(((int)(((byte)(122)))), ((int)(((byte)(68)))), ((int)(((byte)(242)))));
+            this.rectangularLoader1.Name = "rectangularLoader1";
+            this.rectangularLoader1.Size = new System.Drawing.Size(271, 55);
+            this.rectangularLoader1.StartColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(91)))), ((int)(((byte)(190)))));
+            this.rectangularLoader1.SweepWidth = 0.35F;
+            this.rectangularLoader1.TabIndex = 28;
+            this.rectangularLoader1.Text = "rectangularLoader1";
+            this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            // 
             // Dashboard
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1305, 636);
+            this.ClientSize = new System.Drawing.Size(1305, 690);
             this.Controls.Add(this.lbl_Fingerprints);
             this.Controls.Add(this.btn_fingerprintno);
             this.Controls.Add(this.lbl_NoDevices);
@@ -1452,5 +1474,6 @@
         private System.Windows.Forms.LinkLabel lnk_dooropen1;
         private System.Diagnostics.Process process1;
         private System.Windows.Forms.ProgressBar prg_server;
+        private Controls.RectangularLoader rectangularLoader1;
     }
 }

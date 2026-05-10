@@ -592,6 +592,7 @@ public class AttendanceLogSyncService : IDisposable
 
             // Prepare items for batching
             var items = unsyncedLogs
+                .Where(log => log.EnrollmentId > 0)                          // ← skip zero/invalid enrollment IDs
                 .Select(log => new
                 {
                     log.EnrollmentId,
@@ -601,6 +602,12 @@ public class AttendanceLogSyncService : IDisposable
                 })
                 .Where(x => x.CheckIn != null || x.CheckOut != null)
                 .ToList();
+
+            if (items.Count == 0)
+            {
+                LogHelper.Log("ℹ️ No valid attendance logs to sync after filtering invalid enrollment IDs.");
+                return 0;
+            }
 
             LogHelper.Log($"Found {items.Count} unsynced attendance logs formatted with GMT {gmtSetting}. Sending via bulk HTTP...");
 
