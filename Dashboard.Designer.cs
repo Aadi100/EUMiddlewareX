@@ -31,6 +31,7 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Dashboard));
             this.txtLog = new System.Windows.Forms.TextBox();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.toastNotificationControl2 = new smart_attendance_middleware.UI.ToastNotificationControl();
             this.prg_server = new System.Windows.Forms.ProgressBar();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.cuiPanel6 = new CuoreUI.Controls.cuiPanel();
@@ -42,6 +43,7 @@
             this.cuiPanel8 = new CuoreUI.Controls.cuiPanel();
             this.label23 = new System.Windows.Forms.Label();
             this.cuiPanel5 = new CuoreUI.Controls.cuiPanel();
+            this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
             this.panel3 = new System.Windows.Forms.Panel();
             this.pnl_last_check_in = new CuoreUI.Controls.cuiPanel();
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
@@ -108,7 +110,11 @@
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
             this.process1 = new System.Diagnostics.Process();
-            this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
+            this.button1 = new System.Windows.Forms.Button();
+            this.button2 = new System.Windows.Forms.Button();
+            this.button3 = new System.Windows.Forms.Button();
+            this.button4 = new System.Windows.Forms.Button();
+            this.button5 = new System.Windows.Forms.Button();
             this.panel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.cuiPanel6.SuspendLayout();
@@ -148,6 +154,7 @@
             // panel2
             // 
             this.panel2.BackColor = System.Drawing.Color.White;
+            this.panel2.Controls.Add(this.toastNotificationControl2);
             this.panel2.Controls.Add(this.prg_server);
             this.panel2.Controls.Add(this.pictureBox1);
             this.panel2.Controls.Add(this.cuiPanel6);
@@ -158,8 +165,17 @@
             this.panel2.Controls.Add(this.cuiPanel1);
             this.panel2.Location = new System.Drawing.Point(0, 73);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(1307, 616);
+            this.panel2.Size = new System.Drawing.Size(1307, 741);
             this.panel2.TabIndex = 41;
+            // 
+            // toastNotificationControl2
+            // 
+            this.toastNotificationControl2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(18)))), ((int)(((byte)(66)))));
+            this.toastNotificationControl2.Location = new System.Drawing.Point(25, 622);
+            this.toastNotificationControl2.Name = "toastNotificationControl2";
+            this.toastNotificationControl2.Padding = new System.Windows.Forms.Padding(12);
+            this.toastNotificationControl2.Size = new System.Drawing.Size(352, 119);
+            this.toastNotificationControl2.TabIndex = 17;
             // 
             // prg_server
             // 
@@ -352,6 +368,26 @@
             this.cuiPanel5.Rounding = new System.Windows.Forms.Padding(12);
             this.cuiPanel5.Size = new System.Drawing.Size(304, 583);
             this.cuiPanel5.TabIndex = 4;
+            // 
+            // rectangularLoader1
+            // 
+            this.rectangularLoader1.ActiveText = "";
+            this.rectangularLoader1.BackColor = System.Drawing.Color.Transparent;
+            this.rectangularLoader1.BarHeight = 6;
+            this.rectangularLoader1.CornerRadius = 10;
+            this.rectangularLoader1.EndColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(107)))), ((int)(((byte)(255)))));
+            this.rectangularLoader1.IdleForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(130)))), ((int)(((byte)(180)))));
+            this.rectangularLoader1.IdleText = "● Idle — waiting for activity";
+            this.rectangularLoader1.LoaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
+            this.rectangularLoader1.Location = new System.Drawing.Point(19, 478);
+            this.rectangularLoader1.MiddleColor = System.Drawing.Color.FromArgb(((int)(((byte)(122)))), ((int)(((byte)(68)))), ((int)(((byte)(242)))));
+            this.rectangularLoader1.Name = "rectangularLoader1";
+            this.rectangularLoader1.Size = new System.Drawing.Size(271, 55);
+            this.rectangularLoader1.StartColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(91)))), ((int)(((byte)(190)))));
+            this.rectangularLoader1.SweepWidth = 0.35F;
+            this.rectangularLoader1.TabIndex = 28;
+            this.rectangularLoader1.Text = "rectangularLoader1";
+            this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
             // 
             // panel3
             // 
@@ -1309,25 +1345,55 @@
             this.process1.StartInfo.UserName = "";
             this.process1.SynchronizingObject = this;
             // 
-            // rectangularLoader1
+            // button1
             // 
-            this.rectangularLoader1.ActiveText = "";
-            this.rectangularLoader1.BackColor = System.Drawing.Color.Transparent;
-            this.rectangularLoader1.BarHeight = 6;
-            this.rectangularLoader1.CornerRadius = 10;
-            this.rectangularLoader1.EndColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(107)))), ((int)(((byte)(255)))));
-            this.rectangularLoader1.IdleForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(130)))), ((int)(((byte)(180)))));
-            this.rectangularLoader1.IdleText = "● Idle — waiting for activity";
-            this.rectangularLoader1.LoaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
-            this.rectangularLoader1.Location = new System.Drawing.Point(19, 478);
-            this.rectangularLoader1.MiddleColor = System.Drawing.Color.FromArgb(((int)(((byte)(122)))), ((int)(((byte)(68)))), ((int)(((byte)(242)))));
-            this.rectangularLoader1.Name = "rectangularLoader1";
-            this.rectangularLoader1.Size = new System.Drawing.Size(271, 55);
-            this.rectangularLoader1.StartColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(91)))), ((int)(((byte)(190)))));
-            this.rectangularLoader1.SweepWidth = 0.35F;
-            this.rectangularLoader1.TabIndex = 28;
-            this.rectangularLoader1.Text = "rectangularLoader1";
-            this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.button1.Location = new System.Drawing.Point(1726, 573);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 0;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click_1);
+            // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(1726, 619);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(75, 23);
+            this.button2.TabIndex = 46;
+            this.button2.Text = "button2";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click_1);
+            // 
+            // button3
+            // 
+            this.button3.Location = new System.Drawing.Point(1726, 666);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(75, 23);
+            this.button3.TabIndex = 47;
+            this.button3.Text = "button3";
+            this.button3.UseVisualStyleBackColor = true;
+            this.button3.Click += new System.EventHandler(this.button3_Click_1);
+            // 
+            // button4
+            // 
+            this.button4.Location = new System.Drawing.Point(1726, 727);
+            this.button4.Name = "button4";
+            this.button4.Size = new System.Drawing.Size(75, 23);
+            this.button4.TabIndex = 48;
+            this.button4.Text = "button4";
+            this.button4.UseVisualStyleBackColor = true;
+            this.button4.Click += new System.EventHandler(this.button4_Click);
+            // 
+            // button5
+            // 
+            this.button5.Location = new System.Drawing.Point(1726, 771);
+            this.button5.Name = "button5";
+            this.button5.Size = new System.Drawing.Size(75, 23);
+            this.button5.TabIndex = 49;
+            this.button5.Text = "button5";
+            this.button5.UseVisualStyleBackColor = true;
+            this.button5.Click += new System.EventHandler(this.button5_Click);
             // 
             // Dashboard
             // 
@@ -1335,7 +1401,12 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1305, 690);
+            this.ClientSize = new System.Drawing.Size(1853, 812);
+            this.Controls.Add(this.button5);
+            this.Controls.Add(this.button4);
+            this.Controls.Add(this.button3);
+            this.Controls.Add(this.button2);
+            this.Controls.Add(this.button1);
             this.Controls.Add(this.lbl_Fingerprints);
             this.Controls.Add(this.btn_fingerprintno);
             this.Controls.Add(this.lbl_NoDevices);
@@ -1475,5 +1546,11 @@
         private System.Diagnostics.Process process1;
         private System.Windows.Forms.ProgressBar prg_server;
         private Controls.RectangularLoader rectangularLoader1;
+        private UI.ToastNotificationControl toastNotificationControl2;
+        private System.Windows.Forms.Button button5;
+        private System.Windows.Forms.Button button4;
+        private System.Windows.Forms.Button button3;
+        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button button1;
     }
 }

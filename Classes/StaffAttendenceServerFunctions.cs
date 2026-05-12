@@ -478,9 +478,8 @@ namespace smart_attendance_middleware
                             SystemSounds.Hand.Play();
                         }
 
-                        // Reuse FacePopupForm; pass enrollment as surrogate id for image lookup
-                        FacePopupForm f = new FacePopupForm(enrollmentId, enrollmentId, action, time);
-                        f.Show();
+                        // Reuse FacePopupForm via Dashboard helper
+                        Dashboard.GlobalShowFacePopup(enrollmentId, enrollmentId, action, time);
                     }
                     catch (Exception ex)
                     {

@@ -18,13 +18,16 @@ namespace smart_attendance_middleware
         private readonly DatabaseHelper _dbHelper;
         private readonly WebSocketManager _wsManager;
         private DeviceFunctions _deviceFunctions;
+        private readonly CacheManager _cacheManager;
         private AttendenceServerFunctions attendenceServerFunctions;
         private StaffAttendenceServerFunctions staffAttendenceServerFunctions;
-        public Processor(DatabaseHelper dbHelper, WebSocketManager wsManager,DeviceFunctions deviceFunctions)
+
+        public Processor(DatabaseHelper dbHelper, WebSocketManager wsManager, DeviceFunctions deviceFunctions, CacheManager cacheManager = null)
         {
             _dbHelper = dbHelper;
             _wsManager = wsManager;
             _deviceFunctions = deviceFunctions;
+            _cacheManager = cacheManager;
         }
 
         public Processor(DatabaseHelper dbHelper, WebSocketManager wsManager, AttendenceServerFunctions attendenceServerFunctions)
@@ -54,12 +57,28 @@ namespace smart_attendance_middleware
                 case "attendance_created":
                     LogHelper.Log("Received attendance_created event. Processing attendance update...");
                     HandleAttendance(data);
+
+                    // Update cache - refresh attendance logs
+                    if (_cacheManager != null)
+                    {
+                        _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                        LogHelper.Log("[Cache] Triggered incremental refresh after attendance created");
+                    }
+
                     ShowUsersNotification(data, "Attendance Created", "A new attendance record has been created.");
                     break;
 
                 case "attendance_updated":
                     LogHelper.Log("Received attendance_updated event. Processing attendance update...");
                     HandleAttendance(data);
+
+                    // Update cache - refresh attendance logs
+                    if (_cacheManager != null)
+                    {
+                        _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                        LogHelper.Log("[Cache] Triggered incremental refresh after attendance updated");
+                    }
+
                     ShowUsersNotification(data, "Attendance Updated", "An attendance record has been updated.");
                     break;
 
@@ -69,6 +88,36 @@ namespace smart_attendance_middleware
                     if (userData != null)
                     {
                         SyncUserFromCloud(userData);
+
+                        // Update cache immediately after sync
+                        if (_cacheManager != null && userData["id"] != null)
+                        {
+                            bool isStaff = userData["is_staff"]?.Value<bool>() == true;
+                            if (isStaff)
+                            {
+                                string staffId = userData["id"]?.ToString();
+                                if (!string.IsNullOrEmpty(staffId))
+                                {
+                                    var updatedStaff = _dbHelper.GetStaff(staffId);
+                                    if (updatedStaff != null)
+                                    {
+                                        _cacheManager.UpdateStaffImmediate(updatedStaff, CacheOperation.Add);
+                                        LogHelper.Log($"[Cache] Added staff {staffId} to cache");
+                                    }
+                                }
+                            }
+                            else if (userData["id"].Type == JTokenType.Integer)
+                            {
+                                int memberId = userData["id"].Value<int>();
+                                var updatedMember = _dbHelper.GetMember(memberId);
+                                if (updatedMember != null)
+                                {
+                                    _cacheManager.UpdateMemberImmediate(updatedMember, CacheOperation.Add);
+                                    LogHelper.Log($"[Cache] Added member {memberId} to cache");
+                                }
+                            }
+                        }
+
                         _ = Task.Run(async () =>
                         {
                             await HandleUsersFaceImage(userData);
@@ -87,6 +136,36 @@ namespace smart_attendance_middleware
                         {
                             await _deviceFunctions.StatusSync(userDataUpd);
                             SyncUserFromCloud(userDataUpd);
+
+                            // Update cache immediately after sync
+                            if (_cacheManager != null && userDataUpd["id"] != null)
+                            {
+                                bool isStaff = userDataUpd["is_staff"]?.Value<bool>() == true;
+                                if (isStaff)
+                                {
+                                    string staffId = userDataUpd["id"]?.ToString();
+                                    if (!string.IsNullOrEmpty(staffId))
+                                    {
+                                        var updatedStaff = _dbHelper.GetStaff(staffId);
+                                        if (updatedStaff != null)
+                                        {
+                                            _cacheManager.UpdateStaffImmediate(updatedStaff, CacheOperation.Update);
+                                            LogHelper.Log($"[Cache] Updated staff {staffId} in cache");
+                                        }
+                                    }
+                                }
+                                else if (userDataUpd["id"].Type == JTokenType.Integer)
+                                {
+                                    int memberId = userDataUpd["id"].Value<int>();
+                                    var updatedMember = _dbHelper.GetMember(memberId);
+                                    if (updatedMember != null)
+                                    {
+                                        _cacheManager.UpdateMemberImmediate(updatedMember, CacheOperation.Update);
+                                        LogHelper.Log($"[Cache] Updated member {memberId} in cache");
+                                    }
+                                }
+                            }
+
                             await HandleUsersFaceImage(userDataUpd);
                             await HandleUpdateUsers(userDataUpd);
                         });
@@ -120,6 +199,17 @@ namespace smart_attendance_middleware
                                 try
                                 {
                                     _dbHelper.UpdateMemberStatus(memberId, newStatus);
+
+                                    // Update cache after status change
+                                    if (_cacheManager != null)
+                                    {
+                                        var updatedMember = _dbHelper.GetMember(memberId);
+                                        if (updatedMember != null)
+                                        {
+                                            _cacheManager.UpdateMemberImmediate(updatedMember, CacheOperation.Update);
+                                            LogHelper.Log($"[Cache] Updated member {memberId} status in cache");
+                                        }
+                                    }
                                 }
                                 finally
                                 {
@@ -153,11 +243,25 @@ namespace smart_attendance_middleware
                 case "attendance.response":
                     ShowUsersNotification(data, "Attendance Response", "Attendance response received from server.");
                     HandleHttpAttendanceResponseSingle(data);
+
+                    // Update cache - refresh attendance logs
+                    if (_cacheManager != null)
+                    {
+                        _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                        LogHelper.Log("[Cache] Triggered incremental refresh after attendance response");
+                    }
                     break;
 
                 case "attendance.response.bulk":
                     ShowUsersNotification(data, "Bulk Attendance Response", "Bulk attendance response received from server.");
                     HandleHttpAttendanceResponseBulk(data);
+
+                    // Update cache - refresh attendance logs
+                    if (_cacheManager != null)
+                    {
+                        _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                        LogHelper.Log("[Cache] Triggered incremental refresh after bulk attendance response");
+                    }
                     break;
 
                 case "member.all":
@@ -182,6 +286,13 @@ namespace smart_attendance_middleware
                     }
 
                     await HandleHttpAllMembers(data);
+
+                    // Update cache after processing all members
+                    if (_cacheManager != null)
+                    {
+                        LogHelper.Log("[Cache] Triggering full cache refresh after bulk member sync");
+                        await _cacheManager.ForceFullRefreshAsync();
+                    }
                     break;
 
                 default:
@@ -585,6 +696,13 @@ namespace smart_attendance_middleware
                         LogHelper.Log($"✅ Manual STAFF attendance update sync completed for enrollment {memberObj["enrollment_id"]?.ToString() ?? "unknown"}, AttendanceId {attendanceId}");
                     else
                         LogHelper.Log($"✅ Manual attendance update sync completed for member {memberObj["id"]?.ToString() ?? "unknown"}, AttendanceId {attendanceId}");
+
+                    // Update cache - refresh attendance logs
+                    if (_cacheManager != null)
+                    {
+                        _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                        LogHelper.Log("[Cache] Triggered incremental refresh after manual attendance update");
+                    }
                 }
             }
             catch (Exception ex)
@@ -696,6 +814,17 @@ namespace smart_attendance_middleware
                     DatabaseQueueManager.ReleaseDbWriteLock("HandleDeletedMember_Cleanup");
                 }
 
+                // Update cache - remove deleted member
+                if (_cacheManager != null)
+                {
+                    _cacheManager.UpdateMemberImmediate(new Member { MemberID = memberId }, CacheOperation.Delete);
+                    LogHelper.Log($"[Cache] Deleted member {memberId} from cache");
+
+                    // Also refresh attendance logs since member logs were deleted
+                    _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                    LogHelper.Log("[Cache] Triggered incremental refresh after member deletion");
+                }
+
                 // Face image deletion outside lock
                 _ = Task.Run(async () =>
                 {
@@ -772,31 +901,7 @@ namespace smart_attendance_middleware
         ///</summary>
         private void ShowUsersNotification(JObject data, string title, string defaultMessage)
         {
-            try
-            {
-                int memberId = data["id"]?.Value<int>() ??
-                               data["member_id"]?.Value<int>() ?? 0;
-
-                string name = data["name"]?.Value<string>() ??
-                              data["full_name"]?.Value<string>() ??
-                              $"Member #{memberId}";
-
-                string message = $"{name}\n{defaultMessage}";
-                // Optional: choose icon based on title
-                Icon icon = null;
-                if (title.IndexOf("Created", StringComparison.OrdinalIgnoreCase) >= 0)
-                    icon = SystemIcons.Information;
-                else if (title.IndexOf("Updated", StringComparison.OrdinalIgnoreCase) >= 0)
-                    icon = SystemIcons.Application;
-                else if (title.IndexOf("Deleted", StringComparison.OrdinalIgnoreCase) >= 0)
-                    icon = SystemIcons.Warning;
-
-                ToastNotifier.Show(title, message, icon, 4500);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"⚠️ Failed to show notification: {ex.Message}");
-            }
+            Dashboard.GlobalShowToastData(data, title, defaultMessage);
         }
 
 
@@ -992,7 +1097,16 @@ namespace smart_attendance_middleware
                     }
 
                     if (anyUpdateDone)
+                    {
                         LogHelper.Log($"✅ STAFF Attendance sync completed for enrollment {enrollmentId}, AttendanceId {attendanceId}");
+
+                        // Update cache - refresh staff attendance logs
+                        if (_cacheManager != null)
+                        {
+                            _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                            LogHelper.Log("[Cache] Triggered incremental refresh after staff attendance sync");
+                        }
+                    }
 
                     return;
                 }
@@ -1060,6 +1174,13 @@ namespace smart_attendance_middleware
 
                 if (anyUpdateDoneM)
                     LogHelper.Log($"✅ Attendance sync completed for member {memberId}, AttendanceId {attendanceId}");
+
+                // Update cache - refresh attendance logs
+                if (_cacheManager != null && anyUpdateDoneM)
+                {
+                    _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                    LogHelper.Log("[Cache] Triggered incremental refresh after attendance sync");
+                }
             }
             catch (Exception ex)
             {
@@ -1157,7 +1278,16 @@ namespace smart_attendance_middleware
                 }
 
                 if (totalUpdated > 0)
+                {
                     LogHelper.Log($"✅ Bulk attendance status update completed. Successfully updated {totalUpdated}/{records.Count} records.");
+
+                    // Update cache - refresh attendance logs
+                    if (_cacheManager != null)
+                    {
+                        _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
+                        LogHelper.Log("[Cache] Triggered incremental refresh after bulk attendance sync");
+                    }
+                }
             }
             catch (Exception ex)
             {

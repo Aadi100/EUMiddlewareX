@@ -1,7 +1,9 @@
 ﻿using System;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace smart_attendance_middleware
@@ -16,20 +18,42 @@ namespace smart_attendance_middleware
         private static readonly Color AccentCheckOut = Color.FromArgb(220, 53, 69);
 
         // Default display duration (seconds) – adjust here
-        private const int DEFAULT_DISPLAY_SECONDS = 3;
+        private const int DEFAULT_DISPLAY_SECONDS = 7;
 
-        private readonly int _memberId;
-        private readonly int _enrollmentId;
-        private readonly string _action;
-        private readonly DateTime _eventTime;
-        private readonly int _displayMillis;
+        private int _memberId;
+        private int _enrollmentId;
+        private string _action;
+        private DateTime _eventTime;
+        private int _displayMillis;
+        private bool _isPermanent;
 
         private Timer _lifetimeTimer;
 
         public FacePopupForm(int memberId, int enrollmentId, string action, DateTime time)
             : this(memberId, enrollmentId, action, time, DEFAULT_DISPLAY_SECONDS) { }
 
-        public FacePopupForm(int memberId, int enrollmentId, string action, DateTime time, int displaySeconds)
+        public FacePopupForm(int memberId, int enrollmentId, string action, DateTime time, int displaySeconds, bool isPermanent = false)
+        {
+            _isPermanent = isPermanent;
+            InitializeComponent();
+            DoubleBuffered = true;
+
+            // Ensure it's top-most even when first created
+            this.TopMost = true;
+            this.ShowInTaskbar = false;
+
+            // Runtime style adjustments
+            panelContainer.Paint += PanelContainer_Paint;
+            UpdateData(memberId, enrollmentId, action, time, displaySeconds);
+            ApplyRoundedCorners(16);
+
+            // Position bottom-right
+            Rectangle wa = Screen.PrimaryScreen.WorkingArea;
+            Left = wa.Right - Width - 24;
+            Top = wa.Bottom - Height - 24;
+        }
+
+        public void UpdateData(int memberId, int enrollmentId, string action, DateTime time, int displaySeconds = DEFAULT_DISPLAY_SECONDS)
         {
             _memberId = memberId;
             _enrollmentId = enrollmentId;
@@ -38,25 +62,40 @@ namespace smart_attendance_middleware
             if (displaySeconds <= 0) displaySeconds = DEFAULT_DISPLAY_SECONDS;
             _displayMillis = displaySeconds * 1000;
 
-            InitializeComponent();
-            DoubleBuffered = true;
+            if (LabelInfo != null)
+            {
+                LabelInfo.Text =
+                    $"{_action.ToUpperInvariant()}\r\nEnroll: {_enrollmentId}  Time: {_eventTime:HH:mm:ss}";
+            }
 
-            // Runtime style adjustments
-            panelContainer.Paint += PanelContainer_Paint;
             ApplyAccent();
-            ApplyRoundedCorners(16);
-
-            // Position bottom-right
-            Rectangle wa = Screen.PrimaryScreen.WorkingArea;
-            Left = wa.Right - Width - 24;
-            Top = wa.Bottom - Height - 24;
-
-            labelInfo.Text =
-                $"{_action.ToUpperInvariant()}\r\nEnroll: {_enrollmentId}  Time: {_eventTime:HH:mm:ss}";
-
-            StartAnimation();
             LoadImage();
+
+            // Re-trigger visibility and timer whenever data is updated
+            StartAnimation();
         }
+
+        public void ShowPopup()
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(ShowPopup));
+                return;
+            }
+
+            // Ensure the form is visible and the timer is (re)started
+            if (!this.Visible)
+            {
+                this.Show();
+            }
+
+            this.Opacity = 1.0;
+            this.TopMost = true;
+            this.BringToFront();
+            StartAnimation();
+        }
+
+        private Control LabelInfo => this.Controls.Find("labelInfo", true).FirstOrDefault();
 
         private void ApplyAccent()
         {
@@ -64,25 +103,38 @@ namespace smart_attendance_middleware
             panelAccent.BackColor = isCheckIn ? AccentCheckIn : AccentCheckOut;
         }
 
-        // Fade removed: just schedule close with a single timer
         private void StartAnimation()
         {
-            Opacity = 1; // ensure fully visible
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(StartAnimation));
+                return;
+            }
+
+            this.Opacity = 1;
+
             if (_lifetimeTimer == null)
             {
-                _lifetimeTimer = new Timer { Interval = _displayMillis };
-                _lifetimeTimer.Tick += (s, e) =>
-                {
-                    _lifetimeTimer.Stop();
-                    Close();
-                };
+                _lifetimeTimer = new Timer();
+                _lifetimeTimer.Tick += LifetimeTimer_Tick;
+            }
+
+            _lifetimeTimer.Stop();
+            _lifetimeTimer.Interval = _displayMillis;
+            _lifetimeTimer.Start();
+        }
+
+        private void LifetimeTimer_Tick(object sender, EventArgs e)
+        {
+            _lifetimeTimer.Stop();
+            if (_isPermanent)
+            {
+                this.Hide(); // Use Hide() safely
             }
             else
             {
-                _lifetimeTimer.Stop();
-                _lifetimeTimer.Interval = _displayMillis;
+                this.Close();
             }
-            _lifetimeTimer.Start();
         }
 
         private void PanelContainer_Paint(object sender, PaintEventArgs e)
@@ -185,8 +237,12 @@ namespace smart_attendance_middleware
             get
             {
                 const int CS_DROPSHADOW = 0x00020000;
+                const int WS_EX_TOPMOST = 0x00000008;
+                const int WS_EX_NOACTIVATE = 0x08000000;
+
                 var cp = base.CreateParams;
                 cp.ClassStyle |= CS_DROPSHADOW;
+                cp.ExStyle |= WS_EX_TOPMOST | WS_EX_NOACTIVATE;
                 return cp;
             }
         }

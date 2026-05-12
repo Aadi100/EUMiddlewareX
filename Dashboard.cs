@@ -51,13 +51,14 @@ namespace smart_attendance_middleware
         public WebSocketManager _wsManager;
         private Processor _processor;
         private DeviceFunctions _deviceFunctions = new DeviceFunctions();
+        private CacheManager _cacheManager;
         private System.Windows.Forms.Timer countdownTimer;
         private int countdownSeconds;
         private string originalButtonText;
         private System.Windows.Forms.Timer attendancePanelTimer;
         private bool _uiReady = false;
-        private const int MaxLogLines = 10;
-        private HttpHandler _httpHandler;
+        private const int MaxLogLines = 1000000;
+        public HttpHandler _httpHandler;
 
         private readonly object _loaderLock = new object();
         private int _loaderRefCount = 0;
@@ -70,6 +71,7 @@ namespace smart_attendance_middleware
         private BackupService _backupService;
         private bool _attendanceInitialSyncHandled = false;
         private volatile bool _serverProgressKeepAlive = false;
+        private FacePopupForm _facePopup;
 
         // DTO to carry computed sync status results
         public class SyncStatusResult
@@ -91,10 +93,13 @@ namespace smart_attendance_middleware
             _dbHelper.InitializeDatabase();
             InitializeWebSocketManager();
 
+            // Initialize CacheManager with 30-second refresh interval
+            _cacheManager = new CacheManager(_dbHelper, refreshIntervalSeconds: 30);
+            _cacheManager.CacheUpdated += OnCacheUpdated;
 
             // Create DeviceFunctions with the WebSocketManager
             _deviceFunctions = new DeviceFunctions(_wsManager);
-            _processor = new Processor(_dbHelper, _wsManager, _deviceFunctions);
+            _processor = new Processor(_dbHelper, _wsManager, _deviceFunctions, _cacheManager);
             _httpHandler = new HttpHandler(_dbHelper, _processor);
 
             _wsManager.LiveUpdate += WsManager_LiveUpdate;
@@ -114,7 +119,7 @@ namespace smart_attendance_middleware
 
             this.FormClosing += Dashboard_FormClosing;
 
-
+            HideAllToasts();
         }
 
 
@@ -165,6 +170,27 @@ namespace smart_attendance_middleware
 
 
 
+
+        /// <summary>Updates the dashboard's persistent face popup and shows it.</summary>
+        public static void GlobalShowFacePopup(int memberId, int enrollmentId, string action, DateTime time)
+        {
+            var dash = Application.OpenForms.OfType<Dashboard>().FirstOrDefault();
+            if (dash == null || dash.IsDisposed) return;
+
+            dash.BeginInvoke(new Action(() =>
+            {
+                if (dash._facePopup == null || dash._facePopup.IsDisposed)
+                {
+                    dash._facePopup = new FacePopupForm(memberId, enrollmentId, action, time, 3, true);
+                    dash._facePopup.Show();
+                }
+                else
+                {
+                    dash._facePopup.UpdateData(memberId, enrollmentId, action, time);
+                    dash._facePopup.ShowPopup();
+                }
+            }));
+        }
 
         private void ShowLoader(string message = null)
         {
@@ -745,6 +771,21 @@ namespace smart_attendance_middleware
         // Add async initialization routine
         private async Task LoadInitialUiAsync()
         {
+            try
+            {
+                UpdateLoaderMessage("Caching System data...");
+
+                // Use CacheManager for initial load instead of direct database calls
+                await _cacheManager.InitialLoadAsync();
+
+                // Start automatic incremental updates every 30 seconds
+                _cacheManager.StartAutoRefresh();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[LoadInitialUiAsync] Error caching data: {ex.Message}");
+            }
+
             UpdateAttendancePanels();
             await Task.Yield(); // let UI pump once
         }
@@ -780,6 +821,7 @@ namespace smart_attendance_middleware
                     _backupService = new BackupService(_dbHelper);
                 }
                 _backupService.Start();
+
                 UpdateLoaderMessage("Configuring connection monitors...");
                 ConnectionStatusChecker.Instance.SetWebSocketManager(_wsManager);
                 ConnectionStatusChecker.Instance.InternetStatusChanged -= OnInternetStatusChanged;
@@ -813,6 +855,47 @@ namespace smart_attendance_middleware
                 LogHelper.Log("[StartServicesAsync][ERROR] " + ex.Message);
                 UpdateLoaderMessage("Startup error! Check logs.");
                 await Task.Delay(2000); // Allow user to see error message
+            }
+        }
+
+        /// <summary>
+        /// Handle cache update events - refresh UI when AppSession data changes
+        /// </summary>
+        private void OnCacheUpdated(object sender, CacheUpdateEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => OnCacheUpdated(sender, e)));
+                return;
+            }
+
+            try
+            {
+                // Refresh relevant UI components based on what was updated
+                if (e.UpdateType == CacheUpdateType.FullRefresh)
+                {
+                    UpdateAttendancePanels();
+                    LogHelper.Log("[Dashboard] Full cache refresh - UI updated");
+                }
+                else if (e.UpdateTypes != null && e.UpdateTypes.Count > 0)
+                {
+                    if (e.UpdateTypes.Contains(CacheUpdateType.AttendanceLogs) || 
+                        e.UpdateTypes.Contains(CacheUpdateType.StaffAttendanceLogs))
+                    {
+                        UpdateAttendancePanels();
+                    }
+
+                    if (e.UpdateTypes.Contains(CacheUpdateType.Members) || 
+                        e.UpdateTypes.Contains(CacheUpdateType.Staff))
+                    {
+                        // Update any member/staff displays if needed
+                        LogHelper.Log($"[Dashboard] Cache updated: {string.Join(", ", e.UpdateTypes)}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Dashboard] Error in OnCacheUpdated: {ex.Message}");
             }
         }
 
@@ -1028,6 +1111,9 @@ namespace smart_attendance_middleware
         {
             try
             {
+                // Stop cache manager auto-refresh
+                _cacheManager?.StopAutoRefresh();
+
                 // Unsubscribe AI chat logger events immediately to stop any further UI calls
                 aiChatLogger.OnAddMessage -= AiChatLogger_OnAddMessage;
                 aiChatLogger.OnClearMessages -= AiChatLogger_OnClearMessages;
@@ -2424,8 +2510,196 @@ namespace smart_attendance_middleware
             dash.UpdateLoaderMessage(message);
         }
 
-        
+        public static void GlobalShowToast(string title, string message, Icon icon = null, int displayMs = 5000)
+        {
+            var dash = Application.OpenForms.Cast<Form>().OfType<Dashboard>().FirstOrDefault();
+            if (dash == null || dash.IsDisposed) return;
 
+            dash.BeginInvoke(new Action(() =>
+            {
+                // Usage of toastNotificationControl2 which is the primary dashboard notification area
+                if (dash.toastNotificationControl2 != null && !dash.toastNotificationControl2.IsDisposed)
+                {
+                    dash.toastNotificationControl2.UpdateToast(title, message, icon, displayMs);
+                }
+            }));
+        }
+
+        public static void GlobalShowToastData(Newtonsoft.Json.Linq.JObject data, string title, string defaultMsg)
+        {
+            var dash = Application.OpenForms.Cast<Form>().OfType<Dashboard>().FirstOrDefault();
+            if (dash == null || dash.IsDisposed) return;
+
+            dash.BeginInvoke(new Action(() =>
+            {
+                if (dash.toastNotificationControl2 != null && !dash.toastNotificationControl2.IsDisposed)
+                {
+                    dash.toastNotificationControl2.UpdateFromData(data, title, defaultMsg);
+                }
+            }));
+        }
+
+        /// <summary>
+        /// Hides all toast controls on the dashboard. Called on initialize.
+        /// </summary>
+        private void HideAllToasts()
+        {
+            if (toastNotificationControl2 != null) toastNotificationControl2.Visible = false;
+        }
+
+        private async void button1_Click_1(object sender, EventArgs e)
+        {
+            try
+            {
+                LogHelper.Log("[DEBUG] Manually triggering long-expired members cleanup...");
+                await CommonUtils.ProcessLongExpiredMembersCleanupAsync(_dbHelper).ConfigureAwait(false);
+                LogHelper.Log("[DEBUG] Long-expired members cleanup completed.");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DEBUG] Cleanup failed: {ex.Message}");
+            }
+        }
+
+        private async void button3_Click_1(object sender, EventArgs e)
+        {
+            try
+            {
+                if (ServiceManager.PeriodicMaintenanceService != null)
+                {
+                    LogHelper.Log("[DEBUG] Manually triggering SyncUnsyncedAttendanceLogs from PeriodicMaintenanceService...");
+                    // Assuming PeriodicMaintenanceService.ExecuteSyncUnsyncedAttendanceLogsAsync is accessible 
+                    // (reflection used if private, but typically test buttons are used for debugging public/internal triggers)
+                    var method = typeof(PeriodicMaintenanceService).GetMethod("ExecuteSyncUnsyncedAttendanceLogsAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    if (method != null)
+                    {
+                        var task = (Task)method.Invoke(ServiceManager.PeriodicMaintenanceService, null);
+                        await task;
+                        LogHelper.Log("[DEBUG] Manual sync execution completed.");
+                    }
+                    else
+                    {
+                        LogHelper.Log("[DEBUG] Method ExecuteSyncUnsyncedAttendanceLogsAsync not found.");
+                    }
+                }
+                else
+                {
+                    LogHelper.Log("[DEBUG] PeriodicMaintenanceService is not running.");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DEBUG] Manual sync trigger failed: {ex.Message}");
+            }
+        }
+
+        private void button2_Click_1(object sender, EventArgs e)
+        {
+            try
+            {
+                var members = _dbHelper.GetMembers();
+                if (members == null || members.Count < 2)
+                {
+                    LogHelper.Log("[DEBUG] Not enough members found to mark random attendance.");
+                    return;
+                }
+
+                var random = new Random();
+                var selected = members.OrderBy(x => random.Next()).Take(2).ToList();
+
+                // Define back times: check-in 1 hour ago, check-out now.
+                // Use "yyyy-MM-dd HH:mm:ss" for local DB compatibility.
+                string checkInTime = DateTime.Now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss");
+                string checkOutTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                foreach (var member in selected)
+                {
+                    var result = _dbHelper.InsertAttendanceLog(member.MemberID, checkInTime);
+                    if (result.LogId > 0)
+                    {
+                        _dbHelper.UpdateAttendanceLogForCheckOut(member.MemberID, checkOutTime);
+                        LogHelper.Log($"[DEBUG] Marked back-timed attendance for {member.Name} (ID: {member.MemberID}) - In: {checkInTime}, Out: {checkOutTime}. Sync status set to false.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DEBUG] Marking random attendance failed: {ex.Message}");
+            }
+        }
+
+        private async void button4_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var members = _dbHelper.GetMembers();
+                if (members == null || members.Count == 0)
+                {
+                    LogHelper.Log("[DEBUG] No members found to simulate check-in.");
+                    return;
+                }
+
+                // 1. Target exactly 8 hours ago for testing
+                DateTime targetBackTime = DateTime.Now.AddHours(-8);
+                DateTime backTimeUtc = targetBackTime.ToUniversalTime();
+
+                var random = new Random();
+                var member = members[random.Next(members.Count)];
+
+                string dbTimestamp = targetBackTime.ToString("yyyy-MM-dd HH:mm:ss");
+                string serverTimestamp = backTimeUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+
+                LogHelper.Log($"[DEBUG] Simulating local check-in for {member.Name} exactly 8 hours ago ({dbTimestamp})...");
+
+                // 2. Insert into Local Database
+                // This call will set syncStatus to false locally
+                var dbResult = _dbHelper.InsertAttendanceLog(member.MemberID, dbTimestamp);
+
+                if (dbResult.LogId > 0)
+                {
+                    LogHelper.Log($"[DEBUG] Local DB record created (LogID: {dbResult.LogId}). Sending to Cloud Server...");
+
+                    // 3. Send to server
+                    await _httpHandler.PostAttendanceRecordAsync(
+                        member.EnrollmentID ?? 0,
+                        checkinTime: serverTimestamp,
+                        id: dbResult.AttendanceId
+                    );
+
+                    LogHelper.Log($"[DEBUG] Simulation check-in completed for member {member.MemberID}.");
+                }
+                else
+                {
+                    LogHelper.Log($"[DEBUG] Local insert failed. Likely violates temporal DB constraints for this member.");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DEBUG] Simulation failed: {ex.Message}");
+            }
+        }
+
+        private async void button5_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (ServiceManager.PeriodicMaintenanceService != null)
+                {
+                    LogHelper.Log("[DEBUG] Manually triggering ForceCheckOutOperation...");
+                    var method = typeof(PeriodicMaintenanceService).GetMethod("ExecuteForceCheckOutOperation", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    if (method != null)
+                    {
+                        var task = (Task)method.Invoke(ServiceManager.PeriodicMaintenanceService, null);
+                        await task;
+                        LogHelper.Log("[DEBUG] Force check-out operation completed.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DEBUG] Force check-out trigger failed: {ex.Message}");
+            }
+        }
         /////////////////////////////////////////////////////////////////////////////////
     }
 }

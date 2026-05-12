@@ -186,7 +186,9 @@
       <DependentUpon>AttendanceServerForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Classes\AttendanceSimulator.cs" />
+    <Compile Include="Classes\CacheManager.cs" />
     <Compile Include="Classes\CommonUtils.cs" />
+    <Compile Include="Classes\DatabaseHelper.Incremental.cs" />
     <Compile Include="Classes\DatabaseQueueManager.cs" />
     <Compile Include="Classes\DbTaskPriority.cs" />
     <Compile Include="Classes\HttpHandler.cs" />
@@ -224,7 +226,7 @@
       <DependentUpon>SimulatorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\ToastNotificationForm.cs">
-      <SubType>Form</SubType>
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Classes\WebSocketManager.cs" />
     <Compile Include="Controls\CircularLoader.cs">

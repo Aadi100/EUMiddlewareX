@@ -22,6 +22,7 @@ namespace smart_attendance_middleware
         private Processor _processor;
         private DeviceFunctions _deviceFunctions = new DeviceFunctions();
         private BackupService _backupService;
+        private CacheManager _cacheManager;
         //private AxFP_CLOCK pOcxObject;
 
         private readonly List<(int Id, string Name, long CardId, string ImagePath)> _staffEntries = new List<(int, string, long, string)>();
@@ -40,11 +41,16 @@ namespace smart_attendance_middleware
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
             _backupService = new BackupService(_dbHelper);
+
+            // Initialize CacheManager with 30-second refresh interval
+            _cacheManager = new CacheManager(_dbHelper, refreshIntervalSeconds: 30);
+            _cacheManager.CacheUpdated += OnCacheUpdated;
+
             listViewDevices.SelectedIndexChanged += listViewDevices_SelectedIndexChanged;
             InitializeWebSocketManager();
 
 
-            _processor = new Processor(_dbHelper, _wsManager, _deviceFunctions);
+            _processor = new Processor(_dbHelper, _wsManager, _deviceFunctions, _cacheManager);
             _wsManager.LiveUpdate += WsManager_LiveUpdate;
             this.Shown += DeviceManager_Shown;
 
@@ -93,9 +99,9 @@ namespace smart_attendance_middleware
             listViewDevices.Columns.Add("Is Staff", 70);          // NEW COLUMN
             listViewDevices.Columns[listViewDevices.Columns.Count - 1].Width = -2;
 
-            // Load devices from database
-            var devices = _dbHelper.LoadDevices() ?? new List<Device>();
-            var staffDevices = _dbHelper.LoadStaffDevices() ?? new List<Device>();
+            // Load devices from AppSession
+            var devices = AppSession.DeviceList ?? new List<Device>();
+            var staffDevices = AppSession.StaffDeviceList ?? new List<Device>();
 
             // Populate normal devices
             foreach (var d in devices)
@@ -161,8 +167,8 @@ namespace smart_attendance_middleware
             list_LocalUser.Columns[list_LocalUser.Columns.Count - 1].Width = -2;
 
 
-            // Load users from the database
-            List<LocalUser> users = _dbHelper.LoadUsers();
+            // Load users from AppSession cache
+            List<LocalUser> users = AppSession.AllUsers ?? new List<LocalUser>();
 
             foreach (var user in users)
             {
@@ -189,7 +195,7 @@ namespace smart_attendance_middleware
             list_LocalUser.Columns.Add("Created", 150);
             list_LocalUser.Columns[list_LocalUser.Columns.Count - 1].Width = -2;
 
-            var users = _dbHelper.LoadUsers();
+            var users = AppSession.AllUsers ?? new List<LocalUser>();
             foreach (var user in users)
             {
                 var item = new ListViewItem(user.LocalUserID.ToString());
@@ -252,20 +258,97 @@ namespace smart_attendance_middleware
 
         private void DeviceManager_closing(object sender, FormClosingEventArgs e)
         {
+            // Stop cache manager auto-refresh
+            _cacheManager?.StopAutoRefresh();
+
             StopCardIdListening();
+        }
+
+        /// <summary>
+        /// Handle cache update events - refresh UI when AppSession data changes
+        /// </summary>
+        private void OnCacheUpdated(object sender, CacheUpdateEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => OnCacheUpdated(sender, e)));
+                return;
+            }
+
+            try
+            {
+                // Refresh relevant UI components based on what was updated
+                if (e.UpdateType == CacheUpdateType.FullRefresh)
+                {
+                    // Refresh all lists
+                    RefreshAllLists();
+                    LogHelper.Log("[DeviceManager] Full cache refresh - UI updated");
+                }
+                else if (e.UpdateTypes != null && e.UpdateTypes.Count > 0)
+                {
+                    if (e.UpdateTypes.Contains(CacheUpdateType.Members))
+                    {
+                        RefreshMembersList();
+                    }
+
+                    if (e.UpdateTypes.Contains(CacheUpdateType.Staff))
+                    {
+                        RefreshStaffList();
+                    }
+
+                    if (e.UpdateTypes.Contains(CacheUpdateType.Users))
+                    {
+                        RefreshUsersList();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DeviceManager] Error in OnCacheUpdated: {ex.Message}");
+            }
+        }
+
+        private void RefreshAllLists()
+        {
+            RefreshMembersList();
+            RefreshStaffList();
+            RefreshUsersList();
+        }
+
+        private void RefreshMembersList()
+        {
+            // Refresh members list if currently visible
+            if (pnl_staffsManagment.Visible && lst_members.Visible)
+            {
+                LoadMembersIntoListView(txt_memb_name.Text?.Trim());
+            }
+        }
+
+        private void RefreshStaffList()
+        {
+            // Refresh staff list if currently visible
+            if (pnl_staffsManagment.Visible && lst_staffs.Visible)
+            {
+                LoadStaffsIntoListView(txt_staff.Text?.Trim());
+            }
+        }
+
+        private void RefreshUsersList()
+        {
+            // Refresh users list if currently visible
+            if (pnl_UserManagement.Visible)
+            {
+                LoadLocalUserData();
+            }
         }
 
         public void update_session()
         {
             try
             {
-                List<Device> devices = _dbHelper.LoadDevices();
-                AppSession.DeviceList = devices;
-
-
-                List<Device> staffDevices = _dbHelper.LoadStaffDevices();
-                AppSession.StaffDeviceList = staffDevices;
-
+                AppSession.DeviceList = _dbHelper.LoadDevices() ?? new List<Device>();
+                AppSession.StaffDeviceList = _dbHelper.LoadStaffDevices() ?? new List<Device>();
+                AppSession.AllUsers = _dbHelper.LoadUsers() ?? new List<LocalUser>();
             }
             catch (Exception ex)
             {
@@ -1714,9 +1797,9 @@ namespace smart_attendance_middleware
         // Map txt_memb_name to txt_membername internally (if different control names exist)
         private void InitializeMemberListForStats()
         {
-            // Load all members from the database
-            List<Member> members = _dbHelper.GetMembers();
-            LogHelper.Log($"Loaded {members.Count} members from the database.");
+            // Load all members from AppSession
+            List<Member> members = AppSession.AllMembers ?? new List<Member>();
+            LogHelper.Log($"Initialized statistics suggestions with {members.Count} members from session.");
 
             // Configure the AutoCompleteSource and AutoCompleteMode
             txt_memb_name.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
@@ -1728,12 +1811,14 @@ namespace smart_attendance_middleware
             // Add each member's name to the collection
             foreach (var member in members)
             {
-                memberCollection.Add(member.Name);
+                if (!string.IsNullOrWhiteSpace(member.Name))
+                {
+                    memberCollection.Add(member.Name);
+                }
             }
 
             // Assign the collection to the AutoCompleteCustomSource
             txt_memb_name.AutoCompleteCustomSource = memberCollection;
-            LogHelper.Log("Member list initialized with suggestions.");
         }
 
         // Button click handler for __flt_members__ to filter by name
@@ -1751,7 +1836,7 @@ namespace smart_attendance_middleware
                 lst_members.BeginUpdate();
                 lst_members.Items.Clear();
 
-                var members = _dbHelper.GetMembers() ?? new List<Member>();
+                var members = AppSession.AllMembers ?? new List<Member>();
 
                 // Apply name filter if provided
                 if (!string.IsNullOrWhiteSpace(nameFilter))
@@ -1778,32 +1863,7 @@ namespace smart_attendance_middleware
                     string pictureText = string.IsNullOrWhiteSpace(m.Picture) ? "-" : System.IO.Path.GetFileName(m.Picture);
 
                     // Fingerprint flag: try common property names; fall back to "-"
-                    string fingerprintText = "-";
-                    try
-                    {
-                        // If Member has a boolean or flag indicating fingerprint presence
-                        // Examples: m.HasFingerprint, m.FingerprintFlag, m.FingerprintCount
-                        var hasFpProp = m.GetType().GetProperty("HasFingerprint");
-                        var fpFlagProp = m.GetType().GetProperty("FingerprintFlag");
-                        var fpCountProp = m.GetType().GetProperty("FingerprintCount");
-
-                        if (hasFpProp != null)
-                        {
-                            bool hasFp = (bool)(hasFpProp.GetValue(m) ?? false);
-                            fingerprintText = hasFp ? "Yes" : "No";
-                        }
-                        else if (fpFlagProp != null)
-                        {
-                            var val = fpFlagProp.GetValue(m);
-                            fingerprintText = (val != null && val.ToString() == "1") ? "Yes" : "No";
-                        }
-                        else if (fpCountProp != null)
-                        {
-                            int cnt = Convert.ToInt32(fpCountProp.GetValue(m) ?? 0);
-                            fingerprintText = cnt > 0 ? $"Yes ({cnt})" : "No";
-                        }
-                    }
-                    catch { /* ignore reflection issues */ }
+                    string fingerprintText = m.Fingerprint ? "Yes" : "No";
 
                     // Sync status across all devices
                     string syncStatusText = "-";
@@ -1812,31 +1872,14 @@ namespace smart_attendance_middleware
                         int syncedCount = 0;
                         foreach (var d in allDevices)
                         {
-                            try
-                            {
-                                var (deviceExists, syncStatus, _) = _dbHelper.GetMemberDeviceSyncStatus(m.MemberID, d.DeviceId);
-                                if (deviceExists && syncStatus) syncedCount++;
-                            }
-                            catch { /* ignore per-device errors */ }
+                            if (m.SyncStatus != null && m.SyncStatus.TryGetValue(d.DeviceId, out bool isSynced) && isSynced)
+                                syncedCount++;
                         }
                         syncStatusText = $"{syncedCount}/{totalDevices} devices";
                     }
 
                     // Package expiry (try common property names)
-                    string pkgExpiryText = "-";
-                    try
-                    {
-                        var expiryProp = m.GetType().GetProperty("PackageExpiry") ?? m.GetType().GetProperty("ExpiryDate");
-                        if (expiryProp != null)
-                        {
-                            var val = expiryProp.GetValue(m);
-                            if (val is DateTime dt)
-                                pkgExpiryText = dt.ToString("yyyy-MM-dd");
-                            else if (val != null)
-                                pkgExpiryText = val.ToString();
-                        }
-                    }
-                    catch { /* ignore */ }
+                    string pkgExpiryText = string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry;
 
                     var item = new ListViewItem(memberIdText);
                     item.SubItems.Add(nameText);
@@ -1873,9 +1916,9 @@ namespace smart_attendance_middleware
 
         private void InitializeMemberList()
         {
-            // Load all members from the database
-            List<Member> members = _dbHelper.GetMembers();
-            LogHelper.Log($"Loaded {members.Count} members from the database.");
+            // Load all members from the AppSession cache
+            List<Member> members = AppSession.AllMembers ?? new List<Member>();
+            LogHelper.Log($"Initialized Member AutoComplete with {members.Count} members from session.");
 
             // Configure the AutoCompleteSource and AutoCompleteMode
             txt_membername.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
@@ -1887,12 +1930,14 @@ namespace smart_attendance_middleware
             // Add each member's name to the collection
             foreach (var member in members)
             {
-                memberCollection.Add(member.Name);
+                if (!string.IsNullOrWhiteSpace(member.Name))
+                {
+                    memberCollection.Add(member.Name);
+                }
             }
 
             // Assign the collection to the AutoCompleteCustomSource
             txt_membername.AutoCompleteCustomSource = memberCollection;
-            LogHelper.Log("Member list initialized with suggestions.");
         }
 
 
@@ -1930,15 +1975,18 @@ namespace smart_attendance_middleware
             string memberNameFilter = txt_membername.Text.Trim();
             DateTime? selectedDate = date_member.Checked ? date_member.Value.Date : (DateTime?)null;
 
-            var attendanceLogs = _dbHelper.GetAllAttendanceLogs();
+            var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<dynamic>();
+            var members = AppSession.AllMembers ?? new List<Member>();
 
             // Apply filters
             var filteredLogs = attendanceLogs.Where(log =>
             {
-                // Filter by member name
+                // Filter by member name using AppSession cache
+                var member = members.FirstOrDefault(m => m.MemberID == log.MemberID);
+                string memberName = member?.Name ?? "-";
+
                 if (!string.IsNullOrEmpty(memberNameFilter))
                 {
-                    string memberName = _dbHelper.GetMemberName(log.MemberID);
                     if (string.IsNullOrEmpty(memberName) || !memberName.Contains(memberNameFilter))
                     {
                         return false;
@@ -1966,9 +2014,9 @@ namespace smart_attendance_middleware
                 var item = new ListViewItem(log.LogID.ToString());
                 item.SubItems.Add(log.MemberID.ToString());
 
-                // Fetch member name from the database
-                string memberName = _dbHelper.GetMemberName(log.MemberID);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(memberName) ? "-" : memberName);
+                // Fetch member name from AppSession cache
+                var member = members.FirstOrDefault(m => m.MemberID == log.MemberID);
+                item.SubItems.Add(member?.Name ?? "-");
 
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckInTime) ? "-" : log.CheckInTime);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckOutTime) ? "-" : log.CheckOutTime);
@@ -2012,16 +2060,17 @@ namespace smart_attendance_middleware
             lst_member.Columns.Add("Check-Out Time", 150);
             lst_member.Columns[lst_member.Columns.Count - 1].Width = -2;
 
-            var attendanceLogs = _dbHelper.GetAllAttendanceLogs();
+            var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<dynamic>();
+            var members = AppSession.AllMembers ?? new List<Member>();
 
             foreach (var log in attendanceLogs)
             {
                 var item = new ListViewItem(log.LogID.ToString());
-                item.SubItems.Add(log.MemberID.ToString()); // Changed from log.EnrollmentID.ToString()
+                item.SubItems.Add(log.MemberID.ToString());
 
-                // Fetch member name from the database
-                string memberName = _dbHelper.GetMemberName(log.MemberID);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(memberName) ? "-" : memberName); // Add member name to the subitems
+                // Fetch member name from AppSession cache
+                var member = members.FirstOrDefault(m => m.MemberID == log.MemberID);
+                item.SubItems.Add(member?.Name ?? "-");
 
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckInTime) ? "-" : log.CheckInTime);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckOutTime) ? "-" : log.CheckOutTime);
@@ -2061,7 +2110,8 @@ namespace smart_attendance_middleware
 
             DateTime selectedDate = date_manualdoor.Value.Date; // Get the date part
 
-            var gateAccessLogs = _dbHelper.GetAllGateAccesseds();
+            var gateAccessLogs = AppSession.AllGateLogs ?? new List<GateAccessed>();
+            var members = AppSession.AllMembers ?? new List<Member>();
 
             // Apply date filter
             var filteredLogs = gateAccessLogs.Where(log => log.AccessedTime.Date == selectedDate).ToList();
@@ -2072,9 +2122,9 @@ namespace smart_attendance_middleware
                 item.SubItems.Add(log.DeviceIP);
                 item.SubItems.Add(log.MemberId.ToString());
 
-                // Fetch member name from the database
-                string memberName = _dbHelper.GetMemberName(log.MemberId);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(memberName) ? "-" : memberName);
+                // Fetch member name from AppSession cache
+                var member = members.FirstOrDefault(m => m.MemberID == log.MemberId);
+                item.SubItems.Add(member?.Name ?? "-");
 
                 item.SubItems.Add(log.IsVisitor.ToString());
                 item.SubItems.Add(log.VisitorName);
@@ -2111,7 +2161,8 @@ namespace smart_attendance_middleware
             lst_manualdoor.Columns.Add("Username", 80);
             lst_manualdoor.Columns[lst_manualdoor.Columns.Count - 1].Width = -2;
 
-            var gateAccessLogs = _dbHelper.GetAllGateAccesseds();
+            var gateAccessLogs = AppSession.AllGateLogs ?? new List<GateAccessed>();
+            var members = AppSession.AllMembers ?? new List<Member>();
 
             foreach (var log in gateAccessLogs)
             {
@@ -2119,9 +2170,9 @@ namespace smart_attendance_middleware
                 item.SubItems.Add(log.DeviceIP);
                 item.SubItems.Add(log.MemberId.ToString());
 
-                // Fetch member name from the database
-                string memberName = _dbHelper.GetMemberName(log.MemberId);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(memberName) ? "-" : memberName); // Add member name
+                // Fetch member name from AppSession cache
+                var member = members.FirstOrDefault(m => m.MemberID == log.MemberId);
+                item.SubItems.Add(member?.Name ?? "-");
 
                 item.SubItems.Add(log.IsVisitor.ToString());
                 item.SubItems.Add(log.VisitorName);
@@ -2649,15 +2700,13 @@ namespace smart_attendance_middleware
         {
             try
             {
-                var staffList = _dbHelper.GetStaffs() ?? new List<Staff>();
+                var staffList = AppSession.AllStaff ?? new List<Staff>();
 
                 var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var s in staffList)
                 {
-                    var name = s?.GetType().GetProperty("Name")?.GetValue(s)?.ToString();
-                    if (string.IsNullOrWhiteSpace(name)) name = SafeToString(s, "Name");
-                    if (!string.IsNullOrWhiteSpace(name))
-                        names.Add(name.Trim());
+                    if (!string.IsNullOrWhiteSpace(s.Name))
+                        names.Add(s.Name.Trim());
                 }
 
                 txt_staff.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
@@ -2855,17 +2904,18 @@ namespace smart_attendance_middleware
         }
 
 
-        // AutoComplete for txt_staffname using known staff names
+        // AutoComplete for txt_staffname using known staff names from session
         private void InitializeStaffAttendanceSuggestions()
         {
             try
             {
-
                 txt_staffname.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
                 txt_staffname.AutoCompleteSource = AutoCompleteSource.CustomSource;
 
+                var staffList = AppSession.AllStaff ?? new List<Staff>();
                 var names = new AutoCompleteStringCollection();
-                foreach (var s in _staffEntries)
+
+                foreach (var s in staffList)
                 {
                     if (!string.IsNullOrWhiteSpace(s.Name))
                         names.Add(s.Name);
@@ -2915,7 +2965,7 @@ namespace smart_attendance_middleware
                 bool filterByDate = date_staffattendence.Checked;
                 DateTime selectedDate = date_staffattendence.Value.Date;
 
-                var logs = _dbHelper.GetAllStaffAttendanceLogs() ?? new List<dynamic>();
+                var logs = AppSession.AllStaffAttendanceLogs ?? new List<dynamic>();
 
                 var filtered = logs.Where(log =>
                 {
@@ -3053,171 +3103,6 @@ namespace smart_attendance_middleware
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-
-        //private async void EnrollStaffFromListView(string staffIdentifier, string staffName, string enrollmentIdStr = null)
-        //{
-        //    // Input validation
-        //    if (string.IsNullOrWhiteSpace(staffName))
-        //    {
-        //        MessageBox.Show("Staff name is required.", "Validation Error",
-        //            MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        //        return;
-        //    }
-
-        //    Cursor = Cursors.WaitCursor;
-
-        //    try
-        //    {
-        //        LogHelper.Log($"[EnrollStaffFromListView] Starting enrollment for staff '{staffName}' (Identifier: {staffIdentifier})");
-
-        //        // Resolve the staff record from DB using common keys (StaffID or Id)
-        //        int? enrollmentId = null;
-        //        object dbStaff = null;
-        //        try
-        //        {
-        //            var staffList = _dbHelper.GetStaffs() ?? new List<Staff>();
-        //            dbStaff = staffList.FirstOrDefault(s =>
-        //            {
-        //                var sid = s?.GetType().GetProperty("StaffID")?.GetValue(s)?.ToString();
-        //                var id = s?.GetType().GetProperty("Id")?.GetValue(s)?.ToString();
-        //                return string.Equals(sid, staffIdentifier, StringComparison.OrdinalIgnoreCase)
-        //                       || string.Equals(id, staffIdentifier, StringComparison.OrdinalIgnoreCase);
-        //            });
-
-        //            if (dbStaff != null)
-        //            {
-        //                // Try extract enrollment id from DB staff record (common property names)
-        //                var enrolProp = dbStaff.GetType().GetProperty("EnrollmentID") ?? dbStaff.GetType().GetProperty("EnrollmentId");
-        //                if (enrolProp != null)
-        //                {
-        //                    var val = enrolProp.GetValue(dbStaff)?.ToString();
-        //                    if (!string.IsNullOrWhiteSpace(val) && int.TryParse(val, out int parsedEnrol) && parsedEnrol > 0)
-        //                        enrollmentId = parsedEnrol;
-        //                }
-        //            }
-        //        }
-        //        catch (Exception dbEx)
-        //        {
-        //            LogHelper.Log($"[EnrollStaffFromListView] Warning - DB extraction failed: {dbEx.Message}");
-        //        }
-
-        //        // If enrollmentId not provided in tag / db, try parse enrollmentIdStr argument
-        //        if (!enrollmentId.HasValue && !string.IsNullOrWhiteSpace(enrollmentIdStr))
-        //        {
-        //            if (int.TryParse(enrollmentIdStr, out int parsed))
-        //                enrollmentId = parsed;
-        //        }
-
-        //        // If still no enrollmentId, we cannot safely call the device APIs that require numeric enrollment IDs
-        //        if (!enrollmentId.HasValue || enrollmentId.Value <= 0)
-        //        {
-        //            MessageBox.Show(
-        //                $"Cannot enroll '{staffName}'. No numeric Enrollment ID found for this staff.\n\n" +
-        //                "Please ensure the staff record has a valid EnrollmentID (numeric) in the database.",
-        //                "Missing Enrollment ID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        //            LogHelper.Log($"[EnrollStaffFromListView] Aborted - EnrollmentID missing for staff '{staffName}' (Identifier: {staffIdentifier})");
-        //            return;
-        //        }
-
-        //        int enrollId = enrollmentId.Value;
-
-        //        // Check for duplicate enrollment in the in-memory buffer by enrollment id
-        //        var already = _enrolledStaffBuffer.FirstOrDefault(x => x.Id == enrollId);
-        //        if (already != default)
-        //        {
-        //            MessageBox.Show($"Enrollment ID {enrollId} is already enrolled in the buffer. Cannot enroll twice.",
-        //                "Duplicate Entry", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        //            return;
-        //        }
-
-        //        // Extract card ID and face image from DB staff object if available
-        //        long staffCardId = 0;
-        //        string imagePathFromDb = null;
-        //        if (dbStaff != null)
-        //        {
-        //            try
-        //            {
-        //                var rfidProp = dbStaff.GetType().GetProperty("RFID");
-        //                if (rfidProp != null && long.TryParse(rfidProp.GetValue(dbStaff)?.ToString() ?? "0", out long rfid))
-        //                {
-        //                    staffCardId = rfid;
-        //                    LogHelper.Log($"[EnrollStaffFromListView] Found Card ID: {staffCardId} for enrollment {enrollId}");
-        //                }
-
-        //                var picProp = dbStaff.GetType().GetProperty("Picture");
-        //                if (picProp != null)
-        //                {
-        //                    imagePathFromDb = picProp.GetValue(dbStaff)?.ToString();
-        //                    LogHelper.Log($"[EnrollStaffFromListView] Found image path: {(string.IsNullOrWhiteSpace(imagePathFromDb) ? "None" : imagePathFromDb)} for enrollment {enrollId}");
-        //                }
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                LogHelper.Log($"[EnrollStaffFromListView] Warning extracting RFID/Picture: {ex.Message}");
-        //            }
-        //        }
-
-        //        // Copy image from DB path to local FACE directory (use "FACE" folder)
-        //        string storedImagePath = null;
-        //        if (!string.IsNullOrWhiteSpace(imagePathFromDb) && File.Exists(imagePathFromDb))
-        //        {
-        //            try
-        //            {
-        //                // Ensure FACE directory exists and use it
-        //                string faceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FACE");
-        //                Directory.CreateDirectory(faceDir);
-
-        //                string fileName = $"{Guid.NewGuid()}{Path.GetExtension(imagePathFromDb)}";
-        //                storedImagePath = Path.Combine(faceDir, fileName);
-        //                File.Copy(imagePathFromDb, storedImagePath, true);
-        //                LogHelper.Log($"[EnrollStaffFromListView] Image copied to: {storedImagePath}");
-        //            }
-        //            catch (Exception imgEx)
-        //            {
-        //                LogHelper.Log($"[EnrollStaffFromListView] Warning - Image copy failed: {imgEx.Message}");
-        //                storedImagePath = null; // Allow enrollment without image
-        //            }
-        //        }
-
-        //        // Validate: at least one biometric required
-        //        bool hasImage = storedImagePath != null && File.Exists(storedImagePath);
-        //        bool hasCard = staffCardId > 0;
-
-        //        if (!hasImage && !hasCard)
-        //        {
-        //            MessageBox.Show($"❌ No Card ID or Face Image found for '{staffName}'.\n\nCannot enroll without biometric data.",
-        //                "Insufficient Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        //            LogHelper.Log($"[EnrollStaffFromListView] Enrollment cancelled - no biometric data for staff '{staffName}' (EnrollmentID: {enrollId})");
-        //            return;
-        //        }
-
-        //        // Add to in-memory buffer using the numeric enrollment ID
-        //        _enrolledStaffBuffer.Add((enrollId, staffName, storedImagePath ?? string.Empty));
-
-        //        // Enroll across all devices using the numeric enrollment ID
-        //        await EnrollStaffAcrossAllDevicesAsync(enrollId, staffName, staffCardId, storedImagePath ?? string.Empty);
-
-        //        MessageBox.Show(
-        //            $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) enrolled successfully!\n\n" +
-        //            $"Card ID: {(hasCard ? staffCardId.ToString() : "Not used")}\n" +
-        //            $"Face Image: {(hasImage ? "Yes" : "No")}",
-        //            "Enrollment Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-        //        LogHelper.Log($"[EnrollStaffFromListView] ✓ Successfully enrolled staff '{staffName}' (Enrollment ID: {enrollId})");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        LogHelper.Log($"[EnrollStaffFromListView] ❌ Error: {ex.Message}\n{ex.StackTrace}");
-        //        MessageBox.Show($"❌ Enrollment failed: {ex.Message}", "Error",
-        //            MessageBoxButtons.OK, MessageBoxIcon.Error);
-        //    }
-        //    finally
-        //    {
-        //        Cursor = Cursors.Default;
-        //    }
-        //}
-
 
         private async void EnrollStaffFromListView(string staffIdentifier, string staffName, string enrollmentIdStr = null)
         {

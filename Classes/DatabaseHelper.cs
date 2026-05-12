@@ -193,12 +193,11 @@ namespace smart_attendance_middleware
         public string Username { get; set; }
     }
 
-    public class DatabaseHelper
+    public partial class DatabaseHelper
     {
 
         private readonly string connectionString = ConfigurationManager.ConnectionStrings["SmartAttendance"]?.ConnectionString;
         private static readonly byte[] EncryptionKey = Encoding.UTF8.GetBytes("A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6");
-
 
         /// <summary>
         /// Initializes the SQL Server database by creating the file (if needed) and the necessary tables.
@@ -5898,7 +5897,7 @@ CheckMemberAccessStatus(int memberId)
             }
         }
 
-        
+
 
         /// <summary>
         /// Decides the attendance case based on staff devices configuration using SQL query.
@@ -5924,10 +5923,11 @@ CheckMemberAccessStatus(int memberId)
                     {
                         if (reader.Read())
                         {
-                            int checkInCount = Convert.ToInt32(reader["CheckInCount"]);
-                            int checkOutCount = Convert.ToInt32(reader["CheckOutCount"]);
-                            int mixedCount = Convert.ToInt32(reader["MixedCount"]);
-                            int totalDevices = Convert.ToInt32(reader["TotalDevices"]);
+                            // Use DBNull check or null-coalescing with Convert to handle empty tables
+                            int checkInCount = reader["CheckInCount"] == DBNull.Value ? 0 : Convert.ToInt32(reader["CheckInCount"]);
+                            int checkOutCount = reader["CheckOutCount"] == DBNull.Value ? 0 : Convert.ToInt32(reader["CheckOutCount"]);
+                            int mixedCount = reader["MixedCount"] == DBNull.Value ? 0 : Convert.ToInt32(reader["MixedCount"]);
+                            int totalDevices = reader["TotalDevices"] == DBNull.Value ? 0 : Convert.ToInt32(reader["TotalDevices"]);
 
                             LogHelper.Log($"Staff device analysis - Total: {totalDevices}, Check_In: {checkInCount}, Check_Out: {checkOutCount}, Mixed: {mixedCount}");
 
@@ -5951,7 +5951,7 @@ CheckMemberAccessStatus(int memberId)
             }
             catch (SqlException ex)
             {
-                Console.WriteLine($"Error deciding attendance case: {ex.Message}");
+                LogHelper.Log($"SQL Error deciding attendance case: {ex.Message}");
                 return "1way";
             }
             catch (Exception ex)
@@ -5963,6 +5963,7 @@ CheckMemberAccessStatus(int memberId)
             LogHelper.Log("Fallback: Defaulting to 1-way attendance");
             return "1way";
         }
+
 
 
         /// <summary>

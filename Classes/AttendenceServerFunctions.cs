@@ -467,8 +467,7 @@ namespace smart_attendance_middleware
                             SystemSounds.Hand.Play();
                         }
 
-                        FacePopupForm f = new FacePopupForm(memberId, enrollmentId, action, time);
-                        f.Show();
+                        Dashboard.GlobalShowFacePopup(memberId, enrollmentId, action, time);
                     }
                     catch (Exception ex)
                     {

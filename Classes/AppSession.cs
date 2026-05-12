@@ -14,6 +14,14 @@ namespace smart_attendance_middleware
         public static List<Device> DeviceList { get; set; } = new List<Device>();
         public static List<Device> StaffDeviceList { get; set; } = new List<Device>();
 
+        public static List<Member> AllMembers { get; set; } = new List<Member>();
+        public static List<Staff> AllStaff { get; set; } = new List<Staff>();
+
+        public static List<dynamic> AllAttendanceLogs { get; set; } = new List<dynamic>();
+        public static List<dynamic> AllStaffAttendanceLogs { get; set; } = new List<dynamic>();
+        public static List<GateAccessed> AllGateLogs { get; set; } = new List<GateAccessed>();
+        public static List<LocalUser> AllUsers { get; set; } = new List<LocalUser>();
+
         // Last check-in details
         public static LastAttendanceDetails LastCheckIn { get; set; }
 
@@ -41,6 +49,12 @@ namespace smart_attendance_middleware
             LoginTime = DateTime.MinValue;
             DeviceList.Clear();
             StaffDeviceList.Clear();
+            AllMembers.Clear();
+            AllStaff.Clear();
+            AllAttendanceLogs.Clear();
+            AllStaffAttendanceLogs.Clear();
+            AllGateLogs.Clear();
+            AllUsers.Clear();
             LastCheckIn = null;
             LastCheckOut = null;
             PendingJobs.Clear();

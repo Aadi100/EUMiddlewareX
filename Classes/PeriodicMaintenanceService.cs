@@ -862,9 +862,8 @@ namespace smart_attendance_middleware.Classes
                     return;
                 }
 
-                // ProcessForceCheckOutAsync requires dbHelper and httpHandler
-                var httpHandler = new HttpHandler(_dbHelper);
-                await CommonUtils.ProcessForceCheckOutAsync(_dbHelper, httpHandler).ConfigureAwait(false);
+                // Use the dashboard's fully initialized HttpHandler which contains the Processor
+                await CommonUtils.ProcessForceCheckOutAsync(_dbHelper, _dashboard._httpHandler).ConfigureAwait(false);
 
                 LogHelper.Log("✅ Periodic Force Check-Out process completed");
             }
