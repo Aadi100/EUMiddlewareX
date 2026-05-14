@@ -23,6 +23,48 @@ namespace smart_attendance_middleware.Classes
     {
 
         /// <summary>
+        /// Pings a device and handles retries, returning a status string ("ONLINE", "OFFLINE", "RETRYING")
+        /// suitable for updating the DataPairPanel UI.
+        /// </summary>
+        public static async Task<string> PingDeviceWithStatusAsync(string ipAddress, Action<string> onStatusUpdate = null)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress)) return "OFFLINE";
+
+            const int timeout = 2000;
+            const int maxRetries = 3;
+            const int retryDelayMs = 2000;
+
+            using (var ping = new System.Net.NetworkInformation.Ping())
+            {
+                // First attempt
+                try
+                {
+                    var reply = await ping.SendPingAsync(ipAddress, timeout).ConfigureAwait(false);
+                    if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
+                        return "ONLINE";
+                }
+                catch { }
+
+                // If first attempt fails, signal RETRYING and start retry loop
+                onStatusUpdate?.Invoke("RETRYING");
+
+                for (int i = 0; i < maxRetries; i++)
+                {
+                    await Task.Delay(retryDelayMs).ConfigureAwait(false);
+                    try
+                    {
+                        var reply = await ping.SendPingAsync(ipAddress, timeout).ConfigureAwait(false);
+                        if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
+                            return "ONLINE";
+                    }
+                    catch { }
+                }
+            }
+
+            return "OFFLINE";
+        }
+
+        /// <summary>
         /// Copies a file even if the source is currently in-use by another process (shared read/write).
         /// Returns the destination path on success; otherwise null.
         /// </summary>
@@ -819,7 +861,7 @@ namespace smart_attendance_middleware.Classes
                         {
                             try
                             {
-                                // Delete user and all their biometric data (BackupNumber 15 = All) from device
+                                // Delete user and all their biometric data (BackupNumber 12 = All) from device
                                 bool deviceSuccess = await DeviceService.DeleteEnrollmentData(
                                     device.DeviceIP,
                                     device.Port,
@@ -916,6 +958,65 @@ namespace smart_attendance_middleware.Classes
             catch (Exception ex)
             {
                 LogHelper.Log($"[ForceCheckOut][ERROR] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// A generic helper to handle door opening logic. Shows the authorization form 
+        /// and communicates with the physical device using provided parameters.
+        /// </summary>
+        /// <param name="ip">Device IP address.</param>
+        /// <param name="port">Device Port.</param>
+        /// <param name="machineNo">Device Machine Number.</param>
+        /// <param name="password">Device Password (comm key).</param>
+        /// <param name="dbHelper">Required for the GateAccessForm to log the event.</param>
+        /// <returns>True if the door was successfully opened; otherwise false.</returns>
+        public static async Task<bool> HandleDoorOpenRequestAsync(string ip, int port, int machineNo, string password, DatabaseHelper dbHelper)
+        {
+            if (string.IsNullOrWhiteSpace(ip))
+            {
+                LogHelper.Log("[HandleDoorOpenRequestAsync] Error: IP address is null or empty.");
+                return false;
+            }
+
+            try
+            {
+                LogHelper.Log($"[HandleDoorOpenRequestAsync] Attempting to open door for IP: {ip}");
+
+                // Get the logged-in user for the access log
+                string loggedInUser = AppSession.LoggedInUser;
+
+                // Show the GateAccessForm for authorization/logging
+                // Note: GateAccessForm still needs dbHelper to record the 'Manual Open' event
+                using (var gateAccessForm = new GateAccessForm(ip, dbHelper, loggedInUser))
+                {
+                    if (gateAccessForm.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                    {
+                        LogHelper.Log($"[HandleDoorOpenRequestAsync] Info: Gate access cancelled/denied for {ip}.");
+                        return false;
+                    }
+                }
+
+                // Execute physical door open command using passed details
+                bool doorOpened = await DeviceService.OpenDoor(ip, port, machineNo, password).ConfigureAwait(true);
+
+                if (doorOpened)
+                {
+                    LogHelper.Log($"[HandleDoorOpenRequestAsync] Success: Door opened for {ip}.");
+                    return true;
+                }
+                else
+                {
+                    LogHelper.Log($"[HandleDoorOpenRequestAsync] Error: Failed to open door for {ip}.");
+                    System.Windows.Forms.MessageBox.Show($"Failed to open door at {ip}.", "Communication Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[HandleDoorOpenRequestAsync] Exception: {ex.Message}");
+                System.Windows.Forms.MessageBox.Show($"An error occurred: {ex.Message}", "System Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                return false;
             }
         }
     }

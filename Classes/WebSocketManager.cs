@@ -652,7 +652,7 @@ namespace smart_attendance_middleware
                     return null;
             }
         }
-        private async Task SaveMemberPicturesAsync(dynamic membersData)
+        public async Task SaveMemberPicturesAsync(dynamic membersData)
         {
             try
             {
@@ -677,6 +677,10 @@ namespace smart_attendance_middleware
                                 // File doesn't exist, download new image
                                 await DownloadAndSaveImageAsync(newImageUrl, filePath);
                                 LogHelper.Log($"Saved: {fileName}");
+
+                                // ✅ NEW: Force Face sync status to false for re-enrollment (first time)
+                                await _dbHelper.ForceFaceSyncStatusFalseAsync(int.Parse(memberId));
+                                LogHelper.Log($"Set FaceSyncStatus to false for Member ID: {memberId} (new image)");
                             }
                             else
                             {
@@ -701,7 +705,7 @@ namespace smart_attendance_middleware
                                         await DownloadAndSaveImageAsync(newImageUrl, filePath);
                                         LogHelper.Log($"Downloaded and saved new image: {fileName}");
 
-                                                                                // Force Face sync status to false for re-enrollment
+                                        // Force Face sync status to false for re-enrollment
                                         await _dbHelper.ForceFaceSyncStatusFalseAsync(int.Parse(memberId));
                                         LogHelper.Log($"Set FaceSyncStatus to false for Member ID: {memberId}");
                                     }
@@ -750,7 +754,6 @@ namespace smart_attendance_middleware
                 LogHelper.Log("General error in SaveMemberPicturesAsync: " + ex.Message);
             }
         }
-
         private async Task DownloadAndSaveImageAsync(string imageUrl, string savePath)
         {
             try

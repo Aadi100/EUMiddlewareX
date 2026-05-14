@@ -503,29 +503,19 @@ namespace smart_attendance_middleware
                         {
                             members = new[]
                             {
-                                new
-                                {
-                                    id = memberId,
-                                    picture = newFaceImageUrl
-                                }
-                            }
+                        new
+                        {
+                            id = memberId,
+                            picture = newFaceImageUrl
+                        }
+                    }
                         };
 
                         LogHelper.Log($"📥 Downloading new face image for member {memberId} from: {newFaceImageUrl}");
 
-                        // Use WebSocketManager's existing SaveMemberPicturesAsync method via reflection
-                        var saveMethod = typeof(WebSocketManager).GetMethod("SaveMemberPicturesAsync",
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-                        if (saveMethod != null)
-                        {
-                            await (Task)saveMethod.Invoke(_wsManager, new object[] { memberPictureData });
-                            LogHelper.Log($"✅ Successfully downloaded and saved new face image for member {memberId}");
-                        }
-                        else
-                        {
-                            LogHelper.Log($"❌ Could not access SaveMemberPicturesAsync method for member {memberId}");
-                        }
+                        // Direct call to SaveMemberPicturesAsync (now public in WebSocketManager)
+                        await _wsManager.SaveMemberPicturesAsync(memberPictureData);
+                        LogHelper.Log($"✅ Successfully downloaded and saved new face image for member {memberId}");
                     }
                     catch (Exception downloadEx)
                     {

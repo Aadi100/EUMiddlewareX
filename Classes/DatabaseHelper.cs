@@ -1256,6 +1256,123 @@ WHEN NOT MATCHED THEN
             return members;
         }
 
+        //        /// <summary>
+        //        /// Inserts or updates a member record in the local DB using data received from the cloud.
+        //        /// </summary>
+        //        public void UpsertMember(JObject member)
+        //        {
+        //            int memberId = (int)member["id"];
+        //            string name = member["name"]?.ToString() ?? string.Empty;
+        //            string status = (string)member["status"];
+        //            string rfid = member["rfid"]?.ToString() ?? string.Empty;
+        //            string picture = member["picture"]?.ToString() ?? string.Empty;
+        //            bool fingerprint = member["fingerprint"]?.ToObject<bool>() ?? false;
+        //            int? enrollmentId = member["enrollment_id"]?.ToObject<int?>();
+        //            string packageExpiry = member["package_expiry"]?.ToString();
+        //            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+
+        //            var existingMember = GetMember(memberId);
+        //            var devices = LoadDevices();
+        //            var syncStatus = new Dictionary<int, bool>();
+
+        //            foreach (var device in devices)
+        //            {
+        //                // default to false (not synced) for each device; actual sync happens after successful device sync
+        //                syncStatus[device.DeviceId] = false;
+        //                LogHelper.Log($"Member {memberId} sync status for device {device.DeviceId}: Needs sync");
+        //            }
+
+        //            string syncStatusJson = JsonConvert.SerializeObject(syncStatus);
+
+        //            using (var conn = new SqlConnection(connectionString))
+        //            {
+        //                conn.Open();
+        //                using (var transaction = conn.BeginTransaction())
+        //                {
+        //                    try
+        //                    {
+        //                        // Check if record exists
+        //                        bool exists;
+        //                        using (var checkCmd = new SqlCommand("SELECT COUNT(1) FROM Members WHERE MemberID = @id", conn, transaction))
+        //                        {
+        //                            checkCmd.Parameters.AddWithValue("@id", memberId);
+        //                            exists = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
+        //                        }
+
+        //                        if (exists)
+        //                        {
+        //                            using (var cmd = new SqlCommand(@"
+        //UPDATE Members
+        //SET Name = @name,
+        //    Status = @status,
+        //    RFID = @rfid,
+        //    Picture = @picture,
+        //    Fingerprint = @fingerprint,
+        //    EnrollmentID = @enrollment_id,
+        //    PackageExpiry = @package_expiry,
+        //    SyncStatus = @syncStatus,
+        //    UpdatedAt = @updatedAt
+        //WHERE MemberID = @id", conn, transaction))
+        //                            {
+        //                                cmd.Parameters.AddWithValue("@id", memberId);
+        //                                cmd.Parameters.AddWithValue("@name", name);
+        //                                cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
+        //                                cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
+        //                                cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
+        //                                cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
+        //                                cmd.Parameters.AddWithValue("@enrollment_id", enrollmentId ?? (object)DBNull.Value);
+        //                                cmd.Parameters.AddWithValue("@package_expiry", string.IsNullOrEmpty(packageExpiry) ? (object)DBNull.Value : packageExpiry);
+        //                                cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
+        //                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+
+        //                                cmd.ExecuteNonQuery();
+        //                            }
+        //                        }
+        //                        else
+        //                        {
+        //                            // Insert with explicit identity value: enable IDENTITY_INSERT for this session
+        //                            using (var setOn = new SqlCommand("SET IDENTITY_INSERT dbo.Members ON;", conn, transaction))
+        //                            {
+        //                                setOn.ExecuteNonQuery();
+        //                            }
+
+        //                            using (var cmd = new SqlCommand(@"
+        //INSERT INTO Members (MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus, CreatedAt, UpdatedAt)
+        //VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @package_expiry, @syncStatus, @createdAt, @updatedAt);", conn, transaction))
+        //                            {
+        //                                cmd.Parameters.AddWithValue("@id", memberId);
+        //                                cmd.Parameters.AddWithValue("@name", name);
+        //                                cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
+        //                                cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
+        //                                cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
+        //                                cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
+        //                                cmd.Parameters.AddWithValue("@enrollment_id", enrollmentId ?? (object)DBNull.Value);
+        //                                cmd.Parameters.AddWithValue("@package_expiry", string.IsNullOrEmpty(packageExpiry) ? (object)DBNull.Value : packageExpiry);
+        //                                cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
+        //                                cmd.Parameters.AddWithValue("@createdAt", timestamp);
+        //                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+
+        //                                cmd.ExecuteNonQuery();
+        //                            }
+
+        //                            using (var setOff = new SqlCommand("SET IDENTITY_INSERT dbo.Members OFF;", conn, transaction))
+        //                            {
+        //                                setOff.ExecuteNonQuery();
+        //                            }
+        //                        }
+
+        //                        transaction.Commit();
+        //                    }
+        //                    catch (Exception ex)
+        //                    {
+        //                        try { transaction.Rollback(); } catch { /* ignore */ }
+        //                        LogHelper.Log($"Error upserting member {memberId}: {ex.Message}");
+        //                        throw;
+        //                    }
+        //                }
+        //            }
+        //        }
+
         /// <summary>
         /// Inserts or updates a member record in the local DB using data received from the cloud.
         /// </summary>
@@ -1275,11 +1392,50 @@ WHEN NOT MATCHED THEN
             var devices = LoadDevices();
             var syncStatus = new Dictionary<int, bool>();
 
-            foreach (var device in devices)
+            bool isBiometricChange = false;
+            if (existingMember != null)
             {
-                // default to false (not synced) for each device; actual sync happens after successful device sync
-                syncStatus[device.DeviceId] = false;
-                LogHelper.Log($"Member {memberId} sync status for device {device.DeviceId}: Needs sync");
+                // Check if any biometric data changed
+                bool rfidChanged = rfid != (existingMember.RFID ?? string.Empty);
+                bool fingerprintChanged = fingerprint != existingMember.Fingerprint;
+                bool enrollmentIdChanged = enrollmentId != existingMember.EnrollmentID;
+                bool pictureChanged = picture != (existingMember.Picture ?? string.Empty);
+                bool statusChanged = status != existingMember.Status;
+
+                isBiometricChange = rfidChanged || fingerprintChanged || enrollmentIdChanged || pictureChanged || statusChanged;
+            }
+            else
+            {
+                // New member -> treat as biometric change
+                isBiometricChange = true;
+            }
+
+            // Only initialize/reset sync status if there's a biometric change or it's a new member
+            if (isBiometricChange)
+            {
+                foreach (var device in devices)
+                {
+                    // Reset to false (not synced) only if biometric data changed
+                    syncStatus[device.DeviceId] = false;
+                    LogHelper.Log($"Member {memberId} biometric change detected - sync status for device {device.DeviceId}: Needs sync");
+                }
+            }
+            else
+            {
+                // No biometric change -> preserve existing sync status
+                if (existingMember?.SyncStatus != null)
+                {
+                    syncStatus = new Dictionary<int, bool>(existingMember.SyncStatus);
+                    LogHelper.Log($"Member {memberId} data unchanged - preserving existing sync status");
+                }
+                else
+                {
+                    // Fallback: no existing sync status, initialize as not synced
+                    foreach (var device in devices)
+                    {
+                        syncStatus[device.DeviceId] = false;
+                    }
+                }
             }
 
             string syncStatusJson = JsonConvert.SerializeObject(syncStatus);
@@ -2664,74 +2820,68 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
             }
         }
 
-
-        /// <summary>
-        /// Forces the Face sync status to false in the Log table for all devices associated with a member.
-        /// This ensures re-enrollment is triggered when the face image URL changes.
-        /// </summary>
-        /// <param name="memberId">The member ID to update</param>
         public async Task ForceFaceSyncStatusFalseAsync(int memberId)
         {
             try
             {
                 using (var connection = new SqlConnection(connectionString))
                 {
-                    await connection.OpenAsync();
-                    using (var transaction = connection.BeginTransaction())
+                    connection.Open();
+
+                    // Get all log entries for the member with Face biometric
+                    var logsToUpdate = new List<(int logId, string syncStatusJson)>();
+
+                    using (var cmd = new SqlCommand("SELECT Id, SyncStatus FROM Log WHERE MemberID = @memberId", connection))
                     {
-                        try
+                        cmd.Parameters.AddWithValue("@memberId", memberId);
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            // Get all log entries for the member
-                            var logIds = new List<int>();
-                            using (var cmd = new SqlCommand("SELECT Id, SyncStatus FROM Log WHERE MemberID = @memberId", connection, transaction))
+                            while (reader.Read())
                             {
-                                cmd.Parameters.AddWithValue("@memberId", memberId);
-                                using (var reader = await cmd.ExecuteReaderAsync())
+                                int logId = reader.GetInt32(0);
+                                string syncStatusJson = reader.IsDBNull(1) ? null : reader.GetString(1);
+                                logsToUpdate.Add((logId, syncStatusJson));
+                            }
+                        }
+                    } // DataReader is closed here
+
+                    // Now update the logs after the reader is closed
+                    if (logsToUpdate.Count > 0)
+                    {
+                        using (var transaction = connection.BeginTransaction())
+                        {
+                            try
+                            {
+                                foreach (var (logId, syncStatusJson) in logsToUpdate)
                                 {
-                                    while (await reader.ReadAsync())
+                                    var syncStatus = string.IsNullOrEmpty(syncStatusJson)
+                                        ? new Dictionary<string, bool>()
+                                        : JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncStatusJson)
+                                            ?? new Dictionary<string, bool>();
+
+                                    // Set Face sync to false
+                                    syncStatus["Face"] = false;
+
+                                    using (var updateCmd = new SqlCommand("UPDATE Log SET SyncStatus = @syncStatus WHERE Id = @logId", connection, transaction))
                                     {
-                                        int logId = reader.GetInt32(0);
-                                        string syncStatusJson = reader.GetString(1);
-                                        var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(syncStatusJson) ?? new Dictionary<string, bool>();
-
-                                        // Set Face to false if it exists
-                                        if (syncStatus.ContainsKey("Face"))
-                                        {
-                                            syncStatus["Face"] = false;
-                                        }
-                                        else
-                                        {
-                                            syncStatus["Face"] = false;  // Add if missing
-                                        }
-
-                                        // Update the log entry
-                                        using (var updateCmd = new SqlCommand("UPDATE Log SET SyncStatus = @syncStatus WHERE Id = @logId", connection, transaction))
-                                        {
-                                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
-                                            updateCmd.Parameters.AddWithValue("@logId", logId);
-                                            await updateCmd.ExecuteNonQueryAsync();
-                                        }
-
-                                        logIds.Add(logId);
+                                        updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
+                                        updateCmd.Parameters.AddWithValue("@logId", logId);
+                                        updateCmd.ExecuteNonQuery();
                                     }
                                 }
+                                transaction.Commit();
+                                LogHelper.Log($"✅ Set Face sync status to false for member {memberId} in {logsToUpdate.Count} log entries.");
                             }
-                            transaction.Commit();
-
-                            if (logIds.Count > 0)
+                            catch (SqlException ex)
                             {
-                                LogHelper.Log($"✅ Forced Face sync status to false for member {memberId} in {logIds.Count} log entries.");
-                            }
-                            else
-                            {
-                                LogHelper.Log($"ℹ️ No log entries found for member {memberId} to update Face sync status.");
+                                transaction.Rollback();
+                                LogHelper.Log($"❌ Error updating Face sync status: {ex.Message}");
                             }
                         }
-                        catch (SqlException ex)
-                        {
-                            transaction.Rollback();
-                            Console.WriteLine($"Error forcing face sync status: {ex.Message}");
-                        }
+                    }
+                    else
+                    {
+                        LogHelper.Log($"ℹ️ No log entries found for member {memberId}.");
                     }
                 }
             }
@@ -2740,8 +2890,6 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                 LogHelper.Log($"❌ Error forcing Face sync status for member {memberId}: {ex.Message}");
             }
         }
-
-
         public async Task<List<UnsyncedAttendanceLog>> CheckUnsyncedAttendanceLogsAsync()
         {
             var unsyncedLogs = new List<UnsyncedAttendanceLog>();

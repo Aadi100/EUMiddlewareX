@@ -33,6 +33,13 @@ namespace smart_attendance_middleware
         private int _selectedDeviceId = 0;      // Devices.DeviceId
         private int _selectedStaffDeviceId = 0; // StaffDevices.StaffDeviceId
 
+        // Pagination helpers - for high-volume data lists
+        private ListViewPagination _membersPagination;
+        private ListViewPagination _staffsPagination;
+        private ListViewPagination _memberAttendancePagination;
+        private ListViewPagination _staffAttendancePagination;
+        private ListViewPagination _manualDoorPagination;
+
 
 
         public DeviceManager()
@@ -262,6 +269,13 @@ namespace smart_attendance_middleware
             _cacheManager?.StopAutoRefresh();
 
             StopCardIdListening();
+
+            // Dispose pagination controls - all attendance and management lists
+            _membersPagination?.Dispose();
+            _staffsPagination?.Dispose();
+            _memberAttendancePagination?.Dispose();
+            _staffAttendancePagination?.Dispose();
+            _manualDoorPagination?.Dispose();
         }
 
         /// <summary>
@@ -1833,9 +1847,6 @@ namespace smart_attendance_middleware
         {
             try
             {
-                lst_members.BeginUpdate();
-                lst_members.Items.Clear();
-
                 var members = AppSession.AllMembers ?? new List<Member>();
 
                 // Apply name filter if provided
@@ -1849,6 +1860,8 @@ namespace smart_attendance_middleware
                 // For sync status across devices
                 var allDevices = AppSession.DeviceList ?? new List<Device>();
                 int totalDevices = allDevices.Count;
+
+                var allItems = new List<ListViewItem>();
 
                 foreach (var m in members)
                 {
@@ -1892,16 +1905,32 @@ namespace smart_attendance_middleware
                     item.SubItems.Add(pkgExpiryText);
                     item.Tag = m;
 
-                    lst_members.Items.Add(item);
+                    allItems.Add(item);
+                }
+
+                // Initialize pagination if not already done
+                if (_membersPagination == null && lst_members.Parent != null)
+                {
+                    _membersPagination = new ListViewPagination(lst_members, lst_members.Parent);
+                }
+
+                // Use pagination to display items
+                if (_membersPagination != null)
+                {
+                    _membersPagination.SetItems(allItems);
+                }
+                else
+                {
+                    // Fallback: add items directly if pagination not available
+                    lst_members.BeginUpdate();
+                    lst_members.Items.Clear();
+                    lst_members.Items.AddRange(allItems.ToArray());
+                    lst_members.EndUpdate();
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to load members: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                lst_members.EndUpdate();
             }
         }
 
@@ -2009,6 +2038,8 @@ namespace smart_attendance_middleware
                 return true;
             }).ToList();
 
+            var allItems = new List<ListViewItem>();
+
             foreach (var log in filteredLogs)
             {
                 var item = new ListViewItem(log.LogID.ToString());
@@ -2020,7 +2051,26 @@ namespace smart_attendance_middleware
 
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckInTime) ? "-" : log.CheckInTime);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckOutTime) ? "-" : log.CheckOutTime);
-                lst_member.Items.Add(item);
+                allItems.Add(item);
+            }
+
+            // Initialize pagination if not already done
+            if (_memberAttendancePagination == null && lst_member.Parent != null)
+            {
+                _memberAttendancePagination = new ListViewPagination(lst_member, lst_member.Parent);
+            }
+
+            // Use pagination to display items
+            if (_memberAttendancePagination != null)
+            {
+                _memberAttendancePagination.SetItems(allItems);
+            }
+            else
+            {
+                // Fallback: add items directly if pagination not available
+                lst_member.BeginUpdate();
+                lst_member.Items.AddRange(allItems.ToArray());
+                lst_member.EndUpdate();
             }
         }
 
@@ -2063,6 +2113,8 @@ namespace smart_attendance_middleware
             var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<dynamic>();
             var members = AppSession.AllMembers ?? new List<Member>();
 
+            var allItems = new List<ListViewItem>();
+
             foreach (var log in attendanceLogs)
             {
                 var item = new ListViewItem(log.LogID.ToString());
@@ -2074,7 +2126,26 @@ namespace smart_attendance_middleware
 
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckInTime) ? "-" : log.CheckInTime);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckOutTime) ? "-" : log.CheckOutTime);
-                lst_member.Items.Add(item);
+                allItems.Add(item);
+            }
+
+            // Initialize pagination if not already done
+            if (_memberAttendancePagination == null && lst_member.Parent != null)
+            {
+                _memberAttendancePagination = new ListViewPagination(lst_member, lst_member.Parent);
+            }
+
+            // Use pagination to display items
+            if (_memberAttendancePagination != null)
+            {
+                _memberAttendancePagination.SetItems(allItems);
+            }
+            else
+            {
+                // Fallback: add items directly if pagination not available
+                lst_member.BeginUpdate();
+                lst_member.Items.AddRange(allItems.ToArray());
+                lst_member.EndUpdate();
             }
         }
 
@@ -2116,6 +2187,8 @@ namespace smart_attendance_middleware
             // Apply date filter
             var filteredLogs = gateAccessLogs.Where(log => log.AccessedTime.Date == selectedDate).ToList();
 
+            var allItems = new List<ListViewItem>();
+
             foreach (var log in filteredLogs)
             {
                 var item = new ListViewItem(log.GateId.ToString());
@@ -2132,7 +2205,26 @@ namespace smart_attendance_middleware
                 item.SubItems.Add(log.Reason);
                 item.SubItems.Add(log.AccessedTime.ToString());
                 item.SubItems.Add(log.Username);
-                lst_manualdoor.Items.Add(item);
+                allItems.Add(item);
+            }
+
+            // Initialize pagination if not already done
+            if (_manualDoorPagination == null && lst_manualdoor.Parent != null)
+            {
+                _manualDoorPagination = new ListViewPagination(lst_manualdoor, lst_manualdoor.Parent);
+            }
+
+            // Use pagination to display items
+            if (_manualDoorPagination != null)
+            {
+                _manualDoorPagination.SetItems(allItems);
+            }
+            else
+            {
+                // Fallback: add items directly if pagination not available
+                lst_manualdoor.BeginUpdate();
+                lst_manualdoor.Items.AddRange(allItems.ToArray());
+                lst_manualdoor.EndUpdate();
             }
         }
 
@@ -2152,7 +2244,7 @@ namespace smart_attendance_middleware
             lst_manualdoor.Columns.Add("Gate ID", 50);
             lst_manualdoor.Columns.Add("Device IP", 100);
             lst_manualdoor.Columns.Add("Member ID", 80);
-            lst_manualdoor.Columns.Add("Member Name", 120); // Add Member Name column
+            lst_manualdoor.Columns.Add("Member Name", 120);
             lst_manualdoor.Columns.Add("Is Visitor", 70);
             lst_manualdoor.Columns.Add("Visitor Name", 120);
             lst_manualdoor.Columns.Add("Visitor Phone", 100);
@@ -2163,6 +2255,8 @@ namespace smart_attendance_middleware
 
             var gateAccessLogs = AppSession.AllGateLogs ?? new List<GateAccessed>();
             var members = AppSession.AllMembers ?? new List<Member>();
+
+            var allItems = new List<ListViewItem>();
 
             foreach (var log in gateAccessLogs)
             {
@@ -2180,7 +2274,26 @@ namespace smart_attendance_middleware
                 item.SubItems.Add(log.Reason);
                 item.SubItems.Add(log.AccessedTime.ToString());
                 item.SubItems.Add(log.Username);
-                lst_manualdoor.Items.Add(item);
+                allItems.Add(item);
+            }
+
+            // Initialize pagination if not already done
+            if (_manualDoorPagination == null && lst_manualdoor.Parent != null)
+            {
+                _manualDoorPagination = new ListViewPagination(lst_manualdoor, lst_manualdoor.Parent);
+            }
+
+            // Use pagination to display items
+            if (_manualDoorPagination != null)
+            {
+                _manualDoorPagination.SetItems(allItems);
+            }
+            else
+            {
+                // Fallback: add items directly if pagination not available
+                lst_manualdoor.BeginUpdate();
+                lst_manualdoor.Items.AddRange(allItems.ToArray());
+                lst_manualdoor.EndUpdate();
             }
         }
 
@@ -2728,9 +2841,6 @@ namespace smart_attendance_middleware
         {
             try
             {
-                lst_staffs.BeginUpdate();
-                lst_staffs.Items.Clear();
-
                 var staffList = _dbHelper.GetStaffs() ?? new List<Staff>();
 
                 if (!string.IsNullOrWhiteSpace(nameFilter))
@@ -2749,6 +2859,8 @@ namespace smart_attendance_middleware
                 // Get all staff devices for sync status calculation
                 var allDevices = AppSession.StaffDeviceList ?? new List<Device>();
                 int totalDevices = allDevices.Count;
+
+                var allItems = new List<ListViewItem>();
 
                 foreach (var s in staffList)
                 {
@@ -2842,22 +2954,38 @@ namespace smart_attendance_middleware
                     item.SubItems.Add(string.IsNullOrWhiteSpace(enrollmentIdText) ? "-" : enrollmentIdText);
                     item.SubItems.Add(syncStatusText);
 
-                    // Actions column: clickable link-style text
-                    item.SubItems.Add("[Enroll]");  // Will be styled as link
+                    // Actions column: clickable link-style text for both Enroll and Delete
+                    item.SubItems.Add("[Enroll] [Delete]");  // Will be styled as links
 
                     // Store staff object for action handlers
                     item.Tag = new { StaffID = staffIdText, Name = nameText, EnrollmentID = enrollmentIdText, StaffObject = s };
 
-                    lst_staffs.Items.Add(item);
+                    allItems.Add(item);
+                }
+
+                // Initialize pagination if not already done
+                if (_staffsPagination == null && lst_staffs.Parent != null)
+                {
+                    _staffsPagination = new ListViewPagination(lst_staffs, lst_staffs.Parent);
+                }
+
+                // Use pagination to display items
+                if (_staffsPagination != null)
+                {
+                    _staffsPagination.SetItems(allItems);
+                }
+                else
+                {
+                    // Fallback: add items directly if pagination not available
+                    lst_staffs.BeginUpdate();
+                    lst_staffs.Items.Clear();
+                    lst_staffs.Items.AddRange(allItems.ToArray());
+                    lst_staffs.EndUpdate();
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to load staff list: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                lst_staffs.EndUpdate();
             }
         }
 
@@ -2991,6 +3119,8 @@ namespace smart_attendance_middleware
                     return true;
                 }).ToList();
 
+                var allItems = new List<ListViewItem>();
+
                 foreach (var log in filtered)
                 {
                     string logId = SafeToString(log, "LogID");
@@ -3014,7 +3144,24 @@ namespace smart_attendance_middleware
                     item.SubItems.Add(string.IsNullOrWhiteSpace(checkOut) ? "-" : checkOut);
 
                     item.Tag = new { EnrollmentId = enrollmentId, Name = name, AttendeeId = attendeeId };
-                    lst_staffattendence.Items.Add(item);
+                    allItems.Add(item);
+                }
+
+                // Initialize pagination if not already done
+                if (_staffAttendancePagination == null && lst_staffattendence.Parent != null)
+                {
+                    _staffAttendancePagination = new ListViewPagination(lst_staffattendence, lst_staffattendence.Parent);
+                }
+
+                // Use pagination to display items
+                if (_staffAttendancePagination != null)
+                {
+                    _staffAttendancePagination.SetItems(allItems);
+                }
+                else
+                {
+                    // Fallback: add items directly if pagination not available
+                    lst_staffattendence.Items.AddRange(allItems.ToArray());
                 }
             }
             catch (Exception ex)
@@ -3092,8 +3239,23 @@ namespace smart_attendance_middleware
                         string enrollmentStr = staffTag.EnrollmentID; // enrollment id if present
                         string staffName = staffTag.Name;
 
-                        // Pass both the staff identifier and any enrollment id we already have
-                        EnrollStaffFromListView(staffIdStr, staffName, enrollmentStr);
+                        // Determine which action was clicked based on position
+                        string actionsText = item.SubItems[8].Text;
+                        Rectangle subItemBounds = hitInfo.SubItem.Bounds;
+                        int relativeX = clickedPoint.X - subItemBounds.X;
+                        int midPoint = subItemBounds.Width / 2;
+
+                        // If clicked on left half -> Enroll, right half -> Delete
+                        if (relativeX < midPoint)
+                        {
+                            // Enroll action
+                            EnrollStaffFromListView(staffIdStr, staffName, enrollmentStr);
+                        }
+                        else
+                        {
+                            // Delete action
+                            DeleteStaffFromListView(staffIdStr, staffName, enrollmentStr);
+                        }
                     }
                 }
             }
@@ -3101,6 +3263,117 @@ namespace smart_attendance_middleware
             {
                 LogHelper.Log($"[lst_staffs_ItemActivate] Error: {ex.Message}");
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async void DeleteStaffFromListView(string staffIdentifier, string staffName, string enrollmentIdStr = null)
+        {
+            // Input validation
+            if (string.IsNullOrWhiteSpace(staffName))
+            {
+                MessageBox.Show("Staff name is required.", "Validation Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Resolve the staff record from DB
+            int? enrollmentId = null;
+            object dbStaff = null;
+            try
+            {
+                var staffList = _dbHelper.GetStaffs() ?? new List<Staff>();
+                dbStaff = staffList.FirstOrDefault(s =>
+                {
+                    var sid = s?.GetType().GetProperty("StaffID")?.GetValue(s)?.ToString();
+                    var id = s?.GetType().GetProperty("Id")?.GetValue(s)?.ToString();
+                    return string.Equals(sid, staffIdentifier, StringComparison.OrdinalIgnoreCase)
+                           || string.Equals(id, staffIdentifier, StringComparison.OrdinalIgnoreCase);
+                });
+
+                if (dbStaff != null)
+                {
+                    // Try extract enrollment id from DB staff record
+                    var enrolProp = dbStaff.GetType().GetProperty("EnrollmentID") ?? dbStaff.GetType().GetProperty("EnrollmentId");
+                    if (enrolProp != null)
+                    {
+                        var val = enrolProp.GetValue(dbStaff)?.ToString();
+                        if (!string.IsNullOrWhiteSpace(val) && int.TryParse(val, out int parsedEnrol) && parsedEnrol > 0)
+                            enrollmentId = parsedEnrol;
+                    }
+                }
+            }
+            catch (Exception dbEx)
+            {
+                LogHelper.Log($"[DeleteStaffFromListView] Warning - DB extraction failed: {dbEx.Message}");
+            }
+
+            // If enrollmentId not found in DB, try parse from argument
+            if (!enrollmentId.HasValue && !string.IsNullOrWhiteSpace(enrollmentIdStr))
+            {
+                if (int.TryParse(enrollmentIdStr, out int parsed))
+                    enrollmentId = parsed;
+            }
+
+            // If still no enrollmentId, we cannot proceed
+            if (!enrollmentId.HasValue || enrollmentId.Value <= 0)
+            {
+                MessageBox.Show(
+                    $"Cannot delete '{staffName}'. No numeric Enrollment ID found for this staff.\n\n" +
+                    "Please ensure the staff record has a valid EnrollmentID (numeric) in the database.",
+                    "Missing Enrollment ID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                LogHelper.Log($"[DeleteStaffFromListView] Aborted - EnrollmentID missing for staff '{staffName}' (Identifier: {staffIdentifier})");
+                return;
+            }
+
+            int enrollId = enrollmentId.Value;
+
+            // Confirm deletion with user
+            var confirmResult = MessageBox.Show(
+                $"Are you sure you want to DELETE all biometric data for '{staffName}' (Enrollment ID: {enrollId}) from all devices?\n\n" +
+                "This action cannot be undone.",
+                "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+            if (confirmResult != DialogResult.Yes)
+            {
+                LogHelper.Log($"[DeleteStaffFromListView] Deletion cancelled by user for staff '{staffName}' (EnrollmentID: {enrollId})");
+                return;
+            }
+
+            Cursor = Cursors.WaitCursor;
+
+            try
+            {
+                LogHelper.Log($"[DeleteStaffFromListView] Starting deletion for staff '{staffName}' (EnrollmentID: {enrollId})");
+
+                // Delete from all devices
+                bool deleteSuccess = await DeleteStaffAcrossAllDevicesAsync(enrollId, staffName);
+
+                // Only show success message if the operation was not cancelled
+                if (deleteSuccess)
+                {
+                    MessageBox.Show(
+                        $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) deleted successfully from all devices!",
+                        "Deletion Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                    LogHelper.Log($"[DeleteStaffFromListView] ✓ Successfully deleted staff '{staffName}' (Enrollment ID: {enrollId})");
+
+                    // Refresh the staff list view
+                    LoadStaffsIntoListView(txt_staff.Text?.Trim());
+                }
+                else
+                {
+                    LogHelper.Log($"[DeleteStaffFromListView] Deletion cancelled or failed for staff '{staffName}' (Enrollment ID: {enrollId})");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DeleteStaffFromListView] ❌ Error: {ex.Message}\n{ex.StackTrace}");
+                MessageBox.Show($"❌ Deletion failed: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
             }
         }
 
@@ -3248,15 +3521,23 @@ namespace smart_attendance_middleware
                 _enrolledStaffBuffer.Add((enrollId, staffName, storedImagePath ?? string.Empty));
 
                 // Enroll across all devices using the numeric enrollment ID
-                await EnrollStaffAcrossAllDevicesAsync(enrollId, staffName, staffCardId, storedImagePath ?? string.Empty);
+                bool enrollSuccess = await EnrollStaffAcrossAllDevicesAsync(enrollId, staffName, staffCardId, storedImagePath ?? string.Empty);
 
-                MessageBox.Show(
-                    $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) enrolled successfully!\n\n" +
-                    $"Card ID: {(hasCard ? staffCardId.ToString() : "Not used")}\n" +
-                    $"Face Image: {(hasImage ? "Yes" : "No")}",
-                    "Enrollment Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // Only show success message if the operation was not cancelled
+                if (enrollSuccess)
+                {
+                    MessageBox.Show(
+                        $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) enrolled successfully!\n\n" +
+                        $"Card ID: {(hasCard ? staffCardId.ToString() : "Not used")}\n" +
+                        $"Face Image: {(hasImage ? "Yes" : "No")}",
+                        "Enrollment Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                LogHelper.Log($"[EnrollStaffFromListView] ✓ Successfully enrolled staff '{staffName}' (Enrollment ID: {enrollId})");
+                    LogHelper.Log($"[EnrollStaffFromListView] ✓ Successfully enrolled staff '{staffName}' (Enrollment ID: {enrollId})");
+                }
+                else
+                {
+                    LogHelper.Log($"[EnrollStaffFromListView] Enrollment cancelled or failed for staff '{staffName}' (Enrollment ID: {enrollId})");
+                }
             }
             catch (Exception ex)
             {
@@ -3270,7 +3551,7 @@ namespace smart_attendance_middleware
             }
         }
 
-        private List<Device> ShowDeviceSelectionDialog(List<Device> devices)
+        private List<Device> ShowDeviceSelectionDialog(List<Device> devices, string title = "Select Devices")
         {
             var selected = new List<Device>();
 
@@ -3279,7 +3560,7 @@ namespace smart_attendance_middleware
 
             using (var dlg = new Form())
             {
-                dlg.Text = "Select Devices to Enroll";
+                dlg.Text = title;
                 dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dlg.StartPosition = FormStartPosition.CenterParent;
                 dlg.Width = 520;
@@ -3345,7 +3626,7 @@ namespace smart_attendance_middleware
             return selected;
         }
 
-        private async Task EnrollStaffAcrossAllDevicesAsync(int enrollId, string userName, long cardId, string imagePath)
+        private async Task<bool> EnrollStaffAcrossAllDevicesAsync(int enrollId, string userName, long cardId, string imagePath)
         {
             // Only consider normal devices (exclude staff devices)
             var normalDevices = AppSession.DeviceList ?? new List<Device>();
@@ -3354,27 +3635,26 @@ namespace smart_attendance_middleware
             {
                 MessageBox.Show("No normal devices are available to enroll.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 LogHelper.Log("[EnrollStaffAcrossAllDevicesAsync] No normal devices in session.");
-                return;
+                return false;
             }
 
             // Ask user to select which devices to enroll to
             List<Device> targetDevices;
             try
             {
-                targetDevices = ShowDeviceSelectionDialog(normalDevices);
+                targetDevices = ShowDeviceSelectionDialog(normalDevices, "Select Devices to Enroll");
             }
             catch (Exception exDlg)
             {
                 LogHelper.Log($"[EnrollStaffAcrossAllDevicesAsync] Device selection dialog failed: {exDlg.Message}");
                 MessageBox.Show("Failed to show device selection dialog. See logs for details.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                return false;
             }
 
             if (targetDevices == null || targetDevices.Count == 0)
             {
                 LogHelper.Log("[EnrollStaffAcrossAllDevicesAsync] Enrollment cancelled by user (no devices selected).");
-                MessageBox.Show("Enrollment cancelled. No devices were selected.", "Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
+                return false;
             }
 
             // Start global dashboard loader
@@ -3446,7 +3726,119 @@ namespace smart_attendance_middleware
                     LogHelper.Log($"Error stopping global loader: {ex.Message}");
                 }
             }
+
+            return true;
         }
+
+        private async Task<bool> DeleteStaffAcrossAllDevicesAsync(int enrollId, string userName)
+        {
+            // Only consider normal devices (exclude staff devices)
+            var normalDevices = AppSession.DeviceList ?? new List<Device>();
+
+            if (normalDevices.Count == 0)
+            {
+                MessageBox.Show("No normal devices are available.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LogHelper.Log("[DeleteStaffAcrossAllDevicesAsync] No normal devices in session.");
+                return false;
+            }
+
+            // Ask user to select which devices to delete from
+            List<Device> targetDevices;
+            try
+            {
+                targetDevices = ShowDeviceSelectionDialog(normalDevices, "Select Devices to Delete From");
+            }
+            catch (Exception exDlg)
+            {
+                LogHelper.Log($"[DeleteStaffAcrossAllDevicesAsync] Device selection dialog failed: {exDlg.Message}");
+                MessageBox.Show("Failed to show device selection dialog. See logs for details.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            if (targetDevices == null || targetDevices.Count == 0)
+            {
+                LogHelper.Log("[DeleteStaffAcrossAllDevicesAsync] Deletion cancelled by user (no devices selected).");
+                return false;
+            }
+
+            // Start global dashboard loader
+            try
+            {
+                Dashboard.GlobalStartLoader($"Deleting \"{userName}\" from {targetDevices.Count} device(s)...");
+
+                // Proceed to delete from selected devices
+                int processed = 0;
+                int successCount = 0;
+                int failCount = 0;
+
+                foreach (var device in targetDevices)
+                {
+                    processed++;
+                    try
+                    {
+                        string ip = device.DeviceIP;
+                        int port = device.Port;
+                        int machineNo = device.MachineNo;
+                        string password = device.Password ?? "0";
+
+                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : ip;
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Deleting from {deviceLabel} ({ip})...");
+
+                        // Delete user and all their biometric data (BackupNumber 12 = All) from device
+                        bool deviceSuccess = await DeviceService.DeleteEnrollmentData(
+                            device.DeviceIP,
+                            device.Port,
+                            device.MachineNo,
+                            device.Password,
+                            enrollId,
+                            1, // Default enrollment machine ID
+                            12 // BackupNumber 12 usually removes all templates/data for the user
+                        ).ConfigureAwait(false);
+
+                        if (deviceSuccess)
+                        {
+                            successCount++;
+                            LogHelper.Log($"Staff deletion completed for {userName} ({enrollId}) on {ip}:{port}");
+                            Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Completed on {deviceLabel} ({ip})");
+                        }
+                        else
+                        {
+                            failCount++;
+                            LogHelper.Log($"Failed to delete staff {userName} ({enrollId}) on device {ip}:{port}");
+                            Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Failed on {deviceLabel} ({ip})");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failCount++;
+                        LogHelper.Log($"Error deleting staff {userName} ({enrollId}) on device {device?.DeviceIP}: {ex.Message}");
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Error on {device?.DeviceIP}: {ex.Message}");
+                    }
+                }
+
+                // Show summary message
+                string summary = $"Deletion completed for \"{userName}\".\n\nSuccessful: {successCount}\nFailed: {failCount}\nTotal: {targetDevices.Count}";
+                Dashboard.GlobalUpdateLoaderMessage(summary);
+
+                // Brief delay to show final message
+                await Task.Delay(1500);
+            }
+            finally
+            {
+                // Ensure loader is stopped even if exceptions occur
+                try
+                {
+                    Dashboard.GlobalStopLoader();
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"Error stopping global loader: {ex.Message}");
+                }
+            }
+
+            return true;
+        }
+
         private void txt_staffname_TextChanged_1(object sender, EventArgs e)
         {
 

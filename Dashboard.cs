@@ -86,8 +86,7 @@ namespace smart_attendance_middleware
         {
             InitializeComponent();
 
-            // Initialize lbl_NoDevices to be visible initially
-            lbl_NoDevices.Visible = true;
+            
 
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
@@ -327,7 +326,6 @@ namespace smart_attendance_middleware
 
         private void Dashboard_Load(object sender, EventArgs e)
         {
-            OnDeviceExistCheck();
             UpdateAttendancePanels();
         }
 
@@ -621,131 +619,18 @@ namespace smart_attendance_middleware
             }
         }
 
-        // Add these public methods to the Dashboard class after the existing methods
-
-        /// <summary>
-        /// Updates the border color of a specific device panel based on its retry state
-        /// Called by ConnectionStatusChecker when device status changes
-        /// </summary>
-        /// <param name="deviceId">The device ID to update</param>
-        /// <param name="isRetrying">True to set orange border (retrying), false to reset to normal</param>
-        public async Task UpdateDevicePanelBorderColor(int deviceId, bool isRetrying)
-        {
-            try
-            {
-                // Ensure this runs on UI thread
-                if (InvokeRequired)
-                {
-                    BeginInvoke(new Action(() => _ = UpdateDevicePanelBorderColor(deviceId, isRetrying)));
-                    return;
-                }
-
-                // Load devices to find the panel number for this deviceId
-                var devices = _dbHelper.LoadDevices();
-
-                // Find the device index (panel number)
-                var deviceIndex = devices.FindIndex(d => d.DeviceId == deviceId);
-
-                if (deviceIndex >= 0 && deviceIndex < 4) // Only first 4 devices have panels
-                {
-                    int panelNumber = deviceIndex + 1; // Panel numbers are 1-based
-
-                    // Get the appropriate panel control
-                    CuoreUI.Controls.cuiPanel panel = null;
-
-                    switch (panelNumber)
-                    {
-                        case 1:
-                            panel = panelDevice1;
-                            break;
-                        case 2:
-                            panel = panelDevice2;
-                            break;
-                        case 3:
-                            panel = panelDevice3;
-                            break;
-                        case 4:
-                            panel = panelDevice4;
-                            break;
-                    }
-
-                    if (panel != null)
-                    {
-                        if (isRetrying)
-                        {
-                            // Set orange border for retry state
-                            panel.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(165)))), ((int)(((byte)(0)))));
-                            panel.OutlineThickness = 2F;
-                            LogHelper.Log($"Set panelDevice{panelNumber} border to orange (device {deviceId} retrying)");
-                        }
-                        else
-                        {
-                            // Reset to original border color
-                            panel.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
-                            panel.OutlineThickness = 1F;
-
-                            LogHelper.Log($"Reset panelDevice{panelNumber} border to normal (device {deviceId} status resolved)");
-                        }
-
-                        // Force panel refresh
-                        panel.Invalidate();
-                    }
-                    else
-                    {
-                        LogHelper.Log($"Panel panelDevice{panelNumber} not found for device ID {deviceId}");
-                    }
-                }
-                else
-                {
-                    LogHelper.Log($"Device ID {deviceId} not found in first 4 devices or device index out of range");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error updating panel border color for device {deviceId}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Called by ConnectionStatusChecker when device status changes are detected after all retries
-        /// This will refresh the entire device status display
-        /// </summary>
-        public async Task OnDeviceStatusChangedAfterRetries()
-        {
-            try
-            {
-                LogHelper.Log("🔄 Device status changed after retries - refreshing device display...");
-
-                // Ensure this runs on UI thread
-                if (InvokeRequired)
-                {
-                    BeginInvoke(new Action(() => _ = OnDeviceStatusChangedAfterRetries()));
-                    return;
-                }
-
-                // Add AI message about device status change
-                aiChatLogger.AddDeviceMessage("Device connectivity has changed. Let me update the status for you...");
-
-                // Refresh the device status display
-                await RefreshDeviceStatus();
-
-                LogHelper.Log("✅ Device status refresh completed after retry process");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ Error refreshing device status after retries: {ex.Message}");
-                aiChatLogger.AddErrorMessage("Had trouble updating device status. I'll keep monitoring in the background.");
-            }
-        }
 
         // Add a refresh method to manually update device status
         public async Task RefreshDeviceStatus()
         {
-            // Call the original device status refresh
-            await LoadDevicesAndCheckStatus();
 
             // Also refresh the sync status information
             await RefreshDeviceSyncStatusAsync();
+        }
+
+        public async Task LoadDevicesAndCheckStatus()
+        {
+            await RefreshDeviceStatus();
         }
 
         protected override async void OnShown(EventArgs e)
@@ -762,8 +647,17 @@ namespace smart_attendance_middleware
             await Task.Delay(2000);
 
             ShowLoader("Starting services...");
-                await StartServicesAsync();
-                HideLoader();
+            
+            await StartServicesAsync();
+
+            InitializeDevicePanel();
+
+            dataPairPanel1.OpenDoorRequested += async (item) => {
+                if (string.IsNullOrEmpty(item.IpAddress)) return;
+                await CommonUtils.HandleDoorOpenRequestAsync(item.IpAddress, item.Port, item.MachineNo, item.Password, _dbHelper);
+            };
+
+            HideLoader();
 
             servicesInitialized = true;
         }
@@ -827,14 +721,8 @@ namespace smart_attendance_middleware
                 ConnectionStatusChecker.Instance.InternetStatusChanged -= OnInternetStatusChanged;
                 ConnectionStatusChecker.Instance.InternetStatusChanged += OnInternetStatusChanged;
 
-                ConnectionStatusChecker.Instance.BiometricDeviceStatusChanged -= OnBiometricStatusChanged;
-                ConnectionStatusChecker.Instance.BiometricDeviceStatusChanged += OnBiometricStatusChanged;
-
                 ConnectionStatusChecker.Instance.SubscriptionStatusChanged -= OnSubscriptionStatusChanged;
                 ConnectionStatusChecker.Instance.SubscriptionStatusChanged += OnSubscriptionStatusChanged;
-
-                ConnectionStatusChecker.Instance.StaffDeviceStatusChanged -= OnStaffDeviceStatusChanged;
-                ConnectionStatusChecker.Instance.StaffDeviceStatusChanged += OnStaffDeviceStatusChanged;
 
                 ConnectionStatusChecker.Instance.Start();
 
@@ -1003,15 +891,7 @@ namespace smart_attendance_middleware
             Connected = internet && biometric && subscription;
         }
 
-        public void OnDeviceExistCheck()
-        {
-            //isExist = _dbHelper.DoesDeviceExist();
-
-            //btn_setup.Image = isExist
-            //    ? Properties.Resources.btn_device_manager
-            //    : Properties.Resources.btn_Device_Setup;
-
-        }
+        
 
         
 
@@ -1154,9 +1034,7 @@ namespace smart_attendance_middleware
 
                 // Unsubscribe from connection monitors
                 ConnectionStatusChecker.Instance.InternetStatusChanged -= OnInternetStatusChanged;
-                ConnectionStatusChecker.Instance.BiometricDeviceStatusChanged -= OnBiometricStatusChanged;
                 ConnectionStatusChecker.Instance.SubscriptionStatusChanged -= OnSubscriptionStatusChanged;
-                ConnectionStatusChecker.Instance.StaffDeviceStatusChanged -= OnStaffDeviceStatusChanged;
                 ConnectionStatusChecker.Instance.SetWebSocketManager(null);
 
                 // Stop the connection status checker service
@@ -1208,21 +1086,10 @@ namespace smart_attendance_middleware
 
         private void cuiButton2_Click(object sender, EventArgs e)
         {
-           
+
         }
 
-        private void cuiButton7_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                string url = "https://smart-gym-studio-staging.vercel.app/auth/login?callbackUrl=%2Fdashboard";
-                Process.Start(url);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error opening URL in browser: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
+        
 
 
         private bool _attendanceServerStarted = false;
@@ -1286,113 +1153,19 @@ namespace smart_attendance_middleware
             AddNewDevice addnewdevice = new AddNewDevice();
             addnewdevice.ShowDialog();
 
-            // Refresh device status after device manager is closed
-            Task.Run(async () =>
-            {
-                await Task.Delay(500); // Small delay to ensure database changes are committed
-                this.Invoke(new Action(async () => await LoadDevicesAndCheckStatus()));
-            });
+            //// Refresh device status after device manager is closed
+            //Task.Run(async () =>
+            //{
+            //    await Task.Delay(500); // Small delay to ensure database changes are committed
+            //    this.Invoke(new Action(async () => await LoadDevicesAndCheckStatus()));
+            //});
         }
 
-        private async Task LoadDevicesAndCheckStatus()
-        {
-            try
-            {
-                RunOnUi(() => aiChatLogger.AddDeviceMessage("Scanning for your devices..."));
 
-                // Use AppSession.DeviceList instead of _dbHelper.LoadDevices()
-                var devices = AppSession.DeviceList ?? new List<Device>();
-
-                var devicesToCheck = devices.Take(4).ToList();
-                var pingResults = await Task.WhenAll(devicesToCheck.Select(device => PingDevice(device.DeviceIP))).ConfigureAwait(false);
-
-                RunOnUi(() =>
-                {
-                    // Hide all device panels initially
-                    panelDevice1.Visible = false;
-                    panelDevice2.Visible = false;
-                    panelDevice3.Visible = false;
-                    panelDevice4.Visible = false;
-
-                    var devicePanels = new[] { panelDevice1, panelDevice2, panelDevice3, panelDevice4 };
-
-                    label3.Text = $"{devices.Count} total";
-                    label4.Text = "0";
-
-                    int connectedCount = 0;
-
-                    // Show/Hide the "No Devices Available" label based on device count
-                    if (devices.Count == 0)
-                    {
-                        lbl_NoDevices.Visible = true;
-                        lbl_NoDevices.BringToFront();
-                        lbl_NoDevices.Location = new Point(95, 300);
-                        aiChatLogger.AddInfoMessage("No devices configured yet. Would you like me to help you add your first device?");
-                        return;
-                    }
-
-                    lbl_NoDevices.Visible = false;
-                    aiChatLogger.AddInfoMessage($"Found {devices.Count} configured device(s). Checking their status...");
-
-                    // Define the initial Y position for the first panel
-                    int initialY = 130; // Adjust this value based on your layout
-                    int initialX = 40;
-
-                    // Process up to 4 devices
-                    for (int i = 0; i < Math.Min(devicesToCheck.Count, 4); i++)
-                    {
-                        var device = devicesToCheck[i];
-                        var panel = devicePanels[i];
-
-                        // Update device information
-                        UpdateDevicePanel(panel, device, i + 1);
-
-                        // Check device status via ping
-                        bool isOnline = pingResults[i];
-
-                        if (isOnline)
-                        {
-                            connectedCount++;
-                            UpdateDeviceStatus(panel, true, i + 1);
-                        }
-                        else
-                        {
-                            UpdateDeviceStatus(panel, false, i + 1);
-                        }
-
-                        // Set the panel's location
-                        panel.Location = new Point(initialX, initialY + (i * (panel.Height + 5))); // Keep the original X, adjust Y
-                        panel.Visible = true;
-                        // Bring the panel to the front
-                        panel.BringToFront();
-                    }
-
-                    // Update connected devices count
-                    label4.Text = connectedCount.ToString();
-
-                    // AI personality responses based on device status
-                    if (connectedCount == devices.Count)
-                    {
-                        aiChatLogger.AddSuccessMessage($"Excellent! All {devices.Count} devices are online and ready to work!");
-                    }
-                    else if (connectedCount == 0)
-                    {
-                        aiChatLogger.AddErrorMessage("Hmm, none of your devices are responding.");
-                    }
-                    else
-                    {
-                        aiChatLogger.AddWarningMessage($"{connectedCount} out of {devices.Count} devices are online. I'll keep monitoring the others.");
-                    }
-
-                    LogHelper.Log($"Device status check completed: {connectedCount}/{devices.Count} devices online");
-                });
-            }
-            catch (Exception ex)
-            {
-                RunOnUi(() => aiChatLogger.AddErrorMessage("Encountered an issue while checking device status. Let me try again in a moment."));
-                LogHelper.Log($"Error loading devices: {ex.Message}");
-            }
-        }
+        //public async Task LoadDevicesAndCheckStatus()
+        //{
+        //    await RefreshDeviceStatus();
+        //}
 
         private void RunOnUi(Action action)
         {
@@ -1406,79 +1179,6 @@ namespace smart_attendance_middleware
         }
 
 
-        private void UpdateDevicePanel(CuoreUI.Controls.cuiPanel panel, Device device, int deviceNumber)
-        {
-            try
-            {
-                // Get the labels from the panel using the correct naming pattern
-                var locationLabel = panel.Controls[$"dev{deviceNumber}_location"] as Label;
-                var machineLabel = panel.Controls[$"dev{deviceNumber}_machineno"] as Label;
-                var ipLabel = panel.Controls[$"dev{deviceNumber}_ip"] as Label;
-
-                if (locationLabel != null)
-                {
-                    // Use the actual device location from the database
-                    string displayLocation = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : "Default Location";
-                    locationLabel.Text = displayLocation;
-                }
-
-                if (machineLabel != null)
-                {
-                    machineLabel.Text = $"Machine No: {device.MachineNo}";
-                }
-
-                if (ipLabel != null)
-                {
-                    ipLabel.Text = $"Device IP: {device.DeviceIP}";
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error updating device panel {deviceNumber}: {ex.Message}");
-            }
-        }
-
-        private void UpdateDeviceStatus(CuoreUI.Controls.cuiPanel panel, bool isOnline, int deviceNumber)
-        {
-            try
-            {
-                // Find the status picture box in the panel using the correct naming pattern
-                var statusPictureBox = panel.Controls[$"dev{deviceNumber}_status"] as CuoreUI.Controls.cuiPictureBox;
-
-                if (statusPictureBox != null)
-                {
-                    if (isOnline)
-                    {
-                        statusPictureBox.BackgroundImage = Properties.Resources.device_connected_status;
-                    }
-                    else
-                    {
-                        statusPictureBox.BackgroundImage = Properties.Resources.device_offline;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error updating device status for device {deviceNumber}: {ex.Message}");
-            }
-        }
-
-        private async Task<bool> PingDevice(string ipAddress, int timeout = 3000)
-        {
-            try
-            {
-                using (var ping = new Ping())
-                {
-                    var reply = await ping.SendPingAsync(ipAddress, timeout);
-                    return reply.Status == IPStatus.Success;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Ping failed for {ipAddress}: {ex.Message}");
-                return false;
-            }
-        }
 
 
         // Add a field to track the current view state
@@ -1959,300 +1659,6 @@ namespace smart_attendance_middleware
 
         }
 
-        // In Dashboard.cs, modify lnk_dooropen1_LinkClicked
-        private async void lnk_dooropen1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            try
-            {
-                // Locate the label containing the device IP in panelDevice1.
-                if (panelDevice1 != null && panelDevice1.Controls["dev1_ip"] is Label ipLabel)
-                {
-                    // Expected format: "Device IP: x.x.x.x"
-                    string ipText = ipLabel.Text;
-                    string ip = ipText.Replace("Device IP:", "").Trim();
-
-                    // Log the action
-                    LogHelper.Log($"[lnk_dooropen1_LinkClicked] Attempting to open door for IP: {ip}");
-
-                    // Get the logged-in user
-                    string loggedInUser = AppSession.LoggedInUser;
-
-                    // Show the GateAccessForm
-                    GateAccessForm gateAccessForm = new GateAccessForm(ip, _dbHelper, loggedInUser);
-                    DialogResult result = gateAccessForm.ShowDialog();
-
-                    if (result == DialogResult.OK)
-                    {
-                        // Load devices from AppSession and find the matching device by IP.
-                        var matchingDevice = AppSession.DeviceList?.FirstOrDefault(d => d.DeviceIP == ip);
-                        if (matchingDevice == null)
-                        {
-                            string errorMessage = "Device not found in App Session.";
-                            LogHelper.Log($"[lnk_dooropen1_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-
-                        // Retrieve parameters from the matching device.
-                        int port = matchingDevice.Port;
-                        int machineNo = matchingDevice.MachineNo;
-                        string password = matchingDevice.Password;
-
-                        // Call the OpenDoor function.
-                        bool doorOpened = await DeviceService.OpenDoor(ip, port, machineNo, password);
-                        if (doorOpened)
-                        {
-                            string successMessage = "Door opened successfully.";
-                            LogHelper.Log($"[lnk_dooropen1_LinkClicked] Success: {successMessage}");
-                        }
-                        else
-                        {
-                            string errorMessage = "Failed to open door.";
-                            LogHelper.Log($"[lnk_dooropen1_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                    }
-                    else
-                    {
-                        string infoMessage = "Gate access cancelled.";
-                        LogHelper.Log($"[lnk_dooropen1_LinkClicked] Info: {infoMessage}");
-                        MessageBox.Show(infoMessage, "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
-                else
-                {
-                    string errorMessage = "Device IP label not found.";
-                    LogHelper.Log($"[lnk_dooropen1_LinkClicked] Error: {errorMessage}");
-                    MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                string errorMessage = $"An error occurred: {ex.Message}";
-                LogHelper.Log($"[lnk_dooropen1_LinkClicked] Exception: {errorMessage}");
-                MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-        private async void lnk_dooropen2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            try
-            {
-                // Locate the label containing the device IP in panelDevice2.
-                if (panelDevice2 != null && panelDevice2.Controls["dev2_ip"] is Label ipLabel)
-                {
-                    // Expected format: "Device IP: x.x.x.x"
-                    string ipText = ipLabel.Text;
-                    string ip = ipText.Replace("Device IP:", "").Trim();
-
-                    // Log the action
-                    LogHelper.Log($"[lnk_dooropen2_LinkClicked] Attempting to open door for IP: {ip}");
-
-                    // Get the logged-in user
-                    string loggedInUser = AppSession.LoggedInUser;
-
-                    // Show the GateAccessForm
-                    GateAccessForm gateAccessForm = new GateAccessForm(ip, _dbHelper, loggedInUser);
-                    DialogResult result = gateAccessForm.ShowDialog();
-
-                    if (result == DialogResult.OK)
-                    {
-                        // Load devices from AppSession and find the matching device by IP.
-                        var matchingDevice = AppSession.DeviceList?.FirstOrDefault(d => d.DeviceIP == ip);
-                        if (matchingDevice == null)
-                        {
-                            string errorMessage = "Device not found in App Session.";
-                            LogHelper.Log($"[lnk_dooropen2_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-
-                        // Retrieve parameters from the matching device.
-                        int port = matchingDevice.Port;
-                        int machineNo = matchingDevice.MachineNo;
-                        string password = matchingDevice.Password;
-
-                        // Call the OpenDoor function.
-                        bool doorOpened = await DeviceService.OpenDoor(ip, port, machineNo, password);
-                        if (doorOpened)
-                        {
-                            string successMessage = "Door opened successfully.";
-                            LogHelper.Log($"[lnk_dooropen2_LinkClicked] Success: {successMessage}");
-                        }
-                        else
-                        {
-                            string errorMessage = "Failed to open door.";
-                            LogHelper.Log($"[lnk_dooropen2_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                    }
-                    else
-                    {
-                        string infoMessage = "Gate access cancelled.";
-                        LogHelper.Log($"[lnk_dooropen2_LinkClicked] Info: {infoMessage}");
-                        MessageBox.Show(infoMessage, "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
-                else
-                {
-                    string errorMessage = "Device IP label not found.";
-                    LogHelper.Log($"[lnk_dooropen2_LinkClicked] Error: {errorMessage}");
-                    MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                string errorMessage = $"An error occurred: {ex.Message}";
-                LogHelper.Log($"[lnk_dooropen2_LinkClicked] Exception: {errorMessage}");
-                MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private async void lnk_dooropen3_LinkClicked(object sender, EventArgs e)
-        {
-            try
-            {
-                // Locate the label containing the device IP in panelDevice3.
-                if (panelDevice3 != null && panelDevice3.Controls["dev3_ip"] is Label ipLabel)
-                {
-                    // Expected format: "Device IP: x.x.x.x"
-                    string ipText = ipLabel.Text;
-                    string ip = ipText.Replace("Device IP:", "").Trim();
-
-                    // Log the action
-                    LogHelper.Log($"[lnk_dooropen3_LinkClicked] Attempting to open door for IP: {ip}");
-
-                    // Get the logged-in user
-                    string loggedInUser = AppSession.LoggedInUser;
-
-                    // Show the GateAccessForm
-                    GateAccessForm gateAccessForm = new GateAccessForm(ip, _dbHelper, loggedInUser);
-                    DialogResult result = gateAccessForm.ShowDialog();
-
-                    if (result == DialogResult.OK)
-                    {
-                        // Load devices from AppSession and find the matching device by IP.
-                        var matchingDevice = AppSession.DeviceList?.FirstOrDefault(d => d.DeviceIP == ip);
-                        if (matchingDevice == null)
-                        {
-                            string errorMessage = "Device not found in App Session.";
-                            LogHelper.Log($"[lnk_dooropen3_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-
-                        // Retrieve parameters from the matching device.
-                        int port = matchingDevice.Port;
-                        int machineNo = matchingDevice.MachineNo;
-                        string password = matchingDevice.Password;
-
-                        // Call the OpenDoor function.
-                        bool doorOpened = await DeviceService.OpenDoor(ip, port, machineNo, password);
-                        if (doorOpened)
-                        {
-                            string successMessage = "Door opened successfully.";
-                            LogHelper.Log($"[lnk_dooropen3_LinkClicked] Success: {successMessage}");
-                        }
-                        else
-                        {
-                            string errorMessage = "Failed to open door.";
-                            LogHelper.Log($"[lnk_dooropen3_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                    }
-                    else
-                    {
-                        string infoMessage = "Gate access cancelled.";
-                        LogHelper.Log($"[lnk_dooropen3_LinkClicked] Info: {infoMessage}");
-                        MessageBox.Show(infoMessage, "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
-                else
-                {
-                    string errorMessage = "Device IP label not found.";
-                    LogHelper.Log($"[lnk_dooropen3_LinkClicked] Error: {errorMessage}");
-                    MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                string errorMessage = $"An error occurred: {ex.Message}";
-                LogHelper.Log($"[lnk_dooropen3_LinkClicked] Exception: {errorMessage}");
-                MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private async void lnk_dooropen4_LinkClicked(object sender, EventArgs e)
-        {
-            try
-            {
-                // Locate the label containing the device IP in panelDevice4.
-                if (panelDevice4 != null && panelDevice4.Controls["dev4_ip"] is Label ipLabel)
-                {
-                    // Expected format: "Device IP: x.x.x.x"
-                    string ipText = ipLabel.Text;
-                    string ip = ipText.Replace("Device IP:", "").Trim();
-
-                    // Log the action
-                    LogHelper.Log($"[lnk_dooropen4_LinkClicked] Attempting to open door for IP: {ip}");
-
-                    // Get the logged-in user
-                    string loggedInUser = AppSession.LoggedInUser;
-
-                    // Show the GateAccessForm
-                    GateAccessForm gateAccessForm = new GateAccessForm(ip, _dbHelper, loggedInUser);
-                    DialogResult result = gateAccessForm.ShowDialog();
-
-                    if (result == DialogResult.OK)
-                    {
-                        // Load devices from AppSession and find the matching device by IP.
-                        var matchingDevice = AppSession.DeviceList?.FirstOrDefault(d => d.DeviceIP == ip);
-                        if (matchingDevice == null)
-                        {
-                            string errorMessage = "Device not found in App Session.";
-                            LogHelper.Log($"[lnk_dooropen4_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-
-                        // Retrieve parameters from the matching device.
-                        int port = matchingDevice.Port;
-                        int machineNo = matchingDevice.MachineNo;
-                        string password = matchingDevice.Password;
-
-                        // Call the OpenDoor function.
-                        bool doorOpened = await DeviceService.OpenDoor(ip, port, machineNo, password);
-                        if (doorOpened)
-                        {
-                            string successMessage = "Door opened successfully.";
-                            LogHelper.Log($"[lnk_dooropen4_LinkClicked] Success: {successMessage}");
-                        }
-                        else
-                        {
-                            string errorMessage = "Failed to open door.";
-                            LogHelper.Log($"[lnk_dooropen4_LinkClicked] Error: {errorMessage}");
-                            MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                    }
-                    else
-                    {
-                        string infoMessage = "Gate access cancelled.";
-                        LogHelper.Log($"[lnk_dooropen4_LinkClicked] Info: {infoMessage}");
-                    }
-                }
-                else
-                {
-                    string errorMessage = "Device IP label not found.";
-                    LogHelper.Log($"[lnk_dooropen4_LinkClicked] Error: {errorMessage}");
-                    MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                string errorMessage = $"An error occurred: {ex.Message}";
-                LogHelper.Log($"[lnk_dooropen4_LinkClicked] Exception: {errorMessage}");
-                MessageBox.Show(errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
 
         private void dev3_ip_Click(object sender, EventArgs e)
         {
@@ -2269,77 +1675,6 @@ namespace smart_attendance_middleware
 
         }
         
-
-        private async void button1_Click(object sender, EventArgs e)
-        {
-            // Ensure dependencies
-            if (_dbHelper == null)
-            {
-                _dbHelper = new DatabaseHelper();
-                _dbHelper.InitializeDatabase();
-            }
-
-            if (_wsManager == null)
-            {
-                MessageBox.Show("WebSocket Manager not initialized. Start services first.", "Simulator",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Open the SimulatorForm (normal UI). Simulation is controlled from that form.
-            try
-            {
-                var form = new SimulatorForm(_dbHelper, _wsManager);
-
-                // Optional: show as non-modal and bring to front
-                form.Show();
-                form.BringToFront();
-
-                AppendLogToTextBox("[SIM] Simulator UI opened. Use Start (1h) to run and view real-time data.");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log("[SIM][UI][ERROR] " + ex.Message);
-                MessageBox.Show("Failed to open Simulator UI: " + ex.Message, "Simulator",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-        private const string HardcodedUuid = "d3e7a3b5-4d1b-4e8a-8f3b-2e2b3b4c5d6e";
-        private async void button2_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                int enrollmentId = 118;
-                string checkinTime = DateTime.UtcNow.ToString("o"); // ISO 8601 format
-
-                await _httpHandler.PostAttendanceRecordAsync(enrollmentId, checkinTime: checkinTime, id: HardcodedUuid);
-                LogHelper.Log($"✅ Sent Check-In for Enrollment ID: {enrollmentId} with UUID: {HardcodedUuid}");
-                MessageBox.Show($"Check-In sent for Enrollment ID: {enrollmentId}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ Check-In failed: {ex.Message}");
-                MessageBox.Show($"Error during Check-In: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-        private async void button3_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                int enrollmentId = 118;
-                string checkoutTime = DateTime.UtcNow.ToString("o"); // ISO 8601 format
-
-                await _httpHandler.PostAttendanceRecordAsync(enrollmentId, checkoutTime: checkoutTime, id: HardcodedUuid);
-                LogHelper.Log($"✅ Sent Check-Out for Enrollment ID: {enrollmentId} with UUID: {HardcodedUuid}");
-                MessageBox.Show($"Check-Out sent for Enrollment ID: {enrollmentId}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"❌ Check-Out failed: {ex.Message}");
-                MessageBox.Show($"Error during Check-Out: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
 
 
         /////////////////////////Global Loader////////////////////////////////////////////
@@ -2547,157 +1882,156 @@ namespace smart_attendance_middleware
             if (toastNotificationControl2 != null) toastNotificationControl2.Visible = false;
         }
 
-        private async void button1_Click_1(object sender, EventArgs e)
+        private void InitializeDevicePanel()
         {
             try
             {
-                LogHelper.Log("[DEBUG] Manually triggering long-expired members cleanup...");
-                await CommonUtils.ProcessLongExpiredMembersCleanupAsync(_dbHelper).ConfigureAwait(false);
-                LogHelper.Log("[DEBUG] Long-expired members cleanup completed.");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[DEBUG] Cleanup failed: {ex.Message}");
-            }
-        }
+                var dataPairs = new List<Controls.DataPairItem>();
 
-        private async void button3_Click_1(object sender, EventArgs e)
-        {
-            try
-            {
-                if (ServiceManager.PeriodicMaintenanceService != null)
+                // Load all devices from AppSession
+                var devices = AppSession.DeviceList ?? new List<Device>();
+                var staffDevices = AppSession.StaffDeviceList ?? new List<Device>();
+
+                // Combine all devices
+                var allDevices = new List<Device>();
+                allDevices.AddRange(devices);
+                allDevices.AddRange(staffDevices);
+
+                // Update the connected devices label text (Initial count of active devices)
+                if (lbl_connecteddevice != null)
                 {
-                    LogHelper.Log("[DEBUG] Manually triggering SyncUnsyncedAttendanceLogs from PeriodicMaintenanceService...");
-                    // Assuming PeriodicMaintenanceService.ExecuteSyncUnsyncedAttendanceLogsAsync is accessible 
-                    // (reflection used if private, but typically test buttons are used for debugging public/internal triggers)
-                    var method = typeof(PeriodicMaintenanceService).GetMethod("ExecuteSyncUnsyncedAttendanceLogsAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                    if (method != null)
+                    lbl_connecteddevice.Text = allDevices.Count(d => d.IsActive).ToString();
+                }
+
+                if (allDevices.Count == 0)
+                {
+                    dataPairs.Add(new Controls.DataPairItem
                     {
-                        var task = (Task)method.Invoke(ServiceManager.PeriodicMaintenanceService, null);
-                        await task;
-                        LogHelper.Log("[DEBUG] Manual sync execution completed.");
-                    }
-                    else
-                    {
-                        LogHelper.Log("[DEBUG] Method ExecuteSyncUnsyncedAttendanceLogsAsync not found.");
-                    }
+                        Label = "No Devices",
+                        Elements = new List<Controls.DataElement>
+                        {
+                            new Controls.DataElement("No devices configured", Color.FromArgb(220, 53, 69))
+                        }
+                    });
                 }
                 else
                 {
-                    LogHelper.Log("[DEBUG] PeriodicMaintenanceService is not running.");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[DEBUG] Manual sync trigger failed: {ex.Message}");
-            }
-        }
-
-        private void button2_Click_1(object sender, EventArgs e)
-        {
-            try
-            {
-                var members = _dbHelper.GetMembers();
-                if (members == null || members.Count < 2)
-                {
-                    LogHelper.Log("[DEBUG] Not enough members found to mark random attendance.");
-                    return;
-                }
-
-                var random = new Random();
-                var selected = members.OrderBy(x => random.Next()).Take(2).ToList();
-
-                // Define back times: check-in 1 hour ago, check-out now.
-                // Use "yyyy-MM-dd HH:mm:ss" for local DB compatibility.
-                string checkInTime = DateTime.Now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss");
-                string checkOutTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-
-                foreach (var member in selected)
-                {
-                    var result = _dbHelper.InsertAttendanceLog(member.MemberID, checkInTime);
-                    if (result.LogId > 0)
+                    // Create a pair for each device
+                    int deviceCount = 0;
+                    foreach (var device in allDevices)
                     {
-                        _dbHelper.UpdateAttendanceLogForCheckOut(member.MemberID, checkOutTime);
-                        LogHelper.Log($"[DEBUG] Marked back-timed attendance for {member.Name} (ID: {member.MemberID}) - In: {checkInTime}, Out: {checkOutTime}. Sync status set to false.");
+                        deviceCount++;
+
+                        // Name (Label part)
+                        string deviceName = device.Location ?? "Device";
+
+                        // Determine if it's Staff or Member
+                        bool isStaff = AppSession.StaffDeviceList?.Any(sd => sd.DeviceIP == device.DeviceIP) ?? false;
+                        string deviceType = isStaff ? "Staff" : "Member";
+
+                        var elements = new List<Controls.DataElement>
+                        {
+                            // 0: Machine No
+                            new Controls.DataElement($"Machine No: {device.MachineNo}"),
+
+                            // 1: Device IP
+                            new Controls.DataElement($"IP: {device.DeviceIP ?? "N.A"}"),
+
+                            // 2: Status (Badge)
+                            new Controls.DataElement(device.IsActive ? "ONLINE" : "OFFLINE",
+                                device.IsActive ? Color.FromArgb(34, 177, 76) : Color.FromArgb(220, 53, 69)),
+
+                            // 3: Open Button
+                            new Controls.DataElement("Open", isLink: true, tooltip: $"Open {deviceName}")
+                        };
+
+                        dataPairs.Add(new Controls.DataPairItem
+                        {
+                            Label = deviceName,
+                            Type = deviceType, // Pass the type here
+                            Elements = elements,
+                            IpAddress = device.DeviceIP,
+                            Port = device.Port,
+                            MachineNo = device.MachineNo,
+                            Password = "0"
+                        });
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[DEBUG] Marking random attendance failed: {ex.Message}");
-            }
-        }
 
-        private async void button4_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                var members = _dbHelper.GetMembers();
-                if (members == null || members.Count == 0)
+                dataPairPanel1.SetData(dataPairs);
+
+                LogHelper.Log($"[DEBUG] DataPairPanel populated with {allDevices.Count} devices from AppSession.");
+
+                // --- INTEGRATED CONTINUOUS DEVICE MONITORING ---
+                if (allDevices.Count > 0)
                 {
-                    LogHelper.Log("[DEBUG] No members found to simulate check-in.");
-                    return;
-                }
-
-                // 1. Target exactly 8 hours ago for testing
-                DateTime targetBackTime = DateTime.Now.AddHours(-8);
-                DateTime backTimeUtc = targetBackTime.ToUniversalTime();
-
-                var random = new Random();
-                var member = members[random.Next(members.Count)];
-
-                string dbTimestamp = targetBackTime.ToString("yyyy-MM-dd HH:mm:ss");
-                string serverTimestamp = backTimeUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
-
-                LogHelper.Log($"[DEBUG] Simulating local check-in for {member.Name} exactly 8 hours ago ({dbTimestamp})...");
-
-                // 2. Insert into Local Database
-                // This call will set syncStatus to false locally
-                var dbResult = _dbHelper.InsertAttendanceLog(member.MemberID, dbTimestamp);
-
-                if (dbResult.LogId > 0)
-                {
-                    LogHelper.Log($"[DEBUG] Local DB record created (LogID: {dbResult.LogId}). Sending to Cloud Server...");
-
-                    // 3. Send to server
-                    await _httpHandler.PostAttendanceRecordAsync(
-                        member.EnrollmentID ?? 0,
-                        checkinTime: serverTimestamp,
-                        id: dbResult.AttendanceId
-                    );
-
-                    LogHelper.Log($"[DEBUG] Simulation check-in completed for member {member.MemberID}.");
-                }
-                else
-                {
-                    LogHelper.Log($"[DEBUG] Local insert failed. Likely violates temporal DB constraints for this member.");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[DEBUG] Simulation failed: {ex.Message}");
-            }
-        }
-
-        private async void button5_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (ServiceManager.PeriodicMaintenanceService != null)
-                {
-                    LogHelper.Log("[DEBUG] Manually triggering ForceCheckOutOperation...");
-                    var method = typeof(PeriodicMaintenanceService).GetMethod("ExecuteForceCheckOutOperation", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                    if (method != null)
+                    Task.Run(async () =>
                     {
-                        var task = (Task)method.Invoke(ServiceManager.PeriodicMaintenanceService, null);
-                        await task;
-                        LogHelper.Log("[DEBUG] Force check-out operation completed.");
-                    }
+                        // Initial delay before first check
+                        await Task.Delay(2000);
+
+                        while (!dataPairPanel1.IsDisposed)
+                        {
+                            try
+                            {
+                                // Run pings for all devices in parallel and collect results
+                                var pingTasks = allDevices.Select(async (device, index) =>
+                                {
+                                    string finalStatus = await CommonUtils.PingDeviceWithStatusAsync(
+                                        device.DeviceIP,
+                                        status => {
+                                            // Callback to show "RETRYING" (Orange) immediately on first failure
+                                            if (!dataPairPanel1.IsDisposed)
+                                                dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, status)));
+                                        }
+                                    );
+
+                                    if (!dataPairPanel1.IsDisposed)
+                                        dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, finalStatus)));
+
+                                    return finalStatus;
+                                }).ToList();
+
+                                string[] results = await Task.WhenAll(pingTasks);
+
+                                // Dynamically update the connected devices count based on pings
+                                int onlineCount = results.Count(s => s == "ONLINE");
+
+                                if (!dataPairPanel1.IsDisposed)
+                                {
+                                    dataPairPanel1.BeginInvoke(new Action(() =>
+                                    {
+                                        // Update the numeric label
+                                        if (lbl_connecteddevice != null)
+                                        {
+                                            lbl_connecteddevice.Text = onlineCount.ToString();
+                                        }
+
+                                        // Update the status icon: connected if at least one is online
+                                        if (pic_device_status != null)
+                                        {
+                                            pic_device_status.Image = (onlineCount > 0)
+                                                ? Properties.Resources.device_connected
+                                                : Properties.Resources.device_disconnected;
+                                        }
+                                    }));
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.Log($"[Dashboard][Monitoring] Error in status loop: {ex.Message}");
+                            }
+
+                            // Wait for 1 minute before the next sweep
+                            await Task.Delay(60000);
+                        }
+                    });
                 }
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"[DEBUG] Force check-out trigger failed: {ex.Message}");
+                LogHelper.Log($"[ERROR] Failed to populate DataPairPanel: {ex.Message}");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         /////////////////////////////////////////////////////////////////////////////////

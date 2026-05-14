@@ -200,6 +200,7 @@
     <Compile Include="Classes\DeviceFunctions.cs" />
     <Compile Include="Classes\DeviceService.cs" />
     <Compile Include="Classes\BackupService.cs" />
+    <Compile Include="Classes\ListViewPagination.cs" />
     <Compile Include="Classes\LogSyncService.cs" />
     <Compile Include="Classes\NetworkHelper.cs" />
     <Compile Include="Classes\OcxFpreaderInvoker.cs" />
@@ -216,6 +217,7 @@
     <Compile Include="Classes\SimulationEvents.cs" />
     <Compile Include="Classes\StaffAttendanceLogSyncService.cs" />
     <Compile Include="Classes\StaffAttendenceServerFunctions.cs" />
+    <Compile Include="Controls\DataPairPanel.cs" />
     <Compile Include="Controls\RectangularLoader.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -439,6 +441,9 @@
     <None Include="Resources\user-scan.gif" />
     <Content Include="Resources\user_create_screen.png" />
     <Content Include="Resources\user_login_screen.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Examples\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
