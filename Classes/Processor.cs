@@ -903,6 +903,110 @@ namespace smart_attendance_middleware
         ////////////////////////////////HTTP Methods//////////////////////////////////////
 
 
+        //private async Task HandleHttpAllMembers(JObject data)
+        //{
+        //    try
+        //    {
+        //        LogHelper.Log($"📦 Received all members data : {data.ToString()}");
+
+        //        var membersArray = data["members"] as JArray;
+        //        if (membersArray == null)
+        //        {
+        //            LogHelper.Log("❌ 'members' array not found in response.");
+        //            return;
+        //        }
+
+        //        // Build a transformed payload:
+        //        // - Skip staff
+        //        // - Preserve only picture when face == true; otherwise set picture to null
+        //        // This ensures SaveMemberPicturesAsync only downloads images for face-enabled members.
+        //        var transformedMembers = new JArray();
+        //        foreach (var memberToken in membersArray)
+        //        {
+        //            var member = memberToken as JObject;
+        //            if (member == null) continue;
+
+        //            bool hasFace = member["face"]?.Type != JTokenType.Null && member["face"]?.Value<bool>() == true;
+
+        //            // Clone member to avoid mutating original input
+        //            var memberClone = (JObject)member.DeepClone();
+
+        //            // If face is false, nullify picture so downloader won’t process it
+        //            if (!hasFace)
+        //            {
+        //                if (memberClone["picture"] != null)
+        //                    memberClone["picture"] = JValue.CreateNull();
+        //            }
+
+        //            transformedMembers.Add(memberClone);
+        //        }
+
+        //        // Create a new envelope for SaveMemberPicturesAsync
+        //        var picturesEnvelope = new JObject
+        //        {
+        //            ["members"] = transformedMembers
+        //        };
+
+        //        // Use reflection to call the private SaveMemberPicturesAsync method
+        //        try
+        //        {
+        //            var saveMethod = typeof(WebSocketManager).GetMethod(
+        //                "SaveMemberPicturesAsync",
+        //                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        //            if (saveMethod != null)
+        //            {
+        //                await (Task)saveMethod.Invoke(_wsManager, new object[] { picturesEnvelope });
+        //                LogHelper.Log("🖼️ Queued member picture download process for face-enabled, non-staff members.");
+        //            }
+        //            else
+        //            {
+        //                LogHelper.Log("❌ Could not find SaveMemberPicturesAsync method to download images.");
+        //            }
+        //        }
+        //        catch (Exception exImg)
+        //        {
+        //            LogHelper.Log($"❌ Error invoking SaveMemberPicturesAsync: {exImg.Message}");
+        //        }
+
+        //        int upsertedOrSynced = 0;
+        //        int deletedOrExpired = 0;
+
+        //        // Process sync/upsert/delete for non-staff members only.
+        //        foreach (var memberObj in transformedMembers)
+        //        {
+        //            try
+        //            {
+        //                var member = (JObject)memberObj;
+        //                var status = member["status"]?.Value<string>() ?? string.Empty;
+
+        //                // Reuse existing logic (SyncUserFromCloud itself skips staff, but we filtered already)
+        //                SyncUserFromCloud(member);
+
+        //                if (status.Equals("Deleted", StringComparison.OrdinalIgnoreCase) ||
+        //                    status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
+        //                {
+        //                    deletedOrExpired++;
+        //                }
+        //                else
+        //                {
+        //                    upsertedOrSynced++;
+        //                }
+        //            }
+        //            catch (Exception exItem)
+        //            {
+        //                LogHelper.Log($"⚠️ Error processing member in bulk: {exItem.Message}");
+        //            }
+        //        }
+
+        //        LogHelper.Log($"✅ {upsertedOrSynced} members synced/upserted (non-staff), 🗑 {deletedOrExpired} deleted/expired.");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        LogHelper.Log($"❌ HandleAllMembers error: {ex.Message}");
+        //    }
+        //}
+
         private async Task HandleHttpAllMembers(JObject data)
         {
             try
@@ -947,22 +1051,11 @@ namespace smart_attendance_middleware
                     ["members"] = transformedMembers
                 };
 
-                // Use reflection to call the private SaveMemberPicturesAsync method
+                // Direct call to SaveMemberPicturesAsync instead of using reflection
                 try
                 {
-                    var saveMethod = typeof(WebSocketManager).GetMethod(
-                        "SaveMemberPicturesAsync",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-                    if (saveMethod != null)
-                    {
-                        await (Task)saveMethod.Invoke(_wsManager, new object[] { picturesEnvelope });
-                        LogHelper.Log("🖼️ Queued member picture download process for face-enabled, non-staff members.");
-                    }
-                    else
-                    {
-                        LogHelper.Log("❌ Could not find SaveMemberPicturesAsync method to download images.");
-                    }
+                    await _wsManager.SaveMemberPicturesAsync(picturesEnvelope);
+                    LogHelper.Log("🖼️ Queued member picture download process for face-enabled, non-staff members.");
                 }
                 catch (Exception exImg)
                 {

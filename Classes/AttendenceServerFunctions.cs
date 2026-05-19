@@ -247,7 +247,7 @@ namespace smart_attendance_middleware
                 if (result.Action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
                 {
                     // Convert local EventTime (under configured GMT) to UTC and format with "+00"
-                    checkInStr = CommonUtils.FormatWithGmt(result.EventTime, gmtSetting);
+                    checkInStr = CommonUtils.ConvertToUtc0(result.EventTime, gmtSetting);
 
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,
@@ -274,9 +274,9 @@ namespace smart_attendance_middleware
 
                     if (checkInTime.HasValue)
                     {
-                        checkInStr = CommonUtils.FormatWithGmt(checkInTime.Value, gmtSetting);
+                        checkInStr = CommonUtils.ConvertToUtc0(checkInTime.Value, gmtSetting);
                     }
-                    checkOutStr = CommonUtils.FormatWithGmt(result.EventTime, gmtSetting);
+                    checkOutStr = CommonUtils.ConvertToUtc0(result.EventTime, gmtSetting);
 
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,

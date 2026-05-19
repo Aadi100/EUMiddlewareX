@@ -444,17 +444,17 @@ namespace smart_attendance_middleware.Classes
         }
 
         /// <summary>
-        /// Treats the input DateTime as local wall-clock under the provided GMT offset,
-        /// converts to UTC (GMT 0), and formats as "yyyy-MM-dd HH:mm:ss.fff+00".
+        /// Converts a local wall-clock time under a given GMT offset to UTC 0 
+        /// and formats it as "yyyy-MM-dd HH:mm:ss.fff+00".
         /// </summary>
-        public static string FormatWithGmt(DateTime localTime, string gmtOffset)
+        public static string ConvertToUtc0(DateTime localTime, string gmtSetting)
         {
-            // Convert local (under given offset) to UTC
-            var offset = ParseGmtOffset(gmtOffset); 
-            var utc = localTime - offset;
+            // Get the offset using custom logic
+            var offset = ParseGmtOffset(gmtSetting);
 
-            // Always format with UTC suffix "+00"
-            return utc.ToString("yyyy-MM-dd HH:mm:ss.fff") + "+00";
+            // Create a DateTimeOffset and convert to UTC
+            DateTimeOffset localWithOffset = new DateTimeOffset(localTime, offset);
+            return localWithOffset.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss.fff") + "+00";
         }
 
         /// <summary>
@@ -935,14 +935,15 @@ namespace smart_attendance_middleware.Classes
                                 // Changed .HasValue to > 0 to prevent the 'int' definition error
                                 if (member != null && member.EnrollmentID > 0)
                                 {
-                                    string isoCheckIn = checkInTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                                    string isoCheckOut = forcedCheckOutTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                                    var gmtSetting = dbHelper.GetSetting("GMT");
+                                    string formattedCheckIn = ConvertToUtc0(checkInTime, gmtSetting);
+                                    string formattedCheckOut = ConvertToUtc0(forcedCheckOutTime, gmtSetting);
 
                                     LogHelper.Log($"[ForceCheckOut] Syncing forced checkout to server for EnrollmentID: {member.EnrollmentID}");
                                     await httpHandler.PostAttendanceRecordAsync(
                                         (int)member.EnrollmentID, 
-                                        isoCheckIn,
-                                        isoCheckOut,
+                                        formattedCheckIn,
+                                        formattedCheckOut,
                                         log.AttendanceId
                                     ).ConfigureAwait(false);
                                 }

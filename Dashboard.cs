@@ -2034,6 +2034,94 @@ namespace smart_attendance_middleware
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        private async void button1_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                LogHelper.Log("🎲 Simulating direct attendance injection (8 hours ago)...");
+
+                // 1. Pick a random active member
+                var members = _dbHelper.GetMembers().Where(m => m.EnrollmentID.HasValue && m.Status == "active").ToList();
+                if (members.Count == 0) return;
+
+                var random = new Random();
+                var member = members[random.Next(members.Count)];
+                DateTime simulatedTime = DateTime.Now.AddHours(-8);
+                string simulatedTimeStr = simulatedTime.ToString("yyyy-MM-dd HH:mm:ss");
+
+                // 2. Insert directly into Database with Lock
+                int logId = 0;
+                string attendanceGuid = null;
+
+                await DatabaseQueueManager.EnterDbWriteLockAsync("DirectManualAttendance", DbTaskPriority.High);
+                try
+                {
+                    var dbResult = _dbHelper.InsertAttendanceLog(member.MemberID, simulatedTimeStr);
+                    logId = dbResult.LogId;
+                    attendanceGuid = dbResult.AttendanceId;
+                }
+                finally
+                {
+                    DatabaseQueueManager.ReleaseDbWriteLock("DirectManualAttendance");
+                }
+
+                if (logId > 0 && !string.IsNullOrEmpty(attendanceGuid))
+                {
+                    LogHelper.Log($"✅ Local Log Created: Member={member.Name}, LogID={logId}, GUID={attendanceGuid}");
+
+                    // 3. Send directly to Server via HttpHandler
+                    // We convert the simulated time to UTC-0 as required by the backend
+                    var gmt = _dbHelper.GetSetting("GMT");
+                    string utcTimeStr = CommonUtils.ConvertToUtc0(simulatedTime, gmt);
+
+                    await _httpHandler.PostAttendanceRecordAsync(
+                        member.EnrollmentID.Value,
+                        checkinTime: utcTimeStr,
+                        checkoutTime: null,
+                        id: attendanceGuid
+                    );
+
+                    LogHelper.Log($"🚀 Attendance pushed to cloud for Member={member.MemberID}");
+
+                    // Update UI Dashboard panels
+                    UpdateAttendancePanels();
+                }
+                else
+                {
+                    LogHelper.Log("⚠️ Database insertion failed (likely timestamp validation).");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error in button1_Click: {ex.Message}");
+            }
+        }
+        private async void button2_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                LogHelper.Log("⚡ Manually triggering Force Check-Out operation...");
+
+                // Accessing the maintenance service through the ServiceManager
+                var maintenanceService = ServiceManager.PeriodicMaintenanceService;
+
+                if (maintenanceService != null)
+                {
+                    // Using the existing HttpHandler which is required for cloud syncing during force checkout
+                    await CommonUtils.ProcessForceCheckOutAsync(_dbHelper, _httpHandler).ConfigureAwait(false);
+                    LogHelper.Log("✅ Force Check-Out operation completed successfully.");
+                }
+                else
+                {
+                    LogHelper.Log("⚠️ PeriodicMaintenanceService is not initialized.");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error in button2_Click: {ex.Message}");
+            }
+        }
         /////////////////////////////////////////////////////////////////////////////////
     }
 }

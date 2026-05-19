@@ -424,7 +424,7 @@ namespace smart_attendance_middleware
 
                 if (result.Action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
                 {
-                    checkInStr = CommonUtils.FormatWithGmt(result.EventTime, gmtSetting);
+                    checkInStr = CommonUtils.ConvertToUtc0(result.EventTime, gmtSetting);
 
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,
@@ -437,10 +437,10 @@ namespace smart_attendance_middleware
                 }
                 else if (result.Action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
                 {
-                    checkOutStr = CommonUtils.FormatWithGmt(result.EventTime, gmtSetting);
+                    checkOutStr = CommonUtils.ConvertToUtc0(result.EventTime, gmtSetting);
 
                     if (pairedCheckIn.HasValue)
-                        checkInStr = CommonUtils.FormatWithGmt(pairedCheckIn.Value, gmtSetting);
+                        checkInStr = CommonUtils.ConvertToUtc0(pairedCheckIn.Value, gmtSetting);
 
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,

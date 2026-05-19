@@ -81,8 +81,10 @@
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
             this.process1 = new System.Diagnostics.Process();
-            this.toastNotificationControl2 = new smart_attendance_middleware.UI.ToastNotificationControl();
+            this.button1 = new System.Windows.Forms.Button();
+            this.button2 = new System.Windows.Forms.Button();
             this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
+            this.toastNotificationControl2 = new smart_attendance_middleware.UI.ToastNotificationControl();
             this.dataPairPanel1 = new smart_attendance_middleware.Controls.DataPairPanel();
             this.panel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
@@ -109,17 +111,17 @@
             // 
             // txtLog
             // 
-            this.txtLog.Location = new System.Drawing.Point(1745, 90);
+            this.txtLog.Location = new System.Drawing.Point(1388, 90);
             this.txtLog.Multiline = true;
             this.txtLog.Name = "txtLog";
-            this.txtLog.Size = new System.Drawing.Size(158, 400);
+            this.txtLog.Size = new System.Drawing.Size(515, 400);
             this.txtLog.TabIndex = 15;
             this.txtLog.TextChanged += new System.EventHandler(this.txtLog_TextChanged);
             // 
             // panel2
             // 
             this.panel2.BackColor = System.Drawing.Color.White;
-            this.panel2.Controls.Add(this.toastNotificationControl2);
+            this.panel2.Controls.Add(this.rectangularLoader1);
             this.panel2.Controls.Add(this.prg_server);
             this.panel2.Controls.Add(this.pictureBox1);
             this.panel2.Controls.Add(this.cuiPanel6);
@@ -130,7 +132,7 @@
             this.panel2.Controls.Add(this.cuiPanel2);
             this.panel2.Location = new System.Drawing.Point(0, 73);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(1307, 741);
+            this.panel2.Size = new System.Drawing.Size(1307, 618);
             this.panel2.TabIndex = 41;
             // 
             // prg_server
@@ -163,7 +165,7 @@
             this.cuiPanel6.PanelColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(234)))), ((int)(((byte)(226)))));
             this.cuiPanel6.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
             this.cuiPanel6.Rounding = new System.Windows.Forms.Padding(12);
-            this.cuiPanel6.Size = new System.Drawing.Size(618, 475);
+            this.cuiPanel6.Size = new System.Drawing.Size(618, 393);
             this.cuiPanel6.TabIndex = 4;
             // 
             // cuiPanel7
@@ -177,7 +179,7 @@
             this.cuiPanel7.PanelColor = System.Drawing.Color.Transparent;
             this.cuiPanel7.PanelOutlineColor = System.Drawing.Color.Transparent;
             this.cuiPanel7.Rounding = new System.Windows.Forms.Padding(0);
-            this.cuiPanel7.Size = new System.Drawing.Size(616, 429);
+            this.cuiPanel7.Size = new System.Drawing.Size(616, 337);
             this.cuiPanel7.TabIndex = 14;
             // 
             // lst_missing_fingerprints
@@ -185,7 +187,7 @@
             this.lst_missing_fingerprints.HideSelection = false;
             this.lst_missing_fingerprints.Location = new System.Drawing.Point(6, 3);
             this.lst_missing_fingerprints.Name = "lst_missing_fingerprints";
-            this.lst_missing_fingerprints.Size = new System.Drawing.Size(607, 423);
+            this.lst_missing_fingerprints.Size = new System.Drawing.Size(607, 321);
             this.lst_missing_fingerprints.TabIndex = 42;
             this.lst_missing_fingerprints.UseCompatibleStateImageBehavior = false;
             this.lst_missing_fingerprints.Visible = false;
@@ -197,7 +199,7 @@
             this.aiChat.DefaultBackgroundColor = System.Drawing.Color.White;
             this.aiChat.Location = new System.Drawing.Point(1, 6);
             this.aiChat.Name = "aiChat";
-            this.aiChat.Size = new System.Drawing.Size(612, 420);
+            this.aiChat.Size = new System.Drawing.Size(612, 326);
             this.aiChat.Source = new System.Uri("file:///E:/[PRODUCTION]/[ABDULHADI-LATEST-VERSION]/ailogs.html", System.UriKind.Absolute);
             this.aiChat.TabIndex = 0;
             this.aiChat.ZoomFactor = 1D;
@@ -308,8 +310,8 @@
             // 
             // cuiPanel5
             // 
-            this.cuiPanel5.Controls.Add(this.rectangularLoader1);
             this.cuiPanel5.Controls.Add(this.panel3);
+            this.cuiPanel5.Controls.Add(this.toastNotificationControl2);
             this.cuiPanel5.Controls.Add(this.cuiSeparator1);
             this.cuiPanel5.Controls.Add(this.btn_retry);
             this.cuiPanel5.Controls.Add(this.lbl_adminsetting);
@@ -889,14 +891,25 @@
             this.process1.StartInfo.UserName = "";
             this.process1.SynchronizingObject = this;
             // 
-            // toastNotificationControl2
+            // button1
             // 
-            this.toastNotificationControl2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(18)))), ((int)(((byte)(66)))));
-            this.toastNotificationControl2.Location = new System.Drawing.Point(25, 622);
-            this.toastNotificationControl2.Name = "toastNotificationControl2";
-            this.toastNotificationControl2.Padding = new System.Windows.Forms.Padding(12);
-            this.toastNotificationControl2.Size = new System.Drawing.Size(352, 119);
-            this.toastNotificationControl2.TabIndex = 17;
+            this.button1.Location = new System.Drawing.Point(1438, 30);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 46;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
+            // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(1579, 32);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(75, 23);
+            this.button2.TabIndex = 47;
+            this.button2.Text = "button2";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click);
             // 
             // rectangularLoader1
             // 
@@ -908,15 +921,26 @@
             this.rectangularLoader1.IdleForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(130)))), ((int)(((byte)(180)))));
             this.rectangularLoader1.IdleText = "● Idle — waiting for activity";
             this.rectangularLoader1.LoaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
-            this.rectangularLoader1.Location = new System.Drawing.Point(19, 478);
+            this.rectangularLoader1.Location = new System.Drawing.Point(341, 527);
             this.rectangularLoader1.MiddleColor = System.Drawing.Color.FromArgb(((int)(((byte)(122)))), ((int)(((byte)(68)))), ((int)(((byte)(242)))));
             this.rectangularLoader1.Name = "rectangularLoader1";
-            this.rectangularLoader1.Size = new System.Drawing.Size(271, 55);
+            this.rectangularLoader1.Size = new System.Drawing.Size(618, 55);
             this.rectangularLoader1.StartColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(91)))), ((int)(((byte)(190)))));
             this.rectangularLoader1.SweepWidth = 0.35F;
             this.rectangularLoader1.TabIndex = 28;
             this.rectangularLoader1.Text = "rectangularLoader1";
             this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            // 
+            // toastNotificationControl2
+            // 
+            this.toastNotificationControl2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(18)))), ((int)(((byte)(66)))));
+            this.toastNotificationControl2.Location = new System.Drawing.Point(25, 456);
+            this.toastNotificationControl2.MaximumSize = new System.Drawing.Size(260, 70);
+            this.toastNotificationControl2.MinimumSize = new System.Drawing.Size(260, 70);
+            this.toastNotificationControl2.Name = "toastNotificationControl2";
+            this.toastNotificationControl2.Padding = new System.Windows.Forms.Padding(12);
+            this.toastNotificationControl2.Size = new System.Drawing.Size(260, 70);
+            this.toastNotificationControl2.TabIndex = 17;
             // 
             // dataPairPanel1
             // 
@@ -941,7 +965,9 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1924, 1061);
+            this.ClientSize = new System.Drawing.Size(1915, 686);
+            this.Controls.Add(this.button2);
+            this.Controls.Add(this.button1);
             this.Controls.Add(this.lbl_Fingerprints);
             this.Controls.Add(this.btn_fingerprintno);
             this.Controls.Add(this.txtLog);
@@ -1043,5 +1069,7 @@
         private Controls.RectangularLoader rectangularLoader1;
         private UI.ToastNotificationControl toastNotificationControl2;
         private Controls.DataPairPanel dataPairPanel1;
+        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button button1;
     }
 }

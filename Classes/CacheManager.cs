@@ -27,7 +27,7 @@ namespace smart_attendance_middleware.Classes
 
         public event EventHandler<CacheUpdateEventArgs> CacheUpdated;
 
-        public CacheManager(DatabaseHelper dbHelper, int refreshIntervalSeconds = 30)
+        public CacheManager(DatabaseHelper dbHelper, int refreshIntervalSeconds = 3600)
         {
             _dbHelper = dbHelper ?? throw new ArgumentNullException(nameof(dbHelper));
             _refreshIntervalSeconds = refreshIntervalSeconds;

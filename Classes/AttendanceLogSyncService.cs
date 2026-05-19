@@ -596,8 +596,8 @@ public class AttendanceLogSyncService : IDisposable
                 .Select(log => new
                 {
                     log.EnrollmentId,
-                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.FormatWithGmt(log.CheckInTime, gmtSetting) : null,
-                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.FormatWithGmt(log.CheckOutTime, gmtSetting) : null,
+                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.ConvertToUtc0(log.CheckInTime, gmtSetting) : null,
+                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.ConvertToUtc0(log.CheckOutTime, gmtSetting) : null,
                     Id = log.AttendanceId
                 })
                 .Where(x => x.CheckIn != null || x.CheckOut != null)
@@ -741,7 +741,7 @@ public class AttendanceLogSyncService : IDisposable
 
             if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
             {
-                checkInStr = CommonUtils.FormatWithGmt(eventTime, gmtSetting);
+                checkInStr = CommonUtils.ConvertToUtc0(eventTime, gmtSetting);
 
                 await _httpHandler.PostAttendanceRecordAsync(
                     enrollmentId,
@@ -768,9 +768,9 @@ public class AttendanceLogSyncService : IDisposable
 
                 if (checkInTime.HasValue)
                 {
-                    checkInStr = CommonUtils.FormatWithGmt(checkInTime.Value, gmtSetting);
+                    checkInStr = CommonUtils.ConvertToUtc0(checkInTime.Value, gmtSetting);
                 }
-                checkOutStr = CommonUtils.FormatWithGmt(eventTime, gmtSetting);
+                checkOutStr = CommonUtils.ConvertToUtc0(eventTime, gmtSetting);
 
                 await _httpHandler.PostAttendanceRecordAsync(
                     enrollmentId,

@@ -819,8 +819,8 @@ public class StaffAttendanceLogSyncService : IDisposable
                 .Select(log => new
                 {
                     log.EnrollmentId,
-                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.FormatWithGmt(log.CheckInTime, gmtSetting) : null,
-                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.FormatWithGmt(log.CheckOutTime, gmtSetting) : null,
+                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.ConvertToUtc0(log.CheckInTime, gmtSetting) : null,
+                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.ConvertToUtc0(log.CheckOutTime, gmtSetting) : null,
                     Id = log.AttendanceId
                 })
                 .Where(x => x.CheckIn != null || x.CheckOut != null)

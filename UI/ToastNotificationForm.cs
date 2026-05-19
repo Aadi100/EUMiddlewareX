@@ -34,24 +34,27 @@ namespace smart_attendance_middleware.UI
         private void LifeTimer_Tick(object sender, EventArgs e)
         {
             _lifeTimer.Stop();
-            this.Visible = false;
+            this.Visible = false;   
         }
 
         private void InitializeComponents()
         {
-            Width = 340;
-            Height = 110;
+            // forcing hard size constraints to override designer defaults
+            this.Size = new Size(260, 70);
+            this.MinimumSize = new Size(260, 70);
+            this.MaximumSize = new Size(260, 70);
+            
             BackColor = ThemePanel;
-            Padding = new Padding(12);
+            Padding = new Padding(6);
             DoubleBuffered = true;
             Visible = true; // Show in designer by default
 
             _iconBox = new PictureBox
             {
-                Width = 48,
-                Height = 48,
-                Left = 14,
-                Top = 14,
+                Width = 28,
+                Height = 28,
+                Left = 10,
+                Top = 10,
                 SizeMode = PictureBoxSizeMode.StretchImage,
                 Image = SystemIcons.Information.ToBitmap()
             };
@@ -59,11 +62,11 @@ namespace smart_attendance_middleware.UI
             _titleLabel = new Label
             {
                 AutoSize = false,
-                Left = 62, 
-                Top = 14,
-                Width = Width - 76,
-                Height = 22,
-                Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold),
+                Left = 46, 
+                Top = 10,
+                Width = Width - 56,
+                Height = 18,
+                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
                 ForeColor = Color.White,
                 Text = "Notification Title"
             };
@@ -71,11 +74,11 @@ namespace smart_attendance_middleware.UI
             _messageLabel = new Label
             {
                 AutoSize = false,
-                Left = 62,
-                Top = 40,
-                Width = Width - 76,
-                Height = 48,
-                Font = new Font("Segoe UI", 9.2f),
+                Left = 46,
+                Top = 28,
+                Width = Width - 56,
+                Height = 32,
+                Font = new Font("Segoe UI", 8.25f),
                 ForeColor = Color.Gainsboro,
                 Text = "Notification message appears here."
             };
@@ -84,7 +87,7 @@ namespace smart_attendance_middleware.UI
             Controls.Add(_titleLabel);
             Controls.Add(_messageLabel);
 
-            ApplyRoundedRegion(14);
+            ApplyRoundedRegion(10);
         }
 
         public void UpdateToast(string title, string message, Icon icon = null, int displayMs = 5000)
