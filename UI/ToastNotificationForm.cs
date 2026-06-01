@@ -104,7 +104,12 @@ namespace smart_attendance_middleware.UI
             _iconBox.Image = (icon ?? SystemIcons.Information).ToBitmap();
 
             this.Visible = true;
-            this.BringToFront();
+
+            // Use SetChildIndex instead of BringToFront to avoid window activation
+            if (this.Parent != null)
+            {
+                this.Parent.Controls.SetChildIndex(this, 0);
+            }
 
             _lifeTimer.Stop();
             _lifeTimer.Interval = _displayMilliseconds;

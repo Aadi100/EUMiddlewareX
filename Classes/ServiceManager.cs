@@ -18,7 +18,7 @@ public static class ServiceManager
             LogSyncService.Start();
         }
 
-        return Task.CompletedTask;
+        return LogSyncService.Started;
     }
 
     public static void StopLogSyncService()
@@ -35,7 +35,7 @@ public static class ServiceManager
             AttendanceLogSyncService.Start();
         }
 
-        return Task.CompletedTask;
+        return AttendanceLogSyncService.Started;
     }
 
     public static void StopAttendanceLogSyncService()
@@ -56,7 +56,7 @@ public static class ServiceManager
             StaffAttendanceLogSyncService.Start();
         }
 
-        return Task.CompletedTask;
+        return StaffAttendanceLogSyncService.Started;
     }
 
     public static void StopStaffAttendanceLogSyncService()
@@ -77,7 +77,7 @@ public static class ServiceManager
             PeriodicMaintenanceService.Start();
         }
 
-        return Task.CompletedTask;
+        return PeriodicMaintenanceService.Started;
     }
 
     public static void StopPeriodicMaintenanceService()

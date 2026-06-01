@@ -70,8 +70,8 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.UI.LoaderPopupForm _loaderPopup;
         private BackupService _backupService;
         private bool _attendanceInitialSyncHandled = false;
-        private volatile bool _serverProgressKeepAlive = false;
         private FacePopupForm _facePopup;
+        private bool _isServerConnected = false;
 
         // DTO to carry computed sync status results
         public class SyncStatusResult
@@ -102,7 +102,17 @@ namespace smart_attendance_middleware
             _httpHandler = new HttpHandler(_dbHelper, _processor);
 
             _wsManager.LiveUpdate += WsManager_LiveUpdate;
-            LogHelper.LogUpdated += AppendLogToTextBox; // Subscribe to log updates
+
+            // Check if debug mode is enabled from settings; default to false if missing or null
+            string debugSetting = _dbHelper.GetSetting("DebugMode");
+            bool isDebugEnabled = !string.IsNullOrEmpty(debugSetting) &&
+                                (debugSetting == "1" || debugSetting.Equals("true", StringComparison.OrdinalIgnoreCase));
+
+            if (isDebugEnabled)
+            {
+                var logForm = new smart_attendance_middleware.UI.LogForm();
+                logForm.Show();
+            }
 
             // Initialize the aiChatLogger
             aiChatLogger.Initialize();
@@ -200,7 +210,11 @@ namespace smart_attendance_middleware
             if (message != null)
                 _loaderPopup.StatusText = message;
             if (!_loaderPopup.Visible)
+            {
                 _loaderPopup.Show(this); // owner
+                _loaderPopup.TopMost = true;
+            }
+            _loaderPopup.BringToFront();
             _loaderPopup.Refresh();
         }
 
@@ -286,32 +300,6 @@ namespace smart_attendance_middleware
 
 
 
-        private void AppendLogToTextBox(string logMessage)  // Method to append log messages to the TextBox
-        {
-            if (txtLog.InvokeRequired)
-            {
-                txtLog.Invoke(new Action(() => AppendLogToTextBox(logMessage)));
-            }
-            else
-            {
-                txtLog.AppendText(logMessage + Environment.NewLine);
-                TrimLogTextBox();
-            }
-        }
-
-        private void TrimLogTextBox()
-        {
-            var lines = txtLog.Lines;
-            if (lines.Length <= MaxLogLines)
-            {
-                return;
-            }
-            txtLog.Lines = lines.Skip(lines.Length - MaxLogLines).ToArray();
-            txtLog.SelectionStart = txtLog.Text.Length;
-            txtLog.ScrollToCaret();
-        }
-
-
         private void InitializeWebSocketManager()
         {
             _wsManager = new WebSocketManager(_dbHelper);
@@ -345,13 +333,57 @@ namespace smart_attendance_middleware
                 prg_server.Value = 100;
                 prg_server.Visible = true;
             }
-
-            // Stop keep-alive progress
-            _serverProgressKeepAlive = false;
-
         }
 
-        private async void OnAttendanceLogSyncCompleted()
+        /// <summary>
+        /// Real-time handler for server connection status changes.
+        /// Updates progress bar color and value based on actual connection state.
+        /// </summary>
+        private void OnServerConnectionStatusChanged(bool isConnected)
+        {
+            try
+            {
+                // Ensure UI thread
+                if (InvokeRequired)
+                {
+                    BeginInvoke(new Action(() => OnServerConnectionStatusChanged(isConnected)));
+                    return;
+                }
+
+                _isServerConnected = isConnected;
+
+                if (prg_server == null)
+                    return;
+
+                LogHelper.Log($"[Dashboard] Server connection status changed: {(isConnected ? "CONNECTED ✅" : "DISCONNECTED ❌")}");
+
+                if (isConnected)
+                {
+                    // Server is connected - set progress bar to green and 100%
+                    prg_server.ForeColor = Color.LimeGreen;
+                    if (prg_server.Value < 100)
+                    {
+                        prg_server.Value = 100;
+                    }
+                    prg_server.Refresh();
+                    LogHelper.Log("🟢 Server connected - progress bar is GREEN");
+                }
+                else
+                {
+                    // Server is disconnected - set progress bar to red and reset to 0
+                    prg_server.ForeColor = Color.Red;
+                    prg_server.Value = 0;
+                    prg_server.Refresh();
+                    LogHelper.Log("🔴 Server disconnected - progress bar is RED");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ Error in OnServerConnectionStatusChanged: {ex.Message}");
+            }
+        }
+
+        private void OnAttendanceLogSyncCompleted()
         {
             // Prevent double handling
             if (_attendanceInitialSyncHandled)
@@ -366,7 +398,7 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                LogHelper.Log("🎯 Initial attendance log sync completed - entering post-batch delay window...");
+                LogHelper.Log("🎯 Initial attendance log sync completed - starting server with real-time progress tracking...");
 
                 // Mark handled early to avoid re-entry
                 _attendanceInitialSyncHandled = true;
@@ -374,9 +406,7 @@ namespace smart_attendance_middleware
                 // Unsubscribe immediately (defensive)
                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
 
-                // Determinate progress: 0->100 over 20s, then keep-alive up to 99% until server ready
-                int delaySeconds = 20;
-
+                // Initialize progress bar - real-time connection-based progress
                 if (prg_server != null)
                 {
                     prg_server.Visible = true;
@@ -384,45 +414,10 @@ namespace smart_attendance_middleware
                     prg_server.Minimum = 0;
                     prg_server.Maximum = 100;
                     prg_server.Value = 0;
+                    prg_server.ForeColor = Color.Blue; // Blue = connecting
                 }
 
-                LogHelper.Log($"⏳ Finalizing initial sync... progressing server bar for {delaySeconds}s");
-
-                int stepPerSecond = 100 / delaySeconds; // 5
-                int current = 0;
-
-                for (int remain = delaySeconds; remain > 0; remain--)
-                {
-                    if (prg_server != null)
-                    {
-                        current = Math.Min(100, current + stepPerSecond);
-                        prg_server.Value = current;
-                        prg_server.Refresh();
-                    }
-
-                    await Task.Delay(1000);
-                }
-
-                // After 20s, switch to keep-alive progress up to 99% until Ready sets it to 100%
-                _serverProgressKeepAlive = true;
-                LogHelper.Log("⏭️ Entering keep-alive progress mode until server is ready...");
-
-                // Increment slowly to 99% (e.g., 1% every second) until Ready triggers
-                while (_serverProgressKeepAlive && prg_server != null && prg_server.Value < 99)
-                {
-                    try
-                    {
-                        prg_server.Value = Math.Min(99, prg_server.Value + 1);
-                        prg_server.Refresh();
-
-                    }
-                    catch
-                    {
-                        // Ignore UI update issues
-                    }
-
-                    await Task.Delay(1000);
-                }
+                LogHelper.Log("🔵 Progress bar initialized (BLUE) - waiting for server connection...");
 
                 // If server was already started manually, skip auto-start
                 if (_attendanceServerStarted)
@@ -439,16 +434,15 @@ namespace smart_attendance_middleware
                     AttendanceServerThreadManager.Start(showUI: false, waitForReady: false);
                     _attendanceServerStarted = true;
 
-                    LogHelper.Log("✅ AttendanceServerThreadManager start requested after progress completion");
+                    LogHelper.Log("✅ AttendanceServerThreadManager start requested - monitoring real-time connection status...");
                 }
                 catch (Exception ex)
                 {
                     LogHelper.Log($"❌ Failed to start AttendanceServerThreadManager: {ex.Message}");
-                    _serverProgressKeepAlive = false;
                     if (prg_server != null)
                     {
-                        prg_server.Style = ProgressBarStyle.Continuous;
-                        prg_server.Value = Math.Max(0, prg_server.Value - 10);
+                        prg_server.ForeColor = Color.Red;
+                        prg_server.Value = 0;
                         prg_server.Refresh();
                     }
                 }
@@ -456,10 +450,9 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Error in OnAttendanceLogSyncCompleted: {ex.Message}");
-                _serverProgressKeepAlive = false;
                 if (prg_server != null)
                 {
-                    prg_server.Style = ProgressBarStyle.Continuous;
+                    prg_server.ForeColor = Color.Red;
                     prg_server.Value = 0;
                     prg_server.Refresh();
                 }
@@ -558,30 +551,6 @@ namespace smart_attendance_middleware
                     lbl_pendingjobs.Text = pendingJobs.ToString();
                 }
 
-                // Update Missing Fingerprints button text (red button)
-                if (btn_fingerprintno != null)
-                {
-                    btn_fingerprintno.Content = missingFingerprints.ToString();
-
-
-                    // If there are no missing fingerprints, hide the button and label
-                    if (missingFingerprints == 0)
-                    {
-                        btn_fingerprintno.Visible = false;
-                        lbl_Fingerprints.Visible = false;
-                    }
-                    else
-                    {
-                        btn_fingerprintno.Visible = true;
-                        btn_fingerprintno.Location = (new System.Drawing.Point(800, 204));
-                        lbl_Fingerprints.Visible = true;
-                        lbl_Fingerprints.Location = (new System.Drawing.Point(830, 207));
-                        btn_fingerprintno.BringToFront();
-                        lbl_Fingerprints.BringToFront();
-
-                    }
-                }
-
                 // Enable/disable retry button based on pending jobs count and change color
                 if (btn_retry != null)
                 {
@@ -620,46 +589,49 @@ namespace smart_attendance_middleware
         }
 
 
-        // Add a refresh method to manually update device status
-        public async Task RefreshDeviceStatus()
-        {
-
-            // Also refresh the sync status information
-            await RefreshDeviceSyncStatusAsync();
-        }
-
-        public async Task LoadDevicesAndCheckStatus()
-        {
-            await RefreshDeviceStatus();
-        }
-
         protected override async void OnShown(EventArgs e)
         {
             base.OnShown(e);
             if (servicesInitialized) return;
-            // Keep dashboard visible; just show loader popup
-            ShowLoader("Preparing dashboard UI...");
-            await LoadInitialUiAsync();
-            _uiReady = true;
-            HideLoader();
 
-            // Delay before background services (requested 2 seconds)
-            await Task.Delay(2000);
+            try
+            {
+                // Initial Load - Ensure UI has a moment to settle
+                ShowLoader("Initializing Middleware System...");
+                await Task.Delay(500);
 
-            ShowLoader("Starting services...");
-            
-            await StartServicesAsync();
+                // Phase 1: Data Caching and UI Prep
+                await LoadInitialUiAsync();
+                _uiReady = true;
+                await Task.Delay(200);
 
-            InitializeDevicePanel();
+                // Phase 2: Services Startup
+                UpdateLoaderMessage("Starting background sync engines...");
+                await StartServicesAsync();
+                await Task.Delay(200);
 
-            dataPairPanel1.OpenDoorRequested += async (item) => {
-                if (string.IsNullOrEmpty(item.IpAddress)) return;
-                await CommonUtils.HandleDoorOpenRequestAsync(item.IpAddress, item.Port, item.MachineNo, item.Password, _dbHelper);
-            };
+                // Phase 3: Hardware Interface Prep
+                UpdateLoaderMessage("Finalizing hardware interface...");
+                InitializeDevicePanel();
 
-            HideLoader();
+                dataPairPanel1.OpenDoorRequested += async (item) => {
+                    if (string.IsNullOrEmpty(item.IpAddress)) return;
+                    await CommonUtils.HandleDoorOpenRequestAsync(item.IpAddress, item.Port, item.MachineNo, item.Password, _dbHelper);
+                };
 
-            servicesInitialized = true;
+                // Success feedback
+                UpdateLoaderMessage("All systems operational. Launching Dashboard...");
+                await Task.Delay(1000);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[OnShown][ERROR] {ex.Message}");
+            }
+            finally
+            {
+                HideLoader();
+                servicesInitialized = true;
+            }
         }
 
         // Add async initialization routine
@@ -667,82 +639,101 @@ namespace smart_attendance_middleware
         {
             try
             {
-                UpdateLoaderMessage("Caching System data...");
+                UpdateLoaderMessage("Caching membership and attendance data...");
 
                 // Use CacheManager for initial load instead of direct database calls
                 await _cacheManager.InitialLoadAsync();
 
                 // Start automatic incremental updates every 30 seconds
                 _cacheManager.StartAutoRefresh();
+
+                LogHelper.Log("[LoadInitialUiAsync] Cache warmed successfully");
+                UpdateLoaderMessage("Membership data cached successfully.");
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[LoadInitialUiAsync] Error caching data: {ex.Message}");
+                UpdateLoaderMessage("Cache failure. System will run in direct-query mode.");
             }
 
             UpdateAttendancePanels();
             await Task.Yield(); // let UI pump once
         }
 
-        private async Task StartServicesAsync()
+        public async Task StartServicesAsync()
         {
             try
             {
-                UpdateLoaderMessage("Initializing UI timers...");
+                UpdateLoaderMessage("Initializing UI update timers...");
                 attendancePanelTimer = new System.Windows.Forms.Timer { Interval = 5000 };
                 attendancePanelTimer.Tick += (s, args) => UpdateAttendancePanels();
                 attendancePanelTimer.Start();
 
                 _processor.update_session();
 
-                UpdateLoaderMessage("Starting General Log Sync Service...");
+                // 1. Log Sync Services
+                UpdateLoaderMessage("Sync: Initializing General log service...");
                 await ServiceManager.StartLogSyncServiceAsync(_deviceFunctions);
+                UpdateLoaderMessage("Sync: General Logs ready.");
 
-                UpdateLoaderMessage("Starting Member Attendance Sync...");
+                // 2. Member Sync
+                UpdateLoaderMessage("Sync: Connecting Member Attendance stream...");
                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
                 AttendanceLogSyncService.InitialSyncCompleted += OnAttendanceLogSyncCompleted;
                 await ServiceManager.StartAttendanceLogSyncServiceAsync();
+                UpdateLoaderMessage("Sync: Member stream active.");
 
-                UpdateLoaderMessage("Starting Staff Attendance Sync...");
+                // Subscribe to server connection status changes for real-time progress bar updates
+                AttendanceServerThreadManager.ServerConnectionStatusChanged -= OnServerConnectionStatusChanged;
+                AttendanceServerThreadManager.ServerConnectionStatusChanged += OnServerConnectionStatusChanged;
+
+                // 3. Staff Sync
+                UpdateLoaderMessage("Sync: Connecting Staff Attendance stream...");
                 await ServiceManager.StartStaffAttendanceLogSyncServiceAsync();
+                UpdateLoaderMessage("Sync: Staff stream active.");
 
-                UpdateLoaderMessage("Starting Periodic Maintenance Service...");
+                // 4. Maintenance & Backup
+                UpdateLoaderMessage("System: Scheduling periodic maintenance...");
                 await ServiceManager.StartPeriodicMaintenanceServiceAsync(this);
-
-                UpdateLoaderMessage("Starting Backup Service...");
                 if (_backupService == null)
                 {
                     _backupService = new BackupService(_dbHelper);
                 }
                 _backupService.Start();
+                UpdateLoaderMessage("System: Maintenance & Backup scheduled.");
 
-                UpdateLoaderMessage("Configuring connection monitors...");
+                // 5. Connection Monitors
+                UpdateLoaderMessage("Network: Configuring cloud monitors...");
                 ConnectionStatusChecker.Instance.SetWebSocketManager(_wsManager);
                 ConnectionStatusChecker.Instance.InternetStatusChanged -= OnInternetStatusChanged;
                 ConnectionStatusChecker.Instance.InternetStatusChanged += OnInternetStatusChanged;
-
                 ConnectionStatusChecker.Instance.SubscriptionStatusChanged -= OnSubscriptionStatusChanged;
                 ConnectionStatusChecker.Instance.SubscriptionStatusChanged += OnSubscriptionStatusChanged;
-
                 ConnectionStatusChecker.Instance.Start();
+                UpdateLoaderMessage("Network: Monitors active.");
 
-                UpdateLoaderMessage("Scanning hardware devices...");
+                // 6. Device Pings
+                UpdateLoaderMessage("Hardware: Pinging biometric devices...");
                 try
                 {
-                    await RefreshDeviceStatus();
+                    await RefreshDeviceSyncStatusAsync();
+                    UpdateLoaderMessage("Hardware: Scanning complete.");
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log("[StartServicesAsync] Error refreshing device status: " + ex.Message);
+                    LogHelper.Log("[StartServicesAsync] Device refresh failed: " + ex.Message);
+                    UpdateLoaderMessage("Hardware: Scan incomplete (Check network)");
                 }
 
-                UpdateLoaderMessage("Finalizing startup...");
+                LogHelper.Log("[StartServicesAsync] Services started successfully");
+                UpdateLoaderMessage("All services initialized successfully.");
+                await Task.Delay(500);
             }
             catch (Exception ex)
             {
                 LogHelper.Log("[StartServicesAsync][ERROR] " + ex.Message);
-                UpdateLoaderMessage("Startup error! Check logs.");
-                await Task.Delay(2000); // Allow user to see error message
+                UpdateLoaderMessage("Startup encountered errors! Please check logs.");
+                await Task.Delay(3000); 
             }
         }
 
@@ -998,9 +989,6 @@ namespace smart_attendance_middleware
                 aiChatLogger.OnAddMessage -= AiChatLogger_OnAddMessage;
                 aiChatLogger.OnClearMessages -= AiChatLogger_OnClearMessages;
 
-                // Also detach log UI appender to avoid post-close UI updates
-                LogHelper.LogUpdated -= AppendLogToTextBox;
-
                 // Unsubscribe any pending attendance sync completion callback
                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
 
@@ -1140,6 +1128,20 @@ namespace smart_attendance_middleware
             devicemanager.ShowDialog();
         }
 
+        private void lbl_fingerprintmanagement_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            // Allow only role "admin" in any casing (admin / Admin / ADMIN)
+            if (!"admin".Equals(AppSession.UserRole?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("Access denied. Only admin can open Fingerprint Management.", "Access Denied",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var fingerManagement = new FingerManagement();
+            fingerManagement.ShowDialog();
+        }
+
         private void btn_adddevice_Click(object sender, EventArgs e)
         {
             // Allow only role "admin" in any casing (admin / Admin / ADMIN)
@@ -1153,159 +1155,15 @@ namespace smart_attendance_middleware
             AddNewDevice addnewdevice = new AddNewDevice();
             addnewdevice.ShowDialog();
 
-            //// Refresh device status after device manager is closed
-            //Task.Run(async () =>
-            //{
-            //    await Task.Delay(500); // Small delay to ensure database changes are committed
-            //    this.Invoke(new Action(async () => await LoadDevicesAndCheckStatus()));
-            //});
+            // Refresh device status after device manager is closed
+            Task.Run(async () =>
+            {
+                await Task.Delay(500); // Small delay to ensure database changes are committed
+                this.Invoke(new Action(async () => await RefreshDevicePanelAsync()));
+            });
         }
 
-
-        //public async Task LoadDevicesAndCheckStatus()
-        //{
-        //    await RefreshDeviceStatus();
-        //}
-
-        private void RunOnUi(Action action)
-        {
-            if (InvokeRequired)
-            {
-                Invoke(action);
-                return;
-            }
-
-            action();
-        }
-
-
-
-
-        // Add a field to track the current view state
-        private bool isShowingFingerprints = false;
-
-        private async void lbl_Fingerprints_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            if (!isShowingFingerprints)
-            {
-                // Switch to fingerprints view
-                lbl_Fingerprints.Text = "AI Assistant";
-                aiChat.Visible = false;
-                lst_missing_fingerprints.Visible = true;
-                btn_fingerprintno.Visible = false;
-                isShowingFingerprints = true;
-
-                // Initialize and load the missing fingerprints data
-                await InitializeMissingFingerprintsListView();
-            }
-            else
-            {
-                // Switch back to AI Assistant view
-                lbl_Fingerprints.Text = "Fingerprint Tasks";
-                lst_missing_fingerprints.Visible = false;
-                btn_fingerprintno.Visible = true;
-                aiChat.Visible = true;
-                isShowingFingerprints = false;
-            }
-        }
-
-        private async Task InitializeMissingFingerprintsListView()
-        {
-            try
-            {
-                // Initialize ListView structure
-                lst_missing_fingerprints.View = View.Details;
-                lst_missing_fingerprints.FullRowSelect = true;
-                lst_missing_fingerprints.Columns.Clear();
-
-                lst_missing_fingerprints.Columns.Add("Member ID", 80);
-                lst_missing_fingerprints.Columns.Add("Name", 150);
-                lst_missing_fingerprints.Columns.Add("Enrollment ID", 100);
-
-                // Subscribe to double-click event if not already subscribed
-                lst_missing_fingerprints.DoubleClick -= lst_missing_fingerprints_DoubleClick;
-                lst_missing_fingerprints.DoubleClick += lst_missing_fingerprints_DoubleClick;
-
-                // Load the missing fingerprint data
-                await LoadMissingFingerprintMembersAsync();
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error initializing missing fingerprints ListView: {ex.Message}");
-            }
-        }
-
-        private async Task LoadMissingFingerprintMembersAsync()
-        {
-            try
-            {
-                lst_missing_fingerprints.Items.Clear();
-
-                List<Member> members = await _dbHelper.GetMembersWithMissingFingerprintsAsync();
-
-                foreach (var member in members)
-                {
-                    ListViewItem item = new ListViewItem(member.MemberID.ToString());
-                    item.SubItems.Add(member.Name);
-                    item.SubItems.Add(member.EnrollmentID?.ToString() ?? "NULL");
-
-                    lst_missing_fingerprints.Items.Add(item);
-                }
-
-                LogHelper.Log($"Listed {members.Count} members with missing fingerprints.");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"Error loading missing fingerprint members: {ex.Message}");
-                MessageBox.Show("Failed to load members. See logs for more info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void lst_missing_fingerprints_DoubleClick(object sender, EventArgs e)
-        {
-            if (lst_missing_fingerprints.SelectedItems.Count == 0)
-                return;
-
-            // Get the selected item
-            ListViewItem selectedItem = lst_missing_fingerprints.SelectedItems[0];
-
-            // Get enrollment ID from the third column (index 2)
-            string enrollmentId = selectedItem.SubItems[2].Text;
-
-            // Validate the enrollment ID
-            if (string.IsNullOrWhiteSpace(enrollmentId) || enrollmentId == "NULL")
-            {
-                MessageBox.Show("Selected member doesn't have a valid enrollment ID.",
-                              "Error",
-                              MessageBoxButtons.OK,
-                              MessageBoxIcon.Error);
-                return;
-            }
-
-            try
-            {
-                // Create and show the Fingerprint form
-                Fingerprint fingerprintForm = new Fingerprint();
-
-                // Pass the enrollment ID using the public property
-                fingerprintForm.EnrollmentID = enrollmentId;
-
-                // Optional: Set form position relative to parent
-                fingerprintForm.StartPosition = FormStartPosition.CenterParent;
-
-                // Show the form (use ShowDialog() for modal)
-                fingerprintForm.Show();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error opening fingerprint form: {ex.Message}",
-                                "Error",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Error);
-                LogHelper.Log($"Error in double-click handler: {ex.Message}");
-            }
-        }
-
+        
         private async void cuiButton4_Click(object sender, EventArgs e)
         {
             // Store original button text and start countdown
@@ -2035,62 +1893,143 @@ namespace smart_attendance_middleware
             }
         }
 
+        /// <summary>
+        /// Refreshes the device list and their connection statuses manually 
+        /// without re-initializing background monitoring threads.
+        /// </summary>
+        public async Task RefreshDevicePanelAsync()
+        {
+            try
+            {
+                var dataPairs = new List<Controls.DataPairItem>();
+
+                // 1. Load latest devices from AppSession
+                var devices = AppSession.DeviceList ?? new List<Device>();
+                var staffDevices = AppSession.StaffDeviceList ?? new List<Device>();
+
+                var allDevices = new List<Device>();
+                allDevices.AddRange(devices);
+                allDevices.AddRange(staffDevices);
+
+                // 2. Build the list items
+                if (allDevices.Count == 0)
+                {
+                    dataPairs.Add(new Controls.DataPairItem
+                    {
+                        Label = "No Devices",
+                        Elements = new List<Controls.DataElement>
+                {
+                    new Controls.DataElement("No devices configured", Color.FromArgb(220, 53, 69))
+                }
+                    });
+                }
+                else
+                {
+                    foreach (var device in allDevices)
+                    {
+                        string deviceName = device.Location ?? "Device";
+                        bool isStaff = AppSession.StaffDeviceList?.Any(sd => sd.DeviceIP == device.DeviceIP) ?? false;
+                        string deviceType = isStaff ? "Staff" : "Member";
+
+                        var elements = new List<Controls.DataElement>
+                {
+                    new Controls.DataElement($"Machine No: {device.MachineNo}"),
+                    new Controls.DataElement($"IP: {device.DeviceIP ?? "N.A"}"),
+                    new Controls.DataElement(device.IsActive ? "ONLINE" : "OFFLINE",
+                        device.IsActive ? Color.FromArgb(34, 177, 76) : Color.FromArgb(220, 53, 69)),
+                    new Controls.DataElement("Open", isLink: true, tooltip: $"Open {deviceName}")
+                };
+
+                        dataPairs.Add(new Controls.DataPairItem
+                        {
+                            Label = deviceName,
+                            Type = deviceType,
+                            Elements = elements,
+                            IpAddress = device.DeviceIP,
+                            Port = device.Port,
+                            MachineNo = device.MachineNo,
+                            Password = "0"
+                        });
+                    }
+                }
+
+                // 3. Update the UI control data
+                if (!dataPairPanel1.IsDisposed)
+                {
+                    dataPairPanel1.SetData(dataPairs);
+                }
+
+                // 4. Perform immediate server-side status ping update
+                if (allDevices.Count > 0)
+                {
+                    var pingTasks = allDevices.Select(async (device, index) =>
+                    {
+                        string finalStatus = await CommonUtils.PingDeviceWithStatusAsync(
+                            device.DeviceIP,
+                            status => {
+                                if (!dataPairPanel1.IsDisposed)
+                                    dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, status)));
+                            }
+                        );
+
+                        if (!dataPairPanel1.IsDisposed)
+                            dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, finalStatus)));
+
+                        return finalStatus;
+                    }).ToList();
+
+                    string[] results = await Task.WhenAll(pingTasks);
+                    int onlineCount = results.Count(s => s == "ONLINE");
+
+                    // Update Counts and Icons
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        if (lbl_connecteddevice != null)
+                        {
+                            lbl_connecteddevice.Text = onlineCount.ToString();
+                        }
+
+                        if (pic_device_status != null)
+                        {
+                            pic_device_status.Image = (onlineCount > 0)
+                                ? Properties.Resources.device_connected
+                                : Properties.Resources.device_disconnected;
+                        }
+                    }));
+                }
+
+                LogHelper.Log($"[Dashboard] Device panel refreshed. Devices tracked: {allDevices.Count}");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[ERROR] Failed to refresh device panel values: {ex.Message}");
+            }
+        }
+
         private async void button1_Click(object sender, EventArgs e)
         {
             try
             {
-                LogHelper.Log("🎲 Simulating direct attendance injection (8 hours ago)...");
+                // TEST MODE: Simulate random server disconnect to test progress bar color changes
+                LogHelper.Log("🧪 TEST MODE: Simulating server disconnect...");
 
-                // 1. Pick a random active member
-                var members = _dbHelper.GetMembers().Where(m => m.EnrollmentID.HasValue && m.Status == "active").ToList();
-                if (members.Count == 0) return;
+                // Generate random delay between 3-8 seconds
+                Random random = new Random();
+                int delaySeconds = random.Next(3, 9);
 
-                var random = new Random();
-                var member = members[random.Next(members.Count)];
-                DateTime simulatedTime = DateTime.Now.AddHours(-8);
-                string simulatedTimeStr = simulatedTime.ToString("yyyy-MM-dd HH:mm:ss");
+                LogHelper.Log($"⏱️ Will simulate disconnect in {delaySeconds} seconds...");
 
-                // 2. Insert directly into Database with Lock
-                int logId = 0;
-                string attendanceGuid = null;
+                // Wait for specified delay
+                await Task.Delay(delaySeconds * 1000);
 
-                await DatabaseQueueManager.EnterDbWriteLockAsync("DirectManualAttendance", DbTaskPriority.High);
-                try
-                {
-                    var dbResult = _dbHelper.InsertAttendanceLog(member.MemberID, simulatedTimeStr);
-                    logId = dbResult.LogId;
-                    attendanceGuid = dbResult.AttendanceId;
-                }
-                finally
-                {
-                    DatabaseQueueManager.ReleaseDbWriteLock("DirectManualAttendance");
-                }
+                LogHelper.Log("🔌 TEST: Forcing server port disconnect...");
 
-                if (logId > 0 && !string.IsNullOrEmpty(attendanceGuid))
-                {
-                    LogHelper.Log($"✅ Local Log Created: Member={member.Name}, LogID={logId}, GUID={attendanceGuid}");
+                // Force disconnect the server port
+                AttendanceServerForm.ForceDisconnect();
 
-                    // 3. Send directly to Server via HttpHandler
-                    // We convert the simulated time to UTC-0 as required by the backend
-                    var gmt = _dbHelper.GetSetting("GMT");
-                    string utcTimeStr = CommonUtils.ConvertToUtc0(simulatedTime, gmt);
-
-                    await _httpHandler.PostAttendanceRecordAsync(
-                        member.EnrollmentID.Value,
-                        checkinTime: utcTimeStr,
-                        checkoutTime: null,
-                        id: attendanceGuid
-                    );
-
-                    LogHelper.Log($"🚀 Attendance pushed to cloud for Member={member.MemberID}");
-
-                    // Update UI Dashboard panels
-                    UpdateAttendancePanels();
-                }
-                else
-                {
-                    LogHelper.Log("⚠️ Database insertion failed (likely timestamp validation).");
-                }
+                LogHelper.Log("❌ TEST: Server connection simulated as DISCONNECTED");
+                LogHelper.Log("📊 Watch progress bar turn RED");
+                LogHelper.Log("⏳ Waiting for automatic reconnection...");
             }
             catch (Exception ex)
             {

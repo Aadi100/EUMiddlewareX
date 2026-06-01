@@ -71,7 +71,7 @@ namespace smart_attendance_middleware
                 {
                     if (form is Dashboard dashboard)
                     {
-                        dashboard.Invoke(new Action(async () => await dashboard.RefreshDeviceStatus()));
+                        dashboard.Invoke(new Action(async () => await dashboard.RefreshDevicePanelAsync()));
                         break;
                     }
                 }

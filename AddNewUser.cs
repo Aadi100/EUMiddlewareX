@@ -72,7 +72,7 @@ namespace smart_attendance_middleware
                 var dm = Application.OpenForms.OfType<DeviceManager>().FirstOrDefault();
                 if (dm != null)
                 {
-                    dm.RefreshLocalUserData();
+                    dm.LoadLocalUserData();
                 }
                 this.Close();
             }

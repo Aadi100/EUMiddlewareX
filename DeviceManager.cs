@@ -23,11 +23,8 @@ namespace smart_attendance_middleware
         private DeviceFunctions _deviceFunctions = new DeviceFunctions();
         private BackupService _backupService;
         private CacheManager _cacheManager;
-        //private AxFP_CLOCK pOcxObject;
 
-        private readonly List<(int Id, string Name, long CardId, string ImagePath)> _staffEntries = new List<(int, string, long, string)>();
         private readonly List<(int Id, string Name, string ImagePath)> _enrolledStaffBuffer= new List<(int Id, string Name, string ImagePath)>();
-        private CancellationTokenSource _cardListenCts = null;
 
         private bool _selectedIsStaff = false;
         private int _selectedDeviceId = 0;      // Devices.DeviceId
@@ -77,10 +74,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void panel1_Paint(object sender, PaintEventArgs e)
-        {
-
-        }
 
         //*************************************Setup ListView************************************//
         //*************************************Setup ListView************************************//
@@ -157,7 +150,7 @@ namespace smart_attendance_middleware
         //*************************************Local user's data ************************************//
 
         //Abdul Hadi Code
-        private void LoadLocalUserData()
+        public void LoadLocalUserData()
         {
             list_LocalUser.Clear();
 
@@ -188,31 +181,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        public void RefreshLocalUserData()
-        {
-            list_LocalUser.Clear();
-            list_LocalUser.View = View.Details;
-            list_LocalUser.FullRowSelect = true;
-            list_LocalUser.GridLines = true;
-
-            list_LocalUser.Columns.Clear();
-            list_LocalUser.Columns.Add("User ID", 100);
-            list_LocalUser.Columns.Add("User Name", 150);
-            list_LocalUser.Columns.Add("Role", 100);
-            list_LocalUser.Columns.Add("Created", 150);
-            list_LocalUser.Columns[list_LocalUser.Columns.Count - 1].Width = -2;
-
-            var users = AppSession.AllUsers ?? new List<LocalUser>();
-            foreach (var user in users)
-            {
-                var item = new ListViewItem(user.LocalUserID.ToString());
-                item.SubItems.Add(user.UserName);
-                item.SubItems.Add(user.Role);
-                item.SubItems.Add(user.CreatedAt ?? "-");
-                list_LocalUser.Items.Add(item);
-            }
-        }
-
         private void DeviceManager_Load(object sender, EventArgs e)
         {
             try
@@ -227,13 +195,13 @@ namespace smart_attendance_middleware
                 btn_deleteUser.Enabled = false;
                 btn_change_password.Enabled = false;
                 btn_editUser.Enabled = false;
-                lbl_apikey_status.Text = "";
                 listViewDevices.SelectedItems.Clear(); // Clear selection
                 ClearDeviceFields(); // Clear device fields on load
                 update_session(); // Update session with device data
                 InitializeMemberList();
                 InitializeMemberListForStats();       // dynamic name suggestions
                 InitializeMembersListView();  // members list view setup
+                lst_members.ItemActivate += lst_members_ItemActivate;
 
                 // Wire events
                 flt_members.Click += flt_members_Click;
@@ -267,8 +235,6 @@ namespace smart_attendance_middleware
         {
             // Stop cache manager auto-refresh
             _cacheManager?.StopAutoRefresh();
-
-            StopCardIdListening();
 
             // Dispose pagination controls - all attendance and management lists
             _membersPagination?.Dispose();
@@ -379,9 +345,6 @@ namespace smart_attendance_middleware
             btn_device_management.BackColor = Color.WhiteSmoke;
             btn_device_management.ForeColor = Color.Black;
 
-            btn_apiKey.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_apiKey.ForeColor = Color.White;
-
             btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_userManagement.ForeColor = Color.White;
 
@@ -398,7 +361,6 @@ namespace smart_attendance_middleware
 
             pnl_UserManagement.Visible = false; // Hide user management panel
             pnl_deviceManager.Visible = true;
-            pnl_APIkey.Visible = false;
             pnl_staffsManagment.Visible = false;
             pnl_setup.Visible = false;
             pnl_deviceManager.Location = new Point(186, 0);
@@ -407,46 +369,12 @@ namespace smart_attendance_middleware
 
         }
 
-        private void btn_apiKey_Click(object sender, EventArgs e)
-        {
-
-            // Button Color Seetup
-            btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_device_management.ForeColor = Color.White;
-            //**************************************************************************************
-            btn_apiKey.BackColor = Color.WhiteSmoke;
-            btn_apiKey.ForeColor = Color.Black;
-            //**************************************************************************************
-            btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_userManagement.ForeColor = Color.White;
-
-            btn_staffmanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_staffmanagment.ForeColor = Color.White;
-
-            btn_attendencemanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_attendencemanagment.ForeColor = Color.White;
-
-            btn_setupmanage.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_setupmanage.ForeColor = Color.White;
-            // End of Button Color Seetup
-
-            pnl_deviceManager.Visible = false;
-            pnl_attendence.Visible = false;
-            pnl_UserManagement.Visible = false;
-            pnl_APIkey.Visible = true;
-            pnl_staffsManagment.Visible = false;
-            pnl_APIkey.Location = new Point(186, 0);
-        }
-
         private void btn_userManagement_Click(object sender, EventArgs e)
         {
 
             // Button Color Seetup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_device_management.ForeColor = Color.White;
-
-            btn_apiKey.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_apiKey.ForeColor = Color.White;
 
             btn_setupmanage.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_setupmanage.ForeColor = Color.White;
@@ -463,7 +391,6 @@ namespace smart_attendance_middleware
 
             pnl_deviceManager.Visible = false;
             pnl_attendence.Visible = false;
-            pnl_APIkey.Visible = false;
             pnl_UserManagement.Location = new Point(186, 0);
             pnl_UserManagement.Visible = true;
             pnl_staffsManagment.Visible = false;
@@ -477,9 +404,6 @@ namespace smart_attendance_middleware
             // End of Button Color Seetup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_device_management.ForeColor = Color.White;
-
-            btn_apiKey.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_apiKey.ForeColor = Color.White;
 
             btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_userManagement.ForeColor = Color.White;
@@ -502,7 +426,6 @@ namespace smart_attendance_middleware
             pnl_attendence.Visible = false;
             pnl_setup.Visible = false;
             pnl_UserManagement.Visible = false;
-            pnl_APIkey.Visible = false;
             // End of Button Color Seetup
 
         }
@@ -512,9 +435,6 @@ namespace smart_attendance_middleware
             // Button Color Setup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_device_management.ForeColor = Color.White;
-
-            btn_apiKey.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_apiKey.ForeColor = Color.White;
 
             btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_userManagement.ForeColor = Color.White;
@@ -535,7 +455,6 @@ namespace smart_attendance_middleware
 
             pnl_deviceManager.Visible = false;
             pnl_UserManagement.Visible = false;
-            pnl_APIkey.Visible = false;
             pnl_staffsManagment.Visible = false;
             pnl_setup.Visible = false;
             // End of Button Color Setup
@@ -549,9 +468,6 @@ namespace smart_attendance_middleware
             // Button Color Setup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_device_management.ForeColor = Color.White;
-
-            btn_apiKey.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_apiKey.ForeColor = Color.White;
 
             btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_userManagement.ForeColor = Color.White;
@@ -573,54 +489,13 @@ namespace smart_attendance_middleware
             pnl_attendence.Visible = false;
             pnl_deviceManager.Visible = false;
             pnl_UserManagement.Visible = false;
-            pnl_APIkey.Visible = false;
             pnl_staffsManagment.Visible = false;
             // End of Button Color Setup
-
-            StartStaffCardIdListening();
-
 
         }
 
 
         /////////////////////////////////////////////////////////////////////////////////
-
-        private void btn_apiKey_MouseHover(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // If label is not already selected (WhiteSmoke), apply hover color
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = ColorTranslator.FromHtml("#1E3C64"); // Your hover color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Hand;
-            }
-
-        }
-
-        private void btn_apiKey_Leave(object sender, EventArgs e)
-        {
-
-        }
-
-        private void btn_apiKey_MouseLeave(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // Only revert color if it's not WhiteSmoke (optional)
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = Color.FromArgb(8, 23, 49); // Your normal color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Default;
-            }
-
-        }
 
         private void btn_userManagement_MouseHover(object sender, EventArgs e)
         {
@@ -1230,94 +1105,12 @@ namespace smart_attendance_middleware
             {
                 ClearDeviceFields(); // Clear the fields if the user cancels
                 listViewDevices.SelectedItems.Clear();
-                MessageBox.Show("Device deletion cancelled.");
-            }
-        }
+                    MessageBox.Show("Device deletion cancelled.");
+                    }
+                }
 
 
-        private void txt_Device_id_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_department_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-
-        private void cmb_device_type_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_Serial_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_ip_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_port_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_timeZone_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_location_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void cmb_connectionType_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_device_status_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_last_synced_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_face_capacity_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_RFID_capacity_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_finger_capacity_TextChanged(object sender, EventArgs e)
-        {
-
-
-        }
-
-        private void btn_editUser_Click(object sender, EventArgs e)
-        {
-        }
-
-        private void txtAPIkey_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-
-        private async void btnSaveAPI_Click_1(object sender, EventArgs e)
+                private async void btnSaveAPI_Click_1(object sender, EventArgs e)
         {
             string apiKey = txtAPIkey.Text.Trim();
 
@@ -1549,26 +1342,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void cmb_machine_no_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void lbl_password_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_password_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void listViewDevices_SelectedIndexChanged_1(object sender, EventArgs e)
-        {
-
-        }
-
         private async void CheckAllDeviceConnections()
         {
             // Copy the items to a local list on the UI thread
@@ -1613,7 +1386,7 @@ namespace smart_attendance_middleware
                 {
                     if (form is Dashboard dashboard)
                     {
-                        dashboard.Invoke(new Action(async () => await dashboard.RefreshDeviceStatus()));
+                        dashboard.Invoke(new Action(async () => await dashboard.RefreshDevicePanelAsync()));
                         break;
                     }
                 }
@@ -1632,17 +1405,7 @@ namespace smart_attendance_middleware
 
         }
 
-        private void btnApiPaste_Click(object sender, EventArgs e)
-        {
-            if (Clipboard.ContainsText())
-            {
-                txtAPIkey.Text = Clipboard.GetText();
-            }
-            else
-            {
-                MessageBox.Show("Clipboard does not contain any text.", "Paste Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
+
 
 
         private async void btn_format_Click(object sender, EventArgs e)
@@ -1802,6 +1565,7 @@ namespace smart_attendance_middleware
             lst_members.Columns.Add("Fingerprint", 100);
             lst_members.Columns.Add("Sync Status", 140);
             lst_members.Columns.Add("Package Expiry", 130);
+            lst_members.Columns.Add("Device Status", 100);
             lst_members.Columns[lst_members.Columns.Count - 1].Width = -2;
 
             LoadMembersIntoListView(null);
@@ -1903,6 +1667,7 @@ namespace smart_attendance_middleware
                     item.SubItems.Add(fingerprintText);
                     item.SubItems.Add(syncStatusText);
                     item.SubItems.Add(pkgExpiryText);
+                    item.SubItems.Add("[View]");
                     item.Tag = m;
 
                     allItems.Add(item);
@@ -2298,41 +2063,28 @@ namespace smart_attendance_middleware
         }
 
 
-        /////////////////////////////////////////////////////////////////////////////////
-
-
-
-        private void pnl_device_Paint(object sender, PaintEventArgs e)
-        {
-
-        }
-
-
-
         /////////////////////////////////SETUP/////////////////////////////////////////
         private void btn_savedebounce_Click(object sender, EventArgs e)
         {
             try
             {
-                // minutes -> seconds
-                int minutes = (int)num_debounce.Value;
-                if (minutes < 0)
+                if (string.IsNullOrWhiteSpace(txt_debounce.Text) || !int.TryParse(txt_debounce.Text, out int seconds))
                 {
-                    MessageBox.Show("Debounce minutes cannot be negative.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Please enter a valid numeric value for debounce seconds.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                int seconds = checked(minutes * 60);
+                if (seconds < 0)
+                {
+                    MessageBox.Show("Debounce seconds cannot be negative.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
 
                 // Persist as integer (string storage), key: AttendanceDebounceSeconds
                 _dbHelper.SaveSetting("AttendanceDebounceSeconds", seconds.ToString());
 
                 LogHelper.Log($"[Debounce] Saved AttendanceDebounceSeconds = {seconds}");
                 MessageBox.Show("Debounce setting saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (OverflowException)
-            {
-                MessageBox.Show("Debounce value is too large.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             catch (Exception ex)
             {
@@ -2341,100 +2093,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void num_debounce_ValueChanged(object sender, EventArgs e)
-        {
-
-        }
-
-
-
-        private void txt_enrollid_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void btn_getinfo_Click(object sender, EventArgs e)
-        {
-            string memberIdText = txt_enrollid.Text.Trim();
-            if (string.IsNullOrWhiteSpace(memberIdText) || !int.TryParse(memberIdText, out int memberId))
-            {
-                MessageBox.Show("Please enter a valid numeric member ID.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // Get member and resolve EnrollmentID from MemberID
-            var member = _dbHelper.GetMember(memberId);
-            if (member == null)
-            {
-                MessageBox.Show("No member found for the provided member ID.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            if (!member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0)
-            {
-                MessageBox.Show("This member does not have an Enrollment ID assigned.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            int enrollmentId = member.EnrollmentID.Value;
-
-            var allDevices = new List<Device>();
-            if (AppSession.DeviceList != null)
-                allDevices.AddRange(AppSession.DeviceList);
-            if (AppSession.StaffDeviceList != null)
-                allDevices.AddRange(AppSession.StaffDeviceList);
-
-            if (allDevices.Count == 0)
-            {
-                MessageBox.Show("No devices available in the session.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            string memberNameFromDb = !string.IsNullOrWhiteSpace(member.Name)
-                ? member.Name
-                : (_dbHelper.GetMemberName(memberId) ?? string.Empty);
-
-            LogHelper.Log($"Starting GetUserInfo for EnrollmentID={enrollmentId} (from MemberID={memberId})");
-
-            var results = new List<string>();
-            foreach (var device in allDevices)
-            {
-                try
-                {
-                    // Use EnrollmentID for device lookup
-                    var userInfo = await DeviceService.GetUserInfo(device.DeviceIP, device.Port, device.MachineNo, device.Password, enrollmentId.ToString());
-
-                    // Prefer DB name if available; else use device info
-                    string resolvedName = !string.IsNullOrWhiteSpace(memberNameFromDb)
-                        ? memberNameFromDb
-                        : (string.IsNullOrWhiteSpace(userInfo.UserName) ? "(name not found)" : userInfo.UserName);
-
-                    string formattedInfo = $"Alias ID: {userInfo.AliasId}\n" +
-                                           $"User Name: {resolvedName}\n" +
-                                           $"Card Number: {userInfo.CardNumber}\n" +
-                                           $"Face Flag: {userInfo.FaceFlag}\n" +
-                                           $"FP Flag: {userInfo.FPFlag}\n" +
-                                           $"Enabled: {userInfo.Enabled}\n" +
-                                           $"Privilege: {userInfo.Privilege}";
-
-                    string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : device.DeviceIP;
-                    results.Add($"Device {deviceLabel} (IP: {device.DeviceIP}):\n{formattedInfo}");
-
-                    LogHelper.Log($"Successfully retrieved user info for EnrollmentID={enrollmentId} (MemberID={memberId}) on device {deviceLabel} (IP: {device.DeviceIP})");
-                }
-                catch (Exception ex)
-                {
-                    string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : device.DeviceIP;
-                    results.Add($"Device {deviceLabel} (IP: {device.DeviceIP}): Error - {ex.Message}");
-                    LogHelper.Log($"Error retrieving user info for EnrollmentID={enrollmentId} (MemberID={memberId}) on device {deviceLabel} (IP: {device.DeviceIP}): {ex.Message}");
-                }
-            }
-
-            string message = string.Join("\n\n", results);
-            MessageBox.Show(message, "User Info Results", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-            LogHelper.Log($"Completed GetUserInfo for EnrollmentID={enrollmentId} (MemberID={memberId}), processed {allDevices.Count} devices");
-        }
 
         private async void btn_getdb_Click(object sender, EventArgs e)
         {
@@ -2476,177 +2134,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        private async void btn_enableuser_Click(object sender, EventArgs e)
-        {
-            btn_enableuser.Enabled = false;
-            Cursor = Cursors.WaitCursor;
-
-            try
-            {
-                string memberIdText = txt_enrollid?.Text?.Trim();
-                if (string.IsNullOrWhiteSpace(memberIdText) || !int.TryParse(memberIdText, out int memberId))
-                {
-                    MessageBox.Show("Please enter a valid numeric member ID.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                // Resolve member and EnrollmentID
-                var member = _dbHelper.GetMember(memberId);
-                if (member == null)
-                {
-                    MessageBox.Show("No member found for the provided member ID.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                if (!member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0)
-                {
-                    MessageBox.Show("This member does not have an Enrollment ID assigned.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                int enrollmentId = member.EnrollmentID.Value;
-                string memberNameFromDb = !string.IsNullOrWhiteSpace(member.Name)
-                    ? member.Name
-                    : (_dbHelper.GetMemberName(memberId) ?? string.Empty);
-
-                var allDevices = new List<Device>();
-                if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
-                if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
-
-                if (allDevices.Count == 0)
-                {
-                    MessageBox.Show("No devices available in the session.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                var reportLines = new List<string>();
-
-                foreach (var device in allDevices)
-                {
-                    try
-                    {
-                        string ip = device.DeviceIP;
-                        int port = device.Port;
-                        int machineNo = device.MachineNo;
-                        string password = device.Password ?? "0";
-
-                        // Read current user name using EnrollmentID
-                        string userNameDevice = await DeviceService.GetUserName(ip, port, machineNo, password, enrollmentId, machineNo);
-
-                        // Enable using EnrollmentID
-                        bool enabled = await DeviceService.EnableUser(ip, port, machineNo, password, enrollmentId, machineNo, 12);
-
-                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : ip;
-                        string resolvedName = !string.IsNullOrWhiteSpace(memberNameFromDb)
-                            ? memberNameFromDb
-                            : (string.IsNullOrWhiteSpace(userNameDevice) ? "(name not found)" : userNameDevice);
-                        string status = enabled ? "Enabled" : "Enable FAILED";
-
-                        reportLines.Add($"{deviceLabel} [{ip}]: {resolvedName} (MemberID={memberId}, EnrollmentID={enrollmentId}) -> {status}");
-                    }
-                    catch (Exception ex)
-                    {
-                        string deviceLabel = !string.IsNullOrWhiteSpace(device?.Location) ? device.Location : device?.DeviceIP ?? "Unknown device";
-                        reportLines.Add($"{deviceLabel}: Error - {ex.Message}");
-                        try { LogHelper.Log($"btn_enableuser_Click: Error enabling on {device?.DeviceIP}: {ex.Message}"); } catch { }
-                    }
-                }
-
-                string message = string.Join(Environment.NewLine, reportLines);
-                MessageBox.Show(message, "Enable User Results", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            finally
-            {
-                btn_enableuser.Enabled = true;
-                Cursor = Cursors.Default;
-            }
-        }
-
-        private async void btn_disableuser_Click(object sender, EventArgs e)
-        {
-            btn_disableuser.Enabled = false;
-            Cursor = Cursors.WaitCursor;
-
-            try
-            {
-                string memberIdText = txt_enrollid?.Text?.Trim();
-                if (string.IsNullOrWhiteSpace(memberIdText) || !int.TryParse(memberIdText, out int memberId))
-                {
-                    MessageBox.Show("Please enter a valid numeric member ID.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                // Resolve member and EnrollmentID
-                var member = _dbHelper.GetMember(memberId);
-                if (member == null)
-                {
-                    MessageBox.Show("No member found for the provided member ID.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                if (!member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0)
-                {
-                    MessageBox.Show("This member does not have an Enrollment ID assigned.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                int enrollmentId = member.EnrollmentID.Value;
-                string memberNameFromDb = !string.IsNullOrWhiteSpace(member.Name)
-                    ? member.Name
-                    : (_dbHelper.GetMemberName(memberId) ?? string.Empty);
-
-                var allDevices = new List<Device>();
-                if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
-                if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
-
-                if (allDevices.Count == 0)
-                {
-                    MessageBox.Show("No devices available in the session.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                var reportLines = new List<string>();
-
-                foreach (var device in allDevices)
-                {
-                    try
-                    {
-                        string ip = device.DeviceIP;
-                        int port = device.Port;
-                        int machineNo = device.MachineNo;
-                        string password = device.Password ?? "0";
-
-                        // Read current user name using EnrollmentID
-                        string userNameDevice = await DeviceService.GetUserName(ip, port, machineNo, password, enrollmentId, machineNo);
-
-                        // Disable using EnrollmentID
-                        bool disabled = await DeviceService.DisableUser(ip, port, machineNo, password, enrollmentId, machineNo, 12);
-
-                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : ip;
-                        string resolvedName = !string.IsNullOrWhiteSpace(memberNameFromDb)
-                            ? memberNameFromDb
-                            : (string.IsNullOrWhiteSpace(userNameDevice) ? "(name not found)" : userNameDevice);
-                        string status = disabled ? "Disabled" : "Disable FAILED";
-
-                        reportLines.Add($"{deviceLabel} [{ip}]: {resolvedName} (MemberID={memberId}, EnrollmentID={enrollmentId}) -> {status}");
-                    }
-                    catch (Exception ex)
-                    {
-                        string deviceLabel = !string.IsNullOrWhiteSpace(device?.Location) ? device.Location : device?.DeviceIP ?? "Unknown device";
-                        reportLines.Add($"{deviceLabel}: Error - {ex.Message}");
-                        try { LogHelper.Log($"btn_disableuser_Click: Error disabling on {device?.DeviceIP}: {ex.Message}"); } catch { }
-                    }
-                }
-
-                string message = string.Join(Environment.NewLine, reportLines);
-                MessageBox.Show(message, "Disable User Results", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            finally
-            {
-                btn_disableuser.Enabled = true;
-                Cursor = Cursors.Default;
-            }
-        }
 
         private void btn_settime_Click(object sender, EventArgs e)
         {
@@ -2675,110 +2162,6 @@ namespace smart_attendance_middleware
                 MessageBox.Show("Failed to save local time and GMT. See logs for details.",
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-        // Dedicated listener for STAFF card input (uses the same CTS slot as other listeners).
-        private void StartStaffCardIdListening()
-        {
-            if (txt_staffcardid == null) return;
-
-            txt_staffcardid.ReadOnly = true;
-
-            // Stop any previous listening session
-            StopCardIdListening();
-
-            _cardListenCts = new CancellationTokenSource();
-            var token = _cardListenCts.Token;
-
-            // Clear UI immediately
-            txt_staffcardid.Text = string.Empty;
-
-            // Background loop: attempt read -> wait 4s -> repeat
-            Task.Run(async () =>
-            {
-                try
-                {
-                    while (!token.IsCancellationRequested)
-                    {
-                        try
-                        {
-                            await smart_attendance_middleware.Helpers.OcxFpreaderInvoker.Run(reader =>
-                            {
-                                if (token.IsCancellationRequested) return;
-
-                                // Attempt to connect to the USB reader for this cycle
-                                if (!reader.ConnectUsb())
-                                {
-                                    return;
-                                }
-
-                                try
-                                {
-                                    // Poll for card presence for a short window (e.g., up to ~1 second)
-                                    int cardId = 0;
-                                    var start = DateTime.UtcNow;
-                                    while (!token.IsCancellationRequested && !reader.DetectCard(ref cardId))
-                                    {
-                                        Thread.Sleep(200);
-
-                                        // Safety: don't block forever in a single cycle
-                                        if ((DateTime.UtcNow - start).TotalMilliseconds > 1000)
-                                            break;
-                                    }
-
-                                    // Update UI if we detected a non-zero cardId and we're not cancelled
-                                    if (!token.IsCancellationRequested && cardId != 0)
-                                    {
-                                        try
-                                        {
-                                            this.BeginInvoke(new Action(() =>
-                                            {
-                                                txt_staffcardid.Text = cardId.ToString();
-                                            }));
-                                        }
-                                        catch
-                                        {
-                                            // ignore UI invoke failures
-                                        }
-                                    }
-                                }
-                                finally
-                                {
-                                    try { reader.DisConnectUsb(); } catch { /* ignore */ }
-                                }
-                            });
-                        }
-                        catch (Exception exCycle)
-                        {
-                            try { LogHelper.Log($"Staff card listening cycle error: {exCycle.Message}"); } catch { /* ignore */ }
-                        }
-
-                        // Wait 4 seconds between cycles, honoring cancellation
-                        try
-                        {
-                            await Task.Delay(TimeSpan.FromSeconds(4), token);
-                        }
-                        catch (TaskCanceledException)
-                        {
-                            break; // cancellation requested
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    try { LogHelper.Log($"Staff card listening error: {ex.Message}"); } catch { /* ignore */ }
-                }
-            }, token);
-        }
-        private void StopCardIdListening()
-        {
-            try
-            {
-                _cardListenCts?.Cancel();
-                _cardListenCts?.Dispose();
-                _cardListenCts = null;
-            }
-            catch { /* ignore */ }
         }
 
         private void btn_attendence_sim_Click(object sender, EventArgs e)
@@ -3029,6 +2412,90 @@ namespace smart_attendance_middleware
         {
             var filter = txt_staff.Text?.Trim();
             LoadStaffsIntoListView(string.IsNullOrEmpty(filter) ? null : filter);
+        }
+
+        private void lst_members_ItemActivate(object sender, EventArgs e)
+        {
+            try
+            {
+                var listView = sender as ListView;
+                if (listView?.SelectedItems.Count != 1) return;
+
+                var item = listView.SelectedItems[0];
+                var clickedPoint = listView.PointToClient(Control.MousePosition);
+                var hitInfo = listView.HitTest(clickedPoint);
+
+                if (hitInfo.Item != null && hitInfo.SubItem != null)
+                {
+                    int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
+
+                    if (columnIndex == 9) // Device Status column
+                    {
+                        if (item.Tag is Member member)
+                        {
+                            ShowMemberDeviceStatus(member);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[lst_members_ItemActivate] Error: {ex.Message}");
+            }
+        }
+
+        private async void ShowMemberDeviceStatus(Member member)
+        {
+            if (member == null) return;
+
+            if (!member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0)
+            {
+                MessageBox.Show("This member does not have an Enrollment ID assigned.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            int enrollmentId = member.EnrollmentID.Value;
+            string aliasId = enrollmentId.ToString();
+            var allDevices = new List<Device>();
+            if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
+            if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
+
+            if (allDevices.Count == 0)
+            {
+                MessageBox.Show("No devices available to check.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                Dashboard.GlobalStartLoader($"Fetching device details for {member.Name}...");
+                var deviceData = new List<(Device Device, DeviceService.UserInfo Info, string Error)>();
+
+                foreach (var device in allDevices)
+                {
+                    try
+                    {
+                        Dashboard.GlobalUpdateLoaderMessage($"Checking {device.Location ?? device.DeviceIP}...");
+                        var userInfo = await DeviceService.GetUserInfo(device.DeviceIP, device.Port, device.MachineNo, device.Password, aliasId);
+                        deviceData.Add((device, userInfo, null));
+                    }
+                    catch (Exception ex)
+                    {
+                        deviceData.Add((device, null, ex.Message));
+                    }
+                }
+
+                Dashboard.GlobalStopLoader();
+                using (var dlg = new MemberDeviceStatusDialog(member, deviceData))
+                {
+                    dlg.ShowDialog();
+                }
+            }
+            catch (Exception ex)
+            {
+                Dashboard.GlobalStopLoader();
+                MessageBox.Show($"Error retrieving member status: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
 
@@ -3837,67 +3304,6 @@ namespace smart_attendance_middleware
             }
 
             return true;
-        }
-
-        private void txt_staffname_TextChanged_1(object sender, EventArgs e)
-        {
-
-        }
-
-        private void date_staffattendence_ValueChanged_1(object sender, EventArgs e)
-        {
-
-        }
-
-        private void btn_filterattendencestaff_Click_1(object sender, EventArgs e)
-        {
-
-        }
-
-        private void lst_staffattendence_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txt_staff_TextChanged_1(object sender, EventArgs e)
-        {
-
-        }
-
-        private void btn_stafffilter_Click_1(object sender, EventArgs e)
-        {
-
-        }
-
-        private void lst_staffs_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void btn_cardcopy_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                var text = txt_staffcardid?.Text ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    MessageBox.Show("No card ID to copy.", "Copy", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                Clipboard.SetText(text);
-                MessageBox.Show("Card ID copied to clipboard.", "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"btn_cardcopy_Click error: {ex.Message}");
-                MessageBox.Show("Failed to copy card ID to clipboard.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void subpnl_setup_Paint(object sender, PaintEventArgs e)
-        {
-
         }
 
         private void btn_save_drivefolderid_Click(object sender, EventArgs e)

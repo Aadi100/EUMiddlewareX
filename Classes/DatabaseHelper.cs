@@ -4168,6 +4168,44 @@ WHEN NOT MATCHED THEN
             return members;
         }
 
+        public async Task<List<dynamic>> GetMembersFingerprintStatusAsync()
+        {
+            var results = new List<dynamic>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+                    string query = @"
+                        SELECT m.MemberID, m.Name, m.EnrollmentID, 
+                               CASE WHEN f.EnrollNumber IS NULL THEN 'Missing' ELSE 'Available' END AS FingerStatus
+                        FROM Members m
+                        LEFT JOIN Fingerprints f ON m.EnrollmentID = f.EnrollNumber
+                        WHERE m.Fingerprint = 1 AND m.EnrollmentID IS NOT NULL";
+
+                    using (var command = new SqlCommand(query, connection))
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            results.Add(new
+                            {
+                                MemberID = Convert.ToInt32(reader["MemberID"]),
+                                Name = reader["Name"]?.ToString(),
+                                EnrollmentID = reader["EnrollmentID"] != DBNull.Value ? (int?)Convert.ToInt32(reader["EnrollmentID"]) : null,
+                                Status = reader["FingerStatus"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"Error in GetMembersFingerprintStatusAsync: {ex.Message}");
+            }
+            return results;
+        }
+
 
         public (bool shouldDisable, List<(int machineNo, string ip, int port, string password, int enrollmentNumber, int backupNumber)> deviceInfo)
 CheckMemberAccessStatus(int memberId)

@@ -5,17 +5,17 @@ using System.Windows.Forms;
 
 namespace smart_attendance_middleware
 {
-    public partial class MissingFingerprints : Form
+    public partial class Fingerprintmanagment : Form
     {
         private DatabaseHelper _dbHelper;
 
-        public MissingFingerprints()
+        public Fingerprintmanagment()
         {
             InitializeComponent();
             _dbHelper = new DatabaseHelper();
         }
 
-        private async void MissingFingerprints_Load(object sender, EventArgs e)
+        private async void Fingerprintmanagment_Load(object sender, EventArgs e)
         {
             InitializeListView();
             await LoadMissingFingerprintMembersAsync();

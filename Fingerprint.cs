@@ -22,10 +22,122 @@ namespace smart_attendance_middleware
         DatabaseHelper dbHelper;
 
         public string EnrollmentID { get; set; }
+        private bool _isEnrollmentComplete = false;
+        private bool _isClosingForced = false;
 
         // Cancellation and reentrancy guards
         private CancellationTokenSource _cts;
-        private bool _operationInProgress;
+        private CancellationTokenSource _startupCts;
+        private bool _operationInProgress = false;
+
+        private async Task CheckDeviceConnectionOnStart()
+        {
+            try
+            {
+                _startupCts = new CancellationTokenSource();
+                var token = _startupCts.Token;
+
+                Dashboard.GlobalStartLoader("Detecting fingerprint scanner... Please connect the device.");
+                bool isConnected = false;
+
+                while (!isConnected && !token.IsCancellationRequested)
+                {
+                    if (this.IsDisposed) return;
+
+                    try
+                    {
+                        if (axFpreader1.ConnectUsb())
+                        {
+                            int verIndex = 0;
+                            string strVersion = "";
+                            if (axFpreader1.GetVersion(ref verIndex, ref strVersion))
+                            {
+                                isConnected = true;
+                            }
+                            else
+                            {
+                                axFpreader1.DisConnectUsb();
+                            }
+                        }
+                    }
+                    catch { }
+
+                    if (!isConnected)
+                    {
+                        try
+                        {
+                            Dashboard.GlobalUpdateLoaderMessage("Detecting fingerprint scanner... Please connect the device.");
+                            await Task.Delay(1000, token);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                if (isConnected && !this.IsDisposed)
+                {
+                    Message.Text = "Scanner connected. Ready for enrollment.";
+                    Message.Update();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"Error in CheckDeviceConnectionOnStart: {ex.Message}");
+            }
+            finally
+            {
+                Dashboard.GlobalStopLoader();
+                _startupCts?.Dispose();
+                _startupCts = null;
+            }
+        }
+
+        private async Task WaitForDeviceRemovalAndClose()
+        {
+            try
+            {
+                Dashboard.GlobalStartLoader("Process complete. Please disconnect the fingerprint scanner to finish.");
+
+                bool isStillConnected = true;
+                while (isStillConnected)
+                {
+                    if (this.IsDisposed) return;
+
+                    try
+                    {
+                        // Release device to check unplug
+                        CloseDevice();
+
+                        await Task.Delay(1000);
+
+                        // Try to connect again - if it fails it means it's gone
+                        if (!axFpreader1.ConnectUsb())
+                        {
+                            isStillConnected = false;
+                        }
+                        else
+                        {
+                            axFpreader1.DisConnectUsb();
+                        }
+                    }
+                    catch
+                    {
+                        isStillConnected = false;
+                    }
+                }
+            }
+            finally
+            {
+                Dashboard.GlobalStopLoader();
+                if (!this.IsDisposed)
+                {
+                    _isClosingForced = true;
+                    this.Close();
+                }
+            }
+        }
 
         public Fingerprint()
         {
@@ -70,10 +182,20 @@ namespace smart_attendance_middleware
             catch { }
         }
 
-        private void Fingerprint_FormClosing(object sender, FormClosingEventArgs e)
+        private async void Fingerprint_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (_isClosingForced) return;
+
+            if (_isEnrollmentComplete)
+            {
+                e.Cancel = true;
+                await WaitForDeviceRemovalAndClose();
+                return;
+            }
+
             try
             {
+                _startupCts?.Cancel();
                 _cts?.Cancel();
                 _operationInProgress = false;
                 CloseDevice();
@@ -497,6 +619,7 @@ namespace smart_attendance_middleware
                 {
                     aiChatLogger.AddSuccessMessage($"Fingerprint enrolled successfully for user {enrollNumber}!");
                     Message.Text = "Added new FPData to database";
+                    _isEnrollmentComplete = true;
                 }
                 else if (string.IsNullOrEmpty(Message.Text))
                 {
@@ -509,6 +632,11 @@ namespace smart_attendance_middleware
                 CloseDevice();
                 _operationInProgress = false;
                 _cts = null;
+
+                if (_isEnrollmentComplete)
+                {
+                    this.Close();
+                }
             }
         }
 
@@ -821,6 +949,7 @@ namespace smart_attendance_middleware
                 if (success)
                 {
                     Message.Text = "Added new FPDataString to database";
+                    _isEnrollmentComplete = true;
                 }
                 else if (string.IsNullOrEmpty(Message.Text))
                 {
@@ -833,6 +962,11 @@ namespace smart_attendance_middleware
                 CloseDevice();
                 _operationInProgress = false;
                 _cts = null;
+
+                if (_isEnrollmentComplete)
+                {
+                    this.Close();
+                }
             }
         }
 
@@ -912,12 +1046,14 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void Fingerprint_Load(object sender, EventArgs e)
+        private async void Fingerprint_Load(object sender, EventArgs e)
         {
             if (!string.IsNullOrEmpty(EnrollmentID))
             {
                 TB_ID.Text = EnrollmentID;
             }
+
+            await CheckDeviceConnectionOnStart();
         }
 
         private void btn_retry_Click(object sender, EventArgs e)

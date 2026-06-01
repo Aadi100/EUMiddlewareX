@@ -30,6 +30,10 @@ public class StaffAttendanceLogSyncService : IDisposable
     private volatile bool _loopRunning = false;
     private volatile bool _earlyRetryRequested = false;
 
+    // TaskCompletionSource to signal "initial sync completed"
+    private readonly TaskCompletionSource<bool> _startedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+    public Task Started => _startedTcs.Task;
+
     // Optional: enable continuous looping like the original service
     private bool _continuousSyncEnabled = false;
 
@@ -99,6 +103,14 @@ public class StaffAttendanceLogSyncService : IDisposable
                 catch (Exception ex)
                 {
                     LogHelper.Log($"❌ Error firing InitialSyncCompleted event: {ex.Message}");
+                }
+                finally
+                {
+                    // Signal callers awaiting Started that the initial sync is complete.
+                    if (!_startedTcs.Task.IsCompleted)
+                    {
+                        _startedTcs.TrySetResult(true);
+                    }
                 }
             }
 

@@ -198,6 +198,21 @@ namespace smart_attendance_middleware
             }
         }
 
+        /// <summary>
+        /// Force disconnect the server port (for testing purposes)
+        /// </summary>
+        public static void ForceDisconnect()
+        {
+            var inst = Instance;
+            if (inst != null && !inst.IsDisposed)
+            {
+                if (inst.InvokeRequired)
+                    inst.BeginInvoke(new Action(() => inst.TryClose()));
+                else
+                    inst.TryClose();
+            }
+        }
+
         private static bool EnsureInstance()
         {
             lock (_sync)
@@ -248,6 +263,7 @@ namespace smart_attendance_middleware
         private int _openedPort;
         private bool _connected;
         private bool _autoMode;
+        private System.Windows.Forms.Timer _reconnectTimer;
 
         private AttendanceServerForm()
         {
@@ -325,11 +341,13 @@ namespace smart_attendance_middleware
                 axFPCLOCK_Svr1.OpenNetwork(_openedPort);
                 _connected = true;
                 LogHelper.Log($"[AttendanceServer] Listener opened on port {_openedPort}.");
+                AttendanceServerThreadManager.UpdateServerConnectionStatus(true);
             }
             catch (Exception ex)
             {
                 _connected = false;
                 LogHelper.Log("[AttendanceServer] Failed to open port: " + ex.Message);
+                AttendanceServerThreadManager.UpdateServerConnectionStatus(false);
                 if (!_autoMode)
                 {
                     try
@@ -359,6 +377,57 @@ namespace smart_attendance_middleware
                 LogHelper.Log("[AttendanceServer] Error closing network: " + ex.Message);
             }
             _connected = false;
+            AttendanceServerThreadManager.UpdateServerConnectionStatus(false);
+
+            // Start automatic reconnection attempts
+            LogHelper.Log("[AttendanceServer] Starting automatic reconnection timer...");
+            StartReconnectionTimer();
+        }
+
+        private void StartReconnectionTimer()
+        {
+            if (_reconnectTimer == null)
+            {
+                _reconnectTimer = new System.Windows.Forms.Timer();
+                _reconnectTimer.Interval = 5000; // Try to reconnect every 5 seconds
+                _reconnectTimer.Tick += (s, e) => AttemptReconnect();
+            }
+
+            if (!_reconnectTimer.Enabled)
+            {
+                _reconnectTimer.Start();
+                LogHelper.Log("[AttendanceServer] Reconnection timer started (5 second interval)");
+            }
+        }
+
+        private void AttemptReconnect()
+        {
+            if (_connected)
+            {
+                // Already connected, stop the timer
+                if (_reconnectTimer != null && _reconnectTimer.Enabled)
+                {
+                    _reconnectTimer.Stop();
+                    LogHelper.Log("[AttendanceServer] Connected restored, stopping reconnection timer");
+                }
+                return;
+            }
+
+            LogHelper.Log("[AttendanceServer] Attempting to reconnect...");
+            TryOpen();
+
+            if (_connected)
+            {
+                LogHelper.Log("[AttendanceServer] ✅ Reconnection successful!");
+                if (_reconnectTimer != null && _reconnectTimer.Enabled)
+                {
+                    _reconnectTimer.Stop();
+                }
+            }
+            else
+            {
+                LogHelper.Log("[AttendanceServer] Reconnection attempt failed, will retry in 5 seconds...");
+            }
         }
 
         //private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time)
@@ -689,6 +758,15 @@ namespace smart_attendance_middleware
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             LogHelper.Log("[AttendanceServer] Form closing.");
+
+            // Stop reconnection timer
+            if (_reconnectTimer != null)
+            {
+                _reconnectTimer.Stop();
+                _reconnectTimer.Dispose();
+                _reconnectTimer = null;
+            }
+
             TryClose();
             base.OnFormClosing(e);
         }

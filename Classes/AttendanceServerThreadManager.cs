@@ -1,4 +1,5 @@
 ﻿using System;
+using System;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -12,12 +13,19 @@ namespace smart_attendance_middleware
         private static Thread _thread;
         private static ManualResetEvent _readyEvent;
         private static bool _showUIRequested;
+        private static bool _isServerConnected = false;
 
         public static event Action Ready;
+        public static event Action<bool> ServerConnectionStatusChanged;
 
         public static bool IsRunning
         {
             get { return _thread != null && _thread.IsAlive; }
+        }
+
+        public static bool IsServerConnected
+        {
+            get { return _isServerConnected; }
         }
 
         /// <summary>
@@ -154,6 +162,28 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log("[AttendanceServerThread] SafeClose error: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Internal method called by AttendanceServerForm to update connection status.
+        /// </summary>
+        public static void UpdateServerConnectionStatus(bool isConnected)
+        {
+            bool changed = _isServerConnected != isConnected;
+            _isServerConnected = isConnected;
+
+            if (changed)
+            {
+                LogHelper.Log($"[AttendanceServerThread] Server connection status changed: {(isConnected ? "CONNECTED ✅" : "DISCONNECTED ❌")}");
+                try
+                {
+                    ServerConnectionStatusChanged?.Invoke(isConnected);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log("[AttendanceServerThread] ServerConnectionStatusChanged event error: " + ex.Message);
+                }
             }
         }
     }
