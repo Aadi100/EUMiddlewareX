@@ -164,19 +164,42 @@ namespace smart_attendance_middleware
             // Subscribe to safe shutdown
             this.FormClosing += Fingerprint_FormClosing;
 
-            // Adjust UI layout: resize enroll button and place retry to its right
+            // Adjust UI layout: resize buttons and place them in a row
             try
             {
-                // Assuming button1 is the enroll fingerprint button
+                // Set form width back to original size or slightly more to fit content
+                this.Width = 330;
+
                 if (this.button1 != null)
                 {
-                    this.button1.Size = new Size(140, this.button1.Size.Height);
-                    // Place retry button to the right with small margin
+                    // Calculate width to fit 3 buttons in the original content area (approx 283)
+                    // (283 - 2 * 5 margin) / 3 = 91
+                    int btnWidth = 90;
+
+                    this.button1.Size = new Size(btnWidth, this.button1.Size.Height);
+                    this.button1.Text = "Enroll"; // Shortened text to fit
+
+                    // Place retry button to the right
                     if (this.btn_retry != null)
                     {
-                        this.btn_retry.Size = new Size(120, this.button1.Size.Height);
-                        this.btn_retry.Location = new Point(this.button1.Right + 10, this.button1.Top);
+                        this.btn_retry.Size = new Size(btnWidth, this.button1.Size.Height);
+                        this.btn_retry.Text = "Retry"; // Shortened text to fit
+                        this.btn_retry.Location = new Point(this.button1.Right + 5, this.button1.Top);
+
+                        // Place release button to the right of retry
+                        if (this.btn_release != null)
+                        {
+                            this.btn_release.Size = new Size(btnWidth, this.button1.Size.Height);
+                            this.btn_release.Text = "Release"; // Shortened text to fit
+                            this.btn_release.Location = new Point(this.btn_retry.Right + 5, this.button1.Top);
+                        }
                     }
+                }
+
+                // Center Message box
+                if (this.Message != null)
+                {
+                    this.Message.Width = this.ClientSize.Width - 26;
                 }
             }
             catch { }
@@ -1074,6 +1097,28 @@ namespace smart_attendance_middleware
             // Clear status
             Message.Text = "Operation canceled. You can start again.";
             Message.Update();
+        }
+
+        private async void btn_release_Click(object sender, EventArgs e)
+        {
+            // Cancel any ongoing enrollment
+            if (_operationInProgress && _cts != null)
+            {
+                try { _cts.Cancel(); } catch { }
+            }
+
+            // Also cancel startup detection if it's still running
+            _startupCts?.Cancel();
+
+            // Reset flag so the message box can show properly if needed
+            _operationInProgress = false;
+            _cts = null;
+
+            // If enrollment is not complete, we just want to close after removal
+            // Set this to true so the form can close once the device is gone
+            _isEnrollmentComplete = true;
+
+            await WaitForDeviceRemovalAndClose();
         }
     }
 }

@@ -46,6 +46,7 @@ namespace smart_attendance_middleware
             this.button1 = new System.Windows.Forms.Button();
             this.axFpreader1 = new AxFPREADERLib.AxFpreader();
             this.btn_retry = new System.Windows.Forms.Button();
+            this.btn_release = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.axFpreader1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox)).BeginInit();
             this.SuspendLayout();
@@ -204,6 +205,17 @@ namespace smart_attendance_middleware
             this.btn_retry.UseVisualStyleBackColor = true;
             this.btn_retry.Click += new System.EventHandler(this.btn_retry_Click);
             // 
+            // btn_release
+            // 
+            this.btn_release.Location = new System.Drawing.Point(864, 180);
+            this.btn_release.Margin = new System.Windows.Forms.Padding(4);
+            this.btn_release.Name = "btn_release";
+            this.btn_release.Size = new System.Drawing.Size(164, 28);
+            this.btn_release.TabIndex = 35;
+            this.btn_release.Text = "Release Device";
+            this.btn_release.UseVisualStyleBackColor = true;
+            this.btn_release.Click += new System.EventHandler(this.btn_release_Click);
+            // 
             // 
             // Fingerprint
             // 
@@ -225,6 +237,7 @@ namespace smart_attendance_middleware
             this.Controls.Add(this.EnrollFPWithStr);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.btn_retry);
+            this.Controls.Add(this.btn_release);
             this.Name = "Fingerprint";
             this.Text = "Fingerprint";
             this.Load += new System.EventHandler(this.Fingerprint_Load);
@@ -253,6 +266,7 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Button button1;
         private AxFPREADERLib.AxFpreader axFpreader1;
         private System.Windows.Forms.Button btn_retry;
+        private System.Windows.Forms.Button btn_release;
 
     }
 }

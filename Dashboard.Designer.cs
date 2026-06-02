@@ -35,6 +35,7 @@
             this.pic_device_status = new System.Windows.Forms.PictureBox();
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
+            this.lbl_version = new System.Windows.Forms.Label();
             this.process1 = new System.Diagnostics.Process();
             this.button1 = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
@@ -83,7 +84,6 @@
             this.prg_server = new System.Windows.Forms.ProgressBar();
             this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
             this.panel2 = new System.Windows.Forms.Panel();
-            this.lbl_version = new System.Windows.Forms.Label();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pic_cloud_status)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pic_net_status)).BeginInit();
@@ -176,6 +176,16 @@
             this.panel4.Size = new System.Drawing.Size(1295, 78);
             this.panel4.TabIndex = 45;
             this.panel4.Paint += new System.Windows.Forms.PaintEventHandler(this.panel4_Paint);
+            // 
+            // lbl_version
+            // 
+            this.lbl_version.AutoSize = true;
+            this.lbl_version.ForeColor = System.Drawing.Color.Transparent;
+            this.lbl_version.Location = new System.Drawing.Point(324, 41);
+            this.lbl_version.Name = "lbl_version";
+            this.lbl_version.Size = new System.Drawing.Size(31, 13);
+            this.lbl_version.TabIndex = 44;
+            this.lbl_version.Text = "2.1.1";
             // 
             // process1
             // 
@@ -896,23 +906,13 @@
             this.panel2.Size = new System.Drawing.Size(1307, 618);
             this.panel2.TabIndex = 41;
             // 
-            // lbl_version
-            // 
-            this.lbl_version.AutoSize = true;
-            this.lbl_version.ForeColor = System.Drawing.Color.Transparent;
-            this.lbl_version.Location = new System.Drawing.Point(324, 41);
-            this.lbl_version.Name = "lbl_version";
-            this.lbl_version.Size = new System.Drawing.Size(22, 13);
-            this.lbl_version.TabIndex = 44;
-            this.lbl_version.Text = "2.0";
-            // 
             // Dashboard
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1704, 686);
+            this.ClientSize = new System.Drawing.Size(1297, 686);
             this.Controls.Add(this.button2);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.panel2);

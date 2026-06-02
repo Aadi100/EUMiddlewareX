@@ -1117,7 +1117,6 @@ namespace smart_attendance_middleware
             // Step 1: Basic validation
             if (string.IsNullOrWhiteSpace(apiKey))
             {
-                lbl_apikey_status.Text = "API Key is required.";
                 MessageBox.Show("Please enter a valid API Key.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -1125,7 +1124,6 @@ namespace smart_attendance_middleware
             // ✅ Validate format: Must contain colon (GYMID:SECRETKEY)
             if (!apiKey.Contains(":") || apiKey.Split(':').Length != 2)
             {
-                lbl_apikey_status.Text = "Invalid API Key format.";
                 MessageBox.Show("API Key format is invalid. Expected format: gymId:secretKey", "Format Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -2161,27 +2159,6 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"[btn_settime_Click][ERROR] {ex.Message}");
                 MessageBox.Show("Failed to save local time and GMT. See logs for details.",
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void btn_attendence_sim_Click(object sender, EventArgs e)
-        {
-            // Open the SimulatorForm (normal UI). Simulation is controlled from that form.
-            try
-            {
-                var form = new SimulatorForm(_dbHelper, _wsManager);
-
-                // Optional: show as non-modal and bring to front
-                form.Show();
-                form.BringToFront();
-
-                LogHelper.Log("Opened Simulator UI.");
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log("[SIM][UI][ERROR] " + ex.Message);
-                MessageBox.Show("Failed to open Simulator UI: " + ex.Message, "Simulator",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -3354,96 +3331,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void btn_save_smtpuser_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                string user = txt_smtpuser.Text.Trim();
-                if (string.IsNullOrWhiteSpace(user)) return;
-
-                _dbHelper.SaveEncryptedSetting("SmtpUser", user);
-                LogHelper.Log("[Backup] Saved and Encrypted SMTP User.");
-                MessageBox.Show("SMTP User saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[Backup][ERROR] btn_save_smtpuser: {ex.Message}");
-            }
-        }
-
-        private void btn_save_smtppassword_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                string pass = txt_smtppassword.Text.Trim();
-                if (string.IsNullOrWhiteSpace(pass)) return;
-
-                _dbHelper.SaveEncryptedSetting("SmtpPassword", pass);
-                LogHelper.Log("[Backup] Saved and Encrypted SMTP Password.");
-                MessageBox.Show("SMTP Password saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                txt_smtppassword.Clear();
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[Backup][ERROR] btn_save_smtppassword: {ex.Message}");
-            }
-        }
-
-        private void btn_save_backupemailto_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                string email = txt_backupemailto.Text.Trim();
-                if (string.IsNullOrWhiteSpace(email)) return;
-
-                _dbHelper.SaveSetting("BackupEmailTo", email);
-                LogHelper.Log($"[Backup] Saved Backup recipient email: {email}");
-                MessageBox.Show("Backup recipient email saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[Backup][ERROR] btn_save_backupemailto: {ex.Message}");
-            }
-        }
-
-        private void btn_save_smtpport_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                string port = txt_smtpport.Text.Trim();
-
-                if (!string.IsNullOrEmpty(port)) _dbHelper.SaveSetting("SmtpPort", port);
-
-                LogHelper.Log($"[Backup] Saved SMTP Connection (Host/Port).");
-                MessageBox.Show("SMTP Connection settings saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[Backup][ERROR] btn_save_smtpport: {ex.Message}");
-            }
-        }
-
-        private void btn_backupmode_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                // Assuming you have CheckBoxes or RadioButtons for Mode selection
-                // Here we save based on the state of your UI toggle controls
-                bool emailEnabled = chk_email.Checked;
-                bool driveEnabled = chk_drive.Checked;
-
-                _dbHelper.SaveSetting("EnableEmailBackup", emailEnabled.ToString().ToLower());
-                _dbHelper.SaveSetting("EnableGoogleDriveBackup", driveEnabled.ToString().ToLower());
-
-                LogHelper.Log($"[Backup] Mode Updated: Email={emailEnabled}, Drive={driveEnabled}");
-                MessageBox.Show($"Backup mode updated successfully.\nEmail: {emailEnabled}\nDrive: {driveEnabled}", "Mode Updated", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[Backup][ERROR] btn_backupmode: {ex.Message}");
-            }
-        }
-
         private void btn_save_retentiondays_Click(object sender, EventArgs e)
         {
             try
@@ -3547,6 +3434,11 @@ namespace smart_attendance_middleware
         {
             // Trigger initial backup after 5 seconds
             _backupService?.TriggerBackupAfterDelay(TimeSpan.FromSeconds(5));
+        }
+
+        private void subpnl_setup_Paint(object sender, PaintEventArgs e)
+        {
+
         }
 
         //////////////////////////////////////////////////////////////////////////////////////
