@@ -2061,6 +2061,48 @@ namespace smart_attendance_middleware
                 LogHelper.Log($"❌ Error in button2_Click: {ex.Message}");
             }
         }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            var wb = new WebsocketServer();
+            wb.Show();
+        }
+
+        private async void button4_Click(object sender, EventArgs e)
+        {
+            // Update this with your target device serial number
+            string sn = "AYTF24068434";
+
+            try
+            {
+                ShowLoader("Updating John's Info...");
+
+                // 1. Set Username
+                var userParams = new { enrollid = 47526, name = "john" };
+                await WebsocketServer.ExecuteServiceCommand(sn, "setusername", Newtonsoft.Json.JsonConvert.SerializeObject(userParams));
+                await Task.Delay(1000); // Small delay between operations
+
+                // 2. Set Face
+                var faceParams = new { enrollid = 47526, name = "john", record = @"D:\EUSmartAttendanceMiddlewareX\bin\x86\Debug\FACE\813.jpg" };
+                await WebsocketServer.ExecuteServiceCommand(sn, "setface", Newtonsoft.Json.JsonConvert.SerializeObject(faceParams));
+                await Task.Delay(1000);
+
+                // 3. Set RFID
+                var rfidParams = new { enrollid = 47526, name = "john", record = "74520146" };
+                await WebsocketServer.ExecuteServiceCommand(sn, "setrfid", Newtonsoft.Json.JsonConvert.SerializeObject(rfidParams));
+
+                ShowLoader("Update Successful!");
+                await Task.Delay(2000);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}");
+            }
+            finally
+            {
+                HideLoader();
+            }
+        }
         /////////////////////////////////////////////////////////////////////////////////
     }
 }

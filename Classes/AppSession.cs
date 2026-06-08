@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using static smart_attendance_middleware.Dashboard;
+using System.Threading.Tasks;
+using System.Net.WebSockets;
 
 namespace smart_attendance_middleware
 {
@@ -41,6 +43,10 @@ namespace smart_attendance_middleware
         public static HashSet<string> StaffEnrollmentIds { get; set; }
             = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // Registry for connected devices, keyed by Serial Number (SN)
+        public static System.Collections.Concurrent.ConcurrentDictionary<string, System.Net.WebSockets.WebSocket> RegisteredDevices { get; set; }
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Net.WebSockets.WebSocket>();
+
         public static void ClearSession()
         {
             LoggedInUser = null;
@@ -60,6 +66,7 @@ namespace smart_attendance_middleware
             PendingJobs.Clear();
             DeviceCategoryMap.Clear();
             StaffEnrollmentIds.Clear();
+            RegisteredDevices.Clear();
         }
     }
 

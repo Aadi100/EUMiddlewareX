@@ -1020,5 +1020,46 @@ namespace smart_attendance_middleware.Classes
                 return false;
             }
         }
+        /// <summary>
+        /// Converts an image from a URL or local file path into a Base64 encoded string.
+        /// </summary>
+        /// <param name="imageUrl">The web URL or local file path of the image.</param>
+        /// <returns>Base64 string of the image, or null if conversion fails.</returns>
+        public static async Task<string> ConvertImageToBase64Async(string imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl)) return null;
+
+            try
+            {
+                byte[] imageBytes;
+
+                // Check if the input is a web URL
+                if (Uri.TryCreate(imageUrl, UriKind.Absolute, out Uri uriResult) &&
+                   (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+                {
+                    using (var webClient = new WebClient())
+                    {
+                        imageBytes = await webClient.DownloadDataTaskAsync(uriResult).ConfigureAwait(false);
+                    }
+                }
+                // Otherwise check if it's a local file
+                else if (File.Exists(imageUrl))
+                {
+                    imageBytes = File.ReadAllBytes(imageUrl);
+                }
+                else
+                {
+                    return null;
+                }
+
+                return Convert.ToBase64String(imageBytes);
+            }
+            catch (Exception ex)
+            {
+                // Assuming LogHelper exists based on previous context in the file
+                try { LogHelper.Log($"Failed to convert image to Base64. URL: {imageUrl}. Error: {ex.Message}"); } catch { }
+                return null;
+            }
+        }
     }
 }

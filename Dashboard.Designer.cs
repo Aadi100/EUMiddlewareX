@@ -35,6 +35,7 @@
             this.pic_device_status = new System.Windows.Forms.PictureBox();
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
+            this.button3 = new System.Windows.Forms.Button();
             this.lbl_version = new System.Windows.Forms.Label();
             this.process1 = new System.Diagnostics.Process();
             this.button1 = new System.Windows.Forms.Button();
@@ -84,6 +85,7 @@
             this.prg_server = new System.Windows.Forms.ProgressBar();
             this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.button4 = new System.Windows.Forms.Button();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pic_cloud_status)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pic_net_status)).BeginInit();
@@ -168,6 +170,8 @@
             // panel4
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
+            this.panel4.Controls.Add(this.button4);
+            this.panel4.Controls.Add(this.button3);
             this.panel4.Controls.Add(this.lbl_version);
             this.panel4.Controls.Add(this.label8);
             this.panel4.Controls.Add(this.panel1);
@@ -176,6 +180,16 @@
             this.panel4.Size = new System.Drawing.Size(1295, 78);
             this.panel4.TabIndex = 45;
             this.panel4.Paint += new System.Windows.Forms.PaintEventHandler(this.panel4_Paint);
+            // 
+            // button3
+            // 
+            this.button3.Location = new System.Drawing.Point(874, 34);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(75, 23);
+            this.button3.TabIndex = 45;
+            this.button3.Text = "button3";
+            this.button3.UseVisualStyleBackColor = true;
+            this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
             // lbl_version
             // 
@@ -906,6 +920,16 @@
             this.panel2.Size = new System.Drawing.Size(1307, 618);
             this.panel2.TabIndex = 41;
             // 
+            // button4
+            // 
+            this.button4.Location = new System.Drawing.Point(964, 36);
+            this.button4.Name = "button4";
+            this.button4.Size = new System.Drawing.Size(75, 23);
+            this.button4.TabIndex = 46;
+            this.button4.Text = "button4";
+            this.button4.UseVisualStyleBackColor = true;
+            this.button4.Click += new System.EventHandler(this.button4_Click);
+            // 
             // Dashboard
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1012,5 +1036,7 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label lbl_connecteddevice;
         private System.Windows.Forms.Label lbl_version;
+        private System.Windows.Forms.Button button3;
+        private System.Windows.Forms.Button button4;
     }
 }

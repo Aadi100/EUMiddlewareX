@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="packages\EntityFramework.6.5.1\build\EntityFramework.props" Condition="Exists('packages\EntityFramework.6.5.1\build\EntityFramework.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -217,6 +217,7 @@
     <Compile Include="Classes\SimulationEvents.cs" />
     <Compile Include="Classes\StaffAttendanceLogSyncService.cs" />
     <Compile Include="Classes\StaffAttendenceServerFunctions.cs" />
+    <Compile Include="Classes\WebServerServices.cs" />
     <Compile Include="Controls\DataPairPanel.cs" />
     <Compile Include="Controls\RectangularLoader.cs">
       <SubType>Component</SubType>
@@ -319,6 +320,12 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resource1.resx</DependentUpon>
     </Compile>
+    <Compile Include="WebsocketServer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="WebsocketServer.Designer.cs">
+      <DependentUpon>WebsocketServer.cs</DependentUpon>
+    </Compile>
     <EmbeddedResource Include="AddNewDevice.resx">
       <DependentUpon>AddNewDevice.cs</DependentUpon>
     </EmbeddedResource>
@@ -368,6 +375,9 @@
     <EmbeddedResource Include="Resource1.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resource1.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="WebsocketServer.resx">
+      <DependentUpon>WebsocketServer.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
