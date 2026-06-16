@@ -206,8 +206,30 @@ namespace smart_attendance_middleware
         ///  - Members: to store member details (MemberID, Name, Status, RFID, Picture, MachineID)
         ///  - AttendanceLogs: to store attendance records (LogID, MemberID, CheckInTime, CheckOutTime, Synced)
         /// </summary>
+        private void EnsureDatabaseExists()
+        {
+            // Build a connection string pointing to master so we can create the DB if missing
+            var builder = new System.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+            string dbName = builder.InitialCatalog;
+            builder.InitialCatalog = "master";
+
+            using (var masterConn = new SqlConnection(builder.ConnectionString))
+            {
+                masterConn.Open();
+                using (var cmd = new SqlCommand(
+                    $"IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{dbName}') CREATE DATABASE [{dbName}];",
+                    masterConn))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public void InitializeDatabase()
         {
+            // Ensure the database itself exists before trying to open it
+            EnsureDatabaseExists();
+
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
@@ -445,7 +467,7 @@ BEGIN
     CREATE TABLE dbo.GateAccessed (
         GateId INT IDENTITY(1,1) PRIMARY KEY,
         DeviceIP NVARCHAR(50) NOT NULL,
-        MemberId INT NOT NULL,
+        MemberId INT NULL,
         IsVisitor BIT NOT NULL DEFAULT 0,
         VisitorName NVARCHAR(255),
         VisitorPhone NVARCHAR(50),
@@ -515,6 +537,15 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GateAccessed_MemberId'
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GateAccessed_AccessedTime' AND object_id = OBJECT_ID('dbo.GateAccessed'))
     CREATE INDEX IX_GateAccessed_AccessedTime ON dbo.GateAccessed(AccessedTime);
 
+IF EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.GateAccessed') AND name = 'MemberId' AND is_nullable = 0)
+BEGIN
+    ALTER TABLE dbo.GateAccessed DROP CONSTRAINT FK_GateAccessed_Members;
+    ALTER TABLE dbo.GateAccessed ALTER COLUMN MemberId INT NULL;
+    ALTER TABLE dbo.GateAccessed ADD CONSTRAINT FK_GateAccessed_Members FOREIGN KEY (MemberId) REFERENCES dbo.Members(MemberID);
+END
+
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_DeviceId' AND object_id = OBJECT_ID('dbo.PendingJobs'))
     CREATE INDEX IX_PendingJobs_DeviceId ON dbo.PendingJobs(DeviceId);
 
@@ -563,6 +594,9 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt'
                         throw new InvalidOperationException("Failed to initialize database schema.", ex);
                     }
                 }
+
+                // Create default developer user if not already present
+                DefaultDevUser(connection);
             }
         }
 
@@ -1256,122 +1290,7 @@ WHEN NOT MATCHED THEN
             return members;
         }
 
-        //        /// <summary>
-        //        /// Inserts or updates a member record in the local DB using data received from the cloud.
-        //        /// </summary>
-        //        public void UpsertMember(JObject member)
-        //        {
-        //            int memberId = (int)member["id"];
-        //            string name = member["name"]?.ToString() ?? string.Empty;
-        //            string status = (string)member["status"];
-        //            string rfid = member["rfid"]?.ToString() ?? string.Empty;
-        //            string picture = member["picture"]?.ToString() ?? string.Empty;
-        //            bool fingerprint = member["fingerprint"]?.ToObject<bool>() ?? false;
-        //            int? enrollmentId = member["enrollment_id"]?.ToObject<int?>();
-        //            string packageExpiry = member["package_expiry"]?.ToString();
-        //            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-
-        //            var existingMember = GetMember(memberId);
-        //            var devices = LoadDevices();
-        //            var syncStatus = new Dictionary<int, bool>();
-
-        //            foreach (var device in devices)
-        //            {
-        //                // default to false (not synced) for each device; actual sync happens after successful device sync
-        //                syncStatus[device.DeviceId] = false;
-        //                LogHelper.Log($"Member {memberId} sync status for device {device.DeviceId}: Needs sync");
-        //            }
-
-        //            string syncStatusJson = JsonConvert.SerializeObject(syncStatus);
-
-        //            using (var conn = new SqlConnection(connectionString))
-        //            {
-        //                conn.Open();
-        //                using (var transaction = conn.BeginTransaction())
-        //                {
-        //                    try
-        //                    {
-        //                        // Check if record exists
-        //                        bool exists;
-        //                        using (var checkCmd = new SqlCommand("SELECT COUNT(1) FROM Members WHERE MemberID = @id", conn, transaction))
-        //                        {
-        //                            checkCmd.Parameters.AddWithValue("@id", memberId);
-        //                            exists = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
-        //                        }
-
-        //                        if (exists)
-        //                        {
-        //                            using (var cmd = new SqlCommand(@"
-        //UPDATE Members
-        //SET Name = @name,
-        //    Status = @status,
-        //    RFID = @rfid,
-        //    Picture = @picture,
-        //    Fingerprint = @fingerprint,
-        //    EnrollmentID = @enrollment_id,
-        //    PackageExpiry = @package_expiry,
-        //    SyncStatus = @syncStatus,
-        //    UpdatedAt = @updatedAt
-        //WHERE MemberID = @id", conn, transaction))
-        //                            {
-        //                                cmd.Parameters.AddWithValue("@id", memberId);
-        //                                cmd.Parameters.AddWithValue("@name", name);
-        //                                cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
-        //                                cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
-        //                                cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
-        //                                cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
-        //                                cmd.Parameters.AddWithValue("@enrollment_id", enrollmentId ?? (object)DBNull.Value);
-        //                                cmd.Parameters.AddWithValue("@package_expiry", string.IsNullOrEmpty(packageExpiry) ? (object)DBNull.Value : packageExpiry);
-        //                                cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
-        //                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
-
-        //                                cmd.ExecuteNonQuery();
-        //                            }
-        //                        }
-        //                        else
-        //                        {
-        //                            // Insert with explicit identity value: enable IDENTITY_INSERT for this session
-        //                            using (var setOn = new SqlCommand("SET IDENTITY_INSERT dbo.Members ON;", conn, transaction))
-        //                            {
-        //                                setOn.ExecuteNonQuery();
-        //                            }
-
-        //                            using (var cmd = new SqlCommand(@"
-        //INSERT INTO Members (MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus, CreatedAt, UpdatedAt)
-        //VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @package_expiry, @syncStatus, @createdAt, @updatedAt);", conn, transaction))
-        //                            {
-        //                                cmd.Parameters.AddWithValue("@id", memberId);
-        //                                cmd.Parameters.AddWithValue("@name", name);
-        //                                cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
-        //                                cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
-        //                                cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
-        //                                cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
-        //                                cmd.Parameters.AddWithValue("@enrollment_id", enrollmentId ?? (object)DBNull.Value);
-        //                                cmd.Parameters.AddWithValue("@package_expiry", string.IsNullOrEmpty(packageExpiry) ? (object)DBNull.Value : packageExpiry);
-        //                                cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
-        //                                cmd.Parameters.AddWithValue("@createdAt", timestamp);
-        //                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
-
-        //                                cmd.ExecuteNonQuery();
-        //                            }
-
-        //                            using (var setOff = new SqlCommand("SET IDENTITY_INSERT dbo.Members OFF;", conn, transaction))
-        //                            {
-        //                                setOff.ExecuteNonQuery();
-        //                            }
-        //                        }
-
-        //                        transaction.Commit();
-        //                    }
-        //                    catch (Exception ex)
-        //                    {
-        //                        try { transaction.Rollback(); } catch { /* ignore */ }
-        //                        LogHelper.Log($"Error upserting member {memberId}: {ex.Message}");
-        //                        throw;
-        //                    }
-        //                }
-        //            }
-        //        }
+        
 
         /// <summary>
         /// Inserts or updates a member record in the local DB using data received from the cloud.
@@ -2002,6 +1921,45 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
             catch (SqlException ex)
             {
                 Console.WriteLine($"Error getting device attendance action: {ex.Message}");
+                return null;
+            }
+        }
+
+
+        /// <summary>
+        /// Returns the decrypted DeviceIP for a given (plain-text) serial number.
+        /// Searches both devices and staff_devices tables.
+        /// Returns null if not found.
+        /// </summary>
+        public string GetDeviceIpBySn(string sn)
+        {
+            if (string.IsNullOrEmpty(sn)) return null;
+
+            try
+            {
+                string encryptedSn = Encrypt(sn);
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    string query = @"
+                        SELECT DeviceIP FROM devices        WHERE DeviceSerial = @SN
+                        UNION
+                        SELECT DeviceIP FROM staff_devices  WHERE DeviceSerial = @SN";
+
+                    using (var cmd = new SqlCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@SN", encryptedSn);
+                        var result = cmd.ExecuteScalar();
+
+                        if (result == null || result == DBNull.Value) return null;
+                        return Decrypt(result.ToString());
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting device ip by sn: {ex.Message}");
                 return null;
             }
         }
@@ -5856,7 +5814,7 @@ CheckMemberAccessStatus(int memberId)
             (@DeviceIP, @MemberId, @IsVisitor, @VisitorName, @VisitorPhone, @Reason, @AccessedTime, @Username, @CreatedAt, @UpdatedAt)", connection, transaction))
                         {
                             command.Parameters.AddWithValue("@DeviceIP", gateAccessed.DeviceIP);
-                            command.Parameters.AddWithValue("@MemberId", gateAccessed.MemberId);
+                            command.Parameters.AddWithValue("@MemberId", gateAccessed.MemberId > 0 ? (object)gateAccessed.MemberId : DBNull.Value);
                             command.Parameters.AddWithValue("@IsVisitor", gateAccessed.IsVisitor);
                             command.Parameters.AddWithValue("@VisitorName", (object)gateAccessed.VisitorName ?? DBNull.Value);
                             command.Parameters.AddWithValue("@VisitorPhone", (object)gateAccessed.VisitorPhone ?? DBNull.Value);

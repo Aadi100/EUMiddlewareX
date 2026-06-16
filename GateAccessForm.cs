@@ -140,7 +140,7 @@ namespace smart_attendance_middleware
                 {
                     // Get the selected member's ID from the database.
                     List<Member> members = _dbHelper.GetMembers();
-                    var selectedMember = members.FirstOrDefault(m => m.Name == txtMemberName.Text);
+                    var selectedMember = members.FirstOrDefault(m => string.Equals(m.Name?.Trim(), txtMemberName.Text?.Trim(), StringComparison.OrdinalIgnoreCase));
                     if (selectedMember == null)
                     {
                         MessageBox.Show("Please select a valid member.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);

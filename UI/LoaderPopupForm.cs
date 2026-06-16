@@ -20,7 +20,7 @@ namespace smart_attendance_middleware.UI
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.CenterScreen;
             ShowInTaskbar = false;
-            TopMost = true;
+            TopMost = false;
             BackColor = Color.White;
             Width = 240;
             Height = 260;

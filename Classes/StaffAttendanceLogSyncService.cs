@@ -234,7 +234,6 @@ public class StaffAttendanceLogSyncService : IDisposable
         }
     }
 
-    // Same name as AttendanceLogSyncService for consistency
     private async Task<bool> DownloadDeviceLogsWithRetry(List<Device> devices, string deviceType, CancellationToken token)
     {
         if (devices == null || devices.Count == 0) return true;
@@ -248,7 +247,7 @@ public class StaffAttendanceLogSyncService : IDisposable
         {
             if (token.IsCancellationRequested) break;
 
-            LogHelper.Log($"🔄 {deviceType} staff devices - Attempt {attempt}/{maxRetries} for {failedDevices.Count} devices");
+            LogHelper.Log($"🔄 {deviceType} staff devices - Attempt {attempt}/{maxRetries} to trigger log pushes for {failedDevices.Count} devices");
 
             var currentAttemptFailures = new List<Device>();
             int successCount = 0;
@@ -257,51 +256,53 @@ public class StaffAttendanceLogSyncService : IDisposable
             {
                 if (token.IsCancellationRequested) break;
 
+                // 1. Resolve Serial Number (SN) for WebSocket routing
+                string sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                if (string.IsNullOrEmpty(sn))
+                {
+                    LogHelper.Log($"[Staff-Sync] No SN in DB for {device.DeviceIP}. Skipping...");
+                    continue;
+                }
+
+                // 2. Check if the device is currently connected to the WebSocket Server
+                if (!AppSession.RegisteredDevices.TryGetValue(sn, out var socket) || socket.State != System.Net.WebSockets.WebSocketState.Open)
+                {
+                    LogHelper.Log($"❌ Staff Device {sn} is OFFLINE. Cannot trigger sync.");
+                    currentAttemptFailures.Add(device);
+                    continue;
+                }
+
                 try
                 {
-                    // Reachability check (shared)
-                    bool reachable = await CommonUtils.IsDeviceReachableAsync(device.DeviceIP, 3, token).ConfigureAwait(false);
-                    if (!reachable)
+                    LogHelper.Log($"📥 Dispatching staff log request to {sn} ({device.DeviceIP}) - Attempt {attempt}");
+
+                    string response = await WebsocketServer.ExecuteServiceGetCommand(sn, "getalllogs", null).ConfigureAwait(false);
+
+                    if (!string.IsNullOrEmpty(response))
                     {
-                        LogHelper.Log($"❌ Device {device.StaffDeviceId} ({device.DeviceIP}) is not reachable after multiple attempts. Will retry later.");
-                        currentAttemptFailures.Add(device);
-                        continue;
-                    }
-
-                    LogHelper.Log($"📥 Reading {deviceType} staff logs from device {device.StaffDeviceId} ({device.DeviceIP}) - Attempt {attempt}");
-
-                    int recordCount = await DeviceService.ReadAndSaveStaffGLogData(
-                        device.DeviceIP,
-                        device.Port,
-                        device.MachineNo,
-                        device.Password
-                    ).ConfigureAwait(false);
-
-                    if (recordCount >= 0)
-                    {
-                        LogHelper.Log($"✅ Read {recordCount} {deviceType} staff records from device {device.StaffDeviceId} on attempt {attempt}");
+                        LogHelper.Log($"✅ Staff log request completed for {sn}. Records saved automatically.");
                         successCount++;
                     }
                     else
                     {
-                        LogHelper.Log($"❌ Failed reading {deviceType} staff logs from device {device.StaffDeviceId} on attempt {attempt}");
+                        LogHelper.Log($"❌ No response from {sn} on attempt {attempt}");
                         currentAttemptFailures.Add(device);
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"❌ Error reading {deviceType} staff logs from device {device.StaffDeviceId} on attempt {attempt}: {ex.Message}");
+                    LogHelper.Log($"❌ Error dispatching staff logs for {sn} on attempt {attempt}: {ex.Message}");
                     currentAttemptFailures.Add(device);
                 }
             }
 
-            LogHelper.Log($"📊 {deviceType} staff attempt {attempt} results - Success: {successCount}, Failed: {currentAttemptFailures.Count}");
+            LogHelper.Log($"📊 {deviceType} staff attempt {attempt} dispatch - Success: {successCount}, Failed: {currentAttemptFailures.Count}");
 
             failedDevices = currentAttemptFailures;
 
             if (failedDevices.Count == 0)
             {
-                LogHelper.Log($"✅ All {deviceType} staff devices synced successfully (attempt {attempt})");
+                LogHelper.Log($"✅ All staff log sync requests for {deviceType} dispatched successfully.");
                 return true;
             }
 
@@ -318,15 +319,13 @@ public class StaffAttendanceLogSyncService : IDisposable
 
         if (failedDevices.Count > 0)
         {
-            var failedDeviceIds = string.Join(", ", failedDevices.Select(d => d.StaffDeviceId));
-            LogHelper.Log($"❌ {deviceType} staff sync failed for devices: {failedDeviceIds} after all retries");
+            LogHelper.Log($"❌ {deviceType} staff sync trigger failed for {failedDevices.Count} devices after all retries.");
             _earlyRetryRequested = true;
             return false;
         }
 
         return true;
     }
-
     // ============================ Phase 2: Verify and process StaffGLogs.*.txt ============================
 
     private async Task VerifyAndProcessStaffGlogFilesAsync(CancellationToken token)
@@ -848,9 +847,7 @@ public class StaffAttendanceLogSyncService : IDisposable
 
                 var batch = items.Skip(i).Take(maxBatchSize)
                     .Select(x => {
-                        long? longId = null;
-                        if (long.TryParse(x.Id, out long parsedId)) longId = parsedId;
-                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, longId);
+                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, x.Id);
                     })
                     .ToList();
 

@@ -709,132 +709,95 @@ namespace smart_attendance_middleware
                 int memberId = data["id"]?.Value<int>() ?? 0;
                 int? enrollmentId = data["enrollment_id"]?.Type != JTokenType.Null ? (int?)data["enrollment_id"] : null;
 
-                if (memberId == 0)
+                if (memberId == 0 || enrollmentId == null || enrollmentId == 0)
                 {
-                    LogHelper.Log("⚠️ Invalid member ID in deletion request");
-                    return;
-                }
-                if (enrollmentId == null || enrollmentId == 0)
-                {
-                    LogHelper.Log($"⚠️ Invalid enrollment ID for member {memberId}");
+                    LogHelper.Log($"⚠️ Invalid member ({memberId}) or enrollment ({enrollmentId}) in deletion request");
                     return;
                 }
 
-                LogHelper.Log($"🗑️ Beginning deletion process for member {memberId} (Enrollment: {enrollmentId})");
+                LogHelper.Log($"🗑️ Beginning WebSocket-based deletion for member {memberId} (Enrollment: {enrollmentId})");
 
                 var deviceDetails = _dbHelper.GetAvailableDeviceDetails(memberId);
                 if (deviceDetails.Count > 0)
                 {
-                    var failedDevices = new List<(string ip, int port, int machineNo, string password, int enrollmentNumber, string reason)>();
-                    var skippedDevices = new List<(string ip, int port, int machineNo, string password, int enrollmentNumber, string reason)>();
+                    var failedDevices = new List<(string sn, int enrollId, string reason)>();
 
-                    foreach (var device in deviceDetails)
+                    foreach (var dev in deviceDetails)
                     {
                         try
                         {
-                            var allDevices = _dbHelper.LoadDevices();
-                            var currentDevice = allDevices.FirstOrDefault(d => d.MachineNo == device.machineNo);
-                            if (currentDevice == null)
+                            // 1. Resolve Serial Number (SN) for WebSocket routing
+                            string sn = CommonUtils.GetDeviceSnByIp(dev.ip);
+                            if (string.IsNullOrEmpty(sn))
                             {
-                                skippedDevices.Add((device.ip, device.port, device.machineNo, device.password, device.enrollmentNumber, "Device not found"));
+                                LogHelper.Log($"[Delete] No SN found for IP {dev.ip}. Skipping device.");
                                 continue;
                             }
 
-                            var (deviceExists, syncStatus, memberStatus) = _dbHelper.GetMemberDeviceSyncStatus(memberId, currentDevice.DeviceId);
-                            if (!deviceExists || !syncStatus)
-                            {
-                                skippedDevices.Add((device.ip, device.port, device.machineNo, device.password, device.enrollmentNumber, "Sync status false / not in status"));
-                                continue;
-                            }
+                            // 2. Dispatch Delete User (backupnum 12 = all templates/face/card/pwd)
+                            var deleteParams = new { enrollid = enrollmentId.Value, backupnum = 12 };
 
-                            bool success = await DeviceService.DeleteEnrollmentData(
-                                device.ip,
-                                device.port,
-                                device.machineNo,
-                                device.password,
-                                device.enrollmentNumber,
-                                device.enrollmentNumber,
-                                12);
+                            bool isDispatched = await WebsocketServer.ExecuteServiceCommand(
+                                sn,
+                                "deleteuser",
+                                JsonConvert.SerializeObject(deleteParams)
+                            );
 
-                            if (!success)
-                                failedDevices.Add((device.ip, device.port, device.machineNo, device.password, device.enrollmentNumber, "Deletion failed"));
+                            if (!isDispatched)
+                                failedDevices.Add((sn, enrollmentId.Value, "Device offline or dispatch failed"));
+                            else
+                                LogHelper.Log($"🗑️ Delete command dispatched to device {sn}");
                         }
-                        catch (Exception exDev)
+                        catch (Exception ex)
                         {
-                            failedDevices.Add((device.ip, device.port, device.machineNo, device.password, device.enrollmentNumber, $"Exception: {exDev.Message}"));
+                            failedDevices.Add((dev.ip, enrollmentId.Value, $"Exception: {ex.Message}"));
                         }
                     }
 
-                    if (failedDevices.Count + skippedDevices.Count > 0)
+                    // 3. Simple Retry loop if failures occurred
+                    if (failedDevices.Count > 0)
                     {
-                        await Task.Delay(10000);
-                        var retryDevices = failedDevices.Concat(skippedDevices).ToList();
-
-                        foreach (var retryDevice in retryDevices)
+                        await Task.Delay(5000);
+                        foreach (var fd in failedDevices)
                         {
-                            try
-                            {
-                                bool retrySuccess = await DeviceService.DeleteEnrollmentData(
-                                    retryDevice.ip, retryDevice.port, retryDevice.machineNo, retryDevice.password,
-                                    retryDevice.enrollmentNumber, retryDevice.enrollmentNumber, 12);
-
-                                if (!retrySuccess)
-                                    LogHelper.Log($"💥 Final retry failed for device {retryDevice.machineNo}");
-                            }
-                            catch (Exception exRetry)
-                            {
-                                LogHelper.Log($"💥 Retry failed for device {retryDevice.machineNo}: {exRetry.Message}");
-                            }
+                            var retryParams = new { enrollid = fd.enrollId, backupnum = 12 };
+                            await WebsocketServer.ExecuteServiceCommand(fd.sn, "deleteuser", JsonConvert.SerializeObject(retryParams));
                         }
                     }
                 }
 
-                // DB cleanup under lock
+                // --- Database Cleanup (Under Write Lock) ---
                 await DatabaseQueueManager.EnterDbWriteLockAsync("HandleDeletedMember_Cleanup", DbTaskPriority.High);
                 try
                 {
                     _dbHelper.DeleteMemberById(memberId);
                     bool logsDeleted = _dbHelper.DeleteMemberLogs(memberId);
-                    LogHelper.Log(logsDeleted
-                        ? $"✅ Successfully deleted logs for member {memberId}"
-                        : $"ℹ️ No logs found to delete for member {memberId}");
+                    LogHelper.Log(logsDeleted ? $"✅ Deleted logs for member {memberId}" : $"ℹ️ No logs to delete for member {memberId}");
                 }
                 finally
                 {
                     DatabaseQueueManager.ReleaseDbWriteLock("HandleDeletedMember_Cleanup");
                 }
 
-                // Update cache - remove deleted member
+                // --- Cache and Resource Cleanup ---
                 if (_cacheManager != null)
                 {
                     _cacheManager.UpdateMemberImmediate(new Member { MemberID = memberId }, CacheOperation.Delete);
-                    LogHelper.Log($"[Cache] Deleted member {memberId} from cache");
-
-                    // Also refresh attendance logs since member logs were deleted
                     _ = Task.Run(async () => await _cacheManager.RefreshIncrementalAsync());
-                    LogHelper.Log("[Cache] Triggered incremental refresh after member deletion");
                 }
 
-                // Face image deletion outside lock
+                // Clean up face images
                 _ = Task.Run(async () =>
                 {
-                    try
-                    {
-                        bool imageDeleted = await _wsManager.DeleteMemberFaceImageAsync(memberId);
-                        if (imageDeleted)
-                            LogHelper.Log($"✅ Successfully deleted face image for member {memberId}");
-                    }
-                    catch (Exception exImg)
-                    {
-                        LogHelper.Log($"❌ Error deleting face image for member {memberId}: {exImg.Message}");
-                    }
+                    try { await _wsManager.DeleteMemberFaceImageAsync(memberId); }
+                    catch (Exception exImg) { LogHelper.Log($"❌ Error deleting face image for member {memberId}: {exImg.Message}"); }
                 });
 
-                LogHelper.Log($"🏁 Completed deletion process for member {memberId}");
+                LogHelper.Log($"🏁 Completed process for member {memberId}");
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"⛔ Critical error handling member deletion: {ex.Message}");
+                LogHelper.Log($"⛔ Critical error in HandleDeletedMember: {ex.Message}");
             }
         }
 
@@ -854,8 +817,8 @@ namespace smart_attendance_middleware
 
                 LogHelper.Log($"🔍 Processing update for member {memberId}");
 
-                // Process all entries
                 await _deviceFunctions.ProcessUserWorkflowAsync();
+                await _deviceFunctions.VerifyAndUpdateBiometricLogsAsync(memberId);
 
                 LogHelper.Log($"🔍 Process Completed for member {memberId}");
 

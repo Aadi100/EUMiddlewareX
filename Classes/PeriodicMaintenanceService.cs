@@ -444,7 +444,7 @@ namespace smart_attendance_middleware.Classes
 
 
         /// <summary>
-        /// Executes the log clear operation if conditions are met
+        /// Executes the log clear operation over WebSocket for all active devices.
         /// </summary>
         private async Task ExecuteLogClearOperation()
         {
@@ -458,154 +458,104 @@ namespace smart_attendance_middleware.Classes
                     return;
                 }
 
-                LogHelper.Log("🗑️ Starting general log clear operation for all devices...");
+                LogHelper.Log("🗑️ Starting WebSocket-based log clear operation for all devices...");
 
-                // Regular Devices (network I/O - no DB lock)
+                // 1. Process Regular Devices
                 var devices = _dbHelper.LoadDevices();
-                if (devices == null || devices.Count == 0)
-                {
-                    LogHelper.Log("⚠️ No devices found for log clearing");
-                }
-                else
+                if (devices != null && devices.Count > 0)
                 {
                     int successCount = 0;
-                    int failureCount = 0;
-
                     foreach (var device in devices)
                     {
                         try
                         {
-                            LogHelper.Log($"🧹 Clearing logs for device {device.DeviceId} ({device.DeviceIP})...");
+                            string sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                            if (string.IsNullOrEmpty(sn))
+                            {
+                                LogHelper.Log($"[Maintenance] No SN found for IP {device.DeviceIP}. Skipping.");
+                                continue;
+                            }
 
-                            bool success = await DeviceService.EmptyGeneralLogData(
-                                device.DeviceIP,
-                                device.Port,
-                                device.MachineNo,
-                                device.Password
-                            );
+                            // Dispatch Cloud Protocol 12: cleanlog
+                            bool dispatched = await WebsocketServer.ExecuteServiceCommand(sn, "cleanlog", null);
 
-                            if (success)
+                            if (dispatched)
                             {
                                 successCount++;
-                                LogHelper.Log($"✅ Successfully cleared logs for device {device.DeviceId}");
+                                LogHelper.Log($"✅ Dispatched cleanlog to device {sn}");
                             }
                             else
                             {
-                                failureCount++;
-                                LogHelper.Log($"❌ Failed to clear logs for device {device.DeviceId}");
+                                LogHelper.Log($"❌ Device {sn} is offline. Cleanlog failed.");
                             }
-
-                            await Task.Delay(2000);
+                            await Task.Delay(1000); // Friendly throttle
                         }
-                        catch (Exception deviceEx)
-                        {
-                            failureCount++;
-                            LogHelper.Log($"❌ Exception clearing logs for device {device.DeviceId}: {deviceEx.Message}");
-                        }
+                        catch (Exception ex) { LogHelper.Log($"❌ Error on {device.DeviceIP}: {ex.Message}"); }
                     }
-                    LogHelper.Log($"🎯 Log clear operation completed for regular devices - Success: {successCount}, Failed: {failureCount}");
+                    LogHelper.Log($"🎯 Regular Devices - Dispatched: {successCount}/{devices.Count}");
                 }
 
-                // Staff Devices (network I/O - no DB lock)
+                // 2. Process Staff Devices
                 var staffDevices = _dbHelper.LoadStaffDevices();
-                if (staffDevices == null || staffDevices.Count == 0)
-                {
-                    LogHelper.Log("⚠️ No staff devices found for log clearing");
-                }
-                else
+                if (staffDevices != null && staffDevices.Count > 0)
                 {
                     int staffSuccessCount = 0;
-                    int staffFailureCount = 0;
-
                     foreach (var device in staffDevices)
                     {
                         try
                         {
-                            LogHelper.Log($"🧹 Clearing logs for staff device {device.StaffDeviceId}...");
+                            string sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                            if (string.IsNullOrEmpty(sn)) continue;
 
-                            bool success = await DeviceService.EmptyGeneralLogData(
-                                device.DeviceIP,
-                                device.Port,
-                                device.MachineNo,
-                                device.Password
-                            );
+                            bool dispatched = await WebsocketServer.ExecuteServiceCommand(sn, "cleanlog", null);
 
-                            if (success)
+                            if (dispatched)
                             {
                                 staffSuccessCount++;
-                                LogHelper.Log($"✅ Successfully cleared logs for staff device {device.StaffDeviceId}");
+                                LogHelper.Log($"✅ Dispatched cleanlog to staff device {sn}");
                             }
-                            else
-                            {
-                                staffFailureCount++;
-                                LogHelper.Log($"❌ Failed to clear logs for staff device {device.StaffDeviceId}");
-                            }
-
-                            await Task.Delay(2000);
+                            await Task.Delay(1000);
                         }
-                        catch (Exception deviceEx)
-                        {
-                            staffFailureCount++;
-                            LogHelper.Log($"❌ Exception clearing logs for staff device {device.StaffDeviceId}: {deviceEx.Message}");
-                        }
+                        catch (Exception ex) { LogHelper.Log($"❌ Error on staff {device.DeviceIP}: {ex.Message}"); }
                     }
-                    LogHelper.Log($"🎯 Log clear operation completed for staff devices - Success: {staffSuccessCount}, Failed: {staffFailureCount}");
+                    LogHelper.Log($"🎯 Staff Devices - Dispatched: {staffSuccessCount}/{staffDevices.Count}");
                 }
 
-                // Database deletes under short lock
+                // 3. Database cleanup under lock
                 try
                 {
                     await DatabaseQueueManager.EnterDbWriteLockAsync("LogClearOperation_DBDelete", DbTaskPriority.Low);
                     try
                     {
                         _dbHelper.DeleteAllGLogs();
-                        _dbHelper.DeleteAllStaffGLogs(); // if implemented
+                        _dbHelper.DeleteAllStaffGLogs();
                     }
-                    finally
-                    {
-                        DatabaseQueueManager.ReleaseDbWriteLock("LogClearOperation_DBDelete");
-                    }
-                    LogHelper.Log("✅ Successfully cleared GLog and StaffGLog data from the database");
+                    finally { DatabaseQueueManager.ReleaseDbWriteLock("LogClearOperation_DBDelete"); }
+                    LogHelper.Log("✅ Database log tables cleared");
                 }
-                catch (Exception dbEx)
-                {
-                    LogHelper.Log($"❌ Error clearing GLog and StaffGLog data from the database: {dbEx.Message}");
-                }
+                catch (Exception dbEx) { LogHelper.Log($"❌ DB Clear Error: {dbEx.Message}"); }
 
-                // Update the last clear time only if there were devices to clear
-                if ((devices != null && devices.Count > 0) || (staffDevices != null && staffDevices.Count > 0))
+                // 4. Update the last clear time
+                try
                 {
+                    await DatabaseQueueManager.EnterDbWriteLockAsync("LogClearOperation_UpdateTime", DbTaskPriority.Low);
                     try
                     {
-                        await DatabaseQueueManager.EnterDbWriteLockAsync("LogClearOperation_UpdateLastClearTime", DbTaskPriority.Low);
-                        try
-                        {
-                            string currentTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                            _dbHelper.SaveSetting(LAST_CLEAR_TIME_KEY, currentTime);
-                            LogHelper.Log($"💾 Updated last clear time: {currentTime}");
-                        }
-                        finally
-                        {
-                            DatabaseQueueManager.ReleaseDbWriteLock("LogClearOperation_UpdateLastClearTime");
-                        }
-                        LogHelper.Log("🎯 Log clear operation completed");
+                        string currentTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        _dbHelper.SaveSetting(LAST_CLEAR_TIME_KEY, currentTime);
+                        LogHelper.Log($"💾 Updated last clear time to: {currentTime}");
                     }
-                    catch (Exception ex)
-                    {
-                        LogHelper.Log($"❌ Error updating last clear time: {ex.Message}");
-                    }
+                    finally { DatabaseQueueManager.ReleaseDbWriteLock("LogClearOperation_UpdateTime"); }
                 }
-                else
-                {
-                    LogHelper.Log($"⚠️ Log clear operation failed for all devices");
-                }
+                catch (Exception ex) { LogHelper.Log($"❌ Error updating setting: {ex.Message}"); }
+
+                LogHelper.Log("🏁 Maintenance log clear operation completed.");
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"❌ Error executing log clear operation: {ex.Message}");
+                LogHelper.Log($"❌ Fatal error in LogClearOperation: {ex.Message}");
             }
         }
-
         /// <summary>
         /// Determines if logs should be cleared based on timing conditions
         /// </summary>

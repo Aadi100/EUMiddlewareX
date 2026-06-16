@@ -195,7 +195,6 @@
     <Compile Include="Classes\aiChatLogger.cs" />
     <Compile Include="Classes\AppSession.cs" />
     <Compile Include="Classes\AttendanceLogSyncService.cs" />
-    <Compile Include="Classes\AttendanceServerThreadManager.cs" />
     <Compile Include="Classes\AttendenceServerFunctions.cs" />
     <Compile Include="Classes\DeviceFunctions.cs" />
     <Compile Include="Classes\DeviceService.cs" />
@@ -214,6 +213,7 @@
     <Compile Include="Classes\Processor.cs" />
     <Compile Include="Classes\ServerThreadInvoker.cs" />
     <Compile Include="Classes\ServiceManager.cs" />
+    <Compile Include="Classes\WebsocketServerThreadManager.cs" />
     <Compile Include="Classes\SimulationEvents.cs" />
     <Compile Include="Classes\StaffAttendanceLogSyncService.cs" />
     <Compile Include="Classes\StaffAttendenceServerFunctions.cs" />

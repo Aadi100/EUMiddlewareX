@@ -1,18 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
-using smart_attendance_middleware.Services;
 using smart_attendance_middleware.Classes;
+using Newtonsoft.Json.Linq;
 
 namespace smart_attendance_middleware
 {
     public class MemberDeviceStatusDialog : Form
     {
         private Member _member;
-        private List<(Device Device, DeviceService.UserInfo Info, string Error)> _data;
+        private List<(Device Device, JObject Details, string Error)> _data;
 
-        public MemberDeviceStatusDialog(Member member, List<(Device Device, DeviceService.UserInfo Info, string Error)> data)
+        public MemberDeviceStatusDialog(Member member, List<(Device Device, JObject Details, string Error)> data)
         {
             _member = member;
             _data = data;
@@ -24,91 +25,75 @@ namespace smart_attendance_middleware
         {
             this.Text = "Member Device Status Detail";
 
-            // Dynamically size the form based on number of devices
             int deviceCount = _data?.Count ?? 1;
-            int estimatedHeight = 70 + (deviceCount * 200) + 70; // header + cards + footer
-            int formHeight = Math.Min(Math.Max(estimatedHeight, 500), 800); // Constrain between 500 and 800
+            int estimatedHeight = 80 + (deviceCount * 310) + 70;
+            int formHeight = Math.Min(Math.Max(estimatedHeight, 550), 900);
 
-            this.Size = new Size(600, formHeight);
+            this.Size = new Size(700, formHeight);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.Sizable;
             this.MaximizeBox = true;
             this.MinimizeBox = true;
-            this.MinimumSize = new Size(600, 400);
+            this.MinimumSize = new Size(650, 500);
             this.BackColor = Color.FromArgb(245, 246, 247);
 
-            // Header Panel
+            // ── Header ──────────────────────────────────────────────────────────
             Panel headerPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 70,
+                Height = 80,
                 BackColor = Color.FromArgb(18, 23, 49),
                 Padding = new Padding(15, 0, 0, 0)
             };
 
-            Label lblHeader = new Label
+            string localFacePath = ResolveLocalFacePath(_member.MemberID);
+
+            headerPanel.Controls.Add(new Label
             {
                 Text = _member.Name,
                 Font = new Font("Segoe UI Semibold", 14F),
                 ForeColor = Color.White,
                 AutoSize = true,
-                Location = new Point(15, 12)
-            };
-            headerPanel.Controls.Add(lblHeader);
-
-            Label lblSubHeader = new Label
+                Location = new Point(15, 14)
+            });
+            headerPanel.Controls.Add(new Label
             {
                 Text = $"Enrollment ID: {_member.EnrollmentID} | Member ID: {_member.MemberID}",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = Color.FromArgb(200, 200, 200),
                 AutoSize = true,
-                Location = new Point(17, 40)
-            };
-            headerPanel.Controls.Add(lblSubHeader);
+                Location = new Point(17, 44)
+            });
 
-            // Content Panel
-            FlowLayoutPanel mainPanel = new FlowLayoutPanel 
-            { 
-                Dock = DockStyle.Fill, 
-                AutoScroll = true, 
-                Padding = new Padding(15, 15, 15, 15),
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoSize = false,
-                Margin = new Padding(0)
+            // ── Footer ──────────────────────────────────────────────────────────
+            Panel footer = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 70,
+                BackColor = Color.White
             };
 
-            // Footer Panel
-            Panel footer = new Panel 
-            { 
-                Dock = DockStyle.Bottom, 
-                Height = 70, 
-                BackColor = Color.White,
-                Padding = new Padding(0, 0, 15, 0)
-            };
-            this.Controls.Add(footer);
-
-            Button btnOk = new Button 
-            { 
-                Text = "Close", 
-                DialogResult = DialogResult.OK, 
-                Width = 100, 
-                Height = 36, 
-                Location = new Point(450, 17), 
+            Button btnClose = new Button
+            {
+                Text = "Close",
+                DialogResult = DialogResult.OK,
+                Width = 100,
+                Height = 36,
+                Location = new Point(560, 17),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(18, 23, 49),
                 Cursor = Cursors.Hand
             };
-            btnOk.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
-            footer.Controls.Add(btnOk);
+            btnClose.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
+            footer.Controls.Add(btnClose);
 
-            Button btnSync = new Button 
-            { 
-                Text = "Sync", 
-                Width = 150, 
-                Height = 36, 
-                Location = new Point(290, 17), 
+            Button btnSync = new Button
+            {
+                Text = "Sync Status",
+                Width = 150,
+                Height = 36,
+                Location = new Point(395, 17),
                 BackColor = Color.FromArgb(0, 120, 212),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -116,151 +101,243 @@ namespace smart_attendance_middleware
                 Cursor = Cursors.Hand
             };
             btnSync.FlatAppearance.BorderSize = 0;
-            btnSync.Click += async (s, ev) => 
+            btnSync.Click += async (s, ev) =>
             {
-                // Check if membership is expired
-                if (!string.IsNullOrWhiteSpace(_member.PackageExpiry))
+                if (!string.IsNullOrWhiteSpace(_member.PackageExpiry) &&
+                    DateTime.TryParse(_member.PackageExpiry, out DateTime expiryDate) &&
+                    expiryDate.Date < DateTime.Today)
                 {
-                    if (DateTime.TryParse(_member.PackageExpiry, out DateTime expiryDate))
+                    MessageBox.Show("Member membership has expired. Sync cancelled.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                this.Enabled = false;
+                Dashboard.GlobalStartLoader("Syncing status via Cloud WebSocket...");
+                int enrollId = _member.EnrollmentID.Value;
+                int success = 0, attempted = 0;
+
+                foreach (var item in _data)
+                {
+                    var enabled = item.Details?["enable"]?.Value<int>();
+                    if (enabled.HasValue && enabled.Value == 0)
                     {
-                        if (expiryDate.Date < DateTime.Today)
+                        attempted++;
+                        string sn = CommonUtils.GetDeviceSnByIp(item.Device.DeviceIP);
+                        if (!string.IsNullOrEmpty(sn))
                         {
-                            MessageBox.Show("Member is expired.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            return;
+                            try
+                            {
+                                Dashboard.GlobalUpdateLoaderMessage($"Contacting {item.Device.Location ?? item.Device.DeviceIP}...");
+                                bool ok = await WebsocketServer.ExecuteServiceCommand(sn, "enableuser",
+                                    Newtonsoft.Json.JsonConvert.SerializeObject(new { enrollid = enrollId, enflag = 1 }));
+                                if (ok) success++;
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.Log($"[Sync-Error] {item.Device.DeviceIP}: {ex.Message}");
+                            }
                         }
                     }
                 }
 
-                this.Enabled = false;
-                Dashboard.GlobalStartLoader("Syncing membership status...");
-                int enrollId = _member.EnrollmentID.Value;
-                int success = 0;
-                foreach (var item in _data) 
-                {
-                    if (item.Info != null && item.Info.Enabled == 0) 
-                    {
-                        try 
-                        {
-                            Dashboard.GlobalUpdateLoaderMessage($"Syncing on {item.Device.Location ?? item.Device.DeviceIP}...");
-                            bool ok = await DeviceService.EnableUser(item.Device.DeviceIP, item.Device.Port, item.Device.MachineNo, item.Device.Password, enrollId, item.Device.MachineNo, 12);
-                            if (ok) success++;
-                        } catch { }
-                    }
-                }
                 Dashboard.GlobalStopLoader();
-                MessageBox.Show($"Membership synced successfully on {success} devices.", "Sync Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                this.Enabled = true;
+
+                MessageBox.Show(attempted > 0
+                    ? $"Sync commands dispatched to {success} of {attempted} devices."
+                    : "Member already enabled on all devices.",
+                    "Sync Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 this.Close();
             };
             footer.Controls.Add(btnSync);
 
-            // Add panels to form in correct docking order (Fill should be added last or brought to front)
+            // ── Content ─────────────────────────────────────────────────────────
+            FlowLayoutPanel mainPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                Padding = new Padding(15, 15, 15, 15),
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = false,
+                Margin = new Padding(0)
+            };
+
             this.Controls.Add(headerPanel);
             this.Controls.Add(footer);
             this.Controls.Add(mainPanel);
             mainPanel.BringToFront();
 
-            // Populate Cards
-            int targetWidth = mainPanel.Width > 100 ? mainPanel.Width - 50 : 520;
+            // ── Device Cards ────────────────────────────────────────────────────
+            const int targetWidth = 640;
+
+            Image localFaceImg = null;
+            if (localFacePath != null)
+                try { localFaceImg = Image.FromFile(localFacePath); } catch { }
+
             foreach (var item in _data)
             {
-                Panel card = new Panel 
-                { 
+                Panel card = new Panel
+                {
                     Width = targetWidth,
                     MinimumSize = new Size(targetWidth, 0),
                     AutoSize = true,
                     AutoSizeMode = AutoSizeMode.GrowAndShrink,
                     BackColor = Color.White,
-                    Padding = new Padding(0),
                     Margin = new Padding(0, 0, 0, 15)
                 };
                 mainPanel.Controls.Add(card);
 
-                // Status Strip
-                Panel statusStrip = new Panel
-                {
-                    Dock = DockStyle.Left,
-                    Width = 6,
-                    BackColor = item.Error != null ? Color.FromArgb(232, 17, 35) : 
-                               (item.Info == null ? Color.FromArgb(255, 185, 0) : Color.FromArgb(16, 124, 16))
-                };
-                card.Controls.Add(statusStrip);
+                bool hasError = item.Error != null;
+                bool notEnrolled = !hasError && (item.Details == null || item.Details["result"]?.Value<bool>() == false);
+                Color stripColor = hasError ? Color.FromArgb(232, 17, 35)
+                                 : notEnrolled ? Color.FromArgb(255, 185, 0)
+                                 : Color.FromArgb(16, 124, 16);
 
-                Label deviceTitle = new Label 
-                { 
-                    Text = item.Device.Location ?? "Unnamed Device", 
+                card.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 6, BackColor = stripColor });
+
+                // Resolve face images for this card
+                Image deviceFaceImg = null;
+                string faceBase64 = item.Details?["facerecord"]?.ToString();
+                if (!string.IsNullOrEmpty(faceBase64))
+                    deviceFaceImg = CommonUtils.Base64ToImage(faceBase64);
+
+                bool hasImages = localFaceImg != null || deviceFaceImg != null;
+                const int imgSize = 100;
+                const int imgPad = 8;
+                // Images sit on the right; each image is imgSize + label(16) + gap
+                int imagesBlockWidth = hasImages
+                    ? ((localFaceImg != null ? imgSize + imgPad : 0) + (deviceFaceImg != null ? imgSize + imgPad : 0))
+                    : 0;
+
+                // Right-side image panel
+                if (hasImages)
+                {
+                    Panel photoPanel = new Panel
+                    {
+                        Width = imagesBlockWidth,
+                        Height = imgSize + 20,
+                        BackColor = Color.White,
+                        Anchor = AnchorStyles.Top | AnchorStyles.Right
+                    };
+                    // Position from right edge of card
+                    photoPanel.Location = new Point(targetWidth - imagesBlockWidth - 10, 12);
+                    card.Controls.Add(photoPanel);
+
+                    int x = 0;
+                    if (localFaceImg != null)
+                    {
+                        photoPanel.Controls.Add(new Label { Text = "Local", AutoSize = true, Location = new Point(x, 0), ForeColor = Color.Gray, Font = new Font("Segoe UI", 7.5F) });
+                        var pb = new PictureBox { Image = localFaceImg, Size = new Size(imgSize, imgSize), Location = new Point(x, 16), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand };
+                        pb.Click += (s, ev) => ShowImagePreview(localFaceImg, "Local Photo — " + _member.Name);
+                        photoPanel.Controls.Add(pb);
+                        x += imgSize + imgPad;
+                    }
+                    if (deviceFaceImg != null)
+                    {
+                        photoPanel.Controls.Add(new Label { Text = "Device", AutoSize = true, Location = new Point(x, 0), ForeColor = Color.Gray, Font = new Font("Segoe UI", 7.5F) });
+                        var pb = new PictureBox { Image = deviceFaceImg, Size = new Size(imgSize, imgSize), Location = new Point(x, 16), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand };
+                        pb.Click += (s, ev) => ShowImagePreview(deviceFaceImg, "Device Photo — " + _member.Name);
+                        photoPanel.Controls.Add(pb);
+                    }
+                }
+
+                // Left info column
+                const int infoLeft = 14;
+                int infoWidth = targetWidth - infoLeft - imagesBlockWidth - 20;
+
+                card.Controls.Add(new Label
+                {
+                    Text = item.Device.Location ?? "Unnamed Device",
                     Font = new Font("Segoe UI Semibold", 11F),
                     ForeColor = Color.FromArgb(18, 23, 49),
                     AutoSize = true,
-                    Location = new Point(15, 12)
-                };
-                card.Controls.Add(deviceTitle);
-
-                Label deviceIp = new Label
+                    Location = new Point(infoLeft, 12)
+                });
+                card.Controls.Add(new Label
                 {
                     Text = $"IP: {item.Device.DeviceIP}",
                     Font = new Font("Segoe UI", 8F),
                     ForeColor = Color.Gray,
                     AutoSize = true,
-                    Location = new Point(16, 32)
-                };
-                card.Controls.Add(deviceIp);
+                    Location = new Point(infoLeft + 1, 32)
+                });
 
-                TableLayoutPanel detailsTable = new TableLayoutPanel
+                var table = new TableLayoutPanel
                 {
-                    Location = new Point(15, 60),
-                    Width = targetWidth - 30,
-                    MinimumSize = new Size(targetWidth - 30, 0),
+                    Location = new Point(infoLeft, 55),
+                    Width = infoWidth,
                     AutoSize = true,
                     AutoSizeMode = AutoSizeMode.GrowAndShrink,
                     ColumnCount = 2,
-                    RowCount = 4,
                     Margin = new Padding(0)
                 };
-                card.Controls.Add(detailsTable);
-                detailsTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
-                detailsTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
+                table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100F));
+                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                card.Controls.Add(table);
 
-                if (item.Error != null)
+                if (hasError)
                 {
-                    Label errLabel = new Label { Text = "Connection Status:", ForeColor = Color.Gray, AutoSize = true };
-                    Label errVal = new Label { Text = "Unreachable", ForeColor = Color.FromArgb(232, 17, 35), Font = new Font("Segoe UI Semibold", 9F), AutoSize = true };
-                    detailsTable.Controls.Add(errLabel, 0, 0);
-                    detailsTable.Controls.Add(errVal, 1, 0);
-
-                    Label errMsg = new Label { Text = "Error Detail:", ForeColor = Color.Gray, AutoSize = true };
-                    Label errMsgVal = new Label { Text = item.Error, ForeColor = Color.DimGray, AutoSize = true, MaximumSize = new Size(280, 40) };
-                    detailsTable.Controls.Add(errMsg, 0, 1);
-                    detailsTable.Controls.Add(errMsgVal, 1, 1);
+                    AddRow(table, "Connection:", "Unreachable", 0, Color.FromArgb(232, 17, 35));
+                    AddRow(table, "Detail:", item.Error, 1);
                 }
-                else if (item.Info == null || string.IsNullOrEmpty(item.Info.AliasId))
+                else if (notEnrolled)
                 {
-                    Label stLabel = new Label { Text = "Enrollment status:", ForeColor = Color.Gray, AutoSize = true };
-                    Label stVal = new Label { Text = "Not Enrolled", ForeColor = Color.FromArgb(255, 185, 0), Font = new Font("Segoe UI Semibold", 9F), AutoSize = true };
-                    detailsTable.Controls.Add(stLabel, 0, 0);
-                    detailsTable.Controls.Add(stVal, 1, 0);
+                    AddRow(table, "Status:", "Not Enrolled", 0, Color.FromArgb(255, 185, 0));
                 }
                 else
                 {
-                    AddDetailRow(detailsTable, "RFID Card:", string.IsNullOrEmpty(item.Info.CardNumber) || item.Info.CardNumber == "0" ? "None" : item.Info.CardNumber, 0);
-                    AddDetailRow(detailsTable, "Biometrics:", $"Face: {(item.Info.FaceFlag == 1 ? "Yes" : "No")} | FP: {(item.Info.FPFlag == 1 ? "Yes" : "No")}", 1);
-
-                    string statusText = item.Info.Enabled == 1 ? "Enabled" : "Disabled";
-                    Color statusColor = item.Info.Enabled == 1 ? Color.FromArgb(16, 124, 16) : Color.FromArgb(232, 17, 35);
-                    AddDetailRow(detailsTable, "User Status:", statusText, 2, statusColor);
+                    var d = item.Details;
+                    string card_ = d["card"]?.Value<long>() > 0 ? d["card"].ToString() : "None";
+                    string fp = d["fpflag"]?.Value<int>() == 1 ? "Yes" : "No";
+                    string face = d["faceflag"]?.Value<int>() == 1 ? "Yes" : "No";
+                    int enableVal = d["enable"]?.Value<int>() ?? 0;
+                    AddRow(table, "RFID Card:", card_, 0);
+                    AddRow(table, "Biometrics:", $"Face: {face} | FP: {fp}", 1);
+                    AddRow(table, "User Status:", enableVal == 1 ? "Enabled" : "Disabled", 2,
+                        enableVal == 1 ? Color.FromArgb(16, 124, 16) : Color.FromArgb(232, 17, 35));
                 }
             }
         }
 
-        private void AddDetailRow(TableLayoutPanel panel, string label, string value, int row, Color? valueColor = null)
+        private void AddRow(TableLayoutPanel panel, string label, string value, int row, Color? valueColor = null)
         {
             panel.Controls.Add(new Label { Text = label, ForeColor = Color.Gray, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row);
-            panel.Controls.Add(new Label { 
-                Text = value, 
-                ForeColor = valueColor ?? Color.FromArgb(64, 64, 64), 
-                Font = new Font("Segoe UI Semibold", 9F), 
-                AutoSize = true, 
-                Anchor = AnchorStyles.Left 
+            panel.Controls.Add(new Label
+            {
+                Text = value,
+                ForeColor = valueColor ?? Color.FromArgb(64, 64, 64),
+                Font = new Font("Segoe UI Semibold", 9F),
+                AutoSize = true,
+                MaximumSize = new Size(300, 60),
+                Anchor = AnchorStyles.Left
             }, 1, row);
+        }
+
+        private void ShowImagePreview(Image img, string title)
+        {
+            var f = new Form
+            {
+                Text = title,
+                Size = new Size(Math.Min(img.Width + 40, 800), Math.Min(img.Height + 60, 700)),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false
+            };
+            f.Controls.Add(new PictureBox { Image = img, Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom });
+            f.ShowDialog(this);
+        }
+
+        private static string ResolveLocalFacePath(int? memberId)
+        {
+            if (!memberId.HasValue) return null;
+            string faceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FACE");
+            foreach (string ext in new[] { ".jpg", ".jpeg", ".png" })
+            {
+                string p = Path.Combine(faceDir, memberId.Value + ext);
+                if (File.Exists(p)) return p;
+            }
+            return null;
         }
     }
 }

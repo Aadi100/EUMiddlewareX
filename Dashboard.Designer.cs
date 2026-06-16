@@ -35,11 +35,9 @@
             this.pic_device_status = new System.Windows.Forms.PictureBox();
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
-            this.button3 = new System.Windows.Forms.Button();
+            this.button1 = new System.Windows.Forms.Button();
             this.lbl_version = new System.Windows.Forms.Label();
             this.process1 = new System.Diagnostics.Process();
-            this.button1 = new System.Windows.Forms.Button();
-            this.button2 = new System.Windows.Forms.Button();
             this.cuiPanel2 = new CuoreUI.Controls.cuiPanel();
             this.label6 = new System.Windows.Forms.Label();
             this.lbl_connecteddevice = new System.Windows.Forms.Label();
@@ -83,9 +81,9 @@
             this.label23 = new System.Windows.Forms.Label();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.prg_server = new System.Windows.Forms.ProgressBar();
-            this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
             this.panel2 = new System.Windows.Forms.Panel();
-            this.button4 = new System.Windows.Forms.Button();
+            this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
+            this.button2 = new System.Windows.Forms.Button();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pic_cloud_status)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pic_net_status)).BeginInit();
@@ -170,8 +168,8 @@
             // panel4
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.panel4.Controls.Add(this.button4);
-            this.panel4.Controls.Add(this.button3);
+            this.panel4.Controls.Add(this.button2);
+            this.panel4.Controls.Add(this.button1);
             this.panel4.Controls.Add(this.lbl_version);
             this.panel4.Controls.Add(this.label8);
             this.panel4.Controls.Add(this.panel1);
@@ -181,15 +179,15 @@
             this.panel4.TabIndex = 45;
             this.panel4.Paint += new System.Windows.Forms.PaintEventHandler(this.panel4_Paint);
             // 
-            // button3
+            // button1
             // 
-            this.button3.Location = new System.Drawing.Point(874, 34);
-            this.button3.Name = "button3";
-            this.button3.Size = new System.Drawing.Size(75, 23);
-            this.button3.TabIndex = 45;
-            this.button3.Text = "button3";
-            this.button3.UseVisualStyleBackColor = true;
-            this.button3.Click += new System.EventHandler(this.button3_Click);
+            this.button1.Location = new System.Drawing.Point(926, 39);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 45;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
             // lbl_version
             // 
@@ -210,26 +208,6 @@
             this.process1.StartInfo.StandardOutputEncoding = null;
             this.process1.StartInfo.UserName = "";
             this.process1.SynchronizingObject = this;
-            // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(1438, 30);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 46;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
-            // 
-            // button2
-            // 
-            this.button2.Location = new System.Drawing.Point(1579, 32);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(75, 23);
-            this.button2.TabIndex = 47;
-            this.button2.Text = "button2";
-            this.button2.UseVisualStyleBackColor = true;
-            this.button2.Click += new System.EventHandler(this.button2_Click);
             // 
             // cuiPanel2
             // 
@@ -883,6 +861,23 @@
             this.prg_server.Size = new System.Drawing.Size(1385, 10);
             this.prg_server.TabIndex = 15;
             // 
+            // panel2
+            // 
+            this.panel2.BackColor = System.Drawing.Color.White;
+            this.panel2.Controls.Add(this.rectangularLoader1);
+            this.panel2.Controls.Add(this.prg_server);
+            this.panel2.Controls.Add(this.pictureBox1);
+            this.panel2.Controls.Add(this.cuiPanel6);
+            this.panel2.Controls.Add(this.cuiPanel5);
+            this.panel2.Controls.Add(this.cuiPanel4);
+            this.panel2.Controls.Add(this.cuiPanel3);
+            this.panel2.Controls.Add(this.cuiPanel1);
+            this.panel2.Controls.Add(this.cuiPanel2);
+            this.panel2.Location = new System.Drawing.Point(0, 73);
+            this.panel2.Name = "panel2";
+            this.panel2.Size = new System.Drawing.Size(1307, 618);
+            this.panel2.TabIndex = 41;
+            // 
             // rectangularLoader1
             // 
             this.rectangularLoader1.ActiveText = "";
@@ -903,32 +898,15 @@
             this.rectangularLoader1.Text = "rectangularLoader1";
             this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
             // 
-            // panel2
+            // button2
             // 
-            this.panel2.BackColor = System.Drawing.Color.White;
-            this.panel2.Controls.Add(this.rectangularLoader1);
-            this.panel2.Controls.Add(this.prg_server);
-            this.panel2.Controls.Add(this.pictureBox1);
-            this.panel2.Controls.Add(this.cuiPanel6);
-            this.panel2.Controls.Add(this.cuiPanel5);
-            this.panel2.Controls.Add(this.cuiPanel4);
-            this.panel2.Controls.Add(this.cuiPanel3);
-            this.panel2.Controls.Add(this.cuiPanel1);
-            this.panel2.Controls.Add(this.cuiPanel2);
-            this.panel2.Location = new System.Drawing.Point(0, 73);
-            this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(1307, 618);
-            this.panel2.TabIndex = 41;
-            // 
-            // button4
-            // 
-            this.button4.Location = new System.Drawing.Point(964, 36);
-            this.button4.Name = "button4";
-            this.button4.Size = new System.Drawing.Size(75, 23);
-            this.button4.TabIndex = 46;
-            this.button4.Text = "button4";
-            this.button4.UseVisualStyleBackColor = true;
-            this.button4.Click += new System.EventHandler(this.button4_Click);
+            this.button2.Location = new System.Drawing.Point(1027, 39);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(75, 23);
+            this.button2.TabIndex = 46;
+            this.button2.Text = "button2";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click);
             // 
             // Dashboard
             // 
@@ -936,9 +914,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1297, 686);
-            this.Controls.Add(this.button2);
-            this.Controls.Add(this.button1);
+            this.ClientSize = new System.Drawing.Size(1298, 686);
             this.Controls.Add(this.panel2);
             this.Controls.Add(this.panel4);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
@@ -988,8 +964,6 @@
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Panel panel4;
         private System.Diagnostics.Process process1;
-        private System.Windows.Forms.Button button2;
-        private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Panel panel2;
         private Controls.RectangularLoader rectangularLoader1;
         private System.Windows.Forms.ProgressBar prg_server;
@@ -1036,7 +1010,7 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label lbl_connecteddevice;
         private System.Windows.Forms.Label lbl_version;
-        private System.Windows.Forms.Button button3;
-        private System.Windows.Forms.Button button4;
+        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.Button button2;
     }
 }

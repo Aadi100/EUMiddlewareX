@@ -1,14 +1,43 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using smart_attendance_middleware;
 using smart_attendance_middleware.Classes;
 using smart_attendance_middleware.Services;
 
-public static class ServiceManager  
+public static class ServiceManager
 {
     public static LogSyncService LogSyncService { get; private set; }
     public static AttendanceLogSyncService AttendanceLogSyncService { get; private set; }
     public static StaffAttendanceLogSyncService StaffAttendanceLogSyncService { get; private set; }
     public static PeriodicMaintenanceService PeriodicMaintenanceService { get; private set; }
+
+    public static Task StartWebsocketServerAsync(bool showUI = true)
+    {
+        if (WebsocketServerThreadManager.IsRunning)
+            return Task.CompletedTask;
+
+        var tcs = new TaskCompletionSource<bool>();
+
+        Action onReady = null;
+        onReady = () =>
+        {
+            WebsocketServerThreadManager.Ready -= onReady;
+            tcs.TrySetResult(true);
+        };
+
+        WebsocketServerThreadManager.Ready += onReady;
+        WebsocketServerThreadManager.Start(showUI: showUI);
+
+        // Timeout fallback so the dashboard never hangs
+        Task.Delay(20000).ContinueWith(_ => tcs.TrySetResult(false));
+
+        return tcs.Task;
+    }
+
+    public static void StopWebsocketServer()
+    {
+        WebsocketServerThreadManager.Stop();
+    }
 
     public static Task StartLogSyncServiceAsync(DeviceFunctions deviceFunctions)
     {
@@ -93,6 +122,7 @@ public static class ServiceManager
 
     public static void StopAllServices()
     {
+        StopWebsocketServer();
         StopLogSyncService();
         StopAttendanceLogSyncService();
         StopStaffAttendanceLogSyncService();

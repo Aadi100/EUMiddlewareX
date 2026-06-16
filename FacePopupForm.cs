@@ -38,8 +38,6 @@ namespace smart_attendance_middleware
             InitializeComponent();
             DoubleBuffered = true;
 
-            // Ensure it's top-most even when first created
-            this.TopMost = true;
             this.ShowInTaskbar = false;
 
             // Runtime style adjustments
@@ -90,7 +88,6 @@ namespace smart_attendance_middleware
             }
 
             this.Opacity = 1.0;
-            this.TopMost = true;
             this.BringToFront();
             StartAnimation();
         }

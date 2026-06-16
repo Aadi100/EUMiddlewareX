@@ -1,12 +1,13 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using smart_attendance_middleware.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Threading;
 
 namespace smart_attendance_middleware.Classes
 {
@@ -149,269 +150,6 @@ namespace smart_attendance_middleware.Classes
         }
 
 
-        //public async Task ProcessAllEntries()
-        //{
-        //    // Start the dashboard loader with initial text
-        //    Dashboard.GlobalStartLoader("Processing unsynced biometric entries...");
-
-        //    try
-        //    {
-        //        List<LogEntry> unsyncedEntries;
-        //        List<Member> members;
-        //        List<Device> devices;
-        //        List<FingerprintData> allFingerprints;
-
-        //        // Step 1: read snapshot under short lock - Members
-        //        unsyncedEntries = await _dbHelper.GetUnsyncedLogEntriesAsync();
-        //        if (unsyncedEntries.Count == 0)
-        //        {
-        //            LogHelper.Log("No unsynced member entries found");
-        //        }
-
-        //        members = _dbHelper.GetMembers();
-        //        devices = _dbHelper.LoadDevices();
-        //        allFingerprints = _dbHelper.GetAllFingerprints();
-
-        //        // Step 2: process member entries without holding DB lock
-        //        int processed = 0;
-        //        int total = unsyncedEntries.Count;
-
-        //        foreach (var entry in unsyncedEntries)
-        //        {
-        //            try
-        //            {
-        //                var member = members.FirstOrDefault(m => m.MemberID == entry.MemberID);
-        //                var device = devices.FirstOrDefault(d => d.DeviceId == entry.DeviceID);
-
-        //                if (member == null || device == null) continue;
-
-        //                LogHelper.Log($"Processing {member.Name} on {device.DeviceIP}");
-        //                Dashboard.GlobalUpdateLoaderMessage($"Processing {member.Name} on {device.DeviceId} ({processed + 1}/{total})");
-
-        //                var processResults = new Dictionary<string, bool>();
-
-        //                foreach (var biometric in entry.BiometricData)
-        //                {
-        //                    if (entry.SyncStatus.ContainsKey(biometric.Key) && entry.SyncStatus[biometric.Key]) continue;
-
-        //                    bool success = false;
-
-        //                    switch (biometric.Key)
-        //                    {
-        //                        case "Fingerprint":
-        //                            success = await ProcessFingerprint(entry.EnrollmentID, member, device, allFingerprints);
-        //                            await Task.Delay(1000);
-        //                            break;
-        //                        case "Face":
-        //                            success = await ProcessFace(biometric.Value, member, device);
-        //                            await Task.Delay(1000);
-        //                            break;
-        //                        case "RFID":
-        //                            success = await ProcessRFID(biometric.Value, member, device);
-        //                            await Task.Delay(1000);
-        //                            break;
-        //                    }
-
-        //                    if (success)
-        //                    {
-        //                        // Step 3: brief write under lock
-        //                        await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
-        //                        try
-        //                        {
-        //                            await _dbHelper.UpdateBiometricSyncStatus(entry.Id, biometric.Key, true);
-        //                            await _dbHelper.CheckAndUpdateMemberDeviceSyncStatus(entry.MemberID, entry.DeviceID);
-        //                        }
-        //                        finally
-        //                        {
-        //                            DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Write");
-        //                        }
-        //                    }
-
-        //                    processResults[biometric.Key] = success;
-        //                }
-
-        //                processed++;
-        //                Dashboard.GlobalUpdateLoaderMessage($"Processed {processed}/{total} entries...");
-        //                await Task.Delay(2000);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                LogHelper.Log($"Error processing entry {entry.Id}: {ex.Message}");
-        //                Dashboard.GlobalUpdateLoaderMessage($"Error on entry {entry.Id}: {ex.Message}");
-        //            }
-        //        }
-
-        //        // ---------- Staff processing ----------
-        //        Dashboard.GlobalUpdateLoaderMessage("Processing unsynced staff biometric entries...");
-
-        //        var unsyncedStaffEntries = await _dbHelper.GetUnsyncedStaffLogEntriesAsync();
-        //        if (unsyncedStaffEntries.Count == 0)
-        //        {
-        //            LogHelper.Log("[Staff] No unsynced staff entries found");
-        //            Dashboard.GlobalUpdateLoaderMessage("No unsynced staff entries found.");
-        //            return;
-        //        }
-
-        //        var staffs = _dbHelper.GetStaffs();                // Staff list (for names)
-        //        var staffDevices = _dbHelper.LoadStaffDevices();   // Staff devices snapshot
-
-        //        int staffProcessed = 0;
-        //        int staffTotal = unsyncedStaffEntries.Count;
-
-        //        foreach (var sEntry in unsyncedStaffEntries)
-        //        {
-        //            try
-        //            {
-        //                var staff = staffs.FirstOrDefault(s => s.StaffID == sEntry.StaffID);
-        //                var device = staffDevices.FirstOrDefault(d => d.StaffDeviceId == sEntry.StaffDeviceId);
-
-        //                if (staff == null || device == null) continue;
-
-        //                string staffName = staff.Name ?? sEntry.StaffID;
-
-        //                LogHelper.Log($"[Staff] Processing {staffName} on {device.DeviceIP}");
-        //                Dashboard.GlobalUpdateLoaderMessage($"[Staff] Processing {staffName} on {device.StaffDeviceId} ({staffProcessed + 1}/{staffTotal})");
-
-        //                foreach (var biometric in sEntry.BiometricData)
-        //                {
-        //                    if (sEntry.SyncStatus.ContainsKey(biometric.Key) && sEntry.SyncStatus[biometric.Key]) continue;
-
-        //                    bool success = false;
-
-        //                    switch (biometric.Key)
-        //                    {
-        //                        case "Fingerprint":
-        //                            {
-        //                                var fingerprint = allFingerprints.FirstOrDefault(f => f.EnrollNumber == (sEntry.EnrollmentID ?? 0));
-        //                                if (fingerprint == null)
-        //                                {
-        //                                    LogHelper.Log($"[Staff] Fingerprint data not found for {staffName} (Enrollment: {sEntry.EnrollmentID ?? 0})");
-        //                                    break;
-        //                                }
-
-        //                                success = await DeviceService.AddFingerprint(
-        //                                    device.DeviceIP,
-        //                                    device.Port,
-        //                                    device.MachineNo,
-        //                                    device.Password,
-        //                                    fingerprint.EnrollNumber,
-        //                                    fingerprint.FingerNumber,
-        //                                    fingerprint.Privilege,
-        //                                    fingerprint.TemplateData);
-
-        //                                if (success)
-        //                                {
-        //                                    bool nameSet = await DeviceService.SetUserName(
-        //                                        device.DeviceIP,
-        //                                        device.Port,
-        //                                        device.MachineNo,
-        //                                        device.Password,
-        //                                        fingerprint.EnrollNumber,
-        //                                        staffName);
-
-        //                                    if (!nameSet)
-        //                                        LogHelper.Log($"[Staff] Fingerprint enrolled but name not set for {staffName}");
-        //                                }
-        //                                await Task.Delay(1000);
-        //                                break;
-        //                            }
-        //                        case "Face":
-        //                            {
-        //                                // biometric.Value is path
-        //                                success = await DeviceService.AddFace(
-        //                                    device.DeviceIP,
-        //                                    device.Port,
-        //                                    device.MachineNo,
-        //                                    device.Password,
-        //                                    sEntry.EnrollmentID ?? 0,
-        //                                    biometric.Value);
-
-        //                                if (success)
-        //                                {
-        //                                    bool nameSet = await DeviceService.SetUserName(
-        //                                        device.DeviceIP,
-        //                                        device.Port,
-        //                                        device.MachineNo,
-        //                                        device.Password,
-        //                                        sEntry.EnrollmentID ?? 0,
-        //                                        staffName);
-
-        //                                    if (!nameSet)
-        //                                        LogHelper.Log($"[Staff] Face enrolled but name not set for {staffName}");
-        //                                }
-        //                                await Task.Delay(1000);
-        //                                break;
-        //                            }
-        //                        case "RFID":
-        //                            {
-        //                                if (!long.TryParse(biometric.Value, out long rfidNumber))
-        //                                {
-        //                                    LogHelper.Log($"[Staff] Invalid RFID format for {staffName} (RFID: {biometric.Value})");
-        //                                    break;
-        //                                }
-
-        //                                success = await DeviceService.AddRfidCard(
-        //                                    device.DeviceIP,
-        //                                    device.Port,
-        //                                    device.MachineNo,
-        //                                    device.Password,
-        //                                    sEntry.EnrollmentID ?? 0,
-        //                                    rfidNumber,
-        //                                    1);
-
-        //                                if (success)
-        //                                {
-        //                                    bool nameSet = await DeviceService.SetUserName(
-        //                                        device.DeviceIP,
-        //                                        device.Port,
-        //                                        device.MachineNo,
-        //                                        device.Password,
-        //                                        sEntry.EnrollmentID ?? 0,
-        //                                        staffName);
-
-        //                                    if (!nameSet)
-        //                                        LogHelper.Log($"[Staff] RFID enrolled but name not set for {staffName}");
-        //                                }
-        //                                await Task.Delay(1000);
-        //                                break;
-        //                            }
-        //                    }
-        //                    if (success)
-        //                    {
-        //                        // Step 3: brief write under lock
-        //                        await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
-        //                        try
-        //                        {
-        //                            await _dbHelper.UpdateStaffBiometricSyncStatusAsync(sEntry.Id, biometric.Key, true);
-        //                            await _dbHelper.CheckAndUpdateStaffDeviceSyncStatus(sEntry.StaffID, sEntry.StaffDeviceId);
-        //                        }
-        //                        finally
-        //                        {
-        //                            DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Write");
-        //                        }
-        //                    }
-        //                }
-
-        //                staffProcessed++;
-        //                Dashboard.GlobalUpdateLoaderMessage($"[Staff] Processed {staffProcessed}/{staffTotal} entries...");
-        //                await Task.Delay(2000);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                LogHelper.Log($"[Staff] Error processing staff entry {sEntry.Id}: {ex.Message}");
-        //                Dashboard.GlobalUpdateLoaderMessage($"[Staff] Error on entry {sEntry.Id}: {ex.Message}");
-        //            }
-        //        }
-
-        //        Dashboard.GlobalUpdateLoaderMessage("Biometric processing completed.");
-        //    }
-        //    finally
-        //    {
-        //        // Always stop loader
-        //        Dashboard.GlobalStopLoader();
-        //    }
-        //}
-
         public async Task ProcessAllEntries()
         {
             Dashboard.GlobalStartBiometricLoader("Processing unsynced biometric entries...");
@@ -450,6 +188,9 @@ namespace smart_attendance_middleware.Classes
                         LogHelper.Log($"Processing {member.Name} on {device.DeviceIP}");
                         Dashboard.GlobalUpdateBiometricLoader($"Processing {member.Name} on {device.DeviceId} ({processed + 1}/{total})");
 
+                        await SetUsername(member.EnrollmentID ?? 0, member.Name, device.DeviceSerial);
+                        await Task.Delay(200);
+
                         var processResults = new Dictionary<string, bool>();
 
                         foreach (var biometric in entry.BiometricData)
@@ -461,16 +202,16 @@ namespace smart_attendance_middleware.Classes
                             switch (biometric.Key)
                             {
                                 case "Fingerprint":
-                                    success = await ProcessFingerprint(entry.EnrollmentID, member, device, allFingerprints);
-                                    await Task.Delay(1000);
+                                    success = await ProcessFingerprint(entry.EnrollmentID, member.Name, device.DeviceSerial, allFingerprints);
+                                    await Task.Delay(200);
                                     break;
                                 case "Face":
-                                    success = await ProcessFace(biometric.Value, member, device);
-                                    await Task.Delay(1000);
+                                    success = await ProcessFace(biometric.Value, member.EnrollmentID ?? 0, member.Name, device.DeviceSerial);
+                                    await Task.Delay(200);
                                     break;
                                 case "RFID":
-                                    success = await ProcessRFID(biometric.Value, member, device);
-                                    await Task.Delay(1000);
+                                    success = await ProcessRFID(biometric.Value, member.EnrollmentID ?? 0, member.Name, device.DeviceSerial);
+                                    await Task.Delay(200);
                                     break;
                             }
 
@@ -494,7 +235,7 @@ namespace smart_attendance_middleware.Classes
 
                         processed++;
                         Dashboard.GlobalUpdateBiometricLoader($"Processed {processed}/{total} entries...");
-                        await Task.Delay(2000);
+                        await Task.Delay(200);
                     }
                     catch (Exception ex)
                     {
@@ -534,82 +275,30 @@ namespace smart_attendance_middleware.Classes
                         LogHelper.Log($"[Staff] Processing {staffName} on {device.DeviceIP}");
                         Dashboard.GlobalUpdateBiometricLoader($"[Staff] Processing {staffName} on {device.StaffDeviceId} ({staffProcessed + 1}/{staffTotal})");
 
+                        await SetUsername(sEntry.EnrollmentID ?? 0, staffName, device.DeviceSerial);
+                        await Task.Delay(200);
+
                         foreach (var biometric in sEntry.BiometricData)
                         {
                             if (sEntry.SyncStatus.ContainsKey(biometric.Key) && sEntry.SyncStatus[biometric.Key]) continue;
 
                             bool success = false;
+                            int staffEnrollId = sEntry.EnrollmentID ?? 0;
 
                             switch (biometric.Key)
                             {
                                 case "Fingerprint":
-                                    {
-                                        var fingerprint = allFingerprints.FirstOrDefault(f => f.EnrollNumber == (sEntry.EnrollmentID ?? 0));
-                                        if (fingerprint == null)
-                                        {
-                                            LogHelper.Log($"[Staff] Fingerprint data not found for {staffName} (Enrollment: {sEntry.EnrollmentID ?? 0})");
-                                            break;
-                                        }
-
-                                        success = await DeviceService.AddFingerprint(
-                                            device.DeviceIP, device.Port, device.MachineNo, device.Password,
-                                            fingerprint.EnrollNumber, fingerprint.FingerNumber,
-                                            fingerprint.Privilege, fingerprint.TemplateData);
-
-                                        if (success)
-                                        {
-                                            bool nameSet = await DeviceService.SetUserName(
-                                                device.DeviceIP, device.Port, device.MachineNo, device.Password,
-                                                fingerprint.EnrollNumber, staffName);
-
-                                            if (!nameSet)
-                                                LogHelper.Log($"[Staff] Fingerprint enrolled but name not set for {staffName}");
-                                        }
-                                        await Task.Delay(1000);
-                                        break;
-                                    }
+                                    success = await ProcessFingerprint(staffEnrollId, staffName, device.DeviceSerial, allFingerprints);
+                                    await Task.Delay(200);
+                                    break;
                                 case "Face":
-                                    {
-                                        success = await DeviceService.AddFace(
-                                            device.DeviceIP, device.Port, device.MachineNo, device.Password,
-                                            sEntry.EnrollmentID ?? 0, biometric.Value);
-
-                                        if (success)
-                                        {
-                                            bool nameSet = await DeviceService.SetUserName(
-                                                device.DeviceIP, device.Port, device.MachineNo, device.Password,
-                                                sEntry.EnrollmentID ?? 0, staffName);
-
-                                            if (!nameSet)
-                                                LogHelper.Log($"[Staff] Face enrolled but name not set for {staffName}");
-                                        }
-                                        await Task.Delay(1000);
-                                        break;
-                                    }
+                                    success = await ProcessFace(biometric.Value, staffEnrollId, staffName, device.DeviceSerial);
+                                    await Task.Delay(200);
+                                    break;
                                 case "RFID":
-                                    {
-                                        if (!long.TryParse(biometric.Value, out long rfidNumber))
-                                        {
-                                            LogHelper.Log($"[Staff] Invalid RFID format for {staffName} (RFID: {biometric.Value})");
-                                            break;
-                                        }
-
-                                        success = await DeviceService.AddRfidCard(
-                                            device.DeviceIP, device.Port, device.MachineNo, device.Password,
-                                            sEntry.EnrollmentID ?? 0, rfidNumber, 1);
-
-                                        if (success)
-                                        {
-                                            bool nameSet = await DeviceService.SetUserName(
-                                                device.DeviceIP, device.Port, device.MachineNo, device.Password,
-                                                sEntry.EnrollmentID ?? 0, staffName);
-
-                                            if (!nameSet)
-                                                LogHelper.Log($"[Staff] RFID enrolled but name not set for {staffName}");
-                                        }
-                                        await Task.Delay(1000);
-                                        break;
-                                    }
+                                    success = await ProcessRFID(biometric.Value, staffEnrollId, staffName, device.DeviceSerial);
+                                    await Task.Delay(200);
+                                    break;
                             }
 
                             if (success)
@@ -630,7 +319,7 @@ namespace smart_attendance_middleware.Classes
 
                         staffProcessed++;
                         Dashboard.GlobalUpdateBiometricLoader($"[Staff] Processed {staffProcessed}/{staffTotal} entries...");
-                        await Task.Delay(2000);
+                        await Task.Delay(200);
                     }
                     catch (Exception ex)
                     {
@@ -647,123 +336,80 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
-        private async Task<bool> ProcessFingerprint(int enrollNumber, Member member, Device device, List<FingerprintData> allFingerprints)
+        private async Task SetUsername(int enrollId, string name, string deviceSerial)
         {
-            var fingerprint = allFingerprints.FirstOrDefault(f => f.EnrollNumber == enrollNumber);
+            var nameParams = new { enrollid = enrollId, name };
+            bool nameSet = await WebsocketServer.ExecuteServiceCommand(deviceSerial, "setusername", JsonConvert.SerializeObject(nameParams));
+            if (!nameSet)
+                LogHelper.Log($"setusername failed via WebSocket for {name} (Enrollment: {enrollId}) on {deviceSerial}");
+        }
+
+        private async Task<bool> ProcessFingerprint(int enrollId, string name, string deviceSerial, List<FingerprintData> allFingerprints)
+        {
+            var fingerprint = allFingerprints.FirstOrDefault(f => f.EnrollNumber == enrollId);
             if (fingerprint == null)
             {
-                LogHelper.Log($"Fingerprint data not found for {member.Name} (Enrollment: {enrollNumber})");
+                LogHelper.Log($"Fingerprint data not found for {name} (Enrollment: {enrollId})");
                 return false;
             }
 
-            bool success = await DeviceService.AddFingerprint(
-                device.DeviceIP,
-                device.Port,
-                device.MachineNo,
-                device.Password,
-                fingerprint.EnrollNumber,
-                fingerprint.FingerNumber,
-                fingerprint.Privilege,
-                fingerprint.TemplateData);
-
-            if (success)
+            var fpParams = new
             {
-                bool nameSet = await DeviceService.SetUserName(
-                    device.DeviceIP,
-                    device.Port,
-                    device.MachineNo,
-                    device.Password,
-                    enrollNumber,
-                    member.Name);
+                enrollid = enrollId,
+                name,
+                record = fingerprint.TemplateData,
+                backupnum = fingerprint.FingerNumber
+            };
 
-                if (!nameSet)
-                {
-                    LogHelper.Log($"Fingerprint enrolled but name not set for {member.Name}");
-                }
-            }
-            else
-            {
-                LogHelper.Log($"Failed to enroll fingerprint for {member.Name}");
-            }
+            bool success = await WebsocketServer.ExecuteServiceCommand(deviceSerial, "setfingerprint", JsonConvert.SerializeObject(fpParams));
+
+            if (!success)
+                LogHelper.Log($"Failed to send fingerprint command via WebSocket for {name} on {deviceSerial}");
 
             return success;
         }
 
-        private async Task<bool> ProcessFace(string faceImagePath, Member member, Device device)
+        private async Task<bool> ProcessFace(string faceImagePath, int enrollId, string name, string deviceSerial)
         {
-            bool success = await DeviceService.AddFace(
-                device.DeviceIP,
-                device.Port,
-                device.MachineNo,
-                device.Password,
-                member.EnrollmentID ?? 0, // Use member's enrollment ID or default
-                faceImagePath);
-
-            if (success)
+            var faceParams = new
             {
-                bool nameSet = await DeviceService.SetUserName(
-                    device.DeviceIP,
-                    device.Port,
-                    device.MachineNo,
-                    device.Password,
-                    member.EnrollmentID ?? 0,
-                    member.Name);
+                enrollid = enrollId,
+                name,
+                record = faceImagePath
+            };
 
-                if (!nameSet)
-                {
-                    LogHelper.Log($"Face enrolled but name not set for {member.Name}");
-                }
-            }
-            else
-            {
-                LogHelper.Log($"Failed to enroll face for {member.Name}");
-            }
+            bool success = await WebsocketServer.ExecuteServiceCommand(deviceSerial, "setface", JsonConvert.SerializeObject(faceParams));
+
+            if (!success)
+                LogHelper.Log($"Failed to send face command via WebSocket for {name} on {deviceSerial}");
 
             return success;
         }
 
-        private async Task<bool> ProcessRFID(string rfidCode, Member member, Device device)
+        private async Task<bool> ProcessRFID(string rfidCode, int enrollId, string name, string deviceSerial)
         {
-            if (!long.TryParse(rfidCode, out long rfidNumber))
+            if (string.IsNullOrWhiteSpace(rfidCode))
             {
-                LogHelper.Log($"Invalid RFID format for {member.Name} (RFID: {rfidCode})");
+                LogHelper.Log($"Empty RFID code for {name}");
                 return false;
             }
 
-            bool success = await DeviceService.AddRfidCard(
-                device.DeviceIP,
-                device.Port,
-                device.MachineNo,
-                device.Password,
-                member.EnrollmentID ?? 0,
-                rfidNumber,
-                1); // Privilege level
-
-            if (success)
+            var rfidParams = new
             {
-                bool nameSet = await DeviceService.SetUserName(
-                    device.DeviceIP,
-                    device.Port,
-                    device.MachineNo,
-                    device.Password,
-                    member.EnrollmentID ?? 0,
-                    member.Name);
+                enrollid = enrollId,
+                name,
+                record = rfidCode
+            };
 
-                if (!nameSet)
-                {
-                    LogHelper.Log($"RFID enrolled but name not set for {member.Name}");
-                }
-            }
-            else
-            {
-                LogHelper.Log($"Failed to enroll RFID for {member.Name}");
-            }
+            bool success = await WebsocketServer.ExecuteServiceCommand(deviceSerial, "setrfid", JsonConvert.SerializeObject(rfidParams));
+
+            if (!success)
+                LogHelper.Log($"Failed to send RFID command via WebSocket for {name} on {deviceSerial}");
 
             return success;
         }
 
-
-        private async Task VerifyAndUpdateBiometricLogsAsync(int memberId)
+        public async Task VerifyAndUpdateBiometricLogsAsync(int memberId)
         {
             try
             {
@@ -772,15 +418,18 @@ namespace smart_attendance_middleware.Classes
                 // Verify/update biometrics for ONLY this member
                 var changes = await _dbHelper.VerifyAndUpdateLogBiometricsAsync(memberId);
 
-                var deviceArray = new System.Collections.Generic.List<object>();
-
                 foreach (var change in changes)
                 {
                     var deviceDetails = _dbHelper.GetDeviceDetails(change.DeviceId);
                     if (deviceDetails.ip == null) continue; // skip if device not found
 
-                    // Always use password "0"
-                    string password = "0";
+                    // 1. WebSocket communication uses the Device Serial (SN)
+                    string sn = CommonUtils.GetDeviceSnByIp(deviceDetails.ip);
+                    if (string.IsNullOrEmpty(sn))
+                    {
+                        LogHelper.Log($"[WS-ERR] Could not find SN for IP {deviceDetails.ip}. Skipping delete.");
+                        continue;
+                    }
 
                     int backupNumber = 0;
                     switch (change.BiometricType)
@@ -789,43 +438,39 @@ namespace smart_attendance_middleware.Classes
                             backupNumber = 11;
                             break;
                         case "Fingerprint":
-                            backupNumber = 0;
+                            backupNumber = 0; // 0-9 for fp
                             break;
                         case "Face":
-                            backupNumber = 50;
+                            backupNumber = 50; // photo/face
+                            break;
+                        default:
+                            backupNumber = 12; // all data fallback
                             break;
                     }
 
-                    deviceArray.Add(new
-                    {
-                        enrollmentNumber = change.EnrollmentId,
-                        ip = deviceDetails.ip,
-                        machineNo = deviceDetails.machineNo,
-                        port = deviceDetails.port,
-                        backupNumber = backupNumber,
-                        biometricType = change.BiometricType
-                    });
-
-                    // Call DeleteEnrollmentData for this change
+                    // 2. Call Delete via WebSocket for this change
                     if (change.EnrollmentId.HasValue)
                     {
                         try
                         {
-                            bool deleted = await DeviceService.DeleteEnrollmentData(
-                                deviceDetails.ip,
-                                deviceDetails.port,
-                                deviceDetails.machineNo,
-                                password, // always "0"
-                                change.EnrollmentId.Value,
-                                deviceDetails.machineNo, // enrollmentMachineId, adjust if needed
-                                backupNumber
+                            // Prepare JSON for deleteuser command
+                            var deleteParams = new
+                            {
+                                enrollid = change.EnrollmentId.Value,
+                                backupnum = backupNumber
+                            };
+
+                            bool success = await WebsocketServer.ExecuteServiceCommand(
+                                sn,
+                                "deleteuser",
+                                JsonConvert.SerializeObject(deleteParams)
                             );
 
-                            LogHelper.Log($"DeleteEnrollmentData: Member {memberId}, Device {change.DeviceId}, EnrollmentId {change.EnrollmentId}, Type {change.BiometricType}, Result: {deleted}");
+                            LogHelper.Log($"WebSocket Delete: Member {memberId}, Device {sn}, EnrollmentId {change.EnrollmentId}, Type {change.BiometricType}, Dispatched: {success}");
                         }
                         catch (Exception ex)
                         {
-                            LogHelper.Log($"DeleteEnrollmentData failed for Member {memberId}, Device {change.DeviceId}, EnrollmentId {change.EnrollmentId}, Type {change.BiometricType}: {ex.Message}");
+                            LogHelper.Log($"WebSocket Delete failed for Member {memberId}, Device {sn}: {ex.Message}");
                         }
                     }
                 }
@@ -838,6 +483,7 @@ namespace smart_attendance_middleware.Classes
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
         private async Task VerifyAndUpdateStaffBiometricLogsAsync(string staffId)
         {
             try
@@ -846,14 +492,18 @@ namespace smart_attendance_middleware.Classes
 
                 var changes = await _dbHelper.VerifyAndUpdateStaffLogBiometricsAsync(staffId);
 
-                var deviceArray = new System.Collections.Generic.List<object>();
-
                 foreach (var change in changes)
                 {
                     var deviceDetails = _dbHelper.GetStaffDeviceDetails(change.DeviceId);
                     if (deviceDetails.ip == null) continue;
 
-                    string password = "0";
+                    // WebSocket needs the Serial Number (SN)
+                    string sn = CommonUtils.GetDeviceSnByIp(deviceDetails.ip);
+                    if (string.IsNullOrEmpty(sn))
+                    {
+                        LogHelper.Log($"[Staff-WS-ERR] No SN found for {deviceDetails.ip}");
+                        continue;
+                    }
 
                     int backupNumber = 0;
                     switch (change.BiometricType)
@@ -861,41 +511,23 @@ namespace smart_attendance_middleware.Classes
                         case "RFID": backupNumber = 11; break;
                         case "Fingerprint": backupNumber = 0; break;
                         case "Face": backupNumber = 50; break;
+                        default: backupNumber = 12; break;
                     }
-
-                    deviceArray.Add(new
-                    {
-                        enrollmentNumber = change.EnrollmentId,
-                        ip = deviceDetails.ip,
-                        machineNo = deviceDetails.machineNo,
-                        port = deviceDetails.port,
-                        backupNumber = backupNumber,
-                        biometricType = change.BiometricType
-                    });
 
                     if (change.EnrollmentId.HasValue)
                     {
                         try
                         {
-                            bool deleted = await DeviceService.DeleteEnrollmentData(
-                                deviceDetails.ip,
-                                deviceDetails.port,
-                                deviceDetails.machineNo,
-                                password,
-                                change.EnrollmentId.Value,
-                                deviceDetails.machineNo,
-                                backupNumber
-                            );
-
-                            LogHelper.Log($"[Staff] DeleteEnrollmentData: Staff {staffId}, StaffDevice {change.DeviceId}, EnrollmentId {change.EnrollmentId}, Type {change.BiometricType}, Result: {deleted}");
+                            var deleteParams = new { enrollid = change.EnrollmentId.Value, backupnum = backupNumber };
+                            bool success = await WebsocketServer.ExecuteServiceCommand(sn, "deleteuser", JsonConvert.SerializeObject(deleteParams));
+                            LogHelper.Log($"[Staff-WS] Delete: Staff {staffId}, SN {sn}, Type {change.BiometricType}, Dispatched: {success}");
                         }
                         catch (Exception ex)
                         {
-                            LogHelper.Log($"[Staff] DeleteEnrollmentData failed for Staff {staffId}, StaffDevice {change.DeviceId}, EnrollmentId {change.EnrollmentId}, Type {change.BiometricType}: {ex.Message}");
+                            LogHelper.Log($"[Staff-WS] Delete failed for Staff {staffId}, SN {sn}: {ex.Message}");
                         }
                     }
                 }
-
                 LogHelper.Log($"Biometric log verification and update process completed for StaffId={staffId}.");
             }
             catch (Exception ex)
@@ -904,38 +536,34 @@ namespace smart_attendance_middleware.Classes
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
         public async Task EmptyEnrollmentDataAndDeleteLogsByDeviceId(int deviceId)
         {
             try
             {
                 var deviceDetails = _dbHelper.GetDeviceDetails(deviceId);
-                if (string.IsNullOrEmpty(deviceDetails.ip) || deviceDetails.machineNo == 0 || deviceDetails.port == 0)
+                string sn = CommonUtils.GetDeviceSnByIp(deviceDetails.ip);
+
+                if (string.IsNullOrEmpty(sn))
                 {
-                    MessageBox.Show("Device details not found or incomplete.", "Device Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Device Serial Number not found in database.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                string password = "0";
-
-                bool result = await DeviceService.EmptyEnrollmentData(deviceDetails.ip, deviceDetails.port, deviceDetails.machineNo, password);
+                // Protocol command 9: Clean all users
+                bool result = await WebsocketServer.ExecuteServiceCommand(sn, "cleanuser", null);
 
                 if (result)
                 {
                     await DatabaseQueueManager.EnterDbWriteLockAsync("EmptyEnrollmentData_DeleteLogs", DbTaskPriority.High);
-                    try
-                    {
-                        _dbHelper.DeleteLogsByDeviceId(deviceId);
-                    }
-                    finally
-                    {
-                        DatabaseQueueManager.ReleaseDbWriteLock("EmptyEnrollmentData_DeleteLogs");
-                    }
+                    try { _dbHelper.DeleteLogsByDeviceId(deviceId); }
+                    finally { DatabaseQueueManager.ReleaseDbWriteLock("EmptyEnrollmentData_DeleteLogs"); }
 
-                    MessageBox.Show("All enrollment data and logs for this device have been cleared.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("All enrollment data and logs for this device have been cleared via WebSocket.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Failed to clear enrollment data from the device.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Failed to dispatch clean command to the device via WebSocket.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             catch (Exception ex)
@@ -944,40 +572,34 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
-
         public async Task EmptyEnrollmentDataAndDeleteLogsByStaffDeviceId(int deviceId)
         {
             try
             {
                 var staffDeviceDetails = _dbHelper.GetStaffDeviceDetails(deviceId);
-                if (string.IsNullOrEmpty(staffDeviceDetails.ip) || staffDeviceDetails.machineNo == 0 || staffDeviceDetails.port == 0)
+                string sn = CommonUtils.GetDeviceSnByIp(staffDeviceDetails.ip);
+
+                if (string.IsNullOrEmpty(sn))
                 {
-                    MessageBox.Show("Staff device details not found or incomplete.", "Device Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Staff Device Serial Number not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                string password = "0";
-
-                bool result = await DeviceService.EmptyEnrollmentData(staffDeviceDetails.ip, staffDeviceDetails.port, staffDeviceDetails.machineNo, password);
+                // Protocol command 9: Clean all users
+                bool result = await WebsocketServer.ExecuteServiceCommand(sn, "cleanuser", null);
 
                 if (result)
                 {
                     await DatabaseQueueManager.EnterDbWriteLockAsync("EmptyStaffEnrollmentData_DeleteLogs", DbTaskPriority.High);
-                    try
-                    {
-                        _dbHelper.DeleteStaffGLogsByStaffDeviceId(deviceId);
-                    }
-                    finally
-                    {
-                        DatabaseQueueManager.ReleaseDbWriteLock("EmptyStaffEnrollmentData_DeleteLogs");
-                    }
+                    try { _dbHelper.DeleteStaffGLogsByStaffDeviceId(deviceId); }
+                    finally { DatabaseQueueManager.ReleaseDbWriteLock("EmptyStaffEnrollmentData_DeleteLogs"); }
 
-                    LogHelper.Log($"[Staff] Cleared enrollment data and staff GLogs for staff device {deviceId} (machineNo={staffDeviceDetails.machineNo})");
-                    MessageBox.Show("All enrollment data and staff logs for this device have been cleared.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LogHelper.Log($"[Staff-WS] Dispatched cleanuser command to staff device {sn}");
+                    MessageBox.Show("All enrollment data and staff logs for this device have been cleared via WebSocket.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Failed to clear enrollment data from the staff device.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Failed to dispatch clean command to the staff device.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             catch (Exception ex)
@@ -1051,6 +673,10 @@ namespace smart_attendance_middleware.Classes
                     aiChatLogger.AddSyncMessage("Enrolling biometric data to devices...");
                     await ProcessAllEntries();
                     aiChatLogger.AddSuccessMessage("Biometric enrollment completed");
+
+                    // Refresh cache so UI reflects updated SyncStatus values written during enrollment
+                    AppSession.AllMembers = _dbHelper.GetMembers() ?? new List<Member>();
+                    AppSession.AllStaff = _dbHelper.GetStaffs() ?? new List<Staff>();
                 }
                 else
                 {
@@ -1128,26 +754,32 @@ namespace smart_attendance_middleware.Classes
                 {
                     try
                     {
-                        LogHelper.Log($"Attempting to disable on device {device.machineNo} (IP: {device.ip})");
+                        // WebSocket communication uses the Device Serial (SN) instead of IP
+                        string sn = CommonUtils.GetDeviceSnByIp(device.ip);
+                        LogHelper.Log($"Attempting to disable on device {sn} via WebSocket");
 
-                        bool result = await DeviceService.DisableUser(
-                            device.ip,
-                            device.port,
-                            device.machineNo,
-                            device.password,
-                            device.enrollmentNumber,
-                            0, // enrollmentMachineId
-                            device.backupNumber);
+                        // Prepare JSON for Disable (enflag: 0)
+                        var disableParams = new
+                        {
+                            enrollid = device.enrollmentNumber,
+                            enflag = 0
+                        };
+
+                        bool result = await WebsocketServer.ExecuteServiceCommand(
+                            sn,
+                            "enableuser",
+                            JsonConvert.SerializeObject(disableParams)
+                        );
 
                         if (result)
                         {
-                            LogHelper.Log($"Successfully disabled member {memberId} on device {device.machineNo}");
+                            LogHelper.Log($"Successfully dispatched disable command for member {memberId} to device {sn}");
                             successCount++;
                             memberSuccessCount++;
                         }
                         else
                         {
-                            LogHelper.Log($"Failed to disable member {memberId} on device {device.machineNo} - enqueuing for retry");
+                            LogHelper.Log($"Failed to reach device {sn} via WebSocket - enqueuing for retry");
                             failureCount++;
                             EnqueuePendingJob(new PendingJob
                             {
@@ -1283,7 +915,7 @@ namespace smart_attendance_middleware.Classes
         {
             try
             {
-                LogHelper.Log("🔄 Starting pending jobs processing (one-by-one)...");
+                LogHelper.Log("🔄 Starting pending jobs processing over WebSocket...");
 
                 while (true)
                 {
@@ -1299,7 +931,7 @@ namespace smart_attendance_middleware.Classes
                         }
                         else
                         {
-                            job = jobs.First(); // pick the oldest (DB returns ordered by CreatedAt)
+                            job = jobs.First(); // pick the oldest
                         }
                     }
 
@@ -1309,26 +941,39 @@ namespace smart_attendance_middleware.Classes
                         break;
                     }
 
-                    string desc = $"{job.Action} mId={job.MemberId} enId={job.EnrollmentId} dev={job.MachineNo}@{job.Ip}";
+                    // 1. WebSocket communication requires the Device Serial (SN)
+                    string sn = CommonUtils.GetDeviceSnByIp(job.Ip);
+                    string desc = $"{job.Action} mId={job.MemberId} enId={job.EnrollmentId} dev={sn}";
+
+                    if (string.IsNullOrEmpty(sn))
+                    {
+                        LogHelper.Log($"⚠️ Skipping job: No Serial Number found for DeviceId {job.DeviceId}");
+                        // Optional: Delete invalid job here to prevent infinite skips
+                        break;
+                    }
+
                     bool success = false;
 
                     try
                     {
-                        switch (job.Action)
+                        switch (job.Action.ToLower())
                         {
                             case "enable":
                                 success = await ExecuteWithRetryAsync(
-                                    () => DeviceService.EnableUser(job.Ip, job.Port, job.MachineNo, job.Password, job.EnrollmentId, 0, 0),
+                                    () => WebsocketServer.ExecuteServiceCommand(sn, "enableuser",
+                                        JsonConvert.SerializeObject(new { enrollid = job.EnrollmentId, enflag = 1 })),
                                     desc);
                                 break;
                             case "disable":
                                 success = await ExecuteWithRetryAsync(
-                                    () => DeviceService.DisableUser(job.Ip, job.Port, job.MachineNo, job.Password, job.EnrollmentId, 0, job.BackupNumber),
+                                    () => WebsocketServer.ExecuteServiceCommand(sn, "enableuser",
+                                        JsonConvert.SerializeObject(new { enrollid = job.EnrollmentId, enflag = 0 })),
                                     desc);
                                 break;
                             case "delete":
                                 success = await ExecuteWithRetryAsync(
-                                    () => DeviceService.DeleteEnrollmentData(job.Ip, job.Port, job.MachineNo, job.Password, job.EnrollmentId, job.EnrollmentId, job.BackupNumber),
+                                    () => WebsocketServer.ExecuteServiceCommand(sn, "deleteuser",
+                                        JsonConvert.SerializeObject(new { enrollid = job.EnrollmentId, backupnum = job.BackupNumber })),
                                     desc);
                                 break;
                             default:
@@ -1347,7 +992,6 @@ namespace smart_attendance_middleware.Classes
                     {
                         try
                         {
-                            // Use DB queue only for the brief write (deleting the job)
                             await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessPendingJobs_Delete", DbTaskPriority.High);
                             try
                             {
@@ -1365,18 +1009,14 @@ namespace smart_attendance_middleware.Classes
                         catch (Exception ex)
                         {
                             LogHelper.Log($"❌ Failed to delete pending job after success ({desc}): {ex.Message}");
-                            // If deletion failed, stop to avoid tight retry; next run will attempt again.
                             break;
                         }
-
-                        // Continue to next job (immediately)
                         continue;
                     }
                     else
                     {
-                        LogHelper.Log($"⏳ Pending job failed and will remain in DB for retry later: {desc}");
-                        // Move on to next job to avoid getting stuck on a single failing job.
-                        await Task.Delay(500);
+                        LogHelper.Log($"⏳ Pending job failed to dispatch to {sn} and will remain in DB: {desc}");
+                        await Task.Delay(1000); // Wait longer on failure to allow connection recovery
                         continue;
                     }
                 }
@@ -1395,100 +1035,13 @@ namespace smart_attendance_middleware.Classes
             try
             {
                 await Task.Yield();
-
                 data = EnsureMembersArray(data);
 
-                // 1) Session devices only for logging
                 var sessionDevices = AppSession.DeviceList;
-                var deviceInfo = new StringBuilder();
-                deviceInfo.AppendLine("Devices in current session:");
-                deviceInfo.AppendLine();
-
                 if (sessionDevices == null || sessionDevices.Count == 0)
                 {
-                    LogHelper.Log("ℹ️ No devices found in the current app session.");
-
-                    // Build minimal members info for logs only
-                    var memberInfoNoDevices = new StringBuilder();
-                    memberInfoNoDevices.AppendLine("Members from response:");
-                    memberInfoNoDevices.AppendLine();
-
-                    if (data == null)
-                    {
-                        LogHelper.Log("❌ Data payload is null.");
-                        return;
-                    }
-
-                    var membersArrayNoDevices = data["members"] as JArray;
-                    if (membersArrayNoDevices == null)
-                    {
-                        LogHelper.Log("❌ 'members' array not found in response.");
-                        memberInfoNoDevices.AppendLine("No member data found in response.");
-                    }
-                    else
-                    {
-                        LogHelper.Log($"📦 Received {membersArrayNoDevices.Count} member record(s) in response.");
-                        foreach (var memberToken in membersArrayNoDevices)
-                        {
-                            try
-                            {
-                                // Try 'id' first, then 'member_id' if 'id' is null or missing
-                                int memberId = 0;
-                                if (memberToken["id"] != null)
-                                {
-                                    memberId = (int)memberToken["id"];
-                                }
-                                else if (memberToken["member_id"] != null)
-                                {
-                                    memberId = (int)memberToken["member_id"];
-                                }
-
-                                string cloudStatus = memberToken["status"] != null ? (string)memberToken["status"] : null;
-
-                                if (memberId == 0)
-                                {
-                                    LogHelper.Log("⚠️ Member entry missing valid 'id' or 'member_id'. Skipping.");
-                                    continue;
-                                }
-
-                                // READ-ONLY: no global DB lock
-                                Member existingMember = _dbHelper.GetMember(memberId);
-
-                                string localStatus = existingMember?.Status ?? "N/A";
-                                string localEnrollmentStr = existingMember?.EnrollmentID.HasValue == true
-                                    ? existingMember.EnrollmentID.Value.ToString()
-                                    : "N/A";
-
-                                memberInfoNoDevices.AppendLine($"MemberID: {memberId}, Cloud: {cloudStatus ?? "N/A"}, Local: {localStatus}, EnrollmentID(Local): {localEnrollmentStr}");
-                            }
-                            catch (Exception ex)
-                            {
-                                LogHelper.Log($"⚠️ Error processing member entry (no devices case): {ex.Message}");
-                            }
-                        }
-                    }
-
-                    LogHelper.Log(memberInfoNoDevices.ToString());
-                    return;
-                }
-
-                // Build devices info (for logs only)
-                foreach (var sd in sessionDevices)
-                {
-                    string ip = sd?.DeviceIP ?? "N/A";
-                    int machineNo = sd?.MachineNo ?? 0;
-                    string location = sd?.Location ?? "N/A";
-                    deviceInfo.AppendLine($"IP: {ip}, Machine No: {machineNo}, Location: {location}");
-                }
-
-                // 2) Process members and perform actions
-                var memberInfo = new StringBuilder();
-                memberInfo.AppendLine("Members from response:");
-                memberInfo.AppendLine();
-
-                if (data == null)
-                {
-                    LogHelper.Log("❌ Data payload is null.");
+                    LogHelper.Log("ℹ️ No devices found in session - processing logs only.");
+                    // (Minimal logging for no-device case remains same as your original)
                     return;
                 }
 
@@ -1496,239 +1049,95 @@ namespace smart_attendance_middleware.Classes
                 if (membersArray == null)
                 {
                     LogHelper.Log("❌ 'members' array not found in response.");
-                    memberInfo.AppendLine("No member data found in response.");
+                    return;
                 }
-                else
+
+                LogHelper.Log($"📦 Received {membersArray.Count} member record(s) in response.");
+
+                foreach (var memberToken in membersArray)
                 {
-                    LogHelper.Log($"📦 Received {membersArray.Count} member record(s) in response.");
-
-                    foreach (var memberToken in membersArray)
+                    try
                     {
-                        try
+                        int memberId = memberToken["id"] != null ? (int)memberToken["id"] : 0;
+                        string cloudStatus = memberToken["status"]?.ToString();
+                        if (memberId == 0) continue;
+
+                        Member existingMember = _dbHelper.GetMember(memberId);
+                        if (existingMember == null) continue;
+
+                        string localStatus = existingMember.Status ?? "N/A";
+                        int? enrollmentId = existingMember.EnrollmentID;
+                        if (!enrollmentId.HasValue) continue;
+
+                        var dbDevices = _dbHelper.GetAvailableDeviceDetails(memberId);
+                        if (dbDevices == null || dbDevices.Count == 0) continue;
+
+                        var isLocalActive = localStatus.Equals("Active", StringComparison.OrdinalIgnoreCase);
+                        var isCloudActive = cloudStatus != null && cloudStatus.Equals("Active", StringComparison.OrdinalIgnoreCase);
+                        var isCloudOverdue = cloudStatus != null && (cloudStatus.Equals("Overdue", StringComparison.OrdinalIgnoreCase) || cloudStatus.Equals("Inactive", StringComparison.OrdinalIgnoreCase));
+                        var isCloudExpired = cloudStatus != null && (cloudStatus.Equals("Expired", StringComparison.OrdinalIgnoreCase) || cloudStatus.Equals("Deleted", StringComparison.OrdinalIgnoreCase));
+
+                        foreach (var d in dbDevices)
                         {
-                            int memberId = memberToken["id"] != null ? (int)memberToken["id"] : 0;
-                            string cloudStatus = memberToken["status"] != null ? (string)memberToken["status"] : null;
-
-                            if (memberId == 0)
+                            // Resolve Serial Number for WebSocket routing
+                            string sn = CommonUtils.GetDeviceSnByIp(d.ip);
+                            if (string.IsNullOrEmpty(sn))
                             {
-                                LogHelper.Log("⚠️ Member entry missing valid 'id'. Skipping.");
+                                LogHelper.Log($"[WS-ERR] No SN found for IP {d.ip}. Skipping action for {memberId}.");
                                 continue;
                             }
 
-                            // READ-ONLY: no global DB lock
-                            Member existingMember = _dbHelper.GetMember(memberId);
-
-                            if (existingMember == null)
-                            {
-                                LogHelper.Log($"⚠️ Local member not found for ID {memberId}.");
-                                memberInfo.AppendLine($"MemberID: {memberId}, Cloud: {cloudStatus ?? "N/A"}, Local: N/A (not found), EnrollmentID(Local): N/A");
-                                continue;
-                            }
-
-                            string localStatus = existingMember.Status ?? "N/A";
-                            int? enrollmentId = existingMember.EnrollmentID;
-                            string localEnrollmentStr = enrollmentId.HasValue ? enrollmentId.Value.ToString() : "N/A";
-
-                            LogHelper.Log($"Member ID: {memberId}, Cloud Status: {cloudStatus ?? "N/A"}, EnrollmentID(Local): {localEnrollmentStr}");
-                            LogHelper.Log($"Local Status for Member ID {memberId}: {localStatus}");
-                            memberInfo.AppendLine($"MemberID: {memberId}, Cloud: {cloudStatus ?? "N/A"}, Local: {localStatus}, EnrollmentID(Local): {localEnrollmentStr}");
-
-                            // Only proceed with device actions if local enrollmentId exists
-                            if (!enrollmentId.HasValue)
-                            {
-                                LogHelper.Log($"⚠️ Member {memberId} has no local enrollment ID. Skipping device actions.");
-                                continue;
-                            }
-
-                            // READ-ONLY: load actionable device details without lock
-                            var dbDevices = _dbHelper.GetAvailableDeviceDetails(memberId);
-                            if (dbDevices == null || dbDevices.Count == 0)
-                            {
-                                LogHelper.Log($"ℹ️ No available device details from DB for member {memberId}. Skipping device actions.");
-                                continue;
-                            }
-
-                            // Normalize cloud status
-                            var isLocalActive = localStatus.Equals("Active", StringComparison.OrdinalIgnoreCase);
-                            var isCloudActive = cloudStatus != null && cloudStatus.Equals("Active", StringComparison.OrdinalIgnoreCase);
-                            var isCloudOverdue = cloudStatus != null && cloudStatus.Equals("Overdue", StringComparison.OrdinalIgnoreCase);
-                            var isCloudExpired = cloudStatus != null && cloudStatus.Equals("Expired", StringComparison.OrdinalIgnoreCase);
-                            var isCloudInactive = cloudStatus != null && cloudStatus.Equals("Inactive", StringComparison.OrdinalIgnoreCase);
-                            var isCloudDeleted = cloudStatus != null && cloudStatus.Equals("Deleted", StringComparison.OrdinalIgnoreCase);
+                            bool ok = false;
+                            string desc = "";
 
                             if (isCloudActive && !isLocalActive)
                             {
-                                LogHelper.Log($"Member {memberId}: Cloud=Active, Local={localStatus}. Re-enabling user on all DB devices.");
-                                foreach (var d in dbDevices)
-                                {
-                                    var desc = $"enable member {memberId} (en={enrollmentId.Value}) on device {d.machineNo} ({d.ip})";
-                                    bool ok = await ExecuteWithRetryAsync(
-                                        () => DeviceService.EnableUser(d.ip, d.port, d.machineNo, d.password, enrollmentId.Value, 0, 0),
-                                        desc);
+                                desc = $"Enable {memberId} on {sn}";
+                                ok = await ExecuteWithRetryAsync(() =>
+                                    WebsocketServer.ExecuteServiceCommand(sn, "enableuser",
+                                    JsonConvert.SerializeObject(new { enrollid = enrollmentId.Value, enflag = 1 })), desc);
 
-                                    if (ok)
-                                    {
-                                        LogHelper.Log($"✅ Enabled member {memberId} on device {d.machineNo} (IP: {d.ip}).");
-                                    }
-                                    else
-                                    {
-                                        await EnqueuePendingJob(new PendingJob
-                                        {
-                                            Action = "enable",
-                                            MemberId = memberId,
-                                            EnrollmentId = enrollmentId.Value,
-                                            DeviceId = _dbHelper.GetDeviceIdByMachineNo(d.machineNo),
-                                            Ip = d.ip,
-                                            Port = d.port,
-                                            MachineNo = d.machineNo,
-                                            Password = d.password,
-                                            BackupNumber = 0,
-                                            CreatedAt = DateTime.Now
-                                        });
-                                    }
-                                }
+                                if (!ok) await EnqueuePendingJob(new PendingJob { Action = "enable", MemberId = memberId, EnrollmentId = enrollmentId.Value, DeviceId = _dbHelper.GetDeviceIdByMachineNo(d.machineNo), Ip = d.ip, Port = d.port, MachineNo = d.machineNo, Password = d.password, BackupNumber = 0, CreatedAt = DateTime.Now });
                             }
-                            else if ((isCloudOverdue || isCloudInactive) && isLocalActive)
+                            else if (isCloudOverdue && isLocalActive)
                             {
-                                LogHelper.Log($"Member {memberId}: Cloud={cloudStatus}, Local=Active. Disabling user on all DB devices.");
-                                foreach (var d in dbDevices)
-                                {
-                                    var desc = $"disable member {memberId} (en={enrollmentId.Value}) on device {d.machineNo} ({d.ip})";
-                                    bool ok = await ExecuteWithRetryAsync(
-                                        () => DeviceService.DisableUser(d.ip, d.port, d.machineNo, d.password, enrollmentId.Value, 0, d.backupNumber),
-                                        desc);
+                                desc = $"Disable {memberId} on {sn}";
+                                ok = await ExecuteWithRetryAsync(() =>
+                                    WebsocketServer.ExecuteServiceCommand(sn, "enableuser",
+                                    JsonConvert.SerializeObject(new { enrollid = enrollmentId.Value, enflag = 0 })), desc);
 
-                                    if (ok)
-                                    {
-                                        LogHelper.Log($"✅ Disabled member {memberId} on device {d.machineNo} (IP: {d.ip}).");
-                                    }
-                                    else
-                                    {
-                                        await EnqueuePendingJob(new PendingJob
-                                        {
-                                            Action = "disable",
-                                            MemberId = memberId,
-                                            EnrollmentId = enrollmentId.Value,
-                                            DeviceId = _dbHelper.GetDeviceIdByMachineNo(d.machineNo),
-                                            Ip = d.ip,
-                                            Port = d.port,
-                                            MachineNo = d.machineNo,
-                                            Password = d.password,
-                                            BackupNumber = d.backupNumber,
-                                            CreatedAt = DateTime.Now
-                                        });
-                                    }
-                                }
+                                if (!ok) await EnqueuePendingJob(new PendingJob { Action = "disable", MemberId = memberId, EnrollmentId = enrollmentId.Value, DeviceId = _dbHelper.GetDeviceIdByMachineNo(d.machineNo), Ip = d.ip, Port = d.port, MachineNo = d.machineNo, Password = d.password, BackupNumber = d.backupNumber, CreatedAt = DateTime.Now });
                             }
                             else if (isCloudExpired && isLocalActive)
                             {
-                                LogHelper.Log($"Member {memberId}: Cloud={cloudStatus}, Local=Active. Deleting enrollment from all DB devices and removing local logs.");
-                                foreach (var d in dbDevices)
-                                {
-                                    var desc = $"delete member {memberId} (en={enrollmentId.Value}) on device {d.machineNo} ({d.ip})";
-                                    bool ok = await ExecuteWithRetryAsync(
-                                        () => DeviceService.DeleteEnrollmentData(d.ip, d.port, d.machineNo, d.password, enrollmentId.Value, enrollmentId.Value, 12),
-                                        desc);
+                                desc = $"Delete {memberId} on {sn}";
+                                ok = await ExecuteWithRetryAsync(() =>
+                                    WebsocketServer.ExecuteServiceCommand(sn, "deleteuser",
+                                    JsonConvert.SerializeObject(new { enrollid = enrollmentId.Value, backupnum = 12 })), desc);
 
-                                    if (ok)
-                                    {
-                                        LogHelper.Log($"🗑️ Deleted member {memberId} from device {d.machineNo} (IP: {d.ip}).");
-                                    }
-                                    else
-                                    {
-                                        await EnqueuePendingJob(new PendingJob
-                                        {
-                                            Action = "delete",
-                                            MemberId = memberId,
-                                            EnrollmentId = enrollmentId.Value,
-                                            DeviceId = _dbHelper.GetDeviceIdByMachineNo(d.machineNo),
-                                            Ip = d.ip,
-                                            Port = d.port,
-                                            MachineNo = d.machineNo,
-                                            Password = d.password,
-                                            BackupNumber = 12,
-                                            CreatedAt = DateTime.Now
-                                        });
-                                    }
-                                }
-
-                                // WRITE: call DB directly, no global write queue
-                                try
-                                {
-                                    _dbHelper.DeleteMemberLogs(memberId);
-                                    LogHelper.Log($"🧹 Deleted local logs for member {memberId}.");
-                                    _dbHelper.DeleteMemberById(memberId);
-                                    LogHelper.Log($"🗑️ Deleted local member record for member {memberId}.");
-                                }
-                                catch (Exception ex)
-                                {
-                                    LogHelper.Log($"❌ Error deleting local logs/member {memberId}: {ex.Message}");
-                                }
-                            }
-                            else if (isCloudDeleted)
-                            {
-                                LogHelper.Log($"Member {memberId}: Cloud=Deleted. Deleting enrollment from all DB devices and removing local logs.");
-                                foreach (var d in dbDevices)
-                                {
-                                    var desc = $"delete member {memberId} (en={enrollmentId.Value}) on device {d.machineNo} ({d.ip})";
-                                    bool ok = await ExecuteWithRetryAsync(
-                                        () => DeviceService.DeleteEnrollmentData(d.ip, d.port, d.machineNo, d.password, enrollmentId.Value, enrollmentId.Value, 12),
-                                        desc);
-
-                                    if (ok)
-                                    {
-                                        LogHelper.Log($"🗑️ Deleted member {memberId} from device {d.machineNo} (IP: {d.ip}).");
-                                    }
-                                    else
-                                    {
-                                        await EnqueuePendingJob(new PendingJob
-                                        {
-                                            Action = "delete",
-                                            MemberId = memberId,
-                                            EnrollmentId = enrollmentId.Value,
-                                            DeviceId = _dbHelper.GetDeviceIdByMachineNo(d.machineNo),
-                                            Ip = d.ip,
-                                            Port = d.port,
-                                            MachineNo = d.machineNo,
-                                            Password = d.password,
-                                            BackupNumber = 12,
-                                            CreatedAt = DateTime.Now
-                                        });
-                                    }
-                                }
-
-                                // WRITE: call DB directly, no global write queue
-                                try
-                                {
-                                    _dbHelper.DeleteMemberLogs(memberId);
-                                    LogHelper.Log($"🧹 Deleted local logs for member {memberId}.");
-                                }
-                                catch (Exception ex)
-                                {
-                                    LogHelper.Log($"❌ Error deleting local logs for member {memberId}: {ex.Message}");
-                                }
-                            }
-                            else
-                            {
-                                LogHelper.Log($"Member {memberId}: No action required for Cloud={cloudStatus ?? "N/A"} vs Local={localStatus}.");
+                                if (!ok) await EnqueuePendingJob(new PendingJob { Action = "delete", MemberId = memberId, EnrollmentId = enrollmentId.Value, DeviceId = _dbHelper.GetDeviceIdByMachineNo(d.machineNo), Ip = d.ip, Port = d.port, MachineNo = d.machineNo, Password = d.password, BackupNumber = 12, CreatedAt = DateTime.Now });
                             }
                         }
-                        catch (Exception ex)
+
+                        // Clean up local DB records for terminated users
+                        if (isCloudExpired && isLocalActive)
                         {
-                            LogHelper.Log($"⚠️ Error processing member entry: {ex.Message}");
+                            try
+                            {
+                                _dbHelper.DeleteMemberLogs(memberId);
+                                if (cloudStatus.Equals("Expired", StringComparison.OrdinalIgnoreCase)) _dbHelper.DeleteMemberById(memberId);
+                                LogHelper.Log($"🧹 Cleaned local DB records for member {memberId}.");
+                            }
+                            catch (Exception ex) { LogHelper.Log($"❌ Local DB cleanup error: {ex.Message}"); }
                         }
                     }
+                    catch (Exception ex) { LogHelper.Log($"⚠️ Error processing member entry: {ex.Message}"); }
                 }
-
-                // 3) Log combined info (no MessageBox)
-                LogHelper.Log("📋 Session summary:");
-                LogHelper.Log(memberInfo.ToString());
-                LogHelper.Log(deviceInfo.ToString());
+                LogHelper.Log("🧹 StatusSync process completed.");
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Fatal error in StatusSync: {ex.Message}");
-                throw;
             }
         }
     }

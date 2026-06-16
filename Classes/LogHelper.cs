@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System;
+using smart_attendance_middleware;
 
 public static class LogHelper
 {
@@ -33,7 +34,8 @@ public static class LogHelper
     {
         try
         {
-            string logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}";
+            string user = !string.IsNullOrEmpty(AppSession.LoggedInUser) ? $"[{AppSession.LoggedInUser}] " : "";
+            string logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {user}{message}";
             Console.WriteLine(logEntry);
             _logWriter.WriteLine(logEntry);
 

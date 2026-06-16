@@ -11,7 +11,7 @@ namespace smart_attendance_middleware
     {
         /// <summary>
         /// 3. Send user information
-        /// Fingerprint (backupnum 0-9), Photo (50), Password (10), Rfid card (11)
+        /// backupnum: 0-9 fp, 10 password, 11 card, 50 photo
         /// </summary>
         public string setuserinfo(string sn, int? enrollid, string name, int? backupnum, int? admin, object record)
         {
@@ -28,17 +28,32 @@ namespace smart_attendance_middleware
             return JsonConvert.SerializeObject(payload, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
         }
 
+        /// <summary>
+        /// 6. Set user name (Batch update)
+        /// </summary>
+        public string setusername(string sn, List<UserRecord> users)
+        {
+            var payload = new
+            {
+                cmd = "setusername",
+                sn = sn,
+                count = users.Count,
+                record = users
+            };
+            return JsonConvert.SerializeObject(payload);
+        }
+
+        // Wrapper for single user name update
         public string setusername(string sn, int enrollid, string name)
         {
-            return setuserinfo(sn, enrollid, name, null, 0, null);
+            return setusername(sn, new List<UserRecord> { new UserRecord { EnrollId = enrollid, Name = name } });
         }
 
         public async Task<string> setface(string sn, int enrollid, string name, object record)
         {
             string faceData = record?.ToString();
-            if (!string.IsNullOrEmpty(faceData))
+            if (!string.IsNullOrEmpty(faceData) && !faceData.StartsWith("/"))
             {
-                // Attempt to convert if 'record' is a URL or local file path
                 var converted = await CommonUtils.ConvertImageToBase64Async(faceData);
                 if (converted != null) faceData = converted;
             }
@@ -50,15 +65,14 @@ namespace smart_attendance_middleware
             return setuserinfo(sn, enrollid, name, 11, 0, record);
         }
 
-        public string setfingerprint(string sn, int enrollid, string name, object record)
+        public string setfingerprint(string sn, int enrollid, string name, object record, int fingerNum = 0)
         {
-            return setuserinfo(sn, enrollid, name, 0, 0, record);
+            return setuserinfo(sn, enrollid, name, fingerNum, 0, record);
         }
 
-        /// <summary>
+        /// <summary>   
         /// 4. Delete user information
-        /// backupnum: 0-9 fp, 10 password, 11 card, 12 all fp, 13 all (fp, card, pwd)
-        /// </summary>
+        /// backupnum: 0-9 fp, 10 password, 11 card, 12 
         public string deleteuser(string sn, int enrollid, int backupnum)
         {
             var payload = new
@@ -76,12 +90,7 @@ namespace smart_attendance_middleware
         /// </summary>
         public string getusername(string sn, int enrollid)
         {
-            var payload = new
-            {
-                cmd = "getusername",
-                sn = sn,
-                enrollid = enrollid
-            };
+            var payload = new { cmd = "getusername", sn = sn, enrollid = enrollid };
             return JsonConvert.SerializeObject(payload);
         }
 
@@ -101,6 +110,20 @@ namespace smart_attendance_middleware
             return JsonConvert.SerializeObject(payload);
         }
 
+        // Wrapper for Enable (Protocol item 7)
+        public string set_enable(string sn, int enrollid)
+        {
+            return enableuser(sn, enrollid, 1);
+        }
+
+        // Wrapper for Disable (Protocol item 8)
+        public string set_disable(string sn, int enrollid)
+        {
+            // Note: Protocol doc snippet used 'enrolled' in one place and 'enrollid' in another.
+            // Consistent with the rest of the commands, we use 'enrollid'.
+            return enableuser(sn, enrollid, 0);
+        }
+
         /// <summary>
         /// 9. Clean all users
         /// </summary>
@@ -111,17 +134,14 @@ namespace smart_attendance_middleware
         }
 
         /// <summary>
-        /// 11. Get all logs
+        /// Requests all logs from a device (stn hardcoded to true = incremental/new logs only).
         /// </summary>
-        public string getalllog(string sn, bool stn, string from = null, string to = null)
+        public string getalllogs(string sn)
         {
-            JObject payload = new JObject();
+            var payload = new JObject();
             payload["cmd"] = "getalllog";
-            payload["sn"] = sn;
-            payload["stn"] = stn;
-            if (!string.IsNullOrEmpty(from)) payload["from"] = from;
-            if (!string.IsNullOrEmpty(to)) payload["to"] = to;
-
+            payload["sn"]  = sn;
+            payload["stn"] = true;
             return payload.ToString(Formatting.None);
         }
 
@@ -143,25 +163,24 @@ namespace smart_attendance_middleware
             payload["cmd"] = "opendoor";
             payload["sn"] = sn;
             if (doornum.HasValue) payload["doornum"] = doornum.Value;
-
             return payload.ToString(Formatting.None);
         }
 
         /// <summary>
-        /// 2. Get user information
-        /// backupnum: 0 fp, 10 password, 11 card, 50 photo
+        /// 2. Get user information.
+        /// backupnum: 0-9 fingerprint slot, 10 password, 11 card, 50 photo
         /// </summary>
-        public string getuserinfo(string sn, int enrollid, int backupnum)
+        public string getuserinfo(string sn, int enrollid, int? backupnum = null)
         {
-            var payload = new
-            {
-                cmd = "getuserinfo",
-                sn = sn,
-                enrollid = enrollid,
-                backupnum = backupnum
-            };
+            var payload = new { cmd = "getuserinfo", sn = sn, enrollid = enrollid, backupnum = backupnum ?? 0 };
             return JsonConvert.SerializeObject(payload);
         }
+
+        public string getuserdetails(string sn, int enrollid, int backupnum)
+        {
+            return getuserinfo(sn, enrollid, backupnum);
+        }
+
     }
 
     public class UserRecord
@@ -172,4 +191,15 @@ namespace smart_attendance_middleware
         [JsonProperty("name")]
         public string Name { get; set; }
     }
+
+    public class GetUserInfoResponse
+    {
+        public string Sn        { get; set; }
+        public int    EnrollId  { get; set; }
+        public string Name      { get; set; }
+        public int    BackupNum { get; set; }
+        public int    Admin     { get; set; }
+        public string Record    { get; set; }
+    }
+
 }

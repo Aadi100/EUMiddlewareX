@@ -133,7 +133,7 @@ namespace smart_attendance_middleware
         /// Optional per-record: id, checkin_time, checkout_time (ISO 8601 strings, e.g. 2024-01-01T10:00:00Z).
         /// </summary>
         public async Task<JObject> UploadAttendanceRecordsAsync(
-            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, long? id)> records,
+            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, string id)> records,
             CancellationToken token = default(CancellationToken))
         {
             if (records == null)
@@ -168,7 +168,7 @@ namespace smart_attendance_middleware
                     ["source"] = "biometric"
                 };
 
-                if (r.id.HasValue) rec["id"] = r.id.Value;
+                if (!string.IsNullOrWhiteSpace(r.id)) rec["id"] = r.id;
                 if (!string.IsNullOrWhiteSpace(r.checkinTime)) rec["checkin_time"] = r.checkinTime;
                 if (!string.IsNullOrWhiteSpace(r.checkoutTime))
                 {
@@ -182,6 +182,8 @@ namespace smart_attendance_middleware
             {
                 ["records"] = array
             };
+
+            LogHelper.Log($"📤 [BulkUpload] Sending {array.Count} records. Payload: {payload.ToString(Formatting.None)}");
 
             using (var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json"))
             using (var response = await _client.PostAsync(BaseUrl + UploadAttendanceEndpoint, content, token).ConfigureAwait(false))
@@ -344,7 +346,7 @@ namespace smart_attendance_middleware
         /// Uploads multiple attendance records and passes the response to the Processor.
         /// </summary>
         public async Task PostAttendanceRecordsBulkAsync(
-            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, long? id)> records,
+            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, string id)> records,
             CancellationToken token = default(CancellationToken))
         {
             if (_processor == null)

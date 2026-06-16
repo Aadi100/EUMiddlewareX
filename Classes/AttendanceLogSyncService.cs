@@ -253,7 +253,7 @@ public class AttendanceLogSyncService : IDisposable
         {
             if (token.IsCancellationRequested) break;
 
-            LogHelper.Log($"🔄 {deviceType} devices - Attempt {attempt}/{maxRetries} for {failedDevices.Count} devices");
+            LogHelper.Log($"🔄 {deviceType} devices - Attempt {attempt}/{maxRetries} to trigger logs for {failedDevices.Count} devices");
 
             var currentAttemptFailures = new List<Device>();
             int successCount = 0;
@@ -262,55 +262,59 @@ public class AttendanceLogSyncService : IDisposable
             {
                 if (token.IsCancellationRequested) break;
 
+                // 1. Resolve Serial Number (SN) for WebSocket routing
+                string sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                if (string.IsNullOrEmpty(sn))
+                {
+                    LogHelper.Log($"[Sync] No Serial Number found in DB for {device.DeviceIP}. Skipping...");
+                    continue;
+                }
+
+                // 2. Check if the device is currently connected to the WebSocket Server
+                if (!AppSession.RegisteredDevices.TryGetValue(sn, out var socket) || socket.State != System.Net.WebSockets.WebSocketState.Open)
+                {
+                    LogHelper.Log($"❌ Device {sn} ({deviceType}) is OFFLINE. Cannot sync.");
+                    currentAttemptFailures.Add(device);
+                    continue;
+                }
+
                 try
                 {
-                    bool reachable = await CommonUtils.IsDeviceReachableAsync(device.DeviceIP, 3, token).ConfigureAwait(false);
-                    if (!reachable)
+                    LogHelper.Log($"📥 Dispatching log request to {deviceType} device {sn} ({device.DeviceIP}) - Attempt {attempt}");
+
+                    string response = await WebsocketServer.ExecuteServiceGetCommand(sn, "getalllogs", null).ConfigureAwait(false);
+
+                    if (!string.IsNullOrEmpty(response))
                     {
-                        LogHelper.Log($"❌ Device {device.DeviceId} ({device.DeviceIP}) is not reachable after multiple attempts. Skipping...");
-                        continue;
-                    }
-
-                    LogHelper.Log($"📥 Reading {deviceType} logs from device {device.DeviceId} ({device.DeviceIP}) - Attempt {attempt}");
-
-                    int recordCount = await DeviceService.ReadAndSaveGLogData(
-                        device.DeviceIP,
-                        device.Port,
-                        device.MachineNo,
-                        device.Password
-                    ).ConfigureAwait(false);
-
-                    if (recordCount >= 0)
-                    {
-                        LogHelper.Log($"✅ Read {recordCount} {deviceType} records from device {device.DeviceId} on attempt {attempt}");
+                        LogHelper.Log($"✅ Log request completed for {sn}. Records saved automatically.");
                         successCount++;
                     }
                     else
                     {
-                        LogHelper.Log($"❌ Failed reading {deviceType} logs from device {device.DeviceId} on attempt {attempt}");
+                        LogHelper.Log($"❌ No response from {sn} on attempt {attempt}");
                         currentAttemptFailures.Add(device);
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"❌ Error reading {deviceType} logs from device {device.DeviceId} on attempt {attempt}: {ex.Message}");
+                    LogHelper.Log($"❌ Error dispatching logs for {sn} on attempt {attempt}: {ex.Message}");
                     currentAttemptFailures.Add(device);
                 }
             }
 
-            LogHelper.Log($"📊 {deviceType} attempt {attempt} results - Success: {successCount}, Failed: {currentAttemptFailures.Count}");
+            LogHelper.Log($"📊 {deviceType} attempt {attempt} dispatch - Success: {successCount}, Failed: {currentAttemptFailures.Count}");
 
             failedDevices = currentAttemptFailures;
 
             if (failedDevices.Count == 0)
             {
-                LogHelper.Log($"✅ All {deviceType} devices synced successfully (attempt {attempt})");
+                LogHelper.Log($"✅ All log sync requests for {deviceType} devices dispatched successfully.");
                 return true;
             }
 
             if (attempt < maxRetries && failedDevices.Count > 0)
             {
-                LogHelper.Log($"⏳ Waiting {retryDelaySeconds}s before next {deviceType} retry...");
+                LogHelper.Log($"⏳ Waiting {retryDelaySeconds}s before next {deviceType} trigger retry...");
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds), token).ConfigureAwait(false);
@@ -319,16 +323,9 @@ public class AttendanceLogSyncService : IDisposable
             }
         }
 
-        if (failedDevices.Count > 0)
-        {
-            var failedDeviceIds = string.Join(", ", failedDevices.Select(d => d.DeviceId));
-            LogHelper.Log($"❌ {deviceType} sync failed for devices: {failedDeviceIds} after all retries");
-            _earlyRetryRequested = true;
-            return false;
-        }
-
-        return true;
+        return failedDevices.Count == 0;
     }
+
 
     private async Task VerifyAndProcessGlogFilesAsync(CancellationToken token)
     {
@@ -629,9 +626,7 @@ public class AttendanceLogSyncService : IDisposable
 
                 var batch = items.Skip(i).Take(maxBatchSize)
                     .Select(x => {
-                        long? longId = null;
-                        if (long.TryParse(x.Id, out long parsedId)) longId = parsedId;
-                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, longId);
+                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, x.Id);
                     })
                     .ToList();
 

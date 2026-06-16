@@ -32,13 +32,20 @@ namespace smart_attendance_middleware
             Application.Run(new Login());
         }
 
+        private static void DisableDebugMode()
+        {
+            try { new smart_attendance_middleware.DatabaseHelper().SaveSetting("DebugMode", "false"); } catch { }
+        }
+
         private static void OnApplicationExit(object sender, EventArgs e)
         {
+            DisableDebugMode();
             ServiceManager.StopLogSyncService();
         }
 
         private static void Log(string tag, Exception ex, bool terminating = false)
         {
+            DisableDebugMode();
             try
             {
                 var sb = new StringBuilder();

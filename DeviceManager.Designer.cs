@@ -36,6 +36,31 @@ namespace smart_attendance_middleware
             this.lbl_drivecredentials = new System.Windows.Forms.Label();
             this.lbl_apikey = new System.Windows.Forms.Label();
             this.btn_add_device = new System.Windows.Forms.Button();
+            this.pnl_welcome = new System.Windows.Forms.Panel();
+            this.pnl_welcome_header = new System.Windows.Forms.Panel();
+            this.lbl_welcome_title = new System.Windows.Forms.Label();
+            this.lbl_welcome_sub = new System.Windows.Forms.Label();
+            this.pnl_welcome_tiles = new System.Windows.Forms.FlowLayoutPanel();
+            this.tile_device = new System.Windows.Forms.Panel();
+            this.lbl_tile_device_icon = new System.Windows.Forms.Label();
+            this.lbl_tile_device_name = new System.Windows.Forms.Label();
+            this.lbl_tile_device_desc = new System.Windows.Forms.Label();
+            this.tile_user = new System.Windows.Forms.Panel();
+            this.lbl_tile_user_icon = new System.Windows.Forms.Label();
+            this.lbl_tile_user_name = new System.Windows.Forms.Label();
+            this.lbl_tile_user_desc = new System.Windows.Forms.Label();
+            this.tile_staff = new System.Windows.Forms.Panel();
+            this.lbl_tile_staff_icon = new System.Windows.Forms.Label();
+            this.lbl_tile_staff_name = new System.Windows.Forms.Label();
+            this.lbl_tile_staff_desc = new System.Windows.Forms.Label();
+            this.tile_member = new System.Windows.Forms.Panel();
+            this.lbl_tile_member_icon = new System.Windows.Forms.Label();
+            this.lbl_tile_member_name = new System.Windows.Forms.Label();
+            this.lbl_tile_member_desc = new System.Windows.Forms.Label();
+            this.tile_setup = new System.Windows.Forms.Panel();
+            this.lbl_tile_setup_icon = new System.Windows.Forms.Label();
+            this.lbl_tile_setup_name = new System.Windows.Forms.Label();
+            this.lbl_tile_setup_desc = new System.Windows.Forms.Label();
             this.pnl_deviceManager = new System.Windows.Forms.Panel();
             this.pnl_device = new System.Windows.Forms.Panel();
             this.btn_format = new System.Windows.Forms.Button();
@@ -174,6 +199,14 @@ namespace smart_attendance_middleware
             this.panel8.SuspendLayout();
             this.pnl_backup.SuspendLayout();
             this.panel1.SuspendLayout();
+            this.pnl_welcome.SuspendLayout();
+            this.pnl_welcome_header.SuspendLayout();
+            this.pnl_welcome_tiles.SuspendLayout();
+            this.tile_device.SuspendLayout();
+            this.tile_user.SuspendLayout();
+            this.tile_staff.SuspendLayout();
+            this.tile_member.SuspendLayout();
+            this.tile_setup.SuspendLayout();
             this.SuspendLayout();
             // 
             // lbl_debounce
@@ -1513,13 +1546,337 @@ namespace smart_attendance_middleware
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(642, 232);
             this.panel1.TabIndex = 88;
-            // 
+            //
+            // pnl_welcome_header
+            //
+            this.pnl_welcome_header.Controls.Add(this.lbl_welcome_title);
+            this.pnl_welcome_header.Controls.Add(this.lbl_welcome_sub);
+            this.pnl_welcome_header.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_welcome_header.Height = 110;
+            this.pnl_welcome_header.BackColor = System.Drawing.Color.FromArgb(18, 23, 49);
+            this.pnl_welcome_header.Name = "pnl_welcome_header";
+            this.pnl_welcome_header.TabIndex = 0;
+            //
+            // lbl_welcome_title
+            //
+            this.lbl_welcome_title.AutoSize = false;
+            this.lbl_welcome_title.BackColor = System.Drawing.Color.Transparent;
+            this.lbl_welcome_title.Font = new System.Drawing.Font("Segoe UI", 20F, System.Drawing.FontStyle.Bold);
+            this.lbl_welcome_title.ForeColor = System.Drawing.Color.White;
+            this.lbl_welcome_title.Location = new System.Drawing.Point(30, 24);
+            this.lbl_welcome_title.Name = "lbl_welcome_title";
+            this.lbl_welcome_title.Size = new System.Drawing.Size(500, 42);
+            this.lbl_welcome_title.TabIndex = 0;
+            this.lbl_welcome_title.Text = "Smart Access Manager";
+            this.lbl_welcome_title.TextAlign = System.Drawing.ContentAlignment.BottomLeft;
+            //
+            // lbl_welcome_sub
+            //
+            this.lbl_welcome_sub.AutoSize = false;
+            this.lbl_welcome_sub.BackColor = System.Drawing.Color.Transparent;
+            this.lbl_welcome_sub.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lbl_welcome_sub.ForeColor = System.Drawing.Color.FromArgb(180, 190, 220);
+            this.lbl_welcome_sub.Location = new System.Drawing.Point(32, 70);
+            this.lbl_welcome_sub.Name = "lbl_welcome_sub";
+            this.lbl_welcome_sub.Size = new System.Drawing.Size(580, 22);
+            this.lbl_welcome_sub.TabIndex = 1;
+            this.lbl_welcome_sub.Text = "Manage your biometric devices, users, staff, members, and system settings — all in one place.";
+            this.lbl_welcome_sub.TextAlign = System.Drawing.ContentAlignment.TopLeft;
+            //
+            // tile_device
+            //
+            this.tile_device.BackColor = System.Drawing.Color.White;
+            this.tile_device.Controls.Add(this.lbl_tile_device_icon);
+            this.tile_device.Controls.Add(this.lbl_tile_device_name);
+            this.tile_device.Controls.Add(this.lbl_tile_device_desc);
+            this.tile_device.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.tile_device.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_device.Name = "tile_device";
+            this.tile_device.Size = new System.Drawing.Size(180, 160);
+            this.tile_device.TabIndex = 0;
+            this.tile_device.Click += new System.EventHandler(this.btn_device_management_Click);
+            //
+            // lbl_tile_device_icon
+            //
+            this.lbl_tile_device_icon.AutoSize = false;
+            this.lbl_tile_device_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
+            this.lbl_tile_device_icon.ForeColor = System.Drawing.Color.FromArgb(18, 23, 49);
+            this.lbl_tile_device_icon.Location = new System.Drawing.Point(0, 18);
+            this.lbl_tile_device_icon.Name = "lbl_tile_device_icon";
+            this.lbl_tile_device_icon.Size = new System.Drawing.Size(180, 52);
+            this.lbl_tile_device_icon.TabIndex = 0;
+            this.lbl_tile_device_icon.Text = "🖥";
+            this.lbl_tile_device_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_device_icon.Click += new System.EventHandler(this.btn_device_management_Click);
+            //
+            // lbl_tile_device_name
+            //
+            this.lbl_tile_device_name.AutoSize = false;
+            this.lbl_tile_device_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lbl_tile_device_name.ForeColor = System.Drawing.Color.FromArgb(30, 35, 60);
+            this.lbl_tile_device_name.Location = new System.Drawing.Point(10, 74);
+            this.lbl_tile_device_name.Name = "lbl_tile_device_name";
+            this.lbl_tile_device_name.Size = new System.Drawing.Size(160, 22);
+            this.lbl_tile_device_name.TabIndex = 1;
+            this.lbl_tile_device_name.Text = "Device Management";
+            this.lbl_tile_device_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_device_name.Click += new System.EventHandler(this.btn_device_management_Click);
+            //
+            // lbl_tile_device_desc
+            //
+            this.lbl_tile_device_desc.AutoSize = false;
+            this.lbl_tile_device_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
+            this.lbl_tile_device_desc.ForeColor = System.Drawing.Color.FromArgb(120, 125, 145);
+            this.lbl_tile_device_desc.Location = new System.Drawing.Point(10, 98);
+            this.lbl_tile_device_desc.Name = "lbl_tile_device_desc";
+            this.lbl_tile_device_desc.Size = new System.Drawing.Size(160, 38);
+            this.lbl_tile_device_desc.TabIndex = 2;
+            this.lbl_tile_device_desc.Text = "Add, edit and monitor\nbiometric devices";
+            this.lbl_tile_device_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+            this.lbl_tile_device_desc.Click += new System.EventHandler(this.btn_device_management_Click);
+            //
+            // tile_user
+            //
+            this.tile_user.BackColor = System.Drawing.Color.White;
+            this.tile_user.Controls.Add(this.lbl_tile_user_icon);
+            this.tile_user.Controls.Add(this.lbl_tile_user_name);
+            this.tile_user.Controls.Add(this.lbl_tile_user_desc);
+            this.tile_user.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.tile_user.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_user.Name = "tile_user";
+            this.tile_user.Size = new System.Drawing.Size(180, 160);
+            this.tile_user.TabIndex = 1;
+            this.tile_user.Click += new System.EventHandler(this.btn_userManagement_Click);
+            //
+            // lbl_tile_user_icon
+            //
+            this.lbl_tile_user_icon.AutoSize = false;
+            this.lbl_tile_user_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
+            this.lbl_tile_user_icon.ForeColor = System.Drawing.Color.FromArgb(18, 23, 49);
+            this.lbl_tile_user_icon.Location = new System.Drawing.Point(0, 18);
+            this.lbl_tile_user_icon.Name = "lbl_tile_user_icon";
+            this.lbl_tile_user_icon.Size = new System.Drawing.Size(180, 52);
+            this.lbl_tile_user_icon.TabIndex = 0;
+            this.lbl_tile_user_icon.Text = "👤";
+            this.lbl_tile_user_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_user_icon.Click += new System.EventHandler(this.btn_userManagement_Click);
+            //
+            // lbl_tile_user_name
+            //
+            this.lbl_tile_user_name.AutoSize = false;
+            this.lbl_tile_user_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lbl_tile_user_name.ForeColor = System.Drawing.Color.FromArgb(30, 35, 60);
+            this.lbl_tile_user_name.Location = new System.Drawing.Point(10, 74);
+            this.lbl_tile_user_name.Name = "lbl_tile_user_name";
+            this.lbl_tile_user_name.Size = new System.Drawing.Size(160, 22);
+            this.lbl_tile_user_name.TabIndex = 1;
+            this.lbl_tile_user_name.Text = "User Management";
+            this.lbl_tile_user_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_user_name.Click += new System.EventHandler(this.btn_userManagement_Click);
+            //
+            // lbl_tile_user_desc
+            //
+            this.lbl_tile_user_desc.AutoSize = false;
+            this.lbl_tile_user_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
+            this.lbl_tile_user_desc.ForeColor = System.Drawing.Color.FromArgb(120, 125, 145);
+            this.lbl_tile_user_desc.Location = new System.Drawing.Point(10, 98);
+            this.lbl_tile_user_desc.Name = "lbl_tile_user_desc";
+            this.lbl_tile_user_desc.Size = new System.Drawing.Size(160, 38);
+            this.lbl_tile_user_desc.TabIndex = 2;
+            this.lbl_tile_user_desc.Text = "Manage system users\nand their permissions";
+            this.lbl_tile_user_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+            this.lbl_tile_user_desc.Click += new System.EventHandler(this.btn_userManagement_Click);
+            //
+            // tile_staff
+            //
+            this.tile_staff.BackColor = System.Drawing.Color.White;
+            this.tile_staff.Controls.Add(this.lbl_tile_staff_icon);
+            this.tile_staff.Controls.Add(this.lbl_tile_staff_name);
+            this.tile_staff.Controls.Add(this.lbl_tile_staff_desc);
+            this.tile_staff.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.tile_staff.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_staff.Name = "tile_staff";
+            this.tile_staff.Size = new System.Drawing.Size(180, 160);
+            this.tile_staff.TabIndex = 2;
+            this.tile_staff.Click += new System.EventHandler(this.btn_attendance_Click);
+            //
+            // lbl_tile_staff_icon
+            //
+            this.lbl_tile_staff_icon.AutoSize = false;
+            this.lbl_tile_staff_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
+            this.lbl_tile_staff_icon.ForeColor = System.Drawing.Color.FromArgb(18, 23, 49);
+            this.lbl_tile_staff_icon.Location = new System.Drawing.Point(0, 18);
+            this.lbl_tile_staff_icon.Name = "lbl_tile_staff_icon";
+            this.lbl_tile_staff_icon.Size = new System.Drawing.Size(180, 52);
+            this.lbl_tile_staff_icon.TabIndex = 0;
+            this.lbl_tile_staff_icon.Text = "👔";
+            this.lbl_tile_staff_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_staff_icon.Click += new System.EventHandler(this.btn_attendance_Click);
+            //
+            // lbl_tile_staff_name
+            //
+            this.lbl_tile_staff_name.AutoSize = false;
+            this.lbl_tile_staff_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lbl_tile_staff_name.ForeColor = System.Drawing.Color.FromArgb(30, 35, 60);
+            this.lbl_tile_staff_name.Location = new System.Drawing.Point(10, 74);
+            this.lbl_tile_staff_name.Name = "lbl_tile_staff_name";
+            this.lbl_tile_staff_name.Size = new System.Drawing.Size(160, 22);
+            this.lbl_tile_staff_name.TabIndex = 1;
+            this.lbl_tile_staff_name.Text = "Staff Management";
+            this.lbl_tile_staff_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_staff_name.Click += new System.EventHandler(this.btn_attendance_Click);
+            //
+            // lbl_tile_staff_desc
+            //
+            this.lbl_tile_staff_desc.AutoSize = false;
+            this.lbl_tile_staff_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
+            this.lbl_tile_staff_desc.ForeColor = System.Drawing.Color.FromArgb(120, 125, 145);
+            this.lbl_tile_staff_desc.Location = new System.Drawing.Point(10, 98);
+            this.lbl_tile_staff_desc.Name = "lbl_tile_staff_desc";
+            this.lbl_tile_staff_desc.Size = new System.Drawing.Size(160, 38);
+            this.lbl_tile_staff_desc.TabIndex = 2;
+            this.lbl_tile_staff_desc.Text = "View and manage\nstaff attendance";
+            this.lbl_tile_staff_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+            this.lbl_tile_staff_desc.Click += new System.EventHandler(this.btn_attendance_Click);
+            //
+            // tile_member
+            //
+            this.tile_member.BackColor = System.Drawing.Color.White;
+            this.tile_member.Controls.Add(this.lbl_tile_member_icon);
+            this.tile_member.Controls.Add(this.lbl_tile_member_name);
+            this.tile_member.Controls.Add(this.lbl_tile_member_desc);
+            this.tile_member.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.tile_member.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_member.Name = "tile_member";
+            this.tile_member.Size = new System.Drawing.Size(180, 160);
+            this.tile_member.TabIndex = 3;
+            this.tile_member.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
+            //
+            // lbl_tile_member_icon
+            //
+            this.lbl_tile_member_icon.AutoSize = false;
+            this.lbl_tile_member_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
+            this.lbl_tile_member_icon.ForeColor = System.Drawing.Color.FromArgb(18, 23, 49);
+            this.lbl_tile_member_icon.Location = new System.Drawing.Point(0, 18);
+            this.lbl_tile_member_icon.Name = "lbl_tile_member_icon";
+            this.lbl_tile_member_icon.Size = new System.Drawing.Size(180, 52);
+            this.lbl_tile_member_icon.TabIndex = 0;
+            this.lbl_tile_member_icon.Text = "🏋";
+            this.lbl_tile_member_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_member_icon.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
+            //
+            // lbl_tile_member_name
+            //
+            this.lbl_tile_member_name.AutoSize = false;
+            this.lbl_tile_member_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lbl_tile_member_name.ForeColor = System.Drawing.Color.FromArgb(30, 35, 60);
+            this.lbl_tile_member_name.Location = new System.Drawing.Point(10, 74);
+            this.lbl_tile_member_name.Name = "lbl_tile_member_name";
+            this.lbl_tile_member_name.Size = new System.Drawing.Size(160, 22);
+            this.lbl_tile_member_name.TabIndex = 1;
+            this.lbl_tile_member_name.Text = "Member Management";
+            this.lbl_tile_member_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_member_name.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
+            //
+            // lbl_tile_member_desc
+            //
+            this.lbl_tile_member_desc.AutoSize = false;
+            this.lbl_tile_member_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
+            this.lbl_tile_member_desc.ForeColor = System.Drawing.Color.FromArgb(120, 125, 145);
+            this.lbl_tile_member_desc.Location = new System.Drawing.Point(10, 98);
+            this.lbl_tile_member_desc.Name = "lbl_tile_member_desc";
+            this.lbl_tile_member_desc.Size = new System.Drawing.Size(160, 38);
+            this.lbl_tile_member_desc.TabIndex = 2;
+            this.lbl_tile_member_desc.Text = "Track member records\nand attendance logs";
+            this.lbl_tile_member_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+            this.lbl_tile_member_desc.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
+            //
+            // tile_setup
+            //
+            this.tile_setup.BackColor = System.Drawing.Color.White;
+            this.tile_setup.Controls.Add(this.lbl_tile_setup_icon);
+            this.tile_setup.Controls.Add(this.lbl_tile_setup_name);
+            this.tile_setup.Controls.Add(this.lbl_tile_setup_desc);
+            this.tile_setup.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.tile_setup.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_setup.Name = "tile_setup";
+            this.tile_setup.Size = new System.Drawing.Size(180, 160);
+            this.tile_setup.TabIndex = 4;
+            this.tile_setup.Click += new System.EventHandler(this.btn_setupmanage_Click);
+            //
+            // lbl_tile_setup_icon
+            //
+            this.lbl_tile_setup_icon.AutoSize = false;
+            this.lbl_tile_setup_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
+            this.lbl_tile_setup_icon.ForeColor = System.Drawing.Color.FromArgb(18, 23, 49);
+            this.lbl_tile_setup_icon.Location = new System.Drawing.Point(0, 18);
+            this.lbl_tile_setup_icon.Name = "lbl_tile_setup_icon";
+            this.lbl_tile_setup_icon.Size = new System.Drawing.Size(180, 52);
+            this.lbl_tile_setup_icon.TabIndex = 0;
+            this.lbl_tile_setup_icon.Text = "⚙";
+            this.lbl_tile_setup_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_setup_icon.Click += new System.EventHandler(this.btn_setupmanage_Click);
+            //
+            // lbl_tile_setup_name
+            //
+            this.lbl_tile_setup_name.AutoSize = false;
+            this.lbl_tile_setup_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lbl_tile_setup_name.ForeColor = System.Drawing.Color.FromArgb(30, 35, 60);
+            this.lbl_tile_setup_name.Location = new System.Drawing.Point(10, 74);
+            this.lbl_tile_setup_name.Name = "lbl_tile_setup_name";
+            this.lbl_tile_setup_name.Size = new System.Drawing.Size(160, 22);
+            this.lbl_tile_setup_name.TabIndex = 1;
+            this.lbl_tile_setup_name.Text = "Setup Management";
+            this.lbl_tile_setup_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_tile_setup_name.Click += new System.EventHandler(this.btn_setupmanage_Click);
+            //
+            // lbl_tile_setup_desc
+            //
+            this.lbl_tile_setup_desc.AutoSize = false;
+            this.lbl_tile_setup_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
+            this.lbl_tile_setup_desc.ForeColor = System.Drawing.Color.FromArgb(120, 125, 145);
+            this.lbl_tile_setup_desc.Location = new System.Drawing.Point(10, 98);
+            this.lbl_tile_setup_desc.Name = "lbl_tile_setup_desc";
+            this.lbl_tile_setup_desc.Size = new System.Drawing.Size(160, 38);
+            this.lbl_tile_setup_desc.TabIndex = 2;
+            this.lbl_tile_setup_desc.Text = "Configure API keys,\nbackups, and settings";
+            this.lbl_tile_setup_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+            this.lbl_tile_setup_desc.Click += new System.EventHandler(this.btn_setupmanage_Click);
+            //
+            // pnl_welcome_tiles
+            //
+            this.pnl_welcome_tiles.Controls.Add(this.tile_device);
+            this.pnl_welcome_tiles.Controls.Add(this.tile_user);
+            this.pnl_welcome_tiles.Controls.Add(this.tile_staff);
+            this.pnl_welcome_tiles.Controls.Add(this.tile_member);
+            this.pnl_welcome_tiles.Controls.Add(this.tile_setup);
+            this.pnl_welcome_tiles.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
+            this.pnl_welcome_tiles.WrapContents = true;
+            this.pnl_welcome_tiles.Location = new System.Drawing.Point(0, 110);
+            this.pnl_welcome_tiles.Name = "pnl_welcome_tiles";
+            this.pnl_welcome_tiles.Padding = new System.Windows.Forms.Padding(30, 20, 10, 10);
+            this.pnl_welcome_tiles.BackColor = System.Drawing.Color.FromArgb(245, 246, 250);
+            this.pnl_welcome_tiles.Size = new System.Drawing.Size(697, 462);
+            this.pnl_welcome_tiles.TabIndex = 1;
+            //
+            // pnl_welcome
+            //
+            this.pnl_welcome.Controls.Add(this.pnl_welcome_header);
+            this.pnl_welcome.Controls.Add(this.pnl_welcome_tiles);
+            this.pnl_welcome.BackColor = System.Drawing.Color.FromArgb(245, 246, 250);
+            this.pnl_welcome.Location = new System.Drawing.Point(186, 0);
+            this.pnl_welcome.Name = "pnl_welcome";
+            this.pnl_welcome.Size = new System.Drawing.Size(697, 572);
+            this.pnl_welcome.TabIndex = 200;
+            this.pnl_welcome.Visible = false;
+            //
             // DeviceManager
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.ClientSize = new System.Drawing.Size(883, 572);
+            this.Controls.Add(this.pnl_welcome);
             this.Controls.Add(this.pnl_staffsManagment);
             this.Controls.Add(this.pnl_setup);
             this.Controls.Add(this.pnl_attendence);
@@ -1531,6 +1888,14 @@ namespace smart_attendance_middleware
             this.Name = "DeviceManager";
             this.Text = "Device Manager";
             this.Load += new System.EventHandler(this.DeviceManager_Load);
+            this.pnl_welcome.ResumeLayout(false);
+            this.pnl_welcome_header.ResumeLayout(false);
+            this.pnl_welcome_tiles.ResumeLayout(false);
+            this.tile_device.ResumeLayout(false);
+            this.tile_user.ResumeLayout(false);
+            this.tile_staff.ResumeLayout(false);
+            this.tile_member.ResumeLayout(false);
+            this.tile_setup.ResumeLayout(false);
             this.pnl_deviceManager.ResumeLayout(false);
             this.pnl_deviceManager.PerformLayout();
             this.pnl_device.ResumeLayout(false);
@@ -1694,5 +2059,30 @@ namespace smart_attendance_middleware
         private Panel pnl_backup;
         private Label lbl_backuptype;
         private Panel panel1;
+        private System.Windows.Forms.Panel pnl_welcome;
+        private System.Windows.Forms.Panel pnl_welcome_header;
+        private System.Windows.Forms.Label lbl_welcome_title;
+        private System.Windows.Forms.Label lbl_welcome_sub;
+        private System.Windows.Forms.FlowLayoutPanel pnl_welcome_tiles;
+        private System.Windows.Forms.Panel tile_device;
+        private System.Windows.Forms.Label lbl_tile_device_icon;
+        private System.Windows.Forms.Label lbl_tile_device_name;
+        private System.Windows.Forms.Label lbl_tile_device_desc;
+        private System.Windows.Forms.Panel tile_user;
+        private System.Windows.Forms.Label lbl_tile_user_icon;
+        private System.Windows.Forms.Label lbl_tile_user_name;
+        private System.Windows.Forms.Label lbl_tile_user_desc;
+        private System.Windows.Forms.Panel tile_staff;
+        private System.Windows.Forms.Label lbl_tile_staff_icon;
+        private System.Windows.Forms.Label lbl_tile_staff_name;
+        private System.Windows.Forms.Label lbl_tile_staff_desc;
+        private System.Windows.Forms.Panel tile_member;
+        private System.Windows.Forms.Label lbl_tile_member_icon;
+        private System.Windows.Forms.Label lbl_tile_member_name;
+        private System.Windows.Forms.Label lbl_tile_member_desc;
+        private System.Windows.Forms.Panel tile_setup;
+        private System.Windows.Forms.Label lbl_tile_setup_icon;
+        private System.Windows.Forms.Label lbl_tile_setup_name;
+        private System.Windows.Forms.Label lbl_tile_setup_desc;
     }
 }

@@ -341,13 +341,11 @@ namespace smart_attendance_middleware
                 axFPCLOCK_Svr1.OpenNetwork(_openedPort);
                 _connected = true;
                 LogHelper.Log($"[AttendanceServer] Listener opened on port {_openedPort}.");
-                AttendanceServerThreadManager.UpdateServerConnectionStatus(true);
             }
             catch (Exception ex)
             {
                 _connected = false;
                 LogHelper.Log("[AttendanceServer] Failed to open port: " + ex.Message);
-                AttendanceServerThreadManager.UpdateServerConnectionStatus(false);
                 if (!_autoMode)
                 {
                     try
@@ -377,7 +375,6 @@ namespace smart_attendance_middleware
                 LogHelper.Log("[AttendanceServer] Error closing network: " + ex.Message);
             }
             _connected = false;
-            AttendanceServerThreadManager.UpdateServerConnectionStatus(false);
 
             // Start automatic reconnection attempts
             LogHelper.Log("[AttendanceServer] Starting automatic reconnection timer...");
@@ -430,66 +427,7 @@ namespace smart_attendance_middleware
             }
         }
 
-        //private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time)
-        //{
-        //    // Normalize IP (strip port if present)
-        //    string ipOnly = ip ?? string.Empty;
-        //    int colon = ipOnly.IndexOf(':');
-        //    if (colon >= 0) ipOnly = ipOnly.Substring(0, colon);
-
-        //    try
-        //    {
-        //        // Use DatabaseHelper to determine whether this IP belongs to a staff or member device
-        //        var category = _dbHelper.GetDeviceCategoryByIp(ipOnly);
-        //        LogHelper.Log($"[ForwardAttendanceData] Device category for IP={ipOnly}: exists={category.exists}, type={category.type}, deviceId={category.deviceId}");
-
-        //        if (category.exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase))
-        //        {
-        //            // Route to staff pipeline
-        //            var srec = new StaffAttendenceServerFunctions.StaffAttendanceRecord
-        //            {
-        //                DevID = devId,
-        //                IP = ip,
-        //                Enroll = enroll,
-        //                Time = time
-        //            };
-        //            _staffAttendanceFunctions.Process(srec);
-        //            return;
-        //        }
-
-        //        // --- Member pipeline section ---
-        //        string staffEnrollmentsRaw = _dbHelper.GetSetting("staff_enrollment_ids");
-        //        if (!string.IsNullOrEmpty(staffEnrollmentsRaw))
-        //        {
-        //            // Clean the JSON-like formatting: remove [ ] and " 
-        //            string cleaned = staffEnrollmentsRaw.Trim('[', ']').Replace("\"", "");
-
-        //            var staffIds = cleaned.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-        //                                  .Select(s => s.Trim());
-
-        //            if (staffIds.Contains(enroll.ToString()))
-        //            {
-        //                LogHelper.Log($"[ForwardAttendanceData] Skipping Enroll={enroll} in member pipeline Staff is passing through member device");
-        //                return;
-        //            }
-        //        }
-
-        //        // Default / member pipeline
-        //        var mrec = new AttendenceServerFunctions.AttendanceRecord
-        //        {
-        //            DevID = devId,
-        //            IP = ip,
-        //            Enroll = enroll,
-        //            Time = time
-        //        };
-        //        _attendanceFunctions.Process(mrec);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        LogHelper.Log($"[ForwardAttendanceData][ERROR] Routing error for IP={ip}: {ex.Message}");
-        //    }
-        //}
-
+      
         private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time)
         {
             // Normalize IP (strip port if present)

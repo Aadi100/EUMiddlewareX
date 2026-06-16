@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using smart_attendance_middleware.Classes;
 using smart_attendance_middleware.Services;
 using System;
@@ -189,9 +190,42 @@ namespace smart_attendance_middleware
                 Dashboard.GlobalStartLoader("Loading Device Manager...");
 
                 SetupDeviceList(); // creates columns and sample rows
-                pnl_deviceManager.Visible = true; // Show device manager panel
-                pnl_deviceManager.Location = new Point(186, 0); // Set location
+
+                // Hide all panels — no tab selected on open
+                pnl_deviceManager.Visible = false;
+                pnl_UserManagement.Visible = false;
                 pnl_staffsManagment.Visible = false;
+                pnl_attendence.Visible = false;
+                pnl_setup.Visible = false;
+
+                // Reset all sidebar buttons to un-highlighted state
+                Color defaultBack = Color.FromArgb(18, 23, 49);
+                Color defaultFore = Color.White;
+                btn_device_management.BackColor = defaultBack;
+                btn_device_management.ForeColor = defaultFore;
+                btn_userManagement.BackColor = defaultBack;
+                btn_userManagement.ForeColor = defaultFore;
+                btn_attendencemanagment.BackColor = defaultBack;
+                btn_attendencemanagment.ForeColor = defaultFore;
+                btn_setupmanage.BackColor = defaultBack;
+                btn_setupmanage.ForeColor = defaultFore;
+                btn_staffmanagment.BackColor = defaultBack;
+                btn_staffmanagment.ForeColor = defaultFore;
+
+                // Wire hover effects for welcome tiles
+                foreach (var tile in new[] { tile_device, tile_user, tile_staff, tile_member, tile_setup })
+                {
+                    var t = tile;
+                    foreach (Control c in new Control[] { t }.Concat<Control>(t.Controls.Cast<Control>()))
+                    {
+                        c.MouseEnter += (s, ev) => t.BackColor = Color.FromArgb(235, 238, 255);
+                        c.MouseLeave += (s, ev) => t.BackColor = Color.White;
+                    }
+                }
+
+                pnl_welcome.Visible = true;
+                pnl_welcome.BringToFront();
+
                 btn_deleteUser.Enabled = false;
                 btn_change_password.Enabled = false;
                 btn_editUser.Enabled = false;
@@ -337,9 +371,22 @@ namespace smart_attendance_middleware
         }
 
 
+        //////////////////////////////////WELCOME PANEL///////////////////////////////
+        private void HideWelcomePanel()
+        {
+            pnl_welcome.Visible = false;
+        }
+
         //////////////////////////////////SIDE BUTTONS///////////////////////////////
         private void btn_device_management_Click(object sender, EventArgs e)
         {
+            if (AppSession.UserRole == "user")
+            {
+                MessageBox.Show("Access denied. Only admin or developer can open Device Management.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            HideWelcomePanel();
 
             // Button Color Seetup
             btn_device_management.BackColor = Color.WhiteSmoke;
@@ -371,6 +418,7 @@ namespace smart_attendance_middleware
 
         private void btn_userManagement_Click(object sender, EventArgs e)
         {
+            HideWelcomePanel();
 
             // Button Color Seetup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
@@ -401,6 +449,8 @@ namespace smart_attendance_middleware
 
         private void btn_attendance_Click(object sender, EventArgs e)
         {
+            HideWelcomePanel();
+
             // End of Button Color Seetup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_device_management.ForeColor = Color.White;
@@ -432,6 +482,8 @@ namespace smart_attendance_middleware
 
         private void btn_attendencemanagment_Click(object sender, EventArgs e)
         {
+            HideWelcomePanel();
+
             // Button Color Setup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_device_management.ForeColor = Color.White;
@@ -465,6 +517,14 @@ namespace smart_attendance_middleware
 
         private void btn_setupmanage_Click(object sender, EventArgs e)
         {
+            if (AppSession.UserRole == "user")
+            {
+                MessageBox.Show("Access denied. Only admin or developer can open Setup Management.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            HideWelcomePanel();
+
             // Button Color Setup
             btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
             btn_device_management.ForeColor = Color.White;
@@ -1169,7 +1229,11 @@ namespace smart_attendance_middleware
 
         private void btn_addUser_Click(object sender, EventArgs e)
         {
-            //this.Close();
+            if (AppSession.UserRole == "user")
+            {
+                MessageBox.Show("You do not have permission to add users.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             Thread newThread = new Thread(Newuser);
             newThread.SetApartmentState(ApartmentState.STA);
             newThread.Start();
@@ -1223,44 +1287,74 @@ namespace smart_attendance_middleware
         //Event to delete the selected user
         private void btn_deleteUser_Click(object sender, EventArgs e)
         {
-
-            if (AppSession.UserRole == "admin" && AppSession.LoggedInUserID != selectedUserId.Value)
+            if (!selectedUserId.HasValue)
             {
-                if (selectedUserId.HasValue)
-                {
-                    var confirm = MessageBox.Show("Are you sure you want to delete this user?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-                    if (confirm == DialogResult.Yes)
-                    {
-                        // Add AI message before deletion
-                        aiChatLogger.AddUserMessage($"Removing user {selectedUsername} from the system...");
-
-                        _dbHelper.DeleteUserById(selectedUserId.Value);
-                        LoadLocalUserData(); // Refresh list
-                        selectedUserId = null;
-
-                        // Add AI message after successful deletion
-                        aiChatLogger.AddSuccessMessage($"User {selectedUsername} has been successfully removed from the system.");
-                        aiChatLogger.AddInfoMessage("User management completed. The team roster has been updated.");
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("Please select a user to delete.", "No User Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
-            else
-            {
-                MessageBox.Show("You cannot delete your own account.");
+                MessageBox.Show("Please select a user to delete.", "No User Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
-
             }
 
+            // Nobody can delete themselves
+            if (selectedUserId.Value == AppSession.LoggedInUserID)
+            {
+                MessageBox.Show("You cannot delete your own account.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string currentRole = AppSession.UserRole;
+
+            // user cannot delete anyone
+            if (currentRole == "user")
+            {
+                MessageBox.Show("You do not have permission to delete users.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // admin cannot delete developer or another admin
+            if (currentRole == "admin" && (selectedRole == "developer" || selectedRole == "admin"))
+            {
+                MessageBox.Show("You do not have permission to delete this user.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var confirm = MessageBox.Show("Are you sure you want to delete this user?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm == DialogResult.Yes)
+            {
+                aiChatLogger.AddUserMessage($"Removing user {selectedUsername} from the system...");
+                _dbHelper.DeleteUserById(selectedUserId.Value);
+                LoadLocalUserData();
+                selectedUserId = null;
+                aiChatLogger.AddSuccessMessage($"User {selectedUsername} has been successfully removed from the system.");
+                aiChatLogger.AddInfoMessage("User management completed. The team roster has been updated.");
+            }
         }
 
         //Abdul Hadi Code
         //Event to change the password of the selected user
         private void btn_change_password_Click(object sender, EventArgs e)
         {
+            if (!selectedUserId.HasValue)
+            {
+                MessageBox.Show("Please select a user to change password.");
+                return;
+            }
+
+            string currentRole = AppSession.UserRole;
+
+            // user can only change their own password
+            if (currentRole == "user" && selectedUserId.Value != AppSession.LoggedInUserID)
+            {
+                MessageBox.Show("You can only change your own password.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // admin cannot change password of developer or another admin (unless own)
+            if (currentRole == "admin" && selectedUserId.Value != AppSession.LoggedInUserID
+                && (selectedRole == "developer" || selectedRole == "admin"))
+            {
+                MessageBox.Show("You do not have permission to change this user's password.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             if (selectedUserId.HasValue)
             {
                 using (Form prompt = new Form())
@@ -1325,19 +1419,34 @@ namespace smart_attendance_middleware
         //Event to edit the selected user
         private void btn_editUser_Click_1(object sender, EventArgs e)
         {
-            if (selectedUserId.HasValue && !string.IsNullOrEmpty(selectedUsername) && !string.IsNullOrEmpty(selectedRole))
-            {
-                using (EditUser editForm = new EditUser(selectedUserId.Value, selectedUsername, selectedRole))
-                {
-                    editForm.ShowDialog(); // Logic and DB update handled in EditUser form
-                }
-
-                LoadLocalUserData(); // Refresh the local user list after editing
-            }
-            else
+            if (!selectedUserId.HasValue || string.IsNullOrEmpty(selectedUsername) || string.IsNullOrEmpty(selectedRole))
             {
                 MessageBox.Show("Please select a user to edit.");
+                return;
             }
+
+            string currentRole = AppSession.UserRole;
+
+            // user can only edit themselves
+            if (currentRole == "user" && selectedUserId.Value != AppSession.LoggedInUserID)
+            {
+                MessageBox.Show("You can only edit your own account.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // admin cannot edit developer or another admin (unless own)
+            if (currentRole == "admin" && selectedUserId.Value != AppSession.LoggedInUserID
+                && (selectedRole == "developer" || selectedRole == "admin"))
+            {
+                MessageBox.Show("You do not have permission to edit this user.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (EditUser editForm = new EditUser(selectedUserId.Value, selectedUsername, selectedRole))
+            {
+                editForm.ShowDialog();
+            }
+            LoadLocalUserData();
         }
 
         private async void CheckAllDeviceConnections()
@@ -1404,8 +1513,6 @@ namespace smart_attendance_middleware
         }
 
 
-
-
         private async void btn_format_Click(object sender, EventArgs e)
         {
             // Require a selection
@@ -1423,13 +1530,6 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            // Validate common fields
-            if (string.IsNullOrEmpty(txt_ip.Text) || string.IsNullOrEmpty(txt_port.Text) || cmb_machine_no.SelectedItem == null)
-            {
-                MessageBox.Show("Missing device information. Please select a valid device.", "Incomplete Information", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             // Auth
             string currentUser = AppSession.LoggedInUser;
             if (string.IsNullOrWhiteSpace(currentUser))
@@ -1439,12 +1539,13 @@ namespace smart_attendance_middleware
             }
 
             var confirmResult = MessageBox.Show(
-                "WARNING: This will delete ALL user data from the device including fingerprints, face templates, and RFID card information.\n\n" +
+                "WARNING: This will delete ALL user data (Fingerprints, Face, RFID, Passwords) from the terminal via Cloud WebSocket.\n\n" +
                 "This action cannot be undone. Are you sure you want to continue?",
                 "Format Device Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
 
             if (confirmResult != DialogResult.Yes) return;
 
+            // Authentication Prompt
             using (Form prompt = new Form()
             {
                 Width = 360,
@@ -1459,17 +1560,12 @@ namespace smart_attendance_middleware
                 var okButton = new Button { Text = "Format Device", Left = 150, Width = 100, Top = 85, DialogResult = DialogResult.OK };
                 var cancelButton = new Button { Text = "Cancel", Left = 260, Width = 70, Top = 85, DialogResult = DialogResult.Cancel };
 
-                prompt.Controls.Add(label);
-                prompt.Controls.Add(inputBox);
-                prompt.Controls.Add(okButton);
-                prompt.Controls.Add(cancelButton);
-                prompt.AcceptButton = okButton;
-                prompt.CancelButton = cancelButton;
+                prompt.Controls.Add(label); prompt.Controls.Add(inputBox); prompt.Controls.Add(okButton); prompt.Controls.Add(cancelButton);
+                prompt.AcceptButton = okButton; prompt.CancelButton = cancelButton;
 
                 if (prompt.ShowDialog() != DialogResult.OK) return;
 
-                string enteredPassword = inputBox.Text;
-                if (!_dbHelper.VerifyLoginUser(currentUser, enteredPassword))
+                if (!_dbHelper.VerifyLoginUser(currentUser, inputBox.Text))
                 {
                     MessageBox.Show("Authentication failed. Device formatting was cancelled.");
                     return;
@@ -1478,48 +1574,47 @@ namespace smart_attendance_middleware
 
             try
             {
-                // Extract device info
-                string ip = txt_ip.Text.Trim();
-                int port = int.Parse(txt_port.Text.Trim());
-                int machineNo = int.Parse(cmb_machine_no.SelectedItem.ToString());
-                string password = txt_password.Text.Trim();
+                Cursor = Cursors.WaitCursor;
 
-                // Reachability
-                if (!IsValidIp(ip))
+                // 1. Resolve Serial Number (SN) for WebSocket Routing
+                string sn = selectedDevice.DeviceSerial;
+                if (string.IsNullOrEmpty(sn))
                 {
-                    MessageBox.Show("The device is not reachable. Please check the connection and try again.",
-                        "Device Unreachable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    sn = CommonUtils.GetDeviceSnByIp(selectedDevice.DeviceIP);
+                }
+
+                if (string.IsNullOrEmpty(sn))
+                {
+                    MessageBox.Show("Device Serial Number not found. Ensure the device is registered.", "Device Unreachable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                Cursor = Cursors.WaitCursor;
+                LogHelper.Log($"[Format] Initiating cloud format for device: {sn}");
 
-                // Perform wipe on device (same API for both types)
-                bool success = await DeviceService.EmptyEnrollmentData(ip, port, machineNo, password);
+                // 2. Execute Format Command via Cloud Protocol (Protocol 9: cleanuser)
+                // Returns true if dispatched successfully to terminal
+                bool success = await WebsocketServer.ExecuteServiceCommand(sn, "cleanuser", null);
 
-                // Optional: also clear local logs per device type
                 if (success)
                 {
-                    // Determine staff vs normal via StaffDeviceId presence
+                    // 3. Clear local DB logs and enrollment metadata
                     bool isStaff = selectedDevice.StaffDeviceId > 0;
 
                     if (isStaff)
                     {
-                        // Staff-specific cleanup in DB/logs
                         await _deviceFunctions.EmptyEnrollmentDataAndDeleteLogsByStaffDeviceId(selectedDevice.StaffDeviceId);
                     }
                     else
                     {
-                        // Normal device cleanup in DB/logs
                         await _deviceFunctions.EmptyEnrollmentDataAndDeleteLogsByDeviceId(selectedDevice.DeviceId);
                     }
 
-                    MessageBox.Show("Device has been successfully formatted. All user data has been removed.",
+                    MessageBox.Show("All user data has been cleared from terminal and database Successfully.",
                         "Format Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Failed to format device. Please try again.",
+                    MessageBox.Show("Failed to reach device via WebSocket. Please ensure the terminal is online.",
                         "Format Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
@@ -1531,8 +1626,6 @@ namespace smart_attendance_middleware
             finally
             {
                 Cursor = Cursors.Default;
-
-                // Refresh UI/session
                 SetupDeviceList();
                 ClearDeviceFields();
                 listViewDevices.SelectedItems.Clear();
@@ -1540,7 +1633,6 @@ namespace smart_attendance_middleware
                 NotifyDashboardRefresh();
             }
         }
-
 
         /////////////////////////MEMBER MANAGMENT///////////////////////////////
 
@@ -2432,7 +2524,6 @@ namespace smart_attendance_middleware
             }
 
             int enrollmentId = member.EnrollmentID.Value;
-            string aliasId = enrollmentId.ToString();
             var allDevices = new List<Device>();
             if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
             if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
@@ -2446,15 +2537,30 @@ namespace smart_attendance_middleware
             try
             {
                 Dashboard.GlobalStartLoader($"Fetching device details for {member.Name}...");
-                var deviceData = new List<(Device Device, DeviceService.UserInfo Info, string Error)>();
+                var deviceData = new List<(Device Device, Newtonsoft.Json.Linq.JObject Details, string Error)>();
 
                 foreach (var device in allDevices)
                 {
+                    Dashboard.GlobalUpdateLoaderMessage($"Checking {device.Location ?? device.DeviceIP}...");
+                    string sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                    if (string.IsNullOrEmpty(sn))
+                    {
+                        deviceData.Add((device, null, "Device not connected via WebSocket"));
+                        continue;
+                    }
                     try
                     {
-                        Dashboard.GlobalUpdateLoaderMessage($"Checking {device.Location ?? device.DeviceIP}...");
-                        var userInfo = await DeviceService.GetUserInfo(device.DeviceIP, device.Port, device.MachineNo, device.Password, aliasId);
-                        deviceData.Add((device, userInfo, null));
+                        string detailsJson = await WebsocketServer.ExecuteServiceGetCommand(sn, "getuserdetails",
+                            $"{{\"enrollid\":{enrollmentId}}}");
+                        if (string.IsNullOrEmpty(detailsJson))
+                        {
+                            deviceData.Add((device, null, "No response from device (timeout or not enrolled)"));
+                        }
+                        else
+                        {
+                            var jObj = Newtonsoft.Json.Linq.JObject.Parse(detailsJson);
+                            deviceData.Add((device, jObj, null));
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -3072,103 +3178,68 @@ namespace smart_attendance_middleware
 
         private async Task<bool> EnrollStaffAcrossAllDevicesAsync(int enrollId, string userName, long cardId, string imagePath)
         {
-            // Only consider normal devices (exclude staff devices)
             var normalDevices = AppSession.DeviceList ?? new List<Device>();
 
             if (normalDevices.Count == 0)
             {
                 MessageBox.Show("No normal devices are available to enroll.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                LogHelper.Log("[EnrollStaffAcrossAllDevicesAsync] No normal devices in session.");
                 return false;
             }
 
-            // Ask user to select which devices to enroll to
-            List<Device> targetDevices;
+            List<Device> targetDevices = ShowDeviceSelectionDialog(normalDevices, "Select Devices to Enroll");
+            if (targetDevices == null || targetDevices.Count == 0) return false;
+
             try
             {
-                targetDevices = ShowDeviceSelectionDialog(normalDevices, "Select Devices to Enroll");
-            }
-            catch (Exception exDlg)
-            {
-                LogHelper.Log($"[EnrollStaffAcrossAllDevicesAsync] Device selection dialog failed: {exDlg.Message}");
-                MessageBox.Show("Failed to show device selection dialog. See logs for details.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return false;
-            }
+                Dashboard.GlobalStartLoader($"Enrolling \"{userName}\" via Cloud WebSocket...");
 
-            if (targetDevices == null || targetDevices.Count == 0)
-            {
-                LogHelper.Log("[EnrollStaffAcrossAllDevicesAsync] Enrollment cancelled by user (no devices selected).");
-                return false;
-            }
-
-            // Start global dashboard loader
-            try
-            {
-                Dashboard.GlobalStartLoader($"Enrolling \"{userName}\" to {targetDevices.Count} device(s)...");
-
-                // Proceed to enroll only on the selected devices
                 int processed = 0;
                 foreach (var device in targetDevices)
                 {
                     processed++;
                     try
                     {
-                        string ip = device.DeviceIP;
-                        int port = device.Port;
-                        int machineNo = device.MachineNo;
-                        string password = device.Password ?? "0";
+                        // WebSocket uses Serial Number (SN) as the key
+                        string sn = device.DeviceSerial;
+                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : sn;
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Enrolling on {deviceLabel}...");
 
-                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : ip;
-                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Enrolling on {deviceLabel} ({ip})...");
+                        // 1) Set username (Cloud Protocol 6)
+                        var nameParams = new { enrollid = enrollId, name = userName };
+                        bool nameOk = await WebsocketServer.ExecuteServiceCommand(sn, "setusername", JsonConvert.SerializeObject(nameParams));
 
-                        // 1) Set username
-                        bool nameOk = await DeviceService.SetUserName(ip, port, machineNo, password, enrollId, userName);
                         if (!nameOk)
                         {
-                            LogHelper.Log($"Failed SetUserName on {ip}:{port} machineNo={machineNo} enroll={enrollId}");
-                            continue; // skip RFID/face if name failed
+                            LogHelper.Log($"Failed WebSocket Dispatch: setusername for {userName} on {sn}");
+                            continue;
                         }
 
-                        // 2) Add RFID (only if cardId present)
+                        // 2) Add RFID (Cloud Protocol 3 - backupnum 11)
                         if (cardId > 0)
                         {
-                            bool rfidOk = await DeviceService.AddRfidCard(ip, port, machineNo, password, enrollId, cardId, machineNo);
-                            if (!rfidOk)
-                                LogHelper.Log($"Failed AddRfidCard on {ip}:{port} machineNo={machineNo} enroll={enrollId} card={cardId}");
+                            var rfidParams = new { enrollid = enrollId, name = userName, record = cardId.ToString() };
+                            await WebsocketServer.ExecuteServiceCommand(sn, "setrfid", JsonConvert.SerializeObject(rfidParams));
                         }
 
-                        // 3) Add face (only if image available)
+                        // 3) Add Face (Cloud Protocol 3 - backupnum 50)
                         if (!string.IsNullOrWhiteSpace(imagePath) && File.Exists(imagePath))
                         {
-                            bool faceOk = await DeviceService.AddFace(ip, port, machineNo, password, enrollId, imagePath);
-                            if (!faceOk)
-                                LogHelper.Log($"Failed AddFace on {ip}:{port} machineNo={machineNo} enroll={enrollId}");
+                            var faceParams = new { enrollid = enrollId, name = userName, record = imagePath };
+                            await WebsocketServer.ExecuteServiceCommand(sn, "setface", JsonConvert.SerializeObject(faceParams));
                         }
 
-                        LogHelper.Log($"Staff enrollment completed for {userName} ({enrollId}) on {ip}:{port}");
-                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Completed on {deviceLabel} ({ip})");
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Dispatched to {deviceLabel}");
                     }
                     catch (Exception ex)
                     {
-                        LogHelper.Log($"Error enrolling staff {userName} ({enrollId}) on device {device?.DeviceIP}: {ex.Message}");
-                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Error on {device?.DeviceIP}: {ex.Message}");
+                        LogHelper.Log($"Error enrolling {userName} on device {device?.DeviceSerial}: {ex.Message}");
                     }
                 }
-
-                // brief final message before hiding loader
-                Dashboard.GlobalUpdateLoaderMessage($"Enrollment completed for \"{userName}\".");
+                Dashboard.GlobalUpdateLoaderMessage($"Enrollment commands dispatched for \"{userName}\".");
             }
             finally
             {
-                // Ensure loader is stopped even if exceptions occur
-                try
-                {
-                    Dashboard.GlobalStopLoader();
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Log($"Error stopping global loader: {ex.Message}");
-                }
+                Dashboard.GlobalStopLoader();
             }
 
             return true;
@@ -3176,41 +3247,21 @@ namespace smart_attendance_middleware
 
         private async Task<bool> DeleteStaffAcrossAllDevicesAsync(int enrollId, string userName)
         {
-            // Only consider normal devices (exclude staff devices)
             var normalDevices = AppSession.DeviceList ?? new List<Device>();
 
             if (normalDevices.Count == 0)
             {
                 MessageBox.Show("No normal devices are available.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                LogHelper.Log("[DeleteStaffAcrossAllDevicesAsync] No normal devices in session.");
                 return false;
             }
 
-            // Ask user to select which devices to delete from
-            List<Device> targetDevices;
-            try
-            {
-                targetDevices = ShowDeviceSelectionDialog(normalDevices, "Select Devices to Delete From");
-            }
-            catch (Exception exDlg)
-            {
-                LogHelper.Log($"[DeleteStaffAcrossAllDevicesAsync] Device selection dialog failed: {exDlg.Message}");
-                MessageBox.Show("Failed to show device selection dialog. See logs for details.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return false;
-            }
+            List<Device> targetDevices = ShowDeviceSelectionDialog(normalDevices, "Select Devices to Delete From");
+            if (targetDevices == null || targetDevices.Count == 0) return false;
 
-            if (targetDevices == null || targetDevices.Count == 0)
-            {
-                LogHelper.Log("[DeleteStaffAcrossAllDevicesAsync] Deletion cancelled by user (no devices selected).");
-                return false;
-            }
-
-            // Start global dashboard loader
             try
             {
                 Dashboard.GlobalStartLoader($"Deleting \"{userName}\" from {targetDevices.Count} device(s)...");
 
-                // Proceed to delete from selected devices
                 int processed = 0;
                 int successCount = 0;
                 int failCount = 0;
@@ -3220,69 +3271,45 @@ namespace smart_attendance_middleware
                     processed++;
                     try
                     {
-                        string ip = device.DeviceIP;
-                        int port = device.Port;
-                        int machineNo = device.MachineNo;
-                        string password = device.Password ?? "0";
+                        string sn = device.DeviceSerial;
+                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : sn;
+                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Deleting from {deviceLabel}...");
 
-                        string deviceLabel = !string.IsNullOrWhiteSpace(device.Location) ? device.Location : ip;
-                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Deleting from {deviceLabel} ({ip})...");
+                        // Cloud Protocol 4: deleteuser
+                        // backupnum 12 = all templates (fp, card, pwd, face)
+                        var deleteParams = new { enrollid = enrollId, backupnum = 12 };
 
-                        // Delete user and all their biometric data (BackupNumber 12 = All) from device
-                        bool deviceSuccess = await DeviceService.DeleteEnrollmentData(
-                            device.DeviceIP,
-                            device.Port,
-                            device.MachineNo,
-                            device.Password,
-                            enrollId,
-                            1, // Default enrollment machine ID
-                            12 // BackupNumber 12 usually removes all templates/data for the user
-                        ).ConfigureAwait(false);
+                        bool isDispatched = await WebsocketServer.ExecuteServiceCommand(sn, "deleteuser", JsonConvert.SerializeObject(deleteParams));
 
-                        if (deviceSuccess)
+                        if (isDispatched)
                         {
                             successCount++;
-                            LogHelper.Log($"Staff deletion completed for {userName} ({enrollId}) on {ip}:{port}");
-                            Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Completed on {deviceLabel} ({ip})");
+                            LogHelper.Log($"Delete command dispatched for {userName} ({enrollId}) on {sn}");
                         }
                         else
                         {
                             failCount++;
-                            LogHelper.Log($"Failed to delete staff {userName} ({enrollId}) on device {ip}:{port}");
-                            Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Failed on {deviceLabel} ({ip})");
+                            LogHelper.Log($"Failed to dispatch delete to {sn}");
                         }
                     }
                     catch (Exception ex)
                     {
                         failCount++;
-                        LogHelper.Log($"Error deleting staff {userName} ({enrollId}) on device {device?.DeviceIP}: {ex.Message}");
-                        Dashboard.GlobalUpdateLoaderMessage($"[{processed}/{targetDevices.Count}] Error on {device?.DeviceIP}: {ex.Message}");
+                        LogHelper.Log($"Error deleting on device {device?.DeviceSerial}: {ex.Message}");
                     }
                 }
 
-                // Show summary message
-                string summary = $"Deletion completed for \"{userName}\".\n\nSuccessful: {successCount}\nFailed: {failCount}\nTotal: {targetDevices.Count}";
+                string summary = $"Deletion process complete for \"{userName}\".\n\nDispatched: {successCount}\nFailed: {failCount}";
                 Dashboard.GlobalUpdateLoaderMessage(summary);
-
-                // Brief delay to show final message
                 await Task.Delay(1500);
             }
             finally
             {
-                // Ensure loader is stopped even if exceptions occur
-                try
-                {
-                    Dashboard.GlobalStopLoader();
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Log($"Error stopping global loader: {ex.Message}");
-                }
+                Dashboard.GlobalStopLoader();
             }
 
             return true;
         }
-
         private void btn_save_drivefolderid_Click(object sender, EventArgs e)
         {
             try

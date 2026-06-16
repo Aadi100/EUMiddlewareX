@@ -3,6 +3,7 @@ using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Upload;
 using Google.Apis.Util.Store;
+using Newtonsoft.Json;
 using smart_attendance_middleware.Services;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,34 @@ namespace smart_attendance_middleware.Classes
 {
     public static class CommonUtils
     {
+        public static string GetDeviceIpBySn(string sn)
+        {
+            if (string.IsNullOrEmpty(sn)) return null;
+            var d = AppSession.DeviceList?.FirstOrDefault(x =>
+                string.Equals(x.DeviceSerial, sn, StringComparison.OrdinalIgnoreCase));
+            if (d != null) return d.DeviceIP;
+            var s = AppSession.StaffDeviceList?.FirstOrDefault(x =>
+                string.Equals(x.DeviceSerial, sn, StringComparison.OrdinalIgnoreCase));
+            return s?.DeviceIP;
+        }
+
+        public static string GetDeviceSnByIp(string ip)
+        {
+            if (string.IsNullOrEmpty(ip)) return null;
+
+            var memberDevice = AppSession.DeviceList?.FirstOrDefault(d =>
+                string.Equals(d.DeviceIP, ip, StringComparison.OrdinalIgnoreCase));
+            if (memberDevice != null && !string.IsNullOrEmpty(memberDevice.DeviceSerial))
+                return memberDevice.DeviceSerial;
+
+            var staffDevice = AppSession.StaffDeviceList?.FirstOrDefault(d =>
+                string.Equals(d.DeviceIP, ip, StringComparison.OrdinalIgnoreCase));
+            if (staffDevice != null && !string.IsNullOrEmpty(staffDevice.DeviceSerial))
+                return staffDevice.DeviceSerial;
+
+            return null;
+        }
+
 
         /// <summary>
         /// Pings a device and handles retries, returning a status string ("ONLINE", "OFFLINE", "RETRYING")
@@ -212,10 +241,10 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
-        /// <summary>
-        /// Downloads GLogs from all available (active) devices into separate txt files (one per device),
-        /// then zips them into a single ZIP and returns that ZIP path.
-        /// </summary>
+        ///// <summary>
+        ///// Downloads GLogs from all available (active) devices into separate txt files (one per device),
+        ///// then zips them into a single ZIP and returns that ZIP path.
+        ///// </summary>
         public static async Task<string> DownloadGLogsAndZipAsync(DatabaseHelper dbHelper)
         {
             if (dbHelper == null) throw new ArgumentNullException(nameof(dbHelper));
@@ -243,18 +272,25 @@ namespace smart_attendance_middleware.Classes
                     {
                         LogHelper.Log($"Downloading GLog from {device.DeviceIP}:{device.Port} (MachineNo={device.MachineNo})");
 
-                        // This method writes file to AppDomain base folder: "GLog.{EMachineNo}.txt"
-                        int readCount = await DeviceService.ReadAndSaveGLogData(
-                            device.DeviceIP,
-                            device.Port,
-                            device.MachineNo,
-                            device.Password
-                        ).ConfigureAwait(false);
+                        string sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                        if (string.IsNullOrEmpty(sn))
+                        {
+                            LogHelper.Log($"No SN found for {device.DeviceIP}, skipping GLog download.");
+                            continue;
+                        }
+
+                        // Delete stale file so we can detect when the new one arrives
+                        var appBase = AppDomain.CurrentDomain.BaseDirectory;
+                        string expectedFile = Path.Combine(appBase, $"GLog.{device.MachineNo}.txt");
+                        if (File.Exists(expectedFile)) File.Delete(expectedFile);
+
+                        string glogResponse = await WebsocketServer.ExecuteServiceGetCommand(sn, "getalllogs", null).ConfigureAwait(false);
+
+                        int readCount = 0;
+                        if (!string.IsNullOrEmpty(glogResponse) && File.Exists(expectedFile))
+                            readCount = File.ReadAllLines(expectedFile).Length - 1; // minus header
 
                         LogHelper.Log($"GLog read result count={readCount} for MachineNo={device.MachineNo}");
-
-                        // Find the created file(s). Prefer exact machine file if present; otherwise newest GLog.*.txt
-                        var appBase = AppDomain.CurrentDomain.BaseDirectory;
 
                         string created = Path.Combine(appBase, $"GLog.{device.MachineNo}.txt");
                         if (!File.Exists(created))
@@ -689,7 +725,7 @@ namespace smart_attendance_middleware.Classes
                 
                 if (incLogs || incDb)
                     logsDbZip = CreateDatabaseSnapshotAndZipLogs(dbHelper, incDb, incLogs);
-                
+
                 if (incGLogs)
                     glogsZip = await DownloadGLogsAndZipAsync(dbHelper).ConfigureAwait(false);
 
@@ -824,11 +860,8 @@ namespace smart_attendance_middleware.Classes
         }
 
         /// <summary>
-        /// Identifies members expired by more than 2 months (e.g., if today is 13 April 2026, 
-        /// members expired on or before 13 Jan 2026).
-        /// Performs cleanup in order:
-        /// 1. Delete user biometric data from all active devices.
-        /// 2. Delete database records (Log table -> AttendanceLogs table -> Member table).
+        /// Identifies members expired by more than 2 months and performs physical (Cloud WebSocket) 
+        /// and database cleanup.
         /// </summary>
         public static async Task ProcessLongExpiredMembersCleanupAsync(DatabaseHelper dbHelper)
         {
@@ -853,37 +886,52 @@ namespace smart_attendance_middleware.Classes
                 {
                     LogHelper.Log($"[Processing Cleanup] Member: {member.Name} (ID: {member.MemberID}, Enrollment: {member.EnrollmentID})");
 
-                    // --- STEP 1: DEVICE LEVEL CLEANUP ---
-                    // EnrollmentID is required to delete from physical devices
+                    // --- STEP 1: DEVICE LEVEL CLEANUP (WebSocket/Cloud) ---
                     if (member.EnrollmentID.HasValue && activeDevices.Count > 0)
                     {
                         foreach (var device in activeDevices)
                         {
                             try
                             {
-                                // Delete user and all their biometric data (BackupNumber 12 = All) from device
-                                bool deviceSuccess = await DeviceService.DeleteEnrollmentData(
-                                    device.DeviceIP,
-                                    device.Port,
-                                    device.MachineNo,
-                                    device.Password,
-                                    member.EnrollmentID.Value,
-                                    1, // Default enrollment machine ID
-                                    12 // BackupNumber 12 usually removes all templates/data for the user
+                                // 1. Resolve Serial Number (SN) for WebSocket routing
+                                string sn = device.DeviceSerial;
+                                if (string.IsNullOrEmpty(sn))
+                                {
+                                    sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                                }
+
+                                if (string.IsNullOrEmpty(sn))
+                                {
+                                    LogHelper.Log($"[DeviceCleanup] Skipping device {device.DeviceIP} - No SN found.");
+                                    continue;
+                                }
+
+                                // 2. Prepare JSON for deleteuser command
+                                // BackupNumber 12 in cloud protocol = all data (fp, card, pwd)
+                                var deleteParams = new
+                                {
+                                    enrollid = member.EnrollmentID.Value,
+                                    backupnum = 12
+                                };
+
+                                // 3. Dispatch via WebSocket
+                                bool dispatched = await WebsocketServer.ExecuteServiceCommand(
+                                    sn,
+                                    "deleteuser",
+                                    JsonConvert.SerializeObject(deleteParams)
                                 ).ConfigureAwait(false);
 
-                                if (deviceSuccess)
-                                    LogHelper.Log($"[DeviceCleanup] Removed EnrollID {member.EnrollmentID} from {device.DeviceIP}");
+                                if (dispatched)
+                                    LogHelper.Log($"[DeviceCleanup] Dispatched delete command for EnrollID {member.EnrollmentID} to {sn}");
                             }
                             catch (Exception ex)
                             {
-                                LogHelper.Log($"[DeviceCleanup] Failed for EnrollID {member.EnrollmentID} on {device.DeviceIP}: {ex.Message}");
+                                LogHelper.Log($"[DeviceCleanup] Error for EnrollID {member.EnrollmentID} on {device.DeviceIP}: {ex.Message}");
                             }
                         }
                     }
 
                     // --- STEP 2: DATABASE LEVEL CLEANUP ---
-                    // This deletes records from Log, AttendanceLogs, and finally the Members table
                     bool dbSuccess = dbHelper.DeleteExpiredMemberFromDb(member.MemberID);
                     if (dbSuccess)
                     {
@@ -963,15 +1011,9 @@ namespace smart_attendance_middleware.Classes
         }
 
         /// <summary>
-        /// A generic helper to handle door opening logic. Shows the authorization form 
-        /// and communicates with the physical device using provided parameters.
+        /// A generic helper to handle door opening logic using WebSockets. Shows the authorization form 
+        /// and communicates with the physical device using the resolved Serial Number.
         /// </summary>
-        /// <param name="ip">Device IP address.</param>
-        /// <param name="port">Device Port.</param>
-        /// <param name="machineNo">Device Machine Number.</param>
-        /// <param name="password">Device Password (comm key).</param>
-        /// <param name="dbHelper">Required for the GateAccessForm to log the event.</param>
-        /// <returns>True if the door was successfully opened; otherwise false.</returns>
         public static async Task<bool> HandleDoorOpenRequestAsync(string ip, int port, int machineNo, string password, DatabaseHelper dbHelper)
         {
             if (string.IsNullOrWhiteSpace(ip))
@@ -984,32 +1026,39 @@ namespace smart_attendance_middleware.Classes
             {
                 LogHelper.Log($"[HandleDoorOpenRequestAsync] Attempting to open door for IP: {ip}");
 
-                // Get the logged-in user for the access log
-                string loggedInUser = AppSession.LoggedInUser;
+                // 1. Resolve Serial Number (SN) for WebSocket routing
+                string sn = CommonUtils.GetDeviceSnByIp(ip);
+                if (string.IsNullOrEmpty(sn))
+                {
+                    LogHelper.Log($"[HandleDoorOpenRequestAsync] Error: Serial Number (SN) not found for IP {ip}.");
+                    System.Windows.Forms.MessageBox.Show($"Device {ip} is not currently registered or online via WebSocket.", "Cloud Protocol Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+                    return false;
+                }
 
-                // Show the GateAccessForm for authorization/logging
-                // Note: GateAccessForm still needs dbHelper to record the 'Manual Open' event
+                // 2. Show the GateAccessForm for authorization/logging (Same as before)
+                string loggedInUser = AppSession.LoggedInUser;
                 using (var gateAccessForm = new GateAccessForm(ip, dbHelper, loggedInUser))
                 {
                     if (gateAccessForm.ShowDialog() != System.Windows.Forms.DialogResult.OK)
                     {
-                        LogHelper.Log($"[HandleDoorOpenRequestAsync] Info: Gate access cancelled/denied for {ip}.");
+                        LogHelper.Log($"[HandleDoorOpenRequestAsync] Info: Gate access cancelled/denied for {ip} (SN: {sn}).");
                         return false;
                     }
                 }
 
-                // Execute physical door open command using passed details
-                bool doorOpened = await DeviceService.OpenDoor(ip, port, machineNo, password).ConfigureAwait(true);
+                // 3. Execute physical door open command via WebSocket
+                // Passing null for jsonParams triggers 'opendoor' with null doornum (Open All Doors)
+                bool doorOpened = await WebsocketServer.ExecuteServiceCommand(sn, "opendoor", null).ConfigureAwait(true);
 
                 if (doorOpened)
                 {
-                    LogHelper.Log($"[HandleDoorOpenRequestAsync] Success: Door opened for {ip}.");
+                    LogHelper.Log($"[HandleDoorOpenRequestAsync] Success: Door open command dispatched to {sn} ({ip}).");
                     return true;
                 }
                 else
                 {
-                    LogHelper.Log($"[HandleDoorOpenRequestAsync] Error: Failed to open door for {ip}.");
-                    System.Windows.Forms.MessageBox.Show($"Failed to open door at {ip}.", "Communication Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+                    LogHelper.Log($"[HandleDoorOpenRequestAsync] Error: Failed to dispatch open command to {sn} ({ip}).");
+                    System.Windows.Forms.MessageBox.Show($"Device {sn} is disconnected. Please check connection.", "WebSocket Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
                     return false;
                 }
             }
@@ -1020,11 +1069,32 @@ namespace smart_attendance_middleware.Classes
                 return false;
             }
         }
+
         /// <summary>
         /// Converts an image from a URL or local file path into a Base64 encoded string.
         /// </summary>
         /// <param name="imageUrl">The web URL or local file path of the image.</param>
         /// <returns>Base64 string of the image, or null if conversion fails.</returns>
+        /// <summary>
+        /// Decodes a Base64 string into a System.Drawing.Image.
+        /// Returns null if the string is empty, not valid Base64, or not a valid image.
+        /// Strips a leading data-URI prefix (e.g. "data:image/jpeg;base64,") if present.
+        /// </summary>
+        public static System.Drawing.Image Base64ToImage(string base64)
+        {
+            if (string.IsNullOrWhiteSpace(base64)) return null;
+            try
+            {
+                int commaIndex = base64.IndexOf(',');
+                if (commaIndex >= 0) base64 = base64.Substring(commaIndex + 1);
+
+                byte[] bytes = Convert.FromBase64String(base64);
+                using (var ms = new MemoryStream(bytes))
+                    return System.Drawing.Image.FromStream(new MemoryStream(bytes)); // keep stream alive via copy
+            }
+            catch { return null; }
+        }
+
         public static async Task<string> ConvertImageToBase64Async(string imageUrl)
         {
             if (string.IsNullOrWhiteSpace(imageUrl)) return null;

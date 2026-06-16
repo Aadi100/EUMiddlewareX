@@ -128,6 +128,9 @@ namespace smart_attendance_middleware
             AppSession.LoggedInUserID = userId;
             AppSession.LoginTime = DateTime.Now;
 
+            if (userRole == "developer")
+                _dbHelper.SaveSetting("DebugMode", "true");
+
             // Show Dashboard on SAME UI thread
             var dash = new Dashboard();
             // When dashboard closes, close login -> exits Application.Run
@@ -217,6 +220,9 @@ namespace smart_attendance_middleware
                 AppSession.UserRole = userRole;
                 AppSession.LoggedInUserID = userId;
                 AppSession.LoginTime = DateTime.Now;
+
+                if (userRole == "developer")
+                    _dbHelper.SaveSetting("DebugMode", "true");
 
                 // Show Dashboard on SAME UI thread
                 var dash = new Dashboard();
