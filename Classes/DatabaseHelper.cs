@@ -595,8 +595,6 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt'
                     }
                 }
 
-                // Create default developer user if not already present
-                DefaultDevUser(connection);
             }
         }
 

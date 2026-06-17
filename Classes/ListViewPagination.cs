@@ -197,17 +197,13 @@ namespace smart_attendance_middleware.Classes
                 int startIndex = (_currentPage - 1) * _pageSize;
                 int endIndex = Math.Min(startIndex + _pageSize, _totalItems);
 
-                // Add items efficiently - use AddRange instead of individual adds
-                var itemsToAdd = new List<ListViewItem>(endIndex - startIndex);
-                for (int i = startIndex; i < endIndex; i++)
-                {
-                    var originalItem = _allItems[i];
-                    // Clone only when displaying for thread safety
-                    var clonedItem = (ListViewItem)originalItem.Clone();
-                    itemsToAdd.Add(clonedItem);
-                }
+                // Add items by index — no cloning needed; Items.Clear() detaches them
+                int count = endIndex - startIndex;
+                var pageItems = new ListViewItem[count];
+                for (int i = 0; i < count; i++)
+                    pageItems[i] = _allItems[startIndex + i];
 
-                _listView.Items.AddRange(itemsToAdd.ToArray());
+                _listView.Items.AddRange(pageItems);
 
                 UpdatePageInfo();
                 UpdateButtonStates();

@@ -38,6 +38,21 @@ namespace smart_attendance_middleware
         private ListViewPagination _staffAttendancePagination;
         private ListViewPagination _manualDoorPagination;
 
+        // Cached full member item list — rebuilt only when source data changes
+        private List<ListViewItem> _cachedMemberItems;
+
+        // Guard: prevents TextChanged handlers from firing during form initialization
+        private bool _isInitialized = false;
+
+        // Font hierarchy — Title / Body / Small
+        private static readonly Font FontTitle = new Font("Microsoft Sans Serif", 16F, FontStyle.Regular);
+        private static readonly Font FontBody   = new Font("Microsoft Sans Serif", 10F, FontStyle.Regular);
+        private static readonly Font FontSmall  = new Font("Microsoft Sans Serif",  8.25F, FontStyle.Regular);
+
+        // Edit-mode colors
+        private static readonly Color EditableColor  = Color.White;
+        private static readonly Color ReadOnlyColor  = Color.FromArgb(240, 240, 240);
+
 
 
         public DeviceManager()
@@ -80,25 +95,25 @@ namespace smart_attendance_middleware
         //*************************************Setup ListView************************************//
         private void SetupDeviceList()
         {
-            // Clear existing items and columns
-            listViewDevices.Clear();
+            // Clear only items — columns are stable, no need to redraw them
+            listViewDevices.Items.Clear();
 
-            // Configure ListView properties
-            listViewDevices.View = View.Details;
-            listViewDevices.FullRowSelect = true;
-            listViewDevices.GridLines = true;
-            listViewDevices.MultiSelect = false;
-
-            // Add columns (adjust widths as needed)
-            listViewDevices.Columns.Add("ID", 50);                // DeviceId or StaffDeviceId
-            listViewDevices.Columns.Add("Machine No", 80);
-            listViewDevices.Columns.Add("Attendance Type", 120);  // boolean for Devices, text for StaffDevices
-            listViewDevices.Columns.Add("Device IP", 140);
-            listViewDevices.Columns.Add("Port", 70);
-            listViewDevices.Columns.Add("Connection Type", 120);
-            listViewDevices.Columns.Add("Status", 90);            // Active/Inactive
-            listViewDevices.Columns.Add("Is Staff", 70);          // NEW COLUMN
-            listViewDevices.Columns[listViewDevices.Columns.Count - 1].Width = -2;
+            if (listViewDevices.Columns.Count == 0)
+            {
+                listViewDevices.View = View.Details;
+                listViewDevices.FullRowSelect = true;
+                listViewDevices.GridLines = true;
+                listViewDevices.MultiSelect = false;
+                listViewDevices.Columns.Add("ID", 50);
+                listViewDevices.Columns.Add("Machine No", 80);
+                listViewDevices.Columns.Add("Attendance Type", 120);
+                listViewDevices.Columns.Add("Device IP", 140);
+                listViewDevices.Columns.Add("Port", 70);
+                listViewDevices.Columns.Add("Connection Type", 120);
+                listViewDevices.Columns.Add("Status", 90);
+                listViewDevices.Columns.Add("Is Staff", 70);
+                listViewDevices.Columns[listViewDevices.Columns.Count - 1].Width = -2;
+            }
 
             // Load devices from AppSession
             var devices = AppSession.DeviceList ?? new List<Device>();
@@ -153,19 +168,19 @@ namespace smart_attendance_middleware
         //Abdul Hadi Code
         public void LoadLocalUserData()
         {
-            list_LocalUser.Clear();
+            list_LocalUser.Items.Clear();
 
-            // Set ListView to details view
-            list_LocalUser.View = View.Details;
-            list_LocalUser.FullRowSelect = true;
-            list_LocalUser.GridLines = true;
-
-            // Add columns
-            list_LocalUser.Columns.Add("User ID", 100);
-            list_LocalUser.Columns.Add("User Name", 150);
-            list_LocalUser.Columns.Add("Role", 100);
-            list_LocalUser.Columns.Add("Created", 150);
-            list_LocalUser.Columns[list_LocalUser.Columns.Count - 1].Width = -2;
+            if (list_LocalUser.Columns.Count == 0)
+            {
+                list_LocalUser.View = View.Details;
+                list_LocalUser.FullRowSelect = true;
+                list_LocalUser.GridLines = true;
+                list_LocalUser.Columns.Add("User ID", 100);
+                list_LocalUser.Columns.Add("User Name", 150);
+                list_LocalUser.Columns.Add("Role", 100);
+                list_LocalUser.Columns.Add("Created", 150);
+                list_LocalUser.Columns[list_LocalUser.Columns.Count - 1].Width = -2;
+            }
 
 
             // Load users from AppSession cache
@@ -182,7 +197,7 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void DeviceManager_Load(object sender, EventArgs e)
+        private async void DeviceManager_Load(object sender, EventArgs e)
         {
             try
             {
@@ -191,26 +206,10 @@ namespace smart_attendance_middleware
 
                 SetupDeviceList(); // creates columns and sample rows
 
-                // Hide all panels — no tab selected on open
-                pnl_deviceManager.Visible = false;
-                pnl_UserManagement.Visible = false;
-                pnl_staffsManagment.Visible = false;
-                pnl_attendence.Visible = false;
-                pnl_setup.Visible = false;
-
-                // Reset all sidebar buttons to un-highlighted state
-                Color defaultBack = Color.FromArgb(18, 23, 49);
-                Color defaultFore = Color.White;
-                btn_device_management.BackColor = defaultBack;
-                btn_device_management.ForeColor = defaultFore;
-                btn_userManagement.BackColor = defaultBack;
-                btn_userManagement.ForeColor = defaultFore;
-                btn_attendencemanagment.BackColor = defaultBack;
-                btn_attendencemanagment.ForeColor = defaultFore;
-                btn_setupmanage.BackColor = defaultBack;
-                btn_setupmanage.ForeColor = defaultFore;
-                btn_staffmanagment.BackColor = defaultBack;
-                btn_staffmanagment.ForeColor = defaultFore;
+                // Show welcome screen — no panel selected on open
+                HideAllPanels();
+                SetActiveButton(null);
+                pnl_welcome.Visible = true;
 
                 // Wire hover effects for welcome tiles
                 foreach (var tile in new[] { tile_device, tile_user, tile_staff, tile_member, tile_setup })
@@ -231,7 +230,8 @@ namespace smart_attendance_middleware
                 btn_editUser.Enabled = false;
                 listViewDevices.SelectedItems.Clear(); // Clear selection
                 ClearDeviceFields(); // Clear device fields on load
-                update_session(); // Update session with device data
+                await UpdateSessionAsync(); // Update session with device data
+                InvalidateMemberCache();  // force rebuild on next member list load
                 InitializeMemberList();
                 InitializeMemberListForStats();       // dynamic name suggestions
                 InitializeMembersListView();  // members list view setup
@@ -260,6 +260,16 @@ namespace smart_attendance_middleware
             }
             finally
             {
+                // Ensure selection stays visible on all ListViews when focus moves away
+                foreach (var lv in new ListView[] {
+                    listViewDevices, list_LocalUser, lst_members,
+                    lst_staffs, lst_member, lst_manualdoor, lst_staffattendence })
+                {
+                    lv.HideSelection = false;
+                }
+
+                _isInitialized = true;
+
                 // Stop the global loader
                 Dashboard.GlobalStopLoader();
             }
@@ -356,13 +366,17 @@ namespace smart_attendance_middleware
             }
         }
 
-        public void update_session()
+        public async Task UpdateSessionAsync()
         {
             try
             {
-                AppSession.DeviceList = _dbHelper.LoadDevices() ?? new List<Device>();
-                AppSession.StaffDeviceList = _dbHelper.LoadStaffDevices() ?? new List<Device>();
-                AppSession.AllUsers = _dbHelper.LoadUsers() ?? new List<LocalUser>();
+                var devices      = await Task.Run(() => _dbHelper.LoadDevices()      ?? new List<Device>());
+                var staffDevices = await Task.Run(() => _dbHelper.LoadStaffDevices() ?? new List<Device>());
+                var users        = await Task.Run(() => _dbHelper.LoadUsers()        ?? new List<LocalUser>());
+
+                AppSession.DeviceList      = devices;
+                AppSession.StaffDeviceList = staffDevices;
+                AppSession.AllUsers        = users;
             }
             catch (Exception ex)
             {
@@ -371,10 +385,62 @@ namespace smart_attendance_middleware
         }
 
 
-        //////////////////////////////////WELCOME PANEL///////////////////////////////
-        private void HideWelcomePanel()
+        //////////////////////////////////NAVIGATION HELPERS///////////////////////////////
+        private static readonly Color SidebarBg   = Color.FromArgb(18, 23, 49);
+        private static readonly Color SidebarHover = Color.FromArgb(30, 60, 100);
+
+        private void HideAllPanels()
         {
-            pnl_welcome.Visible = false;
+            pnl_deviceManager.Visible  = false;
+            pnl_UserManagement.Visible = false;
+            pnl_staffsManagment.Visible = false;
+            pnl_attendence.Visible     = false;
+            pnl_setup.Visible          = false;
+            pnl_welcome.Visible        = false;
+        }
+
+        private void SetActiveButton(Label active)
+        {
+            foreach (var btn in new[] { btn_device_management, btn_userManagement,
+                                        btn_staffmanagment, btn_attendencemanagment, btn_setupmanage })
+            {
+                btn.BackColor = SidebarBg;
+                btn.ForeColor = Color.White;
+            }
+            if (active != null)
+            {
+                active.BackColor = Color.WhiteSmoke;
+                active.ForeColor = Color.Black;
+            }
+        }
+
+        private void SidebarButton_MouseHover(object sender, EventArgs e)
+        {
+            if (sender is Label btn && btn.BackColor != Color.WhiteSmoke)
+            {
+                btn.BackColor = SidebarHover;
+                btn.ForeColor = Color.White;
+                btn.Cursor    = Cursors.Hand;
+            }
+        }
+
+        private void SidebarButton_MouseLeave(object sender, EventArgs e)
+        {
+            if (sender is Label btn && btn.BackColor != Color.WhiteSmoke)
+            {
+                btn.BackColor = SidebarBg;
+                btn.ForeColor = Color.White;
+                btn.Cursor    = Cursors.Default;
+            }
+        }
+
+        //////////////////////////////////WELCOME PANEL///////////////////////////////
+        private void pictureBox1_Click(object sender, EventArgs e)
+        {
+            HideAllPanels();
+            SetActiveButton(null);
+            pnl_welcome.Visible = true;
+            pnl_welcome.BringToFront();
         }
 
         //////////////////////////////////SIDE BUTTONS///////////////////////////////
@@ -386,133 +452,45 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            HideWelcomePanel();
-
-            // Button Color Seetup
-            btn_device_management.BackColor = Color.WhiteSmoke;
-            btn_device_management.ForeColor = Color.Black;
-
-            btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_userManagement.ForeColor = Color.White;
-
-            btn_staffmanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_staffmanagment.ForeColor = Color.White;
-
-            btn_attendencemanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_attendencemanagment.ForeColor = Color.White;
-
-            btn_setupmanage.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_setupmanage.ForeColor = Color.White;
-            // End of Button Color Seetup
-
-
-            pnl_UserManagement.Visible = false; // Hide user management panel
-            pnl_deviceManager.Visible = true;
-            pnl_staffsManagment.Visible = false;
-            pnl_setup.Visible = false;
+            HideAllPanels();
+            SetActiveButton(btn_device_management);
             pnl_deviceManager.Location = new Point(186, 0);
-            ClearDeviceFields(); // Clear device fields when switching back to device management
+            pnl_deviceManager.Visible  = true;
+            ClearDeviceFields();
             listViewDevices.SelectedItems.Clear();
-
         }
 
         private void btn_userManagement_Click(object sender, EventArgs e)
         {
-            HideWelcomePanel();
-
-            // Button Color Seetup
-            btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_device_management.ForeColor = Color.White;
-
-            btn_setupmanage.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_setupmanage.ForeColor = Color.White;
-            //*************************************************************************************
-            btn_userManagement.BackColor = Color.WhiteSmoke;
-            btn_userManagement.ForeColor = Color.Black;
-            //*************************************************************************************
-            btn_staffmanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_staffmanagment.ForeColor = Color.White;
-
-            btn_attendencemanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_attendencemanagment.ForeColor = Color.White;
-            // End of Button Color Seetup
-
-            pnl_deviceManager.Visible = false;
-            pnl_attendence.Visible = false;
+            HideAllPanels();
+            SetActiveButton(btn_userManagement);
             pnl_UserManagement.Location = new Point(186, 0);
-            pnl_UserManagement.Visible = true;
-            pnl_staffsManagment.Visible = false;
-            pnl_setup.Visible = false;
-
+            pnl_UserManagement.Visible  = true;
             LoadLocalUserData();
         }
 
-        private void btn_attendance_Click(object sender, EventArgs e)
+        private async void btn_attendance_Click(object sender, EventArgs e)
         {
-            HideWelcomePanel();
-
-            // End of Button Color Seetup
-            btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_device_management.ForeColor = Color.White;
-
-            btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_userManagement.ForeColor = Color.White;
-
-            btn_setupmanage.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_setupmanage.ForeColor = Color.White;
-            //****************************************************************************
-            btn_staffmanagment.BackColor = Color.WhiteSmoke;
-            btn_staffmanagment.ForeColor = Color.Black;
-            //****************************************************************************
-
-            btn_attendencemanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_attendencemanagment.ForeColor = Color.White;
-
-            // Show staff panel, hide others
-            pnl_staffsManagment.Visible = true;
+            HideAllPanels();
+            SetActiveButton(btn_staffmanagment);
             pnl_staffsManagment.Location = new Point(186, 0);
-
-            pnl_deviceManager.Visible = false;
-            pnl_attendence.Visible = false;
-            pnl_setup.Visible = false;
-            pnl_UserManagement.Visible = false;
-            // End of Button Color Seetup
-
+            pnl_staffsManagment.Visible  = true;
+            Dashboard.GlobalStartLoader("Loading Staff Management...");
+            await Task.Run(() => { }); // yield so loader renders before data load
+            Dashboard.GlobalStopLoader();
         }
 
-        private void btn_attendencemanagment_Click(object sender, EventArgs e)
+        private async void btn_attendencemanagment_Click(object sender, EventArgs e)
         {
-            HideWelcomePanel();
-
-            // Button Color Setup
-            btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_device_management.ForeColor = Color.White;
-
-            btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_userManagement.ForeColor = Color.White;
-
-            btn_staffmanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_staffmanagment.ForeColor = Color.White;
-
-            btn_setupmanage.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_setupmanage.ForeColor = Color.White;
-
-            //****************************************************************************
-            btn_attendencemanagment.BackColor = Color.WhiteSmoke;
-            btn_attendencemanagment.ForeColor = Color.Black;
-            //****************************************************************************
-            // Show attendance panel, hide others
-            pnl_attendence.Visible = true;
+            HideAllPanels();
+            SetActiveButton(btn_attendencemanagment);
             pnl_attendence.Location = new Point(186, 0);
-
-            pnl_deviceManager.Visible = false;
-            pnl_UserManagement.Visible = false;
-            pnl_staffsManagment.Visible = false;
-            pnl_setup.Visible = false;
-            // End of Button Color Setup
-
+            pnl_attendence.Visible  = true;
+            Dashboard.GlobalStartLoader("Loading Member Attendance...");
+            await Task.Run(() => { }); // yield so loader renders before data load
             LoadMemberAttendanceLogs();
             LoadManualDoorLogs();
+            Dashboard.GlobalStopLoader();
         }
 
         private void btn_setupmanage_Click(object sender, EventArgs e)
@@ -523,129 +501,20 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            HideWelcomePanel();
-
-            // Button Color Setup
-            btn_device_management.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_device_management.ForeColor = Color.White;
-
-            btn_userManagement.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_userManagement.ForeColor = Color.White;
-
-            btn_staffmanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_staffmanagment.ForeColor = Color.White;
-
-            btn_attendencemanagment.BackColor = ColorTranslator.FromHtml("18,23,49");
-            btn_attendencemanagment.ForeColor = Color.White;
-
-            //****************************************************************************
-            btn_setupmanage.BackColor = Color.WhiteSmoke;
-            btn_setupmanage.ForeColor = Color.Black;
-            //****************************************************************************
-            // Show attendance panel, hide others
-            pnl_setup.Visible = true;
+            HideAllPanels();
+            SetActiveButton(btn_setupmanage);
             pnl_setup.Location = new Point(186, 0);
-
-            pnl_attendence.Visible = false;
-            pnl_deviceManager.Visible = false;
-            pnl_UserManagement.Visible = false;
-            pnl_staffsManagment.Visible = false;
-            // End of Button Color Setup
-
+            pnl_setup.Visible  = true;
         }
-
 
         /////////////////////////////////////////////////////////////////////////////////
 
-        private void btn_userManagement_MouseHover(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // If label is not already selected (WhiteSmoke), apply hover color
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = ColorTranslator.FromHtml("#1E3C64"); // Your hover color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Hand;
-            }
-        }
-
-        private void btn_userManagement_MouseLeave(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // Only revert color if it's not WhiteSmoke (optional)
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = Color.FromArgb(8, 23, 49); // Your normal color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Default;
-            }
-        }
-
-        private void btn_attendance_MouseHover(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // If label is not already selected (WhiteSmoke), apply hover color
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = ColorTranslator.FromHtml("#1E3C64"); // Your hover color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Hand;
-            }
-        }
-
-        private void btn_attendance_MouseLeave(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // Only revert color if it's not WhiteSmoke (optional)
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = Color.FromArgb(8, 23, 49); // Your normal color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Default;
-            }
-        }
-
-        private void btn_device_management_MouseHover(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // If label is not already selected (WhiteSmoke), apply hover color
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = ColorTranslator.FromHtml("#1E3C64"); // Your hover color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Hand;
-            }
-        }
-
-        private void btn_device_management_MouseLeave(object sender, EventArgs e)
-        {
-            if (sender is Label btn)
-            {
-                // Only revert color if it's not WhiteSmoke (optional)
-                if (btn.BackColor != Color.WhiteSmoke)
-                {
-                    btn.BackColor = Color.FromArgb(8, 23, 49); // Your normal color
-                    btn.ForeColor = Color.White;
-                }
-
-                btn.Cursor = Cursors.Default;
-            }
-        }
+        private void btn_userManagement_MouseHover(object sender, EventArgs e)  => SidebarButton_MouseHover(sender, e);
+        private void btn_userManagement_MouseLeave(object sender, EventArgs e)  => SidebarButton_MouseLeave(sender, e);
+        private void btn_attendance_MouseHover(object sender, EventArgs e)      => SidebarButton_MouseHover(sender, e);
+        private void btn_attendance_MouseLeave(object sender, EventArgs e)      => SidebarButton_MouseLeave(sender, e);
+        private void btn_device_management_MouseHover(object sender, EventArgs e) => SidebarButton_MouseHover(sender, e);
+        private void btn_device_management_MouseLeave(object sender, EventArgs e) => SidebarButton_MouseLeave(sender, e);
 
 
         // On selection of row send deviceId to LoadSelectedDeviceDetails
@@ -676,51 +545,22 @@ namespace smart_attendance_middleware
 
         private void ToggleDeviceFieldsEditMode(bool enable)
         {
-            // Text fields
-            txt_department.ReadOnly = !enable;
-            txt_department.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
+            var border    = enable ? BorderStyle.Fixed3D : BorderStyle.None;
+            var backColor = enable ? EditableColor : ReadOnlyColor;
 
-            txt_Device_id.ReadOnly = !enable;
-            txt_Device_id.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
+            foreach (var txt in new[] {
+                txt_department, txt_Device_id, txt_finger_capacity, txt_RFID_capacity,
+                txt_face_capacity, txt_last_synced, txt_device_status, txt_location,
+                txt_timeZone, txt_port, txt_ip, txt_Serial, txt_password })
+            {
+                txt.ReadOnly    = !enable;
+                txt.BorderStyle = border;
+                txt.BackColor   = backColor;
+            }
 
-            txt_finger_capacity.ReadOnly = !enable;
-            txt_finger_capacity.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_RFID_capacity.ReadOnly = !enable;
-            txt_RFID_capacity.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_face_capacity.ReadOnly = !enable;
-            txt_face_capacity.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_last_synced.ReadOnly = !enable;
-            txt_last_synced.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_device_status.ReadOnly = !enable;
-            txt_device_status.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_location.ReadOnly = !enable;
-            txt_location.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_timeZone.ReadOnly = !enable;
-            txt_timeZone.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_port.ReadOnly = !enable;
-            txt_port.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_ip.ReadOnly = !enable;
-            txt_ip.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_Serial.ReadOnly = !enable;
-            txt_Serial.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            txt_password.ReadOnly = !enable;
-            txt_password.BorderStyle = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-
-            // Combo fields
-            cmb_device_type.Enabled = enable;
+            cmb_device_type.Enabled    = enable;
             cmb_connectionType.Enabled = enable;
-            cmb_machine_no.Enabled = enable;
-
+            cmb_machine_no.Enabled     = enable;
         }
 
 
@@ -746,14 +586,15 @@ namespace smart_attendance_middleware
 
 
 
-        private bool IsValidIp(string ipAddress)
+        private async Task<bool> IsValidIpAsync(string ipAddress)
         {
             try
             {
-                Ping ping = new Ping();
-                PingReply reply = ping.Send(ipAddress);
-
-                return reply.Status == IPStatus.Success;
+                using (var ping = new Ping())
+                {
+                    PingReply reply = await ping.SendPingAsync(ipAddress, 2000);
+                    return reply.Status == IPStatus.Success;
+                }
             }
             catch
             {
@@ -784,7 +625,7 @@ namespace smart_attendance_middleware
             cmb_machine_no.SelectedItem = device.MachineNo.ToString();
         }
 
-        private void btnSave_Click(object sender, EventArgs e)
+        private async void btnSave_Click(object sender, EventArgs e)
         {
             string currentUser = AppSession.LoggedInUser;
             if (string.IsNullOrWhiteSpace(currentUser))
@@ -852,7 +693,7 @@ namespace smart_attendance_middleware
                 {
                     string deviceIp = txt_ip.Text.Trim();
 
-                    if (!IsValidIp(deviceIp))
+                    if (!await IsValidIpAsync(deviceIp))
                     {
                         MessageBox.Show("Invalid IP address. Please check the IP and try again.", "Invalid IP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
@@ -927,7 +768,8 @@ namespace smart_attendance_middleware
                         SetupDeviceList();
                         ClearDeviceFields();
                         listViewDevices.SelectedItems.Clear();
-                        update_session(); // Update session with device data
+                        await UpdateSessionAsync(); // Update session with device data
+                InvalidateMemberCache();
 
                         // Notify dashboard to refresh
                         NotifyDashboardRefresh();
@@ -1116,7 +958,7 @@ namespace smart_attendance_middleware
             {
                 string enteredPassword = inputBox.Text;
 
-                if (!IsValidIp(txt_ip.Text.Trim()))
+                if (!await IsValidIpAsync(txt_ip.Text.Trim()))
                 {
                     MessageBox.Show("The device is not reachable. Please check the IP address and try again.", "Ping Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
@@ -1144,7 +986,8 @@ namespace smart_attendance_middleware
                     SetupDeviceList(); // Refresh the device list after deletion
                     ClearDeviceFields(); // Clear the fields after deletion
                     listViewDevices.SelectedItems.Clear();
-                    update_session(); // Update session with device data
+                    await UpdateSessionAsync(); // Update session with device data
+                InvalidateMemberCache();
 
                     // Notify dashboard to refresh
                     NotifyDashboardRefresh();
@@ -1629,7 +1472,7 @@ namespace smart_attendance_middleware
                 SetupDeviceList();
                 ClearDeviceFields();
                 listViewDevices.SelectedItems.Clear();
-                update_session();
+                await UpdateSessionAsync();
                 NotifyDashboardRefresh();
             }
         }
@@ -1639,24 +1482,25 @@ namespace smart_attendance_middleware
         // Call this in DeviceManager_Load after InitializeMemberList()
         private void InitializeMembersListView()
         {
-            // Configure lst_members
-            lst_members.Clear();
-            lst_members.View = View.Details;
-            lst_members.FullRowSelect = true;
-            lst_members.GridLines = true;
+            lst_members.Items.Clear();
 
-            // Columns
-            lst_members.Columns.Add("Member ID", 90);
-            lst_members.Columns.Add("Name", 160);
-            lst_members.Columns.Add("Enrollment No", 110);
-            lst_members.Columns.Add("Status", 90);
-            lst_members.Columns.Add("RFID", 120);
-            lst_members.Columns.Add("Picture", 160);
-            lst_members.Columns.Add("Fingerprint", 100);
-            lst_members.Columns.Add("Sync Status", 140);
-            lst_members.Columns.Add("Package Expiry", 130);
-            lst_members.Columns.Add("Device Status", 100);
-            lst_members.Columns[lst_members.Columns.Count - 1].Width = -2;
+            if (lst_members.Columns.Count == 0)
+            {
+                lst_members.View = View.Details;
+                lst_members.FullRowSelect = true;
+                lst_members.GridLines = true;
+                lst_members.Columns.Add("Member ID", 90);
+                lst_members.Columns.Add("Name", 160);
+                lst_members.Columns.Add("Enrollment No", 110);
+                lst_members.Columns.Add("Status", 90);
+                lst_members.Columns.Add("RFID", 120);
+                lst_members.Columns.Add("Picture", 160);
+                lst_members.Columns.Add("Fingerprint", 100);
+                lst_members.Columns.Add("Sync Status", 140);
+                lst_members.Columns.Add("Package Expiry", 130);
+                lst_members.Columns.Add("Device Status", 100);
+                lst_members.Columns[lst_members.Columns.Count - 1].Width = -2;
+            }
 
             LoadMembersIntoListView(null);
         }
@@ -1696,90 +1540,86 @@ namespace smart_attendance_middleware
             LoadMembersIntoListView(string.IsNullOrEmpty(nameFilter) ? null : nameFilter);
         }
 
-        // Core loader: populates lst_members with full data and optional name filter
+        // Invalidate cached member items — call whenever AppSession.AllMembers changes
+        public void InvalidateMemberCache() => _cachedMemberItems = null;
+
+        // Builds ListViewItems for every member — called once and cached
+        private List<ListViewItem> BuildAllMemberItems()
+        {
+            var members    = AppSession.AllMembers ?? new List<Member>();
+            var allDevices = AppSession.DeviceList  ?? new List<Device>();
+            int totalDevices = allDevices.Count;
+            var result = new List<ListViewItem>(members.Count);
+
+            foreach (var m in members)
+            {
+                string enrollmentText = m.EnrollmentID.HasValue && m.EnrollmentID.Value > 0
+                    ? m.EnrollmentID.Value.ToString() : "-";
+
+                string syncStatusText = "-";
+                if (totalDevices > 0)
+                {
+                    int syncedCount = 0;
+                    foreach (var d in allDevices)
+                    {
+                        if (m.SyncStatus != null && m.SyncStatus.TryGetValue(d.DeviceId, out bool isSynced) && isSynced)
+                            syncedCount++;
+                    }
+                    syncStatusText = $"{syncedCount}/{totalDevices} devices";
+                }
+
+                var item = new ListViewItem(m.MemberID.ToString());
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Name)        ? "-" : m.Name);
+                item.SubItems.Add(enrollmentText);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Status)      ? "-" : m.Status);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.RFID)        ? "-" : m.RFID);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Picture)     ? "-" : System.IO.Path.GetFileName(m.Picture));
+                item.SubItems.Add(m.Fingerprint ? "Yes" : "No");
+                item.SubItems.Add(syncStatusText);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry);
+                item.SubItems.Add("[View]");
+                item.Tag = m;
+                result.Add(item);
+            }
+
+            return result;
+        }
+
+        // Core loader: filters in-memory from cache — no item rebuild on every keystroke
         private void LoadMembersIntoListView(string nameFilter)
         {
             try
             {
-                var members = AppSession.AllMembers ?? new List<Member>();
+                // Build cache once; subsequent calls with a filter just query the cache
+                if (_cachedMemberItems == null)
+                    _cachedMemberItems = BuildAllMemberItems();
 
-                // Apply name filter if provided
-                if (!string.IsNullOrWhiteSpace(nameFilter))
+                List<ListViewItem> displayItems;
+                if (string.IsNullOrWhiteSpace(nameFilter))
                 {
-                    members = members.Where(m => !string.IsNullOrWhiteSpace(m.Name) &&
-                                                 m.Name.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) >= 0)
-                                     .ToList();
-                }
-
-                // For sync status across devices
-                var allDevices = AppSession.DeviceList ?? new List<Device>();
-                int totalDevices = allDevices.Count;
-
-                var allItems = new List<ListViewItem>();
-
-                foreach (var m in members)
-                {
-                    // Resolve fields safely
-                    string memberIdText = m.MemberID.ToString();
-                    string nameText = string.IsNullOrWhiteSpace(m.Name) ? "-" : m.Name;
-                    string enrollmentText = m.EnrollmentID.HasValue && m.EnrollmentID.Value > 0
-                        ? m.EnrollmentID.Value.ToString()
-                        : "-";
-                    string statusText = string.IsNullOrWhiteSpace(m.Status) ? "-" : m.Status;
-                    string rfidText = string.IsNullOrWhiteSpace(m.RFID) ? "-" : m.RFID;
-                    string pictureText = string.IsNullOrWhiteSpace(m.Picture) ? "-" : System.IO.Path.GetFileName(m.Picture);
-
-                    // Fingerprint flag: try common property names; fall back to "-"
-                    string fingerprintText = m.Fingerprint ? "Yes" : "No";
-
-                    // Sync status across all devices
-                    string syncStatusText = "-";
-                    if (totalDevices > 0)
-                    {
-                        int syncedCount = 0;
-                        foreach (var d in allDevices)
-                        {
-                            if (m.SyncStatus != null && m.SyncStatus.TryGetValue(d.DeviceId, out bool isSynced) && isSynced)
-                                syncedCount++;
-                        }
-                        syncStatusText = $"{syncedCount}/{totalDevices} devices";
-                    }
-
-                    // Package expiry (try common property names)
-                    string pkgExpiryText = string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry;
-
-                    var item = new ListViewItem(memberIdText);
-                    item.SubItems.Add(nameText);
-                    item.SubItems.Add(enrollmentText);
-                    item.SubItems.Add(statusText);
-                    item.SubItems.Add(rfidText);
-                    item.SubItems.Add(pictureText);
-                    item.SubItems.Add(fingerprintText);
-                    item.SubItems.Add(syncStatusText);
-                    item.SubItems.Add(pkgExpiryText);
-                    item.SubItems.Add("[View]");
-                    item.Tag = m;
-
-                    allItems.Add(item);
-                }
-
-                // Initialize pagination if not already done
-                if (_membersPagination == null && lst_members.Parent != null)
-                {
-                    _membersPagination = new ListViewPagination(lst_members, lst_members.Parent);
-                }
-
-                // Use pagination to display items
-                if (_membersPagination != null)
-                {
-                    _membersPagination.SetItems(allItems);
+                    displayItems = _cachedMemberItems;
                 }
                 else
                 {
-                    // Fallback: add items directly if pagination not available
+                    displayItems = _cachedMemberItems
+                        .Where(item => item.Tag is Member m &&
+                                       !string.IsNullOrWhiteSpace(m.Name) &&
+                                       m.Name.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+                        .ToList();
+                }
+
+                if (_membersPagination == null && lst_members.Parent != null)
+                    _membersPagination = new ListViewPagination(lst_members, lst_members.Parent);
+
+                if (_membersPagination != null)
+                {
+                    _membersPagination.SetItems(displayItems);
+                }
+                else
+                {
                     lst_members.BeginUpdate();
                     lst_members.Items.Clear();
-                    lst_members.Items.AddRange(allItems.ToArray());
+                    lst_members.Items.AddRange(displayItems.ToArray());
                     lst_members.EndUpdate();
                 }
             }
@@ -1789,11 +1629,9 @@ namespace smart_attendance_middleware
             }
         }
 
-        // Refresh suggestions when text changes significantly (debounced if needed)
         private void txt_memb_name_TextChanged(object sender, EventArgs e)
         {
-            // No-op; AutoComplete handles suggestions using InitializeMemberList()
-            // If you want live filtering as you type:
+            if (!_isInitialized) return;
             var filter = txt_memb_name.Text?.Trim();
             LoadMembersIntoListView(string.IsNullOrEmpty(filter) ? null : filter);
         }
@@ -2479,6 +2317,7 @@ namespace smart_attendance_middleware
         // optional live filtering as user types (unchanged)
         private void txt_staff_TextChanged(object sender, EventArgs e)
         {
+            if (!_isInitialized) return;
             var filter = txt_staff.Text?.Trim();
             LoadStaffsIntoListView(string.IsNullOrEmpty(filter) ? null : filter);
         }
@@ -2734,6 +2573,7 @@ namespace smart_attendance_middleware
         // live filter on typing
         private void txt_staffname_TextChanged(object sender, EventArgs e)
         {
+            if (!_isInitialized) return;
             LoadFilteredStaffAttendanceLogs();
         }
 

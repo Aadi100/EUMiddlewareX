@@ -55,12 +55,18 @@ namespace smart_attendance_middleware.Classes
                         _lastStaffSync = now;
 
                         AppSession.AllAttendanceLogs = _dbHelper.GetAllAttendanceLogs() ?? new List<dynamic>();
+                        if (AppSession.AllAttendanceLogs.Count > 10000)
+                            AppSession.AllAttendanceLogs = AppSession.AllAttendanceLogs.Take(10000).ToList();
                         _lastAttendanceLogsSync = now;
 
                         AppSession.AllStaffAttendanceLogs = _dbHelper.GetAllStaffAttendanceLogs() ?? new List<dynamic>();
+                        if (AppSession.AllStaffAttendanceLogs.Count > 10000)
+                            AppSession.AllStaffAttendanceLogs = AppSession.AllStaffAttendanceLogs.Take(10000).ToList();
                         _lastStaffAttendanceLogsSync = now;
 
                         AppSession.AllGateLogs = _dbHelper.GetAllGateAccesseds() ?? new List<GateAccessed>();
+                        if (AppSession.AllGateLogs.Count > 10000)
+                            AppSession.AllGateLogs = AppSession.AllGateLogs.Take(10000).ToList();
                         _lastGateLogsSync = now;
 
                         AppSession.AllUsers = _dbHelper.LoadUsers() ?? new List<LocalUser>();

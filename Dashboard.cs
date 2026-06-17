@@ -57,6 +57,9 @@ namespace smart_attendance_middleware
         private int countdownSeconds;
         private string originalButtonText;
         private System.Windows.Forms.Timer attendancePanelTimer;
+        private CancellationTokenSource _deviceMonitorCts;
+        private DateTime _lastPanelRefresh = DateTime.MinValue;
+        private readonly ToolTip _buttonTooltip = new ToolTip();
         private bool _uiReady = false;
         private const int MaxLogLines = 1000000;
         public HttpHandler _httpHandler;
@@ -310,9 +313,9 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void Dashboard_Load(object sender, EventArgs e)
+        private async void Dashboard_Load(object sender, EventArgs e)
         {
-            UpdateAttendancePanels();
+            await UpdateAttendancePanelsAsync();
         }
 
         
@@ -494,20 +497,20 @@ namespace smart_attendance_middleware
 
                     if (hasJobs)
                     {
-                        // Restore original colors when enabled
                         btn_retry.NormalBackground = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
                         btn_retry.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(35)))));
                         btn_retry.NormalForeColor = System.Drawing.Color.White;
                         btn_retry.HoverForeColor = System.Drawing.Color.White;
+                        _buttonTooltip.SetToolTip(btn_retry, $"Retry {pendingJobs} pending sync job(s)");
                         LogHelper.Log($"🔘 Retry button enabled - pending jobs: {pendingJobs}");
                     }
                     else
                     {
-                        // Set gray colors when disabled
                         btn_retry.NormalBackground = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
                         btn_retry.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
                         btn_retry.NormalForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
                         btn_retry.HoverForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+                        _buttonTooltip.SetToolTip(btn_retry, "No pending jobs to retry");
                         LogHelper.Log($"🔘 Retry button disabled and grayed out - no pending jobs");
                     }
 
@@ -601,7 +604,7 @@ namespace smart_attendance_middleware
                 UpdateLoaderMessage("Cache failure. System will run in direct-query mode.");
             }
 
-            UpdateAttendancePanels();
+            await UpdateAttendancePanelsAsync();
             await Task.Yield(); // let UI pump once
         }
 
@@ -611,7 +614,12 @@ namespace smart_attendance_middleware
             {
                 UpdateLoaderMessage("Initializing UI update timers...");
                 attendancePanelTimer = new System.Windows.Forms.Timer { Interval = 5000 };
-                attendancePanelTimer.Tick += (s, args) => UpdateAttendancePanels();
+                attendancePanelTimer.Tick += async (s, args) =>
+                {
+                    // Skip if cache already refreshed the panels within the last 4 seconds
+                    if ((DateTime.Now - _lastPanelRefresh).TotalSeconds < 4) return;
+                    await UpdateAttendancePanelsAsync();
+                };
                 attendancePanelTimer.Start();
 
                 _processor.update_session();
@@ -681,7 +689,7 @@ namespace smart_attendance_middleware
         /// <summary>
         /// Handle cache update events - refresh UI when AppSession data changes
         /// </summary>
-        private void OnCacheUpdated(object sender, CacheUpdateEventArgs e)
+        private async void OnCacheUpdated(object sender, CacheUpdateEventArgs e)
         {
             if (InvokeRequired)
             {
@@ -694,7 +702,7 @@ namespace smart_attendance_middleware
                 // Refresh relevant UI components based on what was updated
                 if (e.UpdateType == CacheUpdateType.FullRefresh)
                 {
-                    UpdateAttendancePanels();
+                    await UpdateAttendancePanelsAsync();
                     LogHelper.Log("[Dashboard] Full cache refresh - UI updated");
                 }
                 else if (e.UpdateTypes != null && e.UpdateTypes.Count > 0)
@@ -702,7 +710,7 @@ namespace smart_attendance_middleware
                     if (e.UpdateTypes.Contains(CacheUpdateType.AttendanceLogs) || 
                         e.UpdateTypes.Contains(CacheUpdateType.StaffAttendanceLogs))
                     {
-                        UpdateAttendancePanels();
+                        await UpdateAttendancePanelsAsync();
                     }
 
                     if (e.UpdateTypes.Contains(CacheUpdateType.Members) || 
@@ -917,9 +925,6 @@ namespace smart_attendance_middleware
         {
             try
             {
-                // Stop cache manager auto-refresh
-                _cacheManager?.StopAutoRefresh();
-
                 // Unsubscribe AI chat logger events immediately to stop any further UI calls
                 aiChatLogger.OnAddMessage -= AiChatLogger_OnAddMessage;
                 aiChatLogger.OnClearMessages -= AiChatLogger_OnClearMessages;
@@ -945,6 +950,14 @@ namespace smart_attendance_middleware
 
                     LogHelper.Log($"Application closure authorized for user '{AppSession.LoggedInUser}'.");
                 }
+
+                // Password confirmed — stop background services
+                _deviceMonitorCts?.Cancel();
+                _deviceMonitorCts?.Dispose();
+                _deviceMonitorCts = null;
+
+                // Stop cache manager auto-refresh
+                _cacheManager?.StopAutoRefresh();
 
                 // Stop and dispose countdown timer
                 if (countdownTimer != null)
@@ -1245,56 +1258,45 @@ namespace smart_attendance_middleware
 
         }
 
-        private void UpdateAttendancePanels()
+        private async Task UpdateAttendancePanelsAsync()
         {
+            _lastPanelRefresh = DateTime.Now;
             try
             {
-                // Update last check-in panel
                 if (AppSession.LastCheckIn != null)
                 {
                     var checkIn = AppSession.LastCheckIn;
-
-                    // Update labels
-                    lbl_name_in.Text = checkIn.MemberName;
-                    lbl_action_in.Text = $"Action: {checkIn.Action.ToUpper()}";
-                    lbl_time_in.Text = $"Time: {checkIn.Time:HH:mm:ss}";
-                    lbl_enroll_no_in.Text = $"Enroll ID: {checkIn.EnrollmentId}";   
-
-                    // Load member image
-                    LoadMemberImage(pictureBox2, checkIn.ImagePath, checkIn.MemberId);
+                    lbl_name_in.Text       = checkIn.MemberName;
+                    lbl_action_in.Text     = $"Action: {checkIn.Action.ToUpper()}";
+                    lbl_time_in.Text       = $"Time: {checkIn.Time:HH:mm:ss}";
+                    lbl_enroll_no_in.Text  = $"Enroll ID: {checkIn.EnrollmentId}";
+                    await LoadMemberImageAsync(pictureBox2, checkIn.ImagePath, checkIn.MemberId);
                 }
                 else
                 {
-                    // Clear check-in panel
-                    lbl_name_in.Text = "No recent check-ins";
-                    lbl_action_in.Text = "Action: --";
-                    lbl_time_in.Text = "Time: --";
+                    lbl_name_in.Text      = "No recent check-ins";
+                    lbl_action_in.Text    = "Action: --";
+                    lbl_time_in.Text      = "Time: --";
                     lbl_enroll_no_in.Text = "Enroll ID: --";
-                    pictureBox2.Image = null;
+                    pictureBox2.Image     = null;
                 }
 
-                // Update last check-out panel  
                 if (AppSession.LastCheckOut != null)
                 {
                     var checkOut = AppSession.LastCheckOut;
-
-                    // Update labels
-                    lbl_name_out.Text = checkOut.MemberName;
-                    lbl_action_out.Text = $"Action: {checkOut.Action.ToUpper()}";
-                    lbl_time_out.Text = $"Time: {checkOut.Time:HH:mm:ss}";
+                    lbl_name_out.Text      = checkOut.MemberName;
+                    lbl_action_out.Text    = $"Action: {checkOut.Action.ToUpper()}";
+                    lbl_time_out.Text      = $"Time: {checkOut.Time:HH:mm:ss}";
                     lbl_enroll_no_out.Text = $"Enroll ID: {checkOut.EnrollmentId}";
-
-                    // Load member image
-                    LoadMemberImage(pictureBox3, checkOut.ImagePath, checkOut.MemberId);
+                    await LoadMemberImageAsync(pictureBox3, checkOut.ImagePath, checkOut.MemberId);
                 }
                 else
                 {
-                    // Clear check-out panel
-                    lbl_name_out.Text = "No recent check-outs";
-                    lbl_action_out.Text = "Action: --";
-                    lbl_time_out.Text = "Time: --";
+                    lbl_name_out.Text      = "No recent check-outs";
+                    lbl_action_out.Text    = "Action: --";
+                    lbl_time_out.Text      = "Time: --";
                     lbl_enroll_no_out.Text = "Enroll ID: --";
-                    pictureBox3.Image = null;
+                    pictureBox3.Image      = null;
                 }
             }
             catch (Exception ex)
@@ -1303,54 +1305,52 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void LoadMemberImage(PictureBox pictureBox, string imagePath, int memberId)
+        private async Task LoadMemberImageAsync(PictureBox pictureBox, string imagePath, int memberId)
         {
             try
             {
+                Image newImage = null;
+
                 if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
                 {
-                    // Load image from file
-                    using (var fs = new FileStream(imagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    int maxWidth  = pictureBox.Width;
+                    int maxHeight = pictureBox.Height;
+
+                    // Read file bytes and resize entirely off the UI thread
+                    newImage = await Task.Run(() =>
                     {
-                        Image image = Image.FromStream(fs);
-
-                        // Check if the image is too large
-                        int maxWidth = pictureBox.Width;
-                        int maxHeight = pictureBox.Height;
-
-                        if (image.Width > maxWidth || image.Height > maxHeight)
+                        byte[] bytes = File.ReadAllBytes(imagePath);
+                        using (var ms = new MemoryStream(bytes))
                         {
-                            // Calculate the new dimensions while maintaining aspect ratio
-                            double widthRatio = (double)maxWidth / image.Width;
-                            double heightRatio = (double)maxHeight / image.Height;
-                            double ratio = Math.Min(widthRatio, heightRatio);
+                            // new Bitmap() copies pixel data so the stream can be closed safely
+                            Image img = new Bitmap(ms);
 
-                            int newWidth = (int)(image.Width * ratio);
-                            int newHeight = (int)(image.Height * ratio);
+                            if (img.Width <= maxWidth && img.Height <= maxHeight)
+                                return img;
 
-                            // Create a resized copy of the image
-                            Bitmap resizedImage = new Bitmap(newWidth, newHeight);
-                            using (Graphics g = Graphics.FromImage(resizedImage))
+                            double ratio    = Math.Min((double)maxWidth / img.Width, (double)maxHeight / img.Height);
+                            int newWidth    = (int)(img.Width  * ratio);
+                            int newHeight   = (int)(img.Height * ratio);
+
+                            Bitmap resized = new Bitmap(newWidth, newHeight);
+                            using (Graphics g = Graphics.FromImage(resized))
                             {
                                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                                g.DrawImage(image, 0, 0, newWidth, newHeight);
+                                g.DrawImage(img, 0, 0, newWidth, newHeight);
                             }
+                            img.Dispose();
+                            return (Image)resized;
+                        }
+                    });
+                }
 
-                            // Dispose of the original image and use the resized image
-                            image.Dispose();
-                            pictureBox.Image = resizedImage;
-                        }
-                        else
-                        {
-                            pictureBox.Image = new Bitmap(image);
-                        }
-                    }
-                }
+                // Assign on UI thread — dispose old image to prevent GDI leaks
+                var old = pictureBox.Image;
+                if (newImage != null)
+                    pictureBox.Image = newImage;
                 else
-                {
-                    // Create default placeholder image
                     CreateDefaultMemberImage(pictureBox, memberId);
-                }
+                old?.Dispose();
             }
             catch (Exception ex)
             {
@@ -1708,67 +1708,67 @@ namespace smart_attendance_middleware
                 // --- INTEGRATED CONTINUOUS DEVICE MONITORING ---
                 if (allDevices.Count > 0)
                 {
+                    _deviceMonitorCts = new CancellationTokenSource();
+                    var token = _deviceMonitorCts.Token;
+
                     Task.Run(async () =>
                     {
-                        // Initial delay before first check
-                        await Task.Delay(2000);
-
-                        while (!dataPairPanel1.IsDisposed)
+                        try
                         {
-                            try
+                            await Task.Delay(2000, token);
+
+                            while (!token.IsCancellationRequested && !dataPairPanel1.IsDisposed)
                             {
-                                // Run pings for all devices in parallel and collect results
-                                var pingTasks = allDevices.Select(async (device, index) =>
+                                try
                                 {
-                                    string finalStatus = await CommonUtils.PingDeviceWithStatusAsync(
-                                        device.DeviceIP,
-                                        status => {
-                                            // Callback to show "RETRYING" (Orange) immediately on first failure
-                                            if (!dataPairPanel1.IsDisposed)
-                                                dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, status)));
-                                        }
-                                    );
-
-                                    if (!dataPairPanel1.IsDisposed)
-                                        dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, finalStatus)));
-
-                                    return finalStatus;
-                                }).ToList();
-
-                                string[] results = await Task.WhenAll(pingTasks);
-
-                                // Dynamically update the connected devices count based on pings
-                                int onlineCount = results.Count(s => s == "ONLINE");
-
-                                if (!dataPairPanel1.IsDisposed)
-                                {
-                                    dataPairPanel1.BeginInvoke(new Action(() =>
+                                    var pingTasks = allDevices.Select(async (device, index) =>
                                     {
-                                        // Update the numeric label
-                                        if (lbl_connecteddevice != null)
-                                        {
-                                            lbl_connecteddevice.Text = onlineCount.ToString();
-                                        }
+                                        string finalStatus = await CommonUtils.PingDeviceWithStatusAsync(
+                                            device.DeviceIP,
+                                            status =>
+                                            {
+                                                if (!token.IsCancellationRequested && !dataPairPanel1.IsDisposed)
+                                                    dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, status)));
+                                            }
+                                        );
 
-                                        // Update the status icon: connected if at least one is online
-                                        if (pic_device_status != null)
+                                        if (!token.IsCancellationRequested && !dataPairPanel1.IsDisposed)
+                                            dataPairPanel1.BeginInvoke(new Action(() => dataPairPanel1.UpdateItemStatus(index, finalStatus)));
+
+                                        return finalStatus;
+                                    }).ToList();
+
+                                    string[] results = await Task.WhenAll(pingTasks);
+
+                                    int onlineCount = results.Count(s => s == "ONLINE");
+
+                                    if (!token.IsCancellationRequested && !dataPairPanel1.IsDisposed)
+                                    {
+                                        dataPairPanel1.BeginInvoke(new Action(() =>
                                         {
-                                            pic_device_status.Image = (onlineCount > 0)
-                                                ? Properties.Resources.device_connected
-                                                : Properties.Resources.device_disconnected;
-                                        }
-                                    }));
+                                            if (lbl_connecteddevice != null)
+                                                lbl_connecteddevice.Text = onlineCount.ToString();
+
+                                            if (pic_device_status != null)
+                                                pic_device_status.Image = (onlineCount > 0)
+                                                    ? Properties.Resources.device_connected
+                                                    : Properties.Resources.device_disconnected;
+                                        }));
+                                    }
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                LogHelper.Log($"[Dashboard][Monitoring] Error in status loop: {ex.Message}");
-                            }
+                                catch (Exception ex)
+                                {
+                                    LogHelper.Log($"[Dashboard][Monitoring] Error in status loop: {ex.Message}");
+                                }
 
-                            // Wait for 1 minute before the next sweep
-                            await Task.Delay(60000);
+                                await Task.Delay(60000, token);
+                            }
                         }
-                    });
+                        catch (OperationCanceledException)
+                        {
+                            // Normal shutdown — form is closing
+                        }
+                    }, token);
                 }
             }
             catch (Exception ex)
