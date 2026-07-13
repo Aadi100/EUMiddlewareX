@@ -41,6 +41,8 @@ namespace smart_attendance_middleware
             new ConcurrentDictionary<string, TaskCompletionSource<string>>();
 
         private int _connectedDeviceCount = 0;
+        private readonly ConcurrentDictionary<string, (string Ip, DateTime ConnectedAt)> _connectedDeviceInfo =
+            new ConcurrentDictionary<string, (string Ip, DateTime ConnectedAt)>();
 
         // ── Session-scoped file loggers ───────────────────────────────────────
         private static readonly string ServerLogsDir =
@@ -165,6 +167,9 @@ namespace smart_attendance_middleware
 
             // 1. Perform Network Scan
             await ScanForDevicesAsync();
+
+            // 1b. Directly ping every known device and connect if reachable
+            await PingAndConnectKnownDevicesAsync();
 
             // 2. Start WebSocket Server
             StartServer();
@@ -328,9 +333,6 @@ namespace smart_attendance_middleware
         {
             WebSocketContext wsContext = null;
             WebSocket socket = null;
-            string currentSn = null;
-            // Buffer for individual chunks
-            byte[] buffer = new byte[1024 * 64];
             CancellationTokenSource connectionCts = CancellationTokenSource.CreateLinkedTokenSource(_formCts.Token);
 
             try
@@ -344,8 +346,41 @@ namespace smart_attendance_middleware
                 LogToUI($"WebSocket Acceptance Error: {ex.Message}");
                 context.Response.StatusCode = 500;
                 context.Response.Close();
+                connectionCts.Dispose();
                 return;
             }
+
+            string remoteIp = context.Request.RemoteEndPoint?.Address?.ToString();
+            await HandleDeviceMessagesAsync(socket, null, remoteIp, connectionCts);
+        }
+
+        private void RegisterDevice(string sn, WebSocket socket, string ip)
+        {
+            AppSession.RegisteredDevices[sn] = socket;
+            _connectedDeviceInfo[sn] = (ip, DateTime.Now);
+            Interlocked.Increment(ref _connectedDeviceCount);
+            LogToUI($"[REG] Device {sn} registered.");
+            UpdateStatus($"Status: Device {sn} Connected");
+            NotifyConnectionChanged();
+            if (!cmb_deviceSn.Items.Contains(sn))
+                cmb_deviceSn.Invoke((System.Windows.Forms.MethodInvoker)(() =>
+                {
+                    if (!cmb_deviceSn.Items.Contains(sn)) cmb_deviceSn.Items.Add(sn);
+                    if (cmb_deviceSn.SelectedIndex < 0) cmb_deviceSn.SelectedIndex = 0;
+                }));
+        }
+
+        /// <summary>
+        /// Shared receive loop for both inbound (device-initiated) and outbound (self-initiated)
+        /// WebSocket connections. When knownSn is null, registration happens once the device sends
+        /// cmd:"reg". When knownSn is supplied (outbound connection where we already sent cmd:"reg"),
+        /// registration happens once the device acknowledges with ret:"reg".
+        /// </summary>
+        private async Task HandleDeviceMessagesAsync(WebSocket socket, string knownSn, string remoteIp, CancellationTokenSource connectionCts)
+        {
+            string currentSn = knownSn;
+            bool awaitingInitialAck = !string.IsNullOrEmpty(knownSn);
+            byte[] buffer = new byte[1024 * 64];
 
             try
             {
@@ -361,14 +396,17 @@ namespace smart_attendance_middleware
                         {
                             using (var idleCts = CancellationTokenSource.CreateLinkedTokenSource(connectionCts.Token))
                             {
-                                idleCts.CancelAfter(TimeSpan.FromMinutes(15));
+                                idleCts.CancelAfter(awaitingInitialAck ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(15));
                                 try
                                 {
                                     result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), idleCts.Token);
                                 }
                                 catch (OperationCanceledException) when (!connectionCts.Token.IsCancellationRequested)
                                 {
-                                    LogToUI($"[Idle] {currentSn ?? "Unknown"} idle >5 min, closing to force reconnect.");
+                                    if (awaitingInitialAck)
+                                        LogToUI($"[AUTO-CONNECT] {currentSn ?? "Unknown"} did not acknowledge registration within 10s, giving up.");
+                                    else
+                                        LogToUI($"[Idle] {currentSn ?? "Unknown"} idle >5 min, closing to force reconnect.");
                                     if (socket.State == WebSocketState.Open)
                                         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Idle timeout", connectionCts.Token);
                                     return;
@@ -419,13 +457,9 @@ namespace smart_attendance_middleware
                     string ret = doc["ret"]?.ToString()?.ToLower();
                     string effectiveCmd = cmd ?? ret;
 
-                    // 2. Logging logic with truncation for UI safety
+                    // 2. Logging
                     LogType messageType = (effectiveCmd == "sendlog") ? LogType.Attendance : LogType.Incoming;
-                    string displayData = jsonIncoming.Length > 2000
-                        ? jsonIncoming.Substring(0, 2000) + "... [TRUNCATED LARGE DATA]"
-                        : jsonIncoming;
-
-                    LogToUI($"[INCOMING] Raw Data: {displayData}", messageType);
+                    LogToUI($"[INCOMING] Raw Data: {jsonIncoming}", messageType);
 
                     // 3. Routing
                     if (string.Equals(cmd, "reg", StringComparison.OrdinalIgnoreCase))
@@ -446,31 +480,37 @@ namespace smart_attendance_middleware
                         }
 
                         currentSn = sn;
-                        AppSession.RegisteredDevices[sn] = socket;
+                        awaitingInitialAck = false;
                         _deviceStates[sn] = doc;
-
-                        Interlocked.Increment(ref _connectedDeviceCount);
-                        LogToUI($"[REG] Device {sn} registered.");
-                        UpdateStatus($"Status: Device {sn} Connected");
-                        NotifyConnectionChanged();
-                        if (!cmb_deviceSn.Items.Contains(sn))
-                            cmb_deviceSn.Invoke((System.Windows.Forms.MethodInvoker)(() =>
-                            {
-                                if (!cmb_deviceSn.Items.Contains(sn)) cmb_deviceSn.Items.Add(sn);
-                                if (cmb_deviceSn.SelectedIndex < 0) cmb_deviceSn.SelectedIndex = 0;
-                            }));
+                        RegisterDevice(sn, socket, remoteIp);
 
                         var response = new { ret = "reg", result = true, cloudtime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") };
                         await SendToSocket(socket, response, connectionCts.Token);
                     }
+                    else if (awaitingInitialAck && !string.IsNullOrEmpty(currentSn) &&
+                             string.Equals(ret, "reg", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Ack for a connection we initiated ourselves (outbound auto-connect)
+                        bool ok = doc["result"]?.Value<bool>() ?? true;
+                        awaitingInitialAck = false;
+                        if (ok)
+                        {
+                            RegisterDevice(currentSn, socket, remoteIp);
+                        }
+                        else
+                        {
+                            LogToUI($"[REG-FAIL] Device {currentSn} rejected registration: {doc["reason"]}");
+                            break;
+                        }
+                    }
                     else if (string.Equals(cmd, "sendlog", StringComparison.OrdinalIgnoreCase))
                     {
-                        string sn = doc["sn"]?.ToString();
+                        string sn = doc["sn"]?.ToString() ?? currentSn;
                         int logCount = doc["count"]?.Value<int>() ?? 0;
                         var device = _dbDevices.FirstOrDefault(d => string.Equals(d.DeviceSerial, sn, StringComparison.OrdinalIgnoreCase));
 
                         int devId = device?.DeviceId ?? 0;
-                        string devIp = device?.DeviceIP ?? "Unknown IP";
+                        string devIp = device?.DeviceIP ?? remoteIp ?? "Unknown IP";
 
                         if (doc["record"] is JArray records)
                         {
@@ -479,10 +519,12 @@ namespace smart_attendance_middleware
                                 int enroll = rec["enrollid"]?.Value<int>() ?? 0;
                                 string name = rec["name"]?.ToString();
                                 string timeStr = rec["time"]?.ToString();
+                                string image = rec["image"]?.ToString();
                                 DateTime.TryParse(timeStr, out DateTime eventTime);
 
-                                LogToUI($"[ATTENDANCE] DevID: {devId} | IP: {devIp} | EnrollID: {enroll} | Name: {name} | Time: {timeStr}", LogType.Attendance);
-                                ForwardAttendanceData(devId, devIp, enroll, eventTime);
+                                string imageLabel = string.IsNullOrEmpty(image) ? "none" : "present";
+                                LogToUI($"[ATTENDANCE] DevID: {devId} | IP: {devIp} | EnrollID: {enroll} | Name: {name} | Time: {timeStr} | Image: {imageLabel}", LogType.Attendance);
+                                ForwardAttendanceData(devId, devIp, enroll, eventTime, name, image);
                             }
                         }
 
@@ -492,7 +534,7 @@ namespace smart_attendance_middleware
                     else
                     {
                         // 4. Handle Responses to Getters/Commands
-                        string snRes = doc["sn"]?.ToString();
+                        string snRes = doc["sn"]?.ToString() ?? currentSn;
                         if (!string.IsNullOrEmpty(ret) && !string.IsNullOrEmpty(snRes))
                         {
                             if (ret == "getalllog")
@@ -525,9 +567,9 @@ namespace smart_attendance_middleware
             finally
             {
                 connectionCts.Cancel();
-                if (!string.IsNullOrEmpty(currentSn))
+                if (!string.IsNullOrEmpty(currentSn) && AppSession.RegisteredDevices.TryRemove(currentSn, out _))
                 {
-                    AppSession.RegisteredDevices.TryRemove(currentSn, out _);
+                    _connectedDeviceInfo.TryRemove(currentSn, out _);
                     Interlocked.Decrement(ref _connectedDeviceCount);
                     NotifyConnectionChanged();
 
@@ -622,6 +664,43 @@ namespace smart_attendance_middleware
         private void NotifyConnectionChanged()
         {
             WebsocketServerThreadManager.NotifyDeviceConnectionChanged(_connectedDeviceCount, _dbDevices.Count);
+            RefreshConnectedDevicesList();
+        }
+
+        private void RefreshConnectedDevicesList()
+        {
+            if (IsDisposed) return;
+            if (InvokeRequired)
+            {
+                BeginInvoke((MethodInvoker)delegate { RefreshConnectedDevicesList(); });
+                return;
+            }
+
+            lvConnectedDevices.BeginUpdate();
+            lvConnectedDevices.Items.Clear();
+
+            foreach (var device in _dbDevices)
+            {
+                if (string.IsNullOrEmpty(device.DeviceSerial)) continue;
+
+                bool online = AppSession.RegisteredDevices.ContainsKey(device.DeviceSerial);
+                string ip = device.DeviceIP ?? "-";
+                string connectedSince = "-";
+
+                if (online && _connectedDeviceInfo.TryGetValue(device.DeviceSerial, out var info))
+                {
+                    if (!string.IsNullOrEmpty(info.Ip)) ip = info.Ip;
+                    connectedSince = info.ConnectedAt.ToString("yyyy-MM-dd HH:mm:ss");
+                }
+
+                var item = new ListViewItem(new[] { device.DeviceSerial, ip, online ? "Online" : "Offline", connectedSince })
+                {
+                    ForeColor = online ? System.Drawing.Color.DarkGreen : System.Drawing.Color.Gray
+                };
+                lvConnectedDevices.Items.Add(item);
+            }
+
+            lvConnectedDevices.EndUpdate();
         }
 
         private void StopServer()
@@ -689,27 +768,74 @@ namespace smart_attendance_middleware
             catch { return null; }
         }
 
+        /// <summary>
+        /// Pings every device known to the DB directly (independent of local subnet detection),
+        /// and for any that respond and have port 7788 open, initiates an outbound connection
+        /// and registers it — without relying on the device connecting to us first.
+        /// </summary>
+        private async Task PingAndConnectKnownDevicesAsync()
+        {
+            var candidates = _dbDevices
+                .Where(d => !string.IsNullOrWhiteSpace(d.DeviceIP) && !string.IsNullOrWhiteSpace(d.DeviceSerial))
+                .ToList();
+
+            if (candidates.Count == 0) return;
+
+            LogToUI("--- PINGING KNOWN DEVICES ---");
+
+            var tasks = candidates.Select(async device =>
+            {
+                if (AppSession.RegisteredDevices.ContainsKey(device.DeviceSerial)) return;
+
+                var reply = await SendPingAsync(device.DeviceIP);
+                if (reply == null || reply.Status != IPStatus.Success)
+                {
+                    LogToUI($"[PING] {device.DeviceSerial} ({device.DeviceIP}) unreachable.");
+                    return;
+                }
+
+                bool isOpen = await Task.Run(() => IsPortOpen(device.DeviceIP, 7788, 1500));
+                if (!isOpen)
+                {
+                    LogToUI($"[PING OK] {device.DeviceSerial} ({device.DeviceIP}) reachable but port 7788 closed.");
+                    return;
+                }
+
+                LogToUI($"[PING OK] {device.DeviceSerial} ({device.DeviceIP}) reachable, connecting...");
+                await ConnectToDeviceAndRegister(device.DeviceIP, device.DeviceSerial);
+            });
+
+            await Task.WhenAll(tasks);
+            LogToUI("--- PING KNOWN DEVICES COMPLETE ---");
+        }
+
         private async Task ConnectToDeviceAndRegister(string ip, string serialNumber)
         {
+            if (AppSession.RegisteredDevices.ContainsKey(serialNumber)) return;
+
             var uri = new Uri($"ws://{ip}:7788/pub/chat");
-            using (ClientWebSocket socket = new ClientWebSocket())
+            var socket = new ClientWebSocket();
+            var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(_formCts.Token);
+
+            try
             {
-                try
+                using (var connectCts = CancellationTokenSource.CreateLinkedTokenSource(_formCts.Token))
                 {
-                    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
-                        await socket.ConnectAsync(uri, cts.Token);
-
-                    var regMessage = new { cmd = "reg", sn = serialNumber };
-                    await SendToSocket(socket, regMessage, CancellationToken.None);
-
-                    byte[] buffer = new byte[1024 * 8];
-                    while (socket.State == WebSocketState.Open && !_formCts.IsCancellationRequested)
-                    {
-                        var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), _formCts.Token);
-                        if (result.MessageType == WebSocketMessageType.Close) break;
-                    }
+                    connectCts.CancelAfter(TimeSpan.FromSeconds(10));
+                    await socket.ConnectAsync(uri, connectCts.Token);
                 }
-                catch { }
+
+                LogToUI($"[AUTO-CONNECT] Connected to {serialNumber} ({ip}), sending registration...");
+                var regMessage = new { cmd = "reg", sn = serialNumber };
+                await SendToSocket(socket, regMessage, connectionCts.Token);
+
+                await HandleDeviceMessagesAsync(socket, serialNumber, ip, connectionCts);
+            }
+            catch (Exception ex)
+            {
+                LogToUI($"[AUTO-CONNECT-ERR] {serialNumber} ({ip}): {ex.Message}");
+                socket.Dispose();
+                connectionCts.Dispose();
             }
         }
 
@@ -722,23 +848,7 @@ namespace smart_attendance_middleware
             {
                 try
                 {
-                    var unconnected = _dbDevices
-                        .Where(d => !string.IsNullOrEmpty(d.DeviceSerial)
-                                 && !string.IsNullOrEmpty(d.DeviceIP)
-                                 && !AppSession.RegisteredDevices.ContainsKey(d.DeviceSerial))
-                        .ToList();
-
-                    foreach (var device in unconnected)
-                    {
-                        if (token.IsCancellationRequested) break;
-
-                        bool isOpen = await Task.Run(() => IsPortOpen(device.DeviceIP, 7788, 1500)).ConfigureAwait(false);
-                        if (isOpen)
-                        {
-                            LogToUI($"[Retry] Device {device.DeviceSerial} ({device.DeviceIP}) is online but not connected. Reconnecting...");
-                            _ = Task.Run(() => ConnectToDeviceAndRegister(device.DeviceIP, device.DeviceSerial));
-                        }
-                    }
+                    await PingAndConnectKnownDevicesAsync();
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
@@ -983,6 +1093,39 @@ namespace smart_attendance_middleware
 
                 if (!string.IsNullOrEmpty(jsonToDevice))
                 {
+                    // Correlate against the device's actual acknowledgment rather than just the socket write.
+                    // The ack's "ret" comes from the "cmd" embedded in the outgoing payload — not necessarily
+                    // methodName (e.g. setrfid/setfingerprint/setface all send cmd="setuserinfo",
+                    // and set_enable/set_disable send cmd="enableuser").
+                    string ackCmd = null;
+                    int? ackEnrollId = null;
+                    try
+                    {
+                        var toDeviceObj = JObject.Parse(jsonToDevice);
+                        ackCmd = toDeviceObj["cmd"]?.ToString()?.ToLower();
+                        ackEnrollId = toDeviceObj["enrollid"]?.Value<int?>();
+                    }
+                    catch { /* fall through to send-only below */ }
+
+                    if (!string.IsNullOrEmpty(ackCmd))
+                    {
+                        var ack = await SendCommandAndAwaitResultAsync(sn, ackCmd, ackEnrollId, jsonToDevice);
+                        if (ack == null)
+                        {
+                            // Send failed, device offline, or no acknowledgment within the timeout.
+                            Instance.LogToUI($"[CMD-NOACK] {methodName} for {sn}: no acknowledgment received.");
+                            return false;
+                        }
+
+                        bool ackResult = ack["result"]?.Value<bool>() ?? false;
+                        if (!ackResult)
+                        {
+                            Instance.LogToUI($"[CMD-REJECTED] {methodName} for {sn}: reason={ack["reason"]} msg={ack["msg"]}");
+                        }
+                        return ackResult;
+                    }
+
+                    // No "cmd" could be determined (e.g. raw passthrough) — best-effort send-only.
                     return await Instance.SendJsonToDevice(sn, jsonToDevice);
                 }
             }
@@ -993,7 +1136,46 @@ namespace smart_attendance_middleware
             return false;
         }
 
-        private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time)
+        /// <summary>
+        /// Sends a command to the device and awaits its correlated acknowledgment (by "ret" + enrollid),
+        /// using the same _pendingResponses mechanism ExecuteServiceGetCommand uses for getters.
+        /// Returns the parsed ack JObject, or null if the send failed or no ack arrived within the timeout.
+        /// </summary>
+        private static async Task<JObject> SendCommandAndAwaitResultAsync(string sn, string ackCmd, int? enrollId, string jsonToDevice, int timeoutMs = 15000)
+        {
+            if (Instance == null || string.IsNullOrEmpty(jsonToDevice)) return null;
+
+            string baseKey = $"{sn}|{ackCmd}";
+            string specificKey = enrollId.HasValue ? $"{baseKey}|{enrollId.Value}" : null;
+
+            var tcs = new TaskCompletionSource<string>();
+            Instance._pendingResponses[baseKey] = tcs;
+            if (specificKey != null) Instance._pendingResponses[specificKey] = tcs;
+
+            try
+            {
+                bool sent = await Instance.SendJsonToDevice(sn, jsonToDevice);
+                if (!sent) return null;
+
+                var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
+                if (completedTask != tcs.Task)
+                {
+                    Instance.LogToUI($"[CMD-TIMEOUT] {ackCmd} for {sn}");
+                    return null;
+                }
+
+                string raw = await tcs.Task;
+                try { return JObject.Parse(raw); }
+                catch { return null; }
+            }
+            finally
+            {
+                Instance._pendingResponses.TryRemove(baseKey, out _);
+                if (specificKey != null) Instance._pendingResponses.TryRemove(specificKey, out _);
+            }
+        }
+
+        private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time, string name = null, string image = null)
         {
             // Normalize IP (strip port if present)
             string ipOnly = ip ?? string.Empty;
@@ -1004,8 +1186,15 @@ namespace smart_attendance_middleware
             {
                 // Look up device category from in-memory session
                 bool exists = AppSession.DeviceCategoryMap.TryGetValue(ipOnly, out var category);
-                
-                if (exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase))
+                bool isStaffDevice = exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase);
+
+                //// Unknown visitor (99999999) or staff enrollment ID — only from member devices
+                //if (!isStaffDevice && (enroll == 99999999 || AppSession.StaffEnrollmentIds.Contains(enroll.ToString())))
+                //{
+                //    _attendanceFunctions.HandleUnknownOrStaffScan(enroll, name, image, ip, time);
+                //}
+
+                if (isStaffDevice)
                 {
                     var srec = new StaffAttendenceServerFunctions.StaffAttendanceRecord
                     {

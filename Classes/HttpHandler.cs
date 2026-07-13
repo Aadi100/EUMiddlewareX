@@ -32,13 +32,13 @@ namespace smart_attendance_middleware
         {
             _dbHelper = dbHelper ?? throw new ArgumentNullException(nameof(dbHelper));
             _processor = processor ?? throw new ArgumentNullException(nameof(processor));
-            _client = new HttpClient();
+            _client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         }
 
         public HttpHandler(DatabaseHelper dbHelper)
         {
             _dbHelper = dbHelper ?? throw new ArgumentNullException(nameof(dbHelper));
-            _client = new HttpClient();
+            _client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         }
 
         private void SetBearerAuthorization()

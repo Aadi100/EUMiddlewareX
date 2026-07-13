@@ -734,61 +734,7 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt'
             return DecryptSetting(GetSetting(key));
         }
 
-        //Default developer user creation with hashed password and backup code
-        private void DefaultDevUser(SqlConnection connection)
-        {
-            using (var transaction = connection.BeginTransaction())
-            {
-                try
-                {
-                    using (var checkCommand = new SqlCommand("SELECT COUNT(*) FROM LocalUsers WHERE UserName = @user", connection, transaction))
-                    {
-                        checkCommand.Parameters.AddWithValue("@user", "Dev");
-                        var result = checkCommand.ExecuteScalar();
-                        int count = (result == null || result == DBNull.Value) ? 0 : Convert.ToInt32(result);
-
-                        if (count == 0)
-                        {
-                            const string defaultUser = "Dev";
-                            const string defaultPassword = "DevCoder@123";
-                            const string defaultRole = "developer";
-                            const string plainBackupCode = "BackupDatabase@26";
-
-                            string hashedPasswordBase64 = Convert.ToBase64String(HashString(defaultPassword));
-                            string hashedBackupBase64 = Convert.ToBase64String(HashString(plainBackupCode));
-                            string ts = GetTimestamp();
-
-                            using (var insertCommand = new SqlCommand(@"
-INSERT INTO LocalUsers (UserName, Role, Password, BackupCode, CreatedAt, UpdatedAt)
-VALUES (@UserName, @Role, @Password, @BackupCode, @CreatedAt, @UpdatedAt);", connection, transaction))
-                            {
-                                insertCommand.Parameters.AddWithValue("@UserName", defaultUser);
-                                insertCommand.Parameters.AddWithValue("@Role", defaultRole);
-                                insertCommand.Parameters.AddWithValue("@Password", hashedPasswordBase64);
-                                insertCommand.Parameters.AddWithValue("@BackupCode", hashedBackupBase64);
-                                insertCommand.Parameters.AddWithValue("@CreatedAt", ts);
-                                insertCommand.Parameters.AddWithValue("@UpdatedAt", ts);
-
-                                insertCommand.ExecuteNonQuery();
-                            }
-
-                            transaction.Commit();
-                            Console.WriteLine($"Default developer user '{defaultUser}' created. Backup code: {plainBackupCode}");
-                        }
-                        else
-                        {
-                            transaction.Rollback();
-                        }
-                    }
-                }
-                catch (SqlException ex)
-                {
-                    try { transaction.Rollback(); } catch { /* ignore rollback errors */ }
-                    Console.WriteLine($"Error creating default developer user: {ex.Message}");
-                    throw;
-                }
-            }
-        }
+       
 
         //Add a new user to the LocalUsers table
         public bool AddUser(string userName, string role, string password, out string plainBackupCode)

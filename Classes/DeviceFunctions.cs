@@ -20,6 +20,7 @@ namespace smart_attendance_middleware.Classes
 
         private static readonly object _pendingJobLock = new object();
         private volatile bool _workflowRunning = false;
+        private volatile bool _workflowRerunRequested = false;
 
         public class PendingJob
         {
@@ -614,8 +615,12 @@ namespace smart_attendance_middleware.Classes
         {
             if (_workflowRunning)
             {
-                LogHelper.Log("⚠️ ProcessUserWorkflowAsync already running. Skipping concurrent trigger.");
-                aiChatLogger.AddInfoMessage("Workflow already in progress. Skipped.");
+                // Don't drop this request on the floor — a concurrent trigger may carry
+                // work (e.g. a brand-new fingerprint) that the in-flight run already
+                // passed over. Flag a rerun so it executes right after the current one finishes.
+                LogHelper.Log("⚠️ ProcessUserWorkflowAsync already running. Queuing a rerun after it completes.");
+                aiChatLogger.AddInfoMessage("Workflow already in progress. Queued for rerun.");
+                _workflowRerunRequested = true;
                 return;
             }
 
@@ -701,6 +706,15 @@ namespace smart_attendance_middleware.Classes
                     LogHelper.Log("Triggering post-workflow device sync status update...");
                     await ServiceManager.PeriodicMaintenanceService.ExecuteFetchDeviceSyncStatusAsync();
                 }
+            }
+
+            // A trigger arrived while we were running and was queued instead of skipped.
+            // Run it now so any work it carried (e.g. a newly added fingerprint) isn't lost.
+            if (_workflowRerunRequested)
+            {
+                _workflowRerunRequested = false;
+                LogHelper.Log("🔁 Running queued ProcessUserWorkflowAsync rerun...");
+                await ProcessUserWorkflowAsync();
             }
         }
 

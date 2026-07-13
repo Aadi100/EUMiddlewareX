@@ -35,8 +35,9 @@
             this.pic_device_status = new System.Windows.Forms.PictureBox();
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
-            this.button1 = new System.Windows.Forms.Button();
             this.lbl_version = new System.Windows.Forms.Label();
+            this.button2 = new System.Windows.Forms.Button();
+            this.button1 = new System.Windows.Forms.Button();
             this.process1 = new System.Diagnostics.Process();
             this.cuiPanel2 = new CuoreUI.Controls.cuiPanel();
             this.label6 = new System.Windows.Forms.Label();
@@ -83,7 +84,6 @@
             this.prg_server = new System.Windows.Forms.ProgressBar();
             this.panel2 = new System.Windows.Forms.Panel();
             this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
-            this.button2 = new System.Windows.Forms.Button();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pic_cloud_status)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pic_net_status)).BeginInit();
@@ -168,8 +168,6 @@
             // panel4
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.panel4.Controls.Add(this.button2);
-            this.panel4.Controls.Add(this.button1);
             this.panel4.Controls.Add(this.lbl_version);
             this.panel4.Controls.Add(this.label8);
             this.panel4.Controls.Add(this.panel1);
@@ -179,16 +177,6 @@
             this.panel4.TabIndex = 45;
             this.panel4.Paint += new System.Windows.Forms.PaintEventHandler(this.panel4_Paint);
             // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(926, 39);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 45;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
-            // 
             // lbl_version
             // 
             this.lbl_version.AutoSize = true;
@@ -197,7 +185,27 @@
             this.lbl_version.Name = "lbl_version";
             this.lbl_version.Size = new System.Drawing.Size(31, 13);
             this.lbl_version.TabIndex = 44;
-            this.lbl_version.Text = "2.1.1";
+            this.lbl_version.Text = "3.1.0";
+            // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(1325, 124);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(75, 23);
+            this.button2.TabIndex = 46;
+            this.button2.Text = "button2";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click);
+            // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(1325, 61);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 45;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
             // process1
             // 
@@ -898,29 +906,22 @@
             this.rectangularLoader1.Text = "rectangularLoader1";
             this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
             // 
-            // button2
-            // 
-            this.button2.Location = new System.Drawing.Point(1027, 39);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(75, 23);
-            this.button2.TabIndex = 46;
-            this.button2.Text = "button2";
-            this.button2.UseVisualStyleBackColor = true;
-            this.button2.Click += new System.EventHandler(this.button2_Click);
-            // 
             // Dashboard
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1298, 686);
+            this.ClientSize = new System.Drawing.Size(1296, 686);
+            this.Controls.Add(this.button1);
+            this.Controls.Add(this.button2);
             this.Controls.Add(this.panel2);
             this.Controls.Add(this.panel4);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "Dashboard";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Dashboard";
             this.Load += new System.EventHandler(this.Dashboard_Load);
             this.panel1.ResumeLayout(false);

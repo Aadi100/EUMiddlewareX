@@ -27,6 +27,8 @@ namespace smart_attendance_middleware
             public string IP { get; set; }
             public int Enroll { get; set; }
             public DateTime Time { get; set; } // Device (source) timestamp
+            public string Name { get; set; }
+            public string Image { get; set; }
         }
 
         private sealed class StaffAttendanceEventResult

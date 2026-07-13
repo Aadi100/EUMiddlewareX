@@ -37,6 +37,8 @@ namespace smart_attendance_middleware
         private ListViewPagination _memberAttendancePagination;
         private ListViewPagination _staffAttendancePagination;
         private ListViewPagination _manualDoorPagination;
+        private ListViewPagination _pendingJobsPagination;
+        private ListViewPagination _staffPendingJobsPagination;
 
         // Cached full member item list — rebuilt only when source data changes
         private List<ListViewItem> _cachedMemberItems;
@@ -188,6 +190,9 @@ namespace smart_attendance_middleware
 
             foreach (var user in users)
             {
+                if (string.Equals(user.Role, "developer", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 ListViewItem item = new ListViewItem(user.LocalUserID.ToString());
                 item.SubItems.Add(user.UserName);
                 item.SubItems.Add(user.Role);
@@ -209,6 +214,8 @@ namespace smart_attendance_middleware
                 // Show welcome screen — no panel selected on open
                 HideAllPanels();
                 SetActiveButton(null);
+                SetHeader("Smart Access Manager", "Manage your biometric devices, users, staff, members, and system settings — all in one place.");
+                pnl_welcome_header.BringToFront();
                 pnl_welcome.Visible = true;
 
                 // Wire hover effects for welcome tiles
@@ -237,6 +244,8 @@ namespace smart_attendance_middleware
                 InitializeMembersListView();  // members list view setup
                 lst_members.ItemActivate += lst_members_ItemActivate;
 
+                InitializePendingJobsListView();
+
                 // Wire events
                 flt_members.Click += flt_members_Click;
                 txt_memb_name.TextChanged += txt_memb_name_TextChanged;
@@ -253,6 +262,8 @@ namespace smart_attendance_middleware
                 btn_filterattendencestaff.Click += btn_filterattendencestaff_Click;
                 txt_staffname.TextChanged += txt_staffname_TextChanged;
                 date_staffattendence.ValueChanged += date_staffattendence_ValueChanged;
+
+                InitializeStaffPendingJobsListView();
             }
             catch (Exception ex)
             {
@@ -263,7 +274,8 @@ namespace smart_attendance_middleware
                 // Ensure selection stays visible on all ListViews when focus moves away
                 foreach (var lv in new ListView[] {
                     listViewDevices, list_LocalUser, lst_members,
-                    lst_staffs, lst_member, lst_manualdoor, lst_staffattendence })
+                    lst_staffs, lst_member, lst_manualdoor, lst_staffattendence,
+                    lst_pendingjobs, lst_staffpendingjobs })
                 {
                     lv.HideSelection = false;
                 }
@@ -286,6 +298,8 @@ namespace smart_attendance_middleware
             _memberAttendancePagination?.Dispose();
             _staffAttendancePagination?.Dispose();
             _manualDoorPagination?.Dispose();
+            _pendingJobsPagination?.Dispose();
+            _staffPendingJobsPagination?.Dispose();
         }
 
         /// <summary>
@@ -324,6 +338,16 @@ namespace smart_attendance_middleware
                     {
                         RefreshUsersList();
                     }
+
+                    if (e.UpdateTypes.Contains(CacheUpdateType.PendingBiometricSync))
+                    {
+                        RefreshMemberPendingJobsList();
+                    }
+
+                    if (e.UpdateTypes.Contains(CacheUpdateType.StaffPendingBiometricSync))
+                    {
+                        RefreshStaffPendingJobsList();
+                    }
                 }
             }
             catch (Exception ex)
@@ -337,6 +361,8 @@ namespace smart_attendance_middleware
             RefreshMembersList();
             RefreshStaffList();
             RefreshUsersList();
+            RefreshMemberPendingJobsList();
+            RefreshStaffPendingJobsList();
         }
 
         private void RefreshMembersList()
@@ -391,12 +417,13 @@ namespace smart_attendance_middleware
 
         private void HideAllPanels()
         {
-            pnl_deviceManager.Visible  = false;
-            pnl_UserManagement.Visible = false;
+            pnl_deviceManager.Visible   = false;
+            pnl_UserManagement.Visible  = false;
             pnl_staffsManagment.Visible = false;
-            pnl_attendence.Visible     = false;
-            pnl_setup.Visible          = false;
-            pnl_welcome.Visible        = false;
+            pnl_attendence.Visible      = false;
+            pnl_setup.Visible           = false;
+            pnl_welcome.Visible         = false;
+            pnl_topnav.Visible          = false;
         }
 
         private void SetActiveButton(Label active)
@@ -437,10 +464,21 @@ namespace smart_attendance_middleware
         //////////////////////////////////WELCOME PANEL///////////////////////////////
         private void pictureBox1_Click(object sender, EventArgs e)
         {
+            if (pnl_welcome.Visible) return;
             HideAllPanels();
+            pnl_topnav.Visible = false;
             SetActiveButton(null);
+            SetActiveNavButton(null);
+            SetHeader("Smart Access Manager", "Manage your biometric devices, users, staff, members, and system settings — all in one place.");
             pnl_welcome.Visible = true;
             pnl_welcome.BringToFront();
+            pnl_welcome_header.BringToFront();
+        }
+
+        private void SetHeader(string title, string subtitle)
+        {
+            lbl_welcome_title.Text = title;
+            lbl_welcome_sub.Text   = subtitle;
         }
 
         //////////////////////////////////SIDE BUTTONS///////////////////////////////
@@ -452,9 +490,15 @@ namespace smart_attendance_middleware
                 return;
             }
 
+            if (pnl_deviceManager.Visible && pnl_deviceManager.Location == Point.Empty) return;
             HideAllPanels();
+            SetHeader("Device Management", "Add, edit and monitor biometric devices.");
+            pnl_topnav.Visible = true;
+            pnl_topnav.BringToFront();
+            pnl_welcome_header.BringToFront();
             SetActiveButton(btn_device_management);
-            pnl_deviceManager.Location = new Point(186, 0);
+            SetActiveNavButton(nav_device);
+            pnl_deviceManager.Location = new Point(0, 0);
             pnl_deviceManager.Visible  = true;
             ClearDeviceFields();
             listViewDevices.SelectedItems.Clear();
@@ -462,18 +506,30 @@ namespace smart_attendance_middleware
 
         private void btn_userManagement_Click(object sender, EventArgs e)
         {
+            if (pnl_UserManagement.Visible && pnl_UserManagement.Location == Point.Empty) return;
             HideAllPanels();
+            SetHeader("User Management", "Manage system users and their permissions.");
+            pnl_topnav.Visible = true;
+            pnl_topnav.BringToFront();
+            pnl_welcome_header.BringToFront();
             SetActiveButton(btn_userManagement);
-            pnl_UserManagement.Location = new Point(186, 0);
+            SetActiveNavButton(nav_user);
+            pnl_UserManagement.Location = new Point(0, 0);
             pnl_UserManagement.Visible  = true;
             LoadLocalUserData();
         }
 
         private async void btn_attendance_Click(object sender, EventArgs e)
         {
+            if (pnl_staffsManagment.Visible && pnl_staffsManagment.Location == Point.Empty) return;
             HideAllPanels();
+            SetHeader("Staff Management", "View and manage staff attendance.");
+            pnl_topnav.Visible = true;
+            pnl_topnav.BringToFront();
+            pnl_welcome_header.BringToFront();
             SetActiveButton(btn_staffmanagment);
-            pnl_staffsManagment.Location = new Point(186, 0);
+            SetActiveNavButton(nav_staff);
+            pnl_staffsManagment.Location = new Point(0, 0);
             pnl_staffsManagment.Visible  = true;
             Dashboard.GlobalStartLoader("Loading Staff Management...");
             await Task.Run(() => { }); // yield so loader renders before data load
@@ -482,9 +538,15 @@ namespace smart_attendance_middleware
 
         private async void btn_attendencemanagment_Click(object sender, EventArgs e)
         {
+            if (pnl_attendence.Visible && pnl_attendence.Location == Point.Empty) return;
             HideAllPanels();
+            SetHeader("Member Management", "Track member records and attendance logs.");
+            pnl_topnav.Visible = true;
+            pnl_topnav.BringToFront();
+            pnl_welcome_header.BringToFront();
             SetActiveButton(btn_attendencemanagment);
-            pnl_attendence.Location = new Point(186, 0);
+            SetActiveNavButton(nav_member);
+            pnl_attendence.Location = new Point(0, 0);
             pnl_attendence.Visible  = true;
             Dashboard.GlobalStartLoader("Loading Member Attendance...");
             await Task.Run(() => { }); // yield so loader renders before data load
@@ -501,9 +563,15 @@ namespace smart_attendance_middleware
                 return;
             }
 
+            if (pnl_setup.Visible && pnl_setup.Location == Point.Empty) return;
             HideAllPanels();
+            SetHeader("Setup Management", "Configure API keys, backups, and system settings.");
+            pnl_topnav.Visible = true;
+            pnl_topnav.BringToFront();
+            pnl_welcome_header.BringToFront();
             SetActiveButton(btn_setupmanage);
-            pnl_setup.Location = new Point(186, 0);
+            SetActiveNavButton(nav_setup);
+            pnl_setup.Location = new Point(0, 0);
             pnl_setup.Visible  = true;
         }
 
@@ -515,6 +583,32 @@ namespace smart_attendance_middleware
         private void btn_attendance_MouseLeave(object sender, EventArgs e)      => SidebarButton_MouseLeave(sender, e);
         private void btn_device_management_MouseHover(object sender, EventArgs e) => SidebarButton_MouseHover(sender, e);
         private void btn_device_management_MouseLeave(object sender, EventArgs e) => SidebarButton_MouseLeave(sender, e);
+
+        private void SetActiveNavButton(Label active)
+        {
+            foreach (var btn in new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup })
+            {
+                btn.BackColor = Color.Transparent;
+                btn.ForeColor = Color.White;
+            }
+            if (active != null)
+            {
+                active.BackColor = Color.WhiteSmoke;
+                active.ForeColor = Color.FromArgb(18, 23, 49);
+            }
+        }
+
+        private void NavBtn_MouseEnter(object sender, EventArgs e)
+        {
+            if (sender is Label btn && btn.BackColor != Color.WhiteSmoke)
+                btn.BackColor = SidebarHover;
+        }
+
+        private void NavBtn_MouseLeave(object sender, EventArgs e)
+        {
+            if (sender is Label btn && btn.BackColor != Color.WhiteSmoke)
+                btn.BackColor = Color.Transparent;
+        }
 
 
         // On selection of row send deviceId to LoadSelectedDeviceDetails
@@ -1634,6 +1728,180 @@ namespace smart_attendance_middleware
             if (!_isInitialized) return;
             var filter = txt_memb_name.Text?.Trim();
             LoadMembersIntoListView(string.IsNullOrEmpty(filter) ? null : filter);
+        }
+
+        /////////////////////////PENDING JOBS///////////////////////////////
+
+        // Same "Pending: N" figure shown on the Dashboard — driven by the Log/StaffLog tables,
+        // where a member/staff+device row has at least one biometric whose SyncStatus is still false.
+        // Data comes straight from AppSession (kept current by CacheManager); no manual refresh needed —
+        // OnCacheUpdated repaints these lists whenever CacheManager's periodic refresh picks up a change.
+        private void InitializePendingJobsListView()
+        {
+            lst_pendingjobs.Items.Clear();
+
+            if (lst_pendingjobs.Columns.Count == 0)
+            {
+                lst_pendingjobs.View = View.Details;
+                lst_pendingjobs.FullRowSelect = true;
+                lst_pendingjobs.GridLines = true;
+                lst_pendingjobs.Columns.Add("Member ID", 90);
+                lst_pendingjobs.Columns.Add("Name", 170);
+                lst_pendingjobs.Columns.Add("Enrollment No", 110);
+                lst_pendingjobs.Columns.Add("Device", 170);
+                lst_pendingjobs.Columns.Add("Pending For", 190);
+                lst_pendingjobs.Columns.Add("Since", 130);
+                lst_pendingjobs.Columns[lst_pendingjobs.Columns.Count - 1].Width = -2;
+            }
+
+            RefreshMemberPendingJobsList();
+        }
+
+        private void RefreshMemberPendingJobsList()
+        {
+            try
+            {
+                var unsyncedEntries = AppSession.PendingBiometricSyncLogs ?? new List<LogEntry>();
+
+                var membersById = (AppSession.AllMembers ?? new List<Member>())
+                    .GroupBy(m => m.MemberID)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var devicesById = (AppSession.DeviceList ?? new List<Device>())
+                    .GroupBy(d => d.DeviceId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var displayItems = new List<ListViewItem>(unsyncedEntries.Count);
+
+                foreach (var entry in unsyncedEntries)
+                {
+                    string name = membersById.TryGetValue(entry.MemberID, out var m) && !string.IsNullOrWhiteSpace(m.Name)
+                        ? m.Name : "-";
+
+                    string deviceName = devicesById.TryGetValue(entry.DeviceID, out var d)
+                        ? (!string.IsNullOrWhiteSpace(d.Location) ? d.Location
+                           : !string.IsNullOrWhiteSpace(d.DeviceSerial) ? d.DeviceSerial
+                           : $"Device {entry.DeviceID}")
+                        : $"Device {entry.DeviceID}";
+
+                    string pendingFor = entry.SyncStatus == null
+                        ? "-"
+                        : string.Join(", ", entry.SyncStatus.Where(kv => !kv.Value).Select(kv => kv.Key));
+                    if (string.IsNullOrEmpty(pendingFor)) continue; // nothing actually pending on this row
+
+                    var item = new ListViewItem(entry.MemberID.ToString());
+                    item.SubItems.Add(name);
+                    item.SubItems.Add(entry.EnrollmentID > 0 ? entry.EnrollmentID.ToString() : "-");
+                    item.SubItems.Add(deviceName);
+                    item.SubItems.Add(pendingFor);
+                    item.SubItems.Add(string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt);
+                    item.Tag = entry;
+                    displayItems.Add(item);
+                }
+
+                if (_pendingJobsPagination == null && lst_pendingjobs.Parent != null)
+                    _pendingJobsPagination = new ListViewPagination(lst_pendingjobs, lst_pendingjobs.Parent);
+
+                if (_pendingJobsPagination != null)
+                {
+                    _pendingJobsPagination.SetItems(displayItems);
+                }
+                else
+                {
+                    lst_pendingjobs.BeginUpdate();
+                    lst_pendingjobs.Items.Clear();
+                    lst_pendingjobs.Items.AddRange(displayItems.ToArray());
+                    lst_pendingjobs.EndUpdate();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[RefreshMemberPendingJobsList] Error: {ex.Message}");
+            }
+        }
+
+        private void InitializeStaffPendingJobsListView()
+        {
+            lst_staffpendingjobs.Items.Clear();
+
+            if (lst_staffpendingjobs.Columns.Count == 0)
+            {
+                lst_staffpendingjobs.View = View.Details;
+                lst_staffpendingjobs.FullRowSelect = true;
+                lst_staffpendingjobs.GridLines = true;
+                lst_staffpendingjobs.Columns.Add("Staff ID", 90);
+                lst_staffpendingjobs.Columns.Add("Name", 170);
+                lst_staffpendingjobs.Columns.Add("Enrollment No", 110);
+                lst_staffpendingjobs.Columns.Add("Device", 170);
+                lst_staffpendingjobs.Columns.Add("Pending For", 190);
+                lst_staffpendingjobs.Columns.Add("Since", 130);
+                lst_staffpendingjobs.Columns[lst_staffpendingjobs.Columns.Count - 1].Width = -2;
+            }
+
+            RefreshStaffPendingJobsList();
+        }
+
+        private void RefreshStaffPendingJobsList()
+        {
+            try
+            {
+                var unsyncedEntries = AppSession.StaffPendingBiometricSyncLogs ?? new List<StaffLogEntry>();
+
+                var staffById = (AppSession.AllStaff ?? new List<Staff>())
+                    .GroupBy(s => s.StaffID)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var devicesById = (AppSession.StaffDeviceList ?? new List<Device>())
+                    .GroupBy(d => d.StaffDeviceId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var displayItems = new List<ListViewItem>(unsyncedEntries.Count);
+
+                foreach (var entry in unsyncedEntries)
+                {
+                    string name = staffById.TryGetValue(entry.StaffID, out var s) && !string.IsNullOrWhiteSpace(s.Name)
+                        ? s.Name : "-";
+
+                    string deviceName = devicesById.TryGetValue(entry.StaffDeviceId, out var d)
+                        ? (!string.IsNullOrWhiteSpace(d.Location) ? d.Location
+                           : !string.IsNullOrWhiteSpace(d.DeviceSerial) ? d.DeviceSerial
+                           : $"Device {entry.StaffDeviceId}")
+                        : $"Device {entry.StaffDeviceId}";
+
+                    string pendingFor = entry.SyncStatus == null
+                        ? "-"
+                        : string.Join(", ", entry.SyncStatus.Where(kv => !kv.Value).Select(kv => kv.Key));
+                    if (string.IsNullOrEmpty(pendingFor)) continue; // nothing actually pending on this row
+
+                    var item = new ListViewItem(entry.StaffID ?? "-");
+                    item.SubItems.Add(name);
+                    item.SubItems.Add(entry.EnrollmentID.HasValue && entry.EnrollmentID.Value > 0 ? entry.EnrollmentID.ToString() : "-");
+                    item.SubItems.Add(deviceName);
+                    item.SubItems.Add(pendingFor);
+                    item.SubItems.Add(string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt);
+                    item.Tag = entry;
+                    displayItems.Add(item);
+                }
+
+                if (_staffPendingJobsPagination == null && lst_staffpendingjobs.Parent != null)
+                    _staffPendingJobsPagination = new ListViewPagination(lst_staffpendingjobs, lst_staffpendingjobs.Parent);
+
+                if (_staffPendingJobsPagination != null)
+                {
+                    _staffPendingJobsPagination.SetItems(displayItems);
+                }
+                else
+                {
+                    lst_staffpendingjobs.BeginUpdate();
+                    lst_staffpendingjobs.Items.Clear();
+                    lst_staffpendingjobs.Items.AddRange(displayItems.ToArray());
+                    lst_staffpendingjobs.EndUpdate();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[RefreshStaffPendingJobsList] Error: {ex.Message}");
+            }
         }
 
         private void InitializeMemberList()

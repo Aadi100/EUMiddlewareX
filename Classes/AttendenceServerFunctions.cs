@@ -1,5 +1,6 @@
 ﻿using smart_attendance_middleware.Classes;
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
@@ -35,6 +36,8 @@ namespace smart_attendance_middleware
             public string IP { get; set; }
             public int Enroll { get; set; }
             public DateTime Time { get; set; } // Device (source) timestamp
+            public string Name { get; set; }
+            public string Image { get; set; }
         }
 
         private sealed class AttendanceEventResult
@@ -530,6 +533,110 @@ namespace smart_attendance_middleware
             {
                 LogHelper.Log("[FacePopup][ERROR-Outer] " + exOuter.Message);
             }
+        }
+
+        public void HandleUnknownOrStaffScan(int enroll, string name, string image, string ip, DateTime time)
+        {
+            // Resolve device location from AppSession by IP
+            string ipOnly = ip ?? string.Empty;
+            int colon = ipOnly.IndexOf(':');
+            if (colon >= 0) ipOnly = ipOnly.Substring(0, colon);
+
+            var allDevices = new List<Device>();
+            if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
+            if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
+            var device = allDevices.FirstOrDefault(d => string.Equals(d.DeviceIP, ipOnly, StringComparison.OrdinalIgnoreCase));
+            string location = device?.Location ?? "Unknown Location";
+
+            string infoBlock = $"EnrollID : {enroll}\n" +
+                               $"Name     : {name ?? "Unknown"}\n" +
+                               $"Location : {location}\n" +
+                               $"Time     : {time:yyyy-MM-dd HH:mm:ss}";
+
+            Action show;
+
+            if (string.IsNullOrEmpty(image))
+            {
+                show = () =>
+                {
+                    MessageBox.Show(
+                        infoBlock + "\n\nNo image captured.",
+                        "Scan Alert",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                };
+            }
+            else
+            {
+                try
+                {
+                    byte[] imageBytes = Convert.FromBase64String(image);
+                    System.Drawing.Image img;
+                    using (var ms = new MemoryStream(imageBytes))
+                        img = System.Drawing.Image.FromStream(ms);
+
+                    show = () =>
+                    {
+                        var dlg = new Form
+                        {
+                            Text = $"Scan | EnrollID: {enroll} | {location}",
+                            Size = new System.Drawing.Size(340, 520),
+                            StartPosition = FormStartPosition.CenterScreen,
+                            FormBorderStyle = FormBorderStyle.FixedDialog,
+                            MaximizeBox = false
+                        };
+
+                        var panel = new System.Windows.Forms.Panel
+                        {
+                            Dock = DockStyle.Bottom,
+                            Height = 90,
+                            Padding = new Padding(8)
+                        };
+
+                        var lbl = new Label
+                        {
+                            Dock = DockStyle.Fill,
+                            Text = infoBlock,
+                            Font = new System.Drawing.Font("Segoe UI", 9f),
+                            TextAlign = System.Drawing.ContentAlignment.MiddleLeft
+                        };
+
+                        panel.Controls.Add(lbl);
+
+                        var pb = new PictureBox
+                        {
+                            Dock = DockStyle.Fill,
+                            SizeMode = PictureBoxSizeMode.Zoom,
+                            Image = img
+                        };
+
+                        dlg.Controls.Add(panel);
+                        dlg.Controls.Add(pb);
+                        dlg.FormClosed += (s, e) => img.Dispose();
+                        dlg.Show();
+                    };
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"[UnknownScan] Failed to decode image: {ex.Message}");
+                    show = () =>
+                    {
+                        MessageBox.Show(
+                            infoBlock + "\n\nImage could not be decoded.",
+                            "Scan Alert",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    };
+                }
+            }
+
+            var owner = WebsocketServer.Instance;
+            if (owner != null && !owner.IsDisposed)
+                owner.BeginInvoke(show);
+            else
+                show();
         }
 
     }

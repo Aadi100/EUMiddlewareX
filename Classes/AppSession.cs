@@ -36,6 +36,11 @@ namespace smart_attendance_middleware
         public static List<smart_attendance_middleware.Classes.DeviceFunctions.PendingJob> PendingJobs { get; set; }
             = new List<smart_attendance_middleware.Classes.DeviceFunctions.PendingJob>();
 
+        // Log/StaffLog rows with at least one biometric whose SyncStatus is still false —
+        // the same figure shown as "Pending: N" on the Dashboard.
+        public static List<LogEntry> PendingBiometricSyncLogs { get; set; } = new List<LogEntry>();
+        public static List<StaffLogEntry> StaffPendingBiometricSyncLogs { get; set; } = new List<StaffLogEntry>();
+
         // Keyed by normalized IP, value is (type: "member"/"staff", deviceId)
         public static Dictionary<string, (string type, int deviceId)> DeviceCategoryMap { get; set; }
             = new Dictionary<string, (string type, int deviceId)>(StringComparer.OrdinalIgnoreCase);
@@ -64,6 +69,8 @@ namespace smart_attendance_middleware
             LastCheckIn = null;
             LastCheckOut = null;
             PendingJobs.Clear();
+            PendingBiometricSyncLogs.Clear();
+            StaffPendingBiometricSyncLogs.Clear();
             DeviceCategoryMap.Clear();
             StaffEnrollmentIds.Clear();
             RegisteredDevices.Clear();

@@ -19,6 +19,12 @@ namespace smart_attendance_middleware
         {
             this.lbl_status = new System.Windows.Forms.Label();
             this.tabControlLogs = new System.Windows.Forms.TabControl();
+            this.tabConnected = new System.Windows.Forms.TabPage();
+            this.lvConnectedDevices = new System.Windows.Forms.ListView();
+            this.colDeviceSn = new System.Windows.Forms.ColumnHeader();
+            this.colDeviceIp = new System.Windows.Forms.ColumnHeader();
+            this.colDeviceStatus = new System.Windows.Forms.ColumnHeader();
+            this.colDeviceConnectedSince = new System.Windows.Forms.ColumnHeader();
             this.tabAll = new System.Windows.Forms.TabPage();
             this.txtLogsAll = new System.Windows.Forms.TextBox();
             this.tabIncoming = new System.Windows.Forms.TabPage();
@@ -36,6 +42,7 @@ namespace smart_attendance_middleware
             this.txt_params = new System.Windows.Forms.TextBox();
             this.btn_sendCommand = new System.Windows.Forms.Button();
             this.tabControlLogs.SuspendLayout();
+            this.tabConnected.SuspendLayout();
             this.tabAll.SuspendLayout();
             this.tabIncoming.SuspendLayout();
             this.tabOutgoing.SuspendLayout();
@@ -57,6 +64,7 @@ namespace smart_attendance_middleware
             this.tabControlLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.tabControlLogs.Controls.Add(this.tabConnected);
             this.tabControlLogs.Controls.Add(this.tabAll);
             this.tabControlLogs.Controls.Add(this.tabIncoming);
             this.tabControlLogs.Controls.Add(this.tabOutgoing);
@@ -66,9 +74,58 @@ namespace smart_attendance_middleware
             this.tabControlLogs.SelectedIndex = 0;
             this.tabControlLogs.Size = new System.Drawing.Size(643, 606);
             this.tabControlLogs.TabIndex = 17;
-            // 
+            //
+            // tabConnected
+            //
+            this.tabConnected.Controls.Add(this.lvConnectedDevices);
+            this.tabConnected.Location = new System.Drawing.Point(4, 22);
+            this.tabConnected.Name = "tabConnected";
+            this.tabConnected.Padding = new System.Windows.Forms.Padding(3);
+            this.tabConnected.Size = new System.Drawing.Size(635, 580);
+            this.tabConnected.TabIndex = 4;
+            this.tabConnected.Text = "Connected Devices";
+            this.tabConnected.UseVisualStyleBackColor = true;
+            //
+            // lvConnectedDevices
+            //
+            this.lvConnectedDevices.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.colDeviceSn,
+            this.colDeviceIp,
+            this.colDeviceStatus,
+            this.colDeviceConnectedSince});
+            this.lvConnectedDevices.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lvConnectedDevices.FullRowSelect = true;
+            this.lvConnectedDevices.GridLines = true;
+            this.lvConnectedDevices.HideSelection = false;
+            this.lvConnectedDevices.Location = new System.Drawing.Point(3, 3);
+            this.lvConnectedDevices.Name = "lvConnectedDevices";
+            this.lvConnectedDevices.Size = new System.Drawing.Size(629, 574);
+            this.lvConnectedDevices.TabIndex = 0;
+            this.lvConnectedDevices.UseCompatibleStateImageBehavior = false;
+            this.lvConnectedDevices.View = System.Windows.Forms.View.Details;
+            //
+            // colDeviceSn
+            //
+            this.colDeviceSn.Text = "Serial Number";
+            this.colDeviceSn.Width = 160;
+            //
+            // colDeviceIp
+            //
+            this.colDeviceIp.Text = "IP Address";
+            this.colDeviceIp.Width = 130;
+            //
+            // colDeviceStatus
+            //
+            this.colDeviceStatus.Text = "Status";
+            this.colDeviceStatus.Width = 90;
+            //
+            // colDeviceConnectedSince
+            //
+            this.colDeviceConnectedSince.Text = "Connected Since";
+            this.colDeviceConnectedSince.Width = 150;
+            //
             // tabAll
-            // 
+            //
             this.tabAll.Controls.Add(this.txtLogsAll);
             this.tabAll.Location = new System.Drawing.Point(4, 22);
             this.tabAll.Name = "tabAll";
@@ -251,6 +308,7 @@ namespace smart_attendance_middleware
             this.Text = "Websocket Client Manager";
             this.Load += new System.EventHandler(this.WebsocketServer_Load);
             this.tabControlLogs.ResumeLayout(false);
+            this.tabConnected.ResumeLayout(false);
             this.tabAll.ResumeLayout(false);
             this.tabAll.PerformLayout();
             this.tabIncoming.ResumeLayout(false);
@@ -269,6 +327,12 @@ namespace smart_attendance_middleware
         #endregion
         private System.Windows.Forms.Label lbl_status;
         private System.Windows.Forms.TabControl tabControlLogs;
+        private System.Windows.Forms.TabPage tabConnected;
+        private System.Windows.Forms.ListView lvConnectedDevices;
+        private System.Windows.Forms.ColumnHeader colDeviceSn;
+        private System.Windows.Forms.ColumnHeader colDeviceIp;
+        private System.Windows.Forms.ColumnHeader colDeviceStatus;
+        private System.Windows.Forms.ColumnHeader colDeviceConnectedSince;
         private System.Windows.Forms.TabPage tabAll;
         private System.Windows.Forms.TextBox txtLogsAll;
         private System.Windows.Forms.TabPage tabIncoming;

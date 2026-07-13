@@ -77,6 +77,17 @@ namespace smart_attendance_middleware.Classes
                     }
                 });
 
+                // Biometric-sync snapshots (Log / StaffLog tables) — same figure as the Dashboard's "Pending: N".
+                // These are cheap boolean-filtered queries, so we just refetch the full snapshot rather than
+                // tracking incremental timestamps for them.
+                var pendingMemberLogs = await _dbHelper.GetUnsyncedLogEntriesAsync().ConfigureAwait(false) ?? new List<LogEntry>();
+                var pendingStaffLogs = await _dbHelper.GetUnsyncedStaffLogEntriesAsync().ConfigureAwait(false) ?? new List<StaffLogEntry>();
+                lock (_lockObject)
+                {
+                    AppSession.PendingBiometricSyncLogs = pendingMemberLogs;
+                    AppSession.StaffPendingBiometricSyncLogs = pendingStaffLogs;
+                }
+
                 LogHelper.Log($"[CacheManager] Initial load complete: " +
                     $"{AppSession.AllMembers.Count} members, " +
                     $"{AppSession.AllStaff.Count} staff, " +
@@ -127,11 +138,12 @@ namespace smart_attendance_middleware.Classes
         {
             try
             {
+                var updateTypes = new List<CacheUpdateType>();
+
                 await Task.Run(() =>
                 {
                     lock (_lockObject)
                     {
-                        var updateTypes = new List<CacheUpdateType>();
 
                         // Update Members (incremental)
                         var newMembers = _dbHelper.GetMembersUpdatedAfter(_lastMembersSync);
@@ -202,13 +214,25 @@ namespace smart_attendance_middleware.Classes
                             LogHelper.Log($"[CacheManager] Updated {newPendingJobs.Count} pending jobs");
                         }
                         _lastPendingJobsSync = DateTime.Now;
-
-                        if (updateTypes.Count > 0)
-                        {
-                            OnCacheUpdated(new CacheUpdateEventArgs { UpdateTypes = updateTypes });
-                        }
                     }
                 });
+
+                // Biometric-sync snapshots (Log / StaffLog tables) — refetched every cycle since they're
+                // cheap boolean-filtered queries and change frequently as devices sync.
+                var newPendingMemberLogs = await _dbHelper.GetUnsyncedLogEntriesAsync().ConfigureAwait(false) ?? new List<LogEntry>();
+                var newPendingStaffLogs = await _dbHelper.GetUnsyncedStaffLogEntriesAsync().ConfigureAwait(false) ?? new List<StaffLogEntry>();
+                lock (_lockObject)
+                {
+                    AppSession.PendingBiometricSyncLogs = newPendingMemberLogs;
+                    AppSession.StaffPendingBiometricSyncLogs = newPendingStaffLogs;
+                }
+                updateTypes.Add(CacheUpdateType.PendingBiometricSync);
+                updateTypes.Add(CacheUpdateType.StaffPendingBiometricSync);
+
+                if (updateTypes.Count > 0)
+                {
+                    OnCacheUpdated(new CacheUpdateEventArgs { UpdateTypes = updateTypes });
+                }
             }
             catch (Exception ex)
             {
@@ -464,7 +488,9 @@ namespace smart_attendance_middleware.Classes
         StaffAttendanceLogs,
         GateLogs,
         Users,
-        PendingJobs
+        PendingJobs,
+        PendingBiometricSync,
+        StaffPendingBiometricSync
     }
 
     public class CacheUpdateEventArgs : EventArgs

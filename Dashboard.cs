@@ -933,7 +933,8 @@ namespace smart_attendance_middleware
                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
                 WebsocketServerThreadManager.DeviceConnectionChanged -= OnDeviceConnectionChanged;
 
-                if (!string.IsNullOrEmpty(AppSession.LoggedInUser))
+                if (!string.IsNullOrEmpty(AppSession.LoggedInUser) &&
+                    !string.Equals(AppSession.UserRole, "developer", StringComparison.OrdinalIgnoreCase))
                 {
                     var enteredPassword = ShowPasswordDialog(this, "Confirm Exit",
                         "Enter your password to close the application:");
