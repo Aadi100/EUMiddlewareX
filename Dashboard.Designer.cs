@@ -185,7 +185,7 @@
             this.lbl_version.Name = "lbl_version";
             this.lbl_version.Size = new System.Drawing.Size(31, 13);
             this.lbl_version.TabIndex = 44;
-            this.lbl_version.Text = "3.1.0";
+            this.lbl_version.Text = "3.1.1";
             // 
             // button2
             // 

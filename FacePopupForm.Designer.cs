@@ -7,14 +7,12 @@
         private System.Windows.Forms.Panel panelAccent;
         private System.Windows.Forms.PictureBox pictureBoxFace;
         private System.Windows.Forms.Label labelInfo;
-        private System.Windows.Forms.Timer closeTimer; // kept for designer; logic uses custom timers
 
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
                 if (components != null) components.Dispose();
-                if (closeTimer != null) { closeTimer.Dispose(); closeTimer = null; }
             }
             base.Dispose(disposing);
         }
@@ -26,7 +24,6 @@
             this.panelAccent = new System.Windows.Forms.Panel();
             this.pictureBoxFace = new System.Windows.Forms.PictureBox();
             this.labelInfo = new System.Windows.Forms.Label();
-            this.closeTimer = new System.Windows.Forms.Timer(this.components);
             this.panelContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFace)).BeginInit();
             this.SuspendLayout();
@@ -72,12 +69,7 @@
             this.labelInfo.TabIndex = 2;
             this.labelInfo.Text = "Info";
             this.labelInfo.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // closeTimer
-            // 
-            this.closeTimer.Interval = 10000;
-            this.closeTimer.Tick += new System.EventHandler(this.closeTimer_Tick);
-            // 
+            //
             // FacePopupForm
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -88,7 +80,7 @@
             this.Name = "FacePopupForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Attendance";
-            this.TopMost = true;
+            this.TopMost = false;
             this.Load += new System.EventHandler(this.FacePopupForm_Load);
             this.panelContainer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFace)).EndInit();

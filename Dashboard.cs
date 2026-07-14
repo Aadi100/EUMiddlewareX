@@ -192,12 +192,12 @@ namespace smart_attendance_middleware
             {
                 if (dash._facePopup == null || dash._facePopup.IsDisposed)
                 {
-                    dash._facePopup = new FacePopupForm(memberId, enrollmentId, action, time, 3, true);
+                    dash._facePopup = new FacePopupForm(memberId, enrollmentId, action, time, 1.3, true);
                     dash._facePopup.Show(dash);
                 }
                 else
                 {
-                    dash._facePopup.UpdateData(memberId, enrollmentId, action, time);
+                    dash._facePopup.UpdateData(memberId, enrollmentId, action, time, 1.3);
                     dash._facePopup.ShowPopup();
                 }
             }));
@@ -1960,6 +1960,7 @@ namespace smart_attendance_middleware
                 MessageBox.Show($"Bulk sync done. {synced} records sent to server.\nCheck logs for full payload details.",
                     "Test Bulk — Step 2 Done", MessageBoxButtons.OK, MessageBoxIcon.Information)));
         }
+
 
 
 

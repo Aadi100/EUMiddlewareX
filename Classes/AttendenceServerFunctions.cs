@@ -482,7 +482,7 @@ namespace smart_attendance_middleware
                 {
                     try
                     {
-                        var timer = new System.Windows.Forms.Timer { Interval = 2000 }; // 2 seconds
+                        var timer = new System.Windows.Forms.Timer { Interval = 1000 }; // 1 second
                         timer.Tick += (s, e) =>
                         {
                             var t = (System.Windows.Forms.Timer)s;
@@ -515,7 +515,7 @@ namespace smart_attendance_middleware
                     {
                         try
                         {
-                            await System.Threading.Tasks.Task.Delay(2000).ConfigureAwait(false);
+                            await System.Threading.Tasks.Task.Delay(1000).ConfigureAwait(false);
                             var ui = Application.OpenForms.Count > 0 ? Application.OpenForms[0] : null;
                             if (ui != null && ui.IsHandleCreated && !ui.IsDisposed)
                                 ui.BeginInvoke((Action)(() => showAction()));

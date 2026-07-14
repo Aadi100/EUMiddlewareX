@@ -1,9 +1,9 @@
 ﻿using System;
-using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace smart_attendance_middleware
@@ -18,7 +18,7 @@ namespace smart_attendance_middleware
         private static readonly Color AccentCheckOut = Color.FromArgb(220, 53, 69);
 
         // Default display duration (seconds) – adjust here
-        private const int DEFAULT_DISPLAY_SECONDS = 7;
+        private const double DEFAULT_DISPLAY_SECONDS = 7;
 
         private int _memberId;
         private int _enrollmentId;
@@ -28,11 +28,13 @@ namespace smart_attendance_middleware
         private bool _isPermanent;
 
         private Timer _lifetimeTimer;
+        private Control _labelInfo;
+        private int _imageRequestId;
 
         public FacePopupForm(int memberId, int enrollmentId, string action, DateTime time)
             : this(memberId, enrollmentId, action, time, DEFAULT_DISPLAY_SECONDS) { }
 
-        public FacePopupForm(int memberId, int enrollmentId, string action, DateTime time, int displaySeconds, bool isPermanent = false)
+        public FacePopupForm(int memberId, int enrollmentId, string action, DateTime time, double displaySeconds, bool isPermanent = false)
         {
             _isPermanent = isPermanent;
             InitializeComponent();
@@ -51,14 +53,14 @@ namespace smart_attendance_middleware
             Top = wa.Bottom - Height - 24;
         }
 
-        public void UpdateData(int memberId, int enrollmentId, string action, DateTime time, int displaySeconds = DEFAULT_DISPLAY_SECONDS)
+        public void UpdateData(int memberId, int enrollmentId, string action, DateTime time, double displaySeconds = DEFAULT_DISPLAY_SECONDS)
         {
             _memberId = memberId;
             _enrollmentId = enrollmentId;
             _action = action ?? "";
             _eventTime = time;
             if (displaySeconds <= 0) displaySeconds = DEFAULT_DISPLAY_SECONDS;
-            _displayMillis = displaySeconds * 1000;
+            _displayMillis = (int)(displaySeconds * 1000);
 
             if (LabelInfo != null)
             {
@@ -92,7 +94,7 @@ namespace smart_attendance_middleware
             StartAnimation();
         }
 
-        private Control LabelInfo => this.Controls.Find("labelInfo", true).FirstOrDefault();
+        private Control LabelInfo => _labelInfo ?? (_labelInfo = this.Controls.Find("labelInfo", true).FirstOrDefault());
 
         private void ApplyAccent()
         {
@@ -165,49 +167,70 @@ namespace smart_attendance_middleware
             catch { /* ignore */ }
         }
 
-        private void LoadImage()
+        private Bitmap BuildNoImageFallback()
         {
+            Bitmap bmp = new Bitmap(pictureBoxFace.Width, pictureBoxFace.Height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.Clear(Color.FromArgb(30, 30, 90));
+                string txt = "NO IMAGE";
+                using (Font f = new Font("Segoe UI", 16, FontStyle.Bold))
+                using (var b = new SolidBrush(Color.FromArgb(110, 110, 160)))
+                {
+                    SizeF sz = g.MeasureString(txt, f);
+                    g.DrawString(txt, f, b,
+                        (bmp.Width - sz.Width) / 2f,
+                        (bmp.Height - sz.Height) / 2f);
+                }
+            }
+            return bmp;
+        }
+
+        private async void LoadImage()
+        {
+            int requestId = ++_imageRequestId;
+            int memberId = _memberId;
+            int enrollmentId = _enrollmentId;
+
             try
             {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                string faceDir = Path.Combine(baseDir, "FACE");
-                string[] candidates =
+                Bitmap result = await Task.Run(() =>
                 {
-                    Path.Combine(faceDir, _memberId + ".jpg"),
-                    Path.Combine(faceDir, _memberId + ".png"),
-                    Path.Combine(faceDir, _enrollmentId + ".jpg"),
-                    Path.Combine(faceDir, _enrollmentId + ".png")
-                };
-
-                foreach (var path in candidates)
-                {
-                    if (File.Exists(path))
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string faceDir = Path.Combine(baseDir, "FACE");
+                    string[] candidates =
                     {
-                        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        Path.Combine(faceDir, memberId + ".jpg"),
+                        Path.Combine(faceDir, memberId + ".png"),
+                        Path.Combine(faceDir, enrollmentId + ".jpg"),
+                        Path.Combine(faceDir, enrollmentId + ".png")
+                    };
+
+                    foreach (var path in candidates)
+                    {
+                        if (File.Exists(path))
                         {
-                            pictureBoxFace.Image = Image.FromStream(fs);
+                            byte[] fileBytes = File.ReadAllBytes(path);
+                            using (var ms = new MemoryStream(fileBytes))
+                            using (var loaded = Image.FromStream(ms))
+                            {
+                                return new Bitmap(loaded);
+                            }
                         }
-                        return;
                     }
+
+                    return BuildNoImageFallback();
+                }).ConfigureAwait(true);
+
+                // Discard stale results from a slower, older request superseded by a newer scan.
+                if (requestId != _imageRequestId || IsDisposed)
+                {
+                    result.Dispose();
+                    return;
                 }
 
-                // Fallback visual
-                Bitmap bmp = new Bitmap(pictureBoxFace.Width, pictureBoxFace.Height);
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    g.Clear(Color.FromArgb(30, 30, 90));
-                    string txt = "NO IMAGE";
-                    using (Font f = new Font("Segoe UI", 16, FontStyle.Bold))
-                    using (var b = new SolidBrush(Color.FromArgb(110, 110, 160)))
-                    {
-                        SizeF sz = g.MeasureString(txt, f);
-                        g.DrawString(txt, f, b,
-                            (bmp.Width - sz.Width) / 2f,
-                            (bmp.Height - sz.Height) / 2f);
-                    }
-                }
-                pictureBoxFace.Image = bmp;
+                SetPictureImage(result);
             }
             catch (Exception ex)
             {
@@ -215,14 +238,15 @@ namespace smart_attendance_middleware
             }
         }
 
+        private void SetPictureImage(Image newImage)
+        {
+            var old = pictureBoxFace.Image;
+            pictureBoxFace.Image = newImage;
+            old?.Dispose();
+        }
+
         // Designer event (kept for safety)
         private void FacePopupForm_Load(object sender, EventArgs e) { }
-
-        // Legacy timer (not used for lifecycle now, but kept wired)
-        private void closeTimer_Tick(object sender, EventArgs e)
-        {
-            // No-op.
-        }
 
         public void ForceClose()
         {
@@ -234,12 +258,11 @@ namespace smart_attendance_middleware
             get
             {
                 const int CS_DROPSHADOW = 0x00020000;
-                const int WS_EX_TOPMOST = 0x00000008;
                 const int WS_EX_NOACTIVATE = 0x08000000;
 
                 var cp = base.CreateParams;
                 cp.ClassStyle |= CS_DROPSHADOW;
-                cp.ExStyle |= WS_EX_TOPMOST | WS_EX_NOACTIVATE;
+                cp.ExStyle |= WS_EX_NOACTIVATE;
                 return cp;
             }
         }

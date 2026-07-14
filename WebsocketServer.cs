@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -484,7 +485,7 @@ namespace smart_attendance_middleware
                         _deviceStates[sn] = doc;
                         RegisterDevice(sn, socket, remoteIp);
 
-                        var response = new { ret = "reg", result = true, cloudtime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") };
+                        var response = new { ret = "reg", result = true, cloudtime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") };
                         await SendToSocket(socket, response, connectionCts.Token);
                     }
                     else if (awaitingInitialAck && !string.IsNullOrEmpty(currentSn) &&
@@ -1175,12 +1176,48 @@ namespace smart_attendance_middleware
             }
         }
 
+        private static readonly HttpClient _imageProcessClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+        private const string ImageProcessUrl = "http://10.20.69.81:5000/process";
+
+        // Independent path: any enroll number with an image gets forwarded to the image-processing API.
+        // Fire-and-forget so it never blocks or affects the staff/member attendance flow below.
+        private void ForwardImageForProcessing(int devId, int enroll, string image)
+        {
+            if (string.IsNullOrEmpty(image)) return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var payload = new JObject
+                    {
+                        ["images"] = new JArray(image)
+                    };
+
+                    var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json");
+                    var response = await _imageProcessClient.PostAsync(ImageProcessUrl, content);
+                    string body = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode)
+                        LogToUI($"[IMG-PROCESS] DevID: {devId} | EnrollID: {enroll} | Result: {body}");
+                    else
+                        LogToUI($"[IMG-PROCESS] DevID: {devId} | EnrollID: {enroll} | Failed ({(int)response.StatusCode}): {body}");
+                }
+                catch (Exception ex)
+                {
+                    LogToUI($"[IMG-PROCESS] DevID: {devId} | EnrollID: {enroll} | Error: {ex.Message}");
+                }
+            });
+        }
+
         private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time, string name = null, string image = null)
         {
             // Normalize IP (strip port if present)
             string ipOnly = ip ?? string.Empty;
             int colon = ipOnly.IndexOf(':');
             if (colon >= 0) ipOnly = ipOnly.Substring(0, colon);
+
+            //ForwardImageForProcessing(devId, enroll, image);
 
             try
             {
