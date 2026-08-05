@@ -326,11 +326,18 @@ public sealed class ConnectionStatusChecker
                 return;
             }
 
-            // Limit reconnection attempts (max 5 attempts)
+            // Limit reconnection attempts to 5 in a row, then cool down and try again
+            // instead of giving up permanently for the rest of the app's runtime.
             if (reconnectionAttempts >= 5)
             {
-                LogHelper.Log("Maximum reconnection attempts reached (5) - stopping reconnection attempts");
-                return;
+                if (timeSinceLastReconnection.TotalMinutes < 5)
+                {
+                    LogHelper.Log("Maximum reconnection attempts reached (5) - cooling down before retrying");
+                    return;
+                }
+
+                LogHelper.Log("Reconnection cooldown elapsed - resetting attempt counter and retrying");
+                reconnectionAttempts = 0;
             }
 
             // Get Dashboard form from open forms

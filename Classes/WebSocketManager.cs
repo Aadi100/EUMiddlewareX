@@ -159,26 +159,66 @@ namespace smart_attendance_middleware
         {
             try
             {
+                // Clean up any previous connection/loop before starting a new one — otherwise
+                // the old socket and token are silently abandoned (never closed/disposed) and
+                // the old ReceiveLoopAsync keeps running, now reading the fields we're about
+                // to overwrite below, which can race against the new connection.
+                CloseCurrentConnection();
+
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
                 ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, errors) => true;
 
-                _websocket = new ClientWebSocket();
-                _websocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(Math.Max(15, _activityTimeoutSeconds / 2)); // keepalive
-                _cts = new CancellationTokenSource();
+                var socket = new ClientWebSocket();
+                socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(Math.Max(15, _activityTimeoutSeconds / 2)); // keepalive
+                var cts = new CancellationTokenSource();
 
                 var uri = BuildPusherUri();
                 OnStatusChanged("Connecting to " + uri);
-                await _websocket.ConnectAsync(uri, _cts.Token);
+                await socket.ConnectAsync(uri, cts.Token);
                 OnStatusChanged("WebSocket connected.");
                 LogHelper.Log("WebSocket connected.");
 
-                _ = Task.Run(ReceiveLoopAsync);
+                _websocket = socket;
+                _cts = cts;
+
+                // Pass this loop's own socket/token explicitly so it can never be confused
+                // by a later reconnect overwriting the shared _websocket/_cts fields.
+                _ = Task.Run(() => ReceiveLoopAsync(socket, cts.Token));
             }
             catch (Exception ex)
             {
                 OnErrorOccurred("WebSocket connection error: " + ex);
                 LogHelper.Log("WebSocket connection error: " + ex);
             }
+        }
+
+        // Cancels and disposes whatever connection/token currently exist, so ConnectAsync()
+        // never orphans a still-open socket or a still-live CancellationTokenSource.
+        private void CloseCurrentConnection()
+        {
+            try { _cts?.Cancel(); } catch { }
+
+            try
+            {
+                if (_websocket != null && (_websocket.State == WebSocketState.Open || _websocket.State == WebSocketState.CloseReceived))
+                {
+                    _websocket.Abort();
+                }
+            }
+            catch { }
+
+            try { _websocket?.Dispose(); } catch { }
+            try { _cts?.Dispose(); } catch { }
+
+            _websocket = null;
+            _cts = null;
+        }
+
+        // Public shutdown — call this from app/Dashboard shutdown instead of only
+        // unsubscribing events, so the connection and its background loop actually stop.
+        public void Close()
+        {
+            CloseCurrentConnection();
         }
 
         // Subscribe to a channel (supports private- channels via HTTP auth)
@@ -462,22 +502,25 @@ namespace smart_attendance_middleware
             }
         }
 
-        private async Task ReceiveLoopAsync()
+        // Takes the socket/token it was started with as parameters (rather than reading the
+        // shared _websocket/_cts fields) so a later reconnect overwriting those fields can
+        // never cause this loop to start operating on a different, newer connection.
+        private async Task ReceiveLoopAsync(ClientWebSocket socket, CancellationToken token)
         {
             var buffer = new ArraySegment<byte>(new byte[8192]);
             try
             {
-                while (_websocket.State == WebSocketState.Open)
+                while (socket.State == WebSocketState.Open && !token.IsCancellationRequested)
                 {
                     using (var ms = new System.IO.MemoryStream())
                     {
                         WebSocketReceiveResult result;
                         do
                         {
-                            result = await _websocket.ReceiveAsync(buffer, _cts.Token);
+                            result = await socket.ReceiveAsync(buffer, token);
                             if (result.MessageType == WebSocketMessageType.Close)
                             {
-                                await _websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                                 OnStatusChanged("WebSocket disconnected.");
                                 return;
                             }
@@ -489,6 +532,10 @@ namespace smart_attendance_middleware
                         await ParseAndRaiseLiveUpdate(message);
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when CloseCurrentConnection()/Close() cancels this loop's token — not an error.
             }
             catch (Exception ex)
             {
@@ -697,8 +744,21 @@ namespace smart_attendance_middleware
 
                                     try
                                     {
-                                        // Delete the old image file
-                                        File.Delete(filePath);
+                                        // Delete the old image file (retry on transient lock, same reasoning
+                                        // as the write path below — another part of the app may briefly
+                                        // have this file open, e.g. the Dashboard displaying it).
+                                        for (int attempt = 1; attempt <= 3; attempt++)
+                                        {
+                                            try
+                                            {
+                                                File.Delete(filePath);
+                                                break;
+                                            }
+                                            catch (IOException) when (attempt < 3)
+                                            {
+                                                await Task.Delay(150 * attempt);
+                                            }
+                                        }
                                         LogHelper.Log($"Deleted old image: {fileName}");
 
                                         // Download and save the new image
@@ -758,10 +818,27 @@ namespace smart_attendance_middleware
         {
             try
             {
+                byte[] imageBytes;
                 using (HttpClient client = new HttpClient())
                 {
-                    byte[] imageBytes = await client.GetByteArrayAsync(imageUrl);
-                    await Task.Run(() => File.WriteAllBytes(savePath, imageBytes));
+                    imageBytes = await client.GetByteArrayAsync(imageUrl);
+                }
+
+                // The same file can briefly be locked by another part of the app
+                // (e.g. the Dashboard reading it, or an overlapping sync pass) —
+                // retry a couple of times instead of failing outright on a transient lock.
+                const int maxAttempts = 3;
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
+                {
+                    try
+                    {
+                        await Task.Run(() => File.WriteAllBytes(savePath, imageBytes));
+                        return;
+                    }
+                    catch (IOException) when (attempt < maxAttempts)
+                    {
+                        await Task.Delay(150 * attempt);
+                    }
                 }
             }
             catch (Exception ex)

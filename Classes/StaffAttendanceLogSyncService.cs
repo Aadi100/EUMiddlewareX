@@ -804,6 +804,7 @@ public class StaffAttendanceLogSyncService : IDisposable
     {
         Stop();
         _cts?.Dispose();
+        _httpHandler?.Dispose();
         LogHelper.Log("Staff attendance log sync service disposed");
     }
 

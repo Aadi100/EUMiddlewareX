@@ -61,7 +61,6 @@ namespace smart_attendance_middleware
         private DateTime _lastPanelRefresh = DateTime.MinValue;
         private readonly ToolTip _buttonTooltip = new ToolTip();
         private bool _uiReady = false;
-        private const int MaxLogLines = 1000000;
         public HttpHandler _httpHandler;
 
         private readonly object _loaderLock = new object();
@@ -109,6 +108,7 @@ namespace smart_attendance_middleware
             string debugSetting = _dbHelper.GetSetting("DebugMode");
             bool isDebugEnabled = !string.IsNullOrEmpty(debugSetting) &&
                                 (debugSetting == "1" || debugSetting.Equals("true", StringComparison.OrdinalIgnoreCase));
+            AppSession.IsDebugMode = isDebugEnabled;
 
             if (isDebugEnabled)
             {
@@ -194,6 +194,8 @@ namespace smart_attendance_middleware
                 {
                     dash._facePopup = new FacePopupForm(memberId, enrollmentId, action, time, 1.3, true);
                     dash._facePopup.Show(dash);
+                    dash._facePopup.TopMost = true;
+                    dash._facePopup.BringToFront();
                 }
                 else
                 {
@@ -1317,31 +1319,50 @@ namespace smart_attendance_middleware
                     int maxWidth  = pictureBox.Width;
                     int maxHeight = pictureBox.Height;
 
-                    // Read file bytes and resize entirely off the UI thread
+                    // Read file bytes and resize entirely off the UI thread.
+                    // Retries a couple of times because the image file may still be
+                    // mid-write by the photo-download code when we try to read it here —
+                    // a partially written file makes new Bitmap() throw a misleading
+                    // OutOfMemoryException even though it's really just corrupt/incomplete data.
                     newImage = await Task.Run(() =>
                     {
-                        byte[] bytes = File.ReadAllBytes(imagePath);
-                        using (var ms = new MemoryStream(bytes))
+                        const int maxAttempts = 3;
+                        for (int attempt = 1; attempt <= maxAttempts; attempt++)
                         {
-                            // new Bitmap() copies pixel data so the stream can be closed safely
-                            Image img = new Bitmap(ms);
-
-                            if (img.Width <= maxWidth && img.Height <= maxHeight)
-                                return img;
-
-                            double ratio    = Math.Min((double)maxWidth / img.Width, (double)maxHeight / img.Height);
-                            int newWidth    = (int)(img.Width  * ratio);
-                            int newHeight   = (int)(img.Height * ratio);
-
-                            Bitmap resized = new Bitmap(newWidth, newHeight);
-                            using (Graphics g = Graphics.FromImage(resized))
+                            try
                             {
-                                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                                g.DrawImage(img, 0, 0, newWidth, newHeight);
+                                byte[] bytes = File.ReadAllBytes(imagePath);
+                                if (bytes.Length == 0)
+                                    throw new InvalidDataException("Image file is empty (still being written?).");
+
+                                using (var ms = new MemoryStream(bytes))
+                                {
+                                    // new Bitmap() copies pixel data so the stream can be closed safely
+                                    Image img = new Bitmap(ms);
+
+                                    if (img.Width <= maxWidth && img.Height <= maxHeight)
+                                        return img;
+
+                                    double ratio    = Math.Min((double)maxWidth / img.Width, (double)maxHeight / img.Height);
+                                    int newWidth    = (int)(img.Width  * ratio);
+                                    int newHeight   = (int)(img.Height * ratio);
+
+                                    Bitmap resized = new Bitmap(newWidth, newHeight);
+                                    using (Graphics g = Graphics.FromImage(resized))
+                                    {
+                                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                                        g.DrawImage(img, 0, 0, newWidth, newHeight);
+                                    }
+                                    img.Dispose();
+                                    return (Image)resized;
+                                }
                             }
-                            img.Dispose();
-                            return (Image)resized;
+                            catch (Exception) when (attempt < maxAttempts)
+                            {
+                                Thread.Sleep(150 * attempt);
+                            }
                         }
+                        return null;
                     });
                 }
 

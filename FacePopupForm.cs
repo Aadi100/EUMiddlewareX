@@ -41,6 +41,7 @@ namespace smart_attendance_middleware
             DoubleBuffered = true;
 
             this.ShowInTaskbar = false;
+            this.TopMost = true;
 
             // Runtime style adjustments
             panelContainer.Paint += PanelContainer_Paint;
@@ -90,6 +91,8 @@ namespace smart_attendance_middleware
             }
 
             this.Opacity = 1.0;
+            this.TopMost = false;
+            this.TopMost = true;
             this.BringToFront();
             StartAnimation();
         }

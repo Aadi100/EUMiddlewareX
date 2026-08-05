@@ -788,6 +788,7 @@ public class AttendanceLogSyncService : IDisposable
     {
         Stop();
         _cts?.Dispose();
+        _httpHandler?.Dispose();
         LogHelper.Log("Attendance log sync service disposed");
     }
 }

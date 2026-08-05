@@ -48,6 +48,17 @@ namespace smart_attendance_middleware.Classes
         private Timer _fetchDeviceSyncStatusTimer;
         private Timer _forceCheckOutTimer;
 
+        // Reentrancy guards (0 = idle, 1 = running) — stop each timer from starting an
+        // overlapping run of the same operation if the previous run is still going
+        // (e.g. blocked on a slow/stalled SQL query), mirroring the existing _syncInProgress
+        // guard already used for the attendance sync path.
+        private int _pendingJobsRunning = 0;
+        private int _logClearRunning = 0;
+        private int _unsyncedLogsRunning = 0;
+        private int _disableInactiveUsersRunning = 0;
+        private int _fetchDeviceSyncStatusRunning = 0;
+        private int _forceCheckOutRunning = 0;
+
         private readonly Dashboard _dashboard;
         private readonly DatabaseHelper _dbHelper;
         private WebSocketManager _wsManager;
@@ -123,7 +134,16 @@ namespace smart_attendance_middleware.Classes
 
                 // Start log clear timer with initial 15-minute delay, then check every hour
                 _logClearTimer = new Timer(
-                    callback: async _ => await ExecuteLogClearOperation(),
+                    callback: async _ =>
+                    {
+                        if (Interlocked.CompareExchange(ref _logClearRunning, 1, 0) != 0)
+                        {
+                            LogHelper.Log("⏭️ Skipped LogClear tick — previous run still in progress.");
+                            return;
+                        }
+                        try { await ExecuteLogClearOperation(); }
+                        finally { Interlocked.Exchange(ref _logClearRunning, 0); }
+                    },
                     state: null,
                     dueTime: _initialDelay,
                     period: _clearLogCheckInterval
@@ -131,7 +151,16 @@ namespace smart_attendance_middleware.Classes
 
                 // Start pending jobs timer with initial 15-minute delay, then every 60 minutes
                 _pendingJobsTimer = new Timer(
-                    callback: async _ => await ExecutePendingJobsOperation(),
+                    callback: async _ =>
+                    {
+                        if (Interlocked.CompareExchange(ref _pendingJobsRunning, 1, 0) != 0)
+                        {
+                            LogHelper.Log("⏭️ Skipped PendingJobs tick — previous run still in progress.");
+                            return;
+                        }
+                        try { await ExecutePendingJobsOperation(); }
+                        finally { Interlocked.Exchange(ref _pendingJobsRunning, 0); }
+                    },
                     state: null,
                     dueTime: _initialDelay,
                     period: _pendingJobsInterval
@@ -139,7 +168,16 @@ namespace smart_attendance_middleware.Classes
 
                 // Start unsynced attendance logs sync timer (every configured interval) with initial delay
                 _unsyncedLogsTimer = new Timer(
-                    callback: async _ => await ExecuteSyncUnsyncedAttendanceLogsAsync(),
+                    callback: async _ =>
+                    {
+                        if (Interlocked.CompareExchange(ref _unsyncedLogsRunning, 1, 0) != 0)
+                        {
+                            LogHelper.Log("⏭️ Skipped UnsyncedAttendanceSync tick — previous run still in progress.");
+                            return;
+                        }
+                        try { await ExecuteSyncUnsyncedAttendanceLogsAsync(); }
+                        finally { Interlocked.Exchange(ref _unsyncedLogsRunning, 0); }
+                    },
                     state: null,
                     dueTime: _initialDelay,
                     period: _unsyncedInterval
@@ -147,14 +185,32 @@ namespace smart_attendance_middleware.Classes
 
                 // Start disable inactive users timer: first run after initial delay, then every 12 hours
                 _disableInactiveUsersTimer = new Timer(
-                    callback: async _ => await ExecuteDisableInactiveUsersOperation(),
+                    callback: async _ =>
+                    {
+                        if (Interlocked.CompareExchange(ref _disableInactiveUsersRunning, 1, 0) != 0)
+                        {
+                            LogHelper.Log("⏭️ Skipped DisableInactiveUsers tick — previous run still in progress.");
+                            return;
+                        }
+                        try { await ExecuteDisableInactiveUsersOperation(); }
+                        finally { Interlocked.Exchange(ref _disableInactiveUsersRunning, 0); }
+                    },
                     state: null,
                     dueTime: _initialDelay,
                     period: _disableInactiveUsersInterval
                 );
 
                 _fetchDeviceSyncStatusTimer = new Timer(
-                    callback: async _ => await ExecuteFetchDeviceSyncStatusAsync(),
+                    callback: async _ =>
+                    {
+                        if (Interlocked.CompareExchange(ref _fetchDeviceSyncStatusRunning, 1, 0) != 0)
+                        {
+                            LogHelper.Log("⏭️ Skipped FetchDeviceSyncStatus tick — previous run still in progress.");
+                            return;
+                        }
+                        try { await ExecuteFetchDeviceSyncStatusAsync(); }
+                        finally { Interlocked.Exchange(ref _fetchDeviceSyncStatusRunning, 0); }
+                    },
                     state: null,
                     dueTime: 0,
                     period: _fetchDeviceSyncStatusInterval
@@ -162,7 +218,16 @@ namespace smart_attendance_middleware.Classes
 
                 // Start force check-out timer with initial delay, then every 3 hours
                 _forceCheckOutTimer = new Timer(
-                    callback: async _ => await ExecuteForceCheckOutOperation(),
+                    callback: async _ =>
+                    {
+                        if (Interlocked.CompareExchange(ref _forceCheckOutRunning, 1, 0) != 0)
+                        {
+                            LogHelper.Log("⏭️ Skipped ForceCheckOut tick — previous run still in progress.");
+                            return;
+                        }
+                        try { await ExecuteForceCheckOutOperation(); }
+                        finally { Interlocked.Exchange(ref _forceCheckOutRunning, 0); }
+                    },
                     state: null,
                     dueTime: _initialDelay,
                     period: _forceCheckOutInterval

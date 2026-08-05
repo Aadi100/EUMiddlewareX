@@ -25,6 +25,12 @@ namespace smart_attendance_middleware.Classes
         private Timer _refreshTimer;
         private readonly int _refreshIntervalSeconds;
 
+        // Reentrancy guard: 0 = idle, 1 = a refresh is currently running. Prevents the timer
+        // from starting a second overlapping refresh if one run takes longer than the
+        // refresh interval (e.g. during SQL Server slowdowns) — both would otherwise hit
+        // the database and mutate AppSession's cached lists at the same time.
+        private int _refreshInProgress = 0;
+
         public event EventHandler<CacheUpdateEventArgs> CacheUpdated;
 
         public CacheManager(DatabaseHelper dbHelper, int refreshIntervalSeconds = 3600)
@@ -113,7 +119,16 @@ namespace smart_attendance_middleware.Classes
                 return;
             }
 
-            _refreshTimer = new Timer(async _ => await RefreshIncrementalAsync(),
+            _refreshTimer = new Timer(async _ =>
+            {
+                if (Interlocked.CompareExchange(ref _refreshInProgress, 1, 0) != 0)
+                {
+                    LogHelper.Log("[CacheManager] Skipped refresh tick — previous refresh still running.");
+                    return;
+                }
+                try { await RefreshIncrementalAsync(); }
+                finally { Interlocked.Exchange(ref _refreshInProgress, 0); }
+            },
                 null,
                 TimeSpan.FromSeconds(_refreshIntervalSeconds),
                 TimeSpan.FromSeconds(_refreshIntervalSeconds));

@@ -222,6 +222,20 @@ namespace smart_attendance_middleware
                 {
                     cmd.ExecuteNonQuery();
                 }
+
+                // Explicitly enforce AUTO_CLOSE OFF every startup — regardless of whether the
+                // database was just created or already existed. A frequently-accessed database
+                // like this one (constant device/dashboard/sync connections) should never be
+                // allowed to fully close and reopen between uses: that churn resets the query
+                // plan cache and adds avoidable overhead on every reconnect. This can't be left
+                // to rely on `model`'s default inheriting correctly, since the live database was
+                // found to have AUTO_CLOSE ON even though `model` itself has it OFF.
+                using (var cmd = new SqlCommand(
+                    $"ALTER DATABASE [{dbName}] SET AUTO_CLOSE OFF;",
+                    masterConn))
+                {
+                    cmd.ExecuteNonQuery();
+                }
             }
         }
 
@@ -2802,18 +2816,19 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                     await connection.OpenAsync();
                     // Joined with Members to retrieve the EnrollmentID
                     string query = @"
-                SELECT 
-                    al.AttendanceId, 
-                    al.MemberID, 
-                    al.CheckInTime, 
-                    al.CheckOutTime, 
+                SELECT TOP 2000
+                    al.AttendanceId,
+                    al.MemberID,
+                    al.CheckInTime,
+                    al.CheckOutTime,
                     al.SyncStatus,
                     m.EnrollmentID
-                FROM 
+                FROM
                     AttendanceLogs al
                 INNER JOIN Members m ON al.MemberID = m.MemberID
-                WHERE 
-                    al.SyncStatus LIKE '%false%'";
+                WHERE
+                    al.SyncStatus LIKE '%false%'
+                ORDER BY al.CheckInTime ASC";
 
                     using (var command = new SqlCommand(query, connection))
                     using (var reader = await command.ExecuteReaderAsync())
@@ -2889,7 +2904,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                 {
                     connection.Open();
                     using (var command = new SqlCommand(@"
-                    SELECT 
+                    SELECT TOP 10000
                         LogID,
                         MemberID,
                         AttendanceId,
@@ -5709,8 +5724,8 @@ CheckMemberAccessStatus(int memberId)
                 {
                     connection.Open();
                     using (var command = new SqlCommand(
-                        "SELECT GateId, DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, CreatedAt, UpdatedAt " +
-                        "FROM GateAccessed", connection))
+                        "SELECT TOP 10000 GateId, DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, CreatedAt, UpdatedAt " +
+                        "FROM GateAccessed ORDER BY AccessedTime DESC", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -8262,7 +8277,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                 {
                     connection.Open();
                     string sql = @"
-        SELECT 
+        SELECT TOP 10000
             sal.LogID                        AS LogID,
             sal.EnrollmentID                 AS EnrollmentID,
             s.StaffID                        AS AttendeeID,

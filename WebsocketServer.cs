@@ -124,6 +124,12 @@ namespace smart_attendance_middleware
             lbl_status.Text = status;
         }
 
+        // Maximum lines kept in each UI log textbox (txtLogsAll/Incoming/Outgoing/Attendance).
+        // Full, untruncated history always still goes to disk via WriteToFile() above —
+        // this only bounds what's held in the WinForms controls' memory. Change this value
+        // to allow more on-screen history; ignored entirely while AppSession.IsDebugMode is true.
+        public static int MaxUiLogLines = 1;
+
         private void LogToUI(string message, LogType type = LogType.General)
         {
             // Write to files from any thread before marshalling to UI.
@@ -141,23 +147,52 @@ namespace smart_attendance_middleware
             string logEntry = $"[{DateTime.Now:HH:mm:ss}] {message}\r\n";
 
             // 1. All logs (every message)
-            txtLogsAll.AppendText(logEntry);
+            AppendCapped(txtLogsAll, logEntry);
 
             // 2. Filtered tabs — Attendance tab shows only [ATTENDANCE] lines, not the raw [INCOMING] sendlog
             switch (type)
             {
                 case LogType.Incoming:
-                    txtLogsIncoming.AppendText(logEntry);
+                    AppendCapped(txtLogsIncoming, logEntry);
                     break;
                 case LogType.Outgoing:
-                    txtLogsOutgoing.AppendText(logEntry);
+                    AppendCapped(txtLogsOutgoing, logEntry);
                     break;
                 case LogType.Attendance:
                     // Skip the raw JSON dump; only show the formatted [ATTENDANCE] line
                     if (message.StartsWith("[ATTENDANCE]"))
-                        txtLogsAttendance.AppendText(logEntry);
+                        AppendCapped(txtLogsAttendance, logEntry);
                     break;
             }
+        }
+
+        // Appends a line to a log textbox, keeping only the last MaxUiLogLines lines so the
+        // control's internal buffer can't grow without bound over a long-running session
+        // (this was the biggest confirmed long-running memory-growth risk in the app).
+        // Debug mode intentionally bypasses the cap so full history is visible while investigating.
+        private void AppendCapped(TextBox box, string logEntry)
+        {
+            if (AppSession.IsDebugMode)
+            {
+                box.AppendText(logEntry);
+                return;
+            }
+
+            if (MaxUiLogLines <= 1)
+            {
+                // Common/default case — avoid the Lines round-trip entirely.
+                box.Text = logEntry;
+            }
+            else
+            {
+                var lines = new List<string>(box.Lines) { logEntry.TrimEnd('\r', '\n') };
+                if (lines.Count > MaxUiLogLines)
+                    lines.RemoveRange(0, lines.Count - MaxUiLogLines);
+                box.Lines = lines.ToArray();
+            }
+
+            box.SelectionStart = box.Text.Length;
+            box.ScrollToCaret();
         }
 
         private async void WebsocketServer_Load(object sender, EventArgs e)
@@ -182,7 +217,7 @@ namespace smart_attendance_middleware
             PopulateDeviceSnComboBox();
 
             // 4. Start background retry loop for devices that missed the initial scan
-            _ = Task.Run(() => RetryUnconnectedDevicesAsync(_formCts.Token));
+            FireAndForget(() => RetryUnconnectedDevicesAsync(_formCts.Token), "RetryUnconnectedDevices");
         }
 
         private void PopulateDeviceSnComboBox()
@@ -235,6 +270,27 @@ namespace smart_attendance_middleware
             }
         }
 
+        // Runs a fire-and-forget background action but always observes/logs any
+        // exception it throws, instead of letting it surface later as an
+        // UnobservedTaskException on the finalizer thread (which can crash the app).
+        private void FireAndForget(Action action, string context)
+        {
+            _ = Task.Run(action).ContinueWith(t =>
+            {
+                LogToUI($"[{context}] Background task error: {t.Exception?.GetBaseException().Message}");
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        // Overload for async (Task-returning) methods — Task.Run's Func<Task> overload
+        // properly awaits the whole method instead of just its synchronous prefix.
+        private void FireAndForget(Func<Task> asyncAction, string context)
+        {
+            _ = Task.Run(asyncAction).ContinueWith(t =>
+            {
+                LogToUI($"[{context}] Background task error: {t.Exception?.GetBaseException().Message}");
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
         private void StartServer()
         {
             if (_isListening) return;
@@ -250,7 +306,7 @@ namespace smart_attendance_middleware
                 LogToUI("WebSocket Server Started on port 7788...");
                 UpdateStatus("Status: Running (7788)");
 
-                _ = Task.Run(() => AcceptConnectionsLoop());
+                FireAndForget(() => AcceptConnectionsLoop(), "AcceptConnectionsLoop");
             }
             catch (HttpListenerException ex) when (ex.ErrorCode == 5)
             {
@@ -301,7 +357,7 @@ namespace smart_attendance_middleware
                     {
                         LogToUI($"[AUTO] Match Found: {match.DeviceSerial}. Registering...");
                         UpdateStatus($"Status: Registering {match.DeviceSerial}...");
-                        _ = Task.Run(() => ConnectToDeviceAndRegister(result.IP, match.DeviceSerial));
+                        FireAndForget(() => ConnectToDeviceAndRegister(result.IP, match.DeviceSerial), "ConnectToDeviceAndRegister");
                     }
                 }
             }
@@ -318,7 +374,7 @@ namespace smart_attendance_middleware
                     var context = await _listener.GetContextAsync();
                     if (context.Request.IsWebSocketRequest)
                     {
-                        _ = Task.Run(() => ProcessWebSocketRequest(context));
+                        FireAndForget(() => ProcessWebSocketRequest(context), "ProcessWebSocketRequest");
                     }
                     else
                     {
@@ -357,9 +413,20 @@ namespace smart_attendance_middleware
 
         private void RegisterDevice(string sn, WebSocket socket, string ip)
         {
+            // If this device already has a (stale) socket registered, close it instead of
+            // leaking it, and don't double-count the device in _connectedDeviceCount.
+            if (AppSession.RegisteredDevices.TryGetValue(sn, out var oldSocket) && oldSocket != socket)
+            {
+                try { oldSocket.Abort(); } catch { }
+                try { oldSocket.Dispose(); } catch { }
+            }
+            else
+            {
+                Interlocked.Increment(ref _connectedDeviceCount);
+            }
+
             AppSession.RegisteredDevices[sn] = socket;
             _connectedDeviceInfo[sn] = (ip, DateTime.Now);
-            Interlocked.Increment(ref _connectedDeviceCount);
             LogToUI($"[REG] Device {sn} registered.");
             UpdateStatus($"Status: Device {sn} Connected");
             NotifyConnectionChanged();
@@ -540,7 +607,7 @@ namespace smart_attendance_middleware
                         {
                             if (ret == "getalllog")
                             {
-                                _ = Task.Run(() => SaveGetAllLogResponse(snRes, doc));
+                                FireAndForget(() => SaveGetAllLogResponse(snRes, doc), "SaveGetAllLogResponse");
 
                                 string glogKey = $"{snRes}|getalllog";
                                 if (_pendingResponses.TryRemove(glogKey, out var tcsGlog))
@@ -568,7 +635,14 @@ namespace smart_attendance_middleware
             finally
             {
                 connectionCts.Cancel();
-                if (!string.IsNullOrEmpty(currentSn) && AppSession.RegisteredDevices.TryRemove(currentSn, out _))
+                // Only unregister/decrement if the dictionary still holds THIS socket —
+                // a newer reconnect may have already replaced it, in which case this
+                // (now-stale) connection's cleanup must not remove the live one.
+                bool ownedRegistration = !string.IsNullOrEmpty(currentSn)
+                    && ((System.Collections.Generic.ICollection<System.Collections.Generic.KeyValuePair<string, WebSocket>>)AppSession.RegisteredDevices)
+                        .Remove(new System.Collections.Generic.KeyValuePair<string, WebSocket>(currentSn, socket));
+
+                if (ownedRegistration)
                 {
                     _connectedDeviceInfo.TryRemove(currentSn, out _);
                     Interlocked.Decrement(ref _connectedDeviceCount);
