@@ -57,6 +57,7 @@ namespace smart_attendance_middleware
     public class WebSocketManager
     {
         // Pusher/Soketi defaults
+        
         private const string DefaultHost = "eu.ws.fitnessmarvel.com";
         //private const string DefaultHost = "ws-stg.fitnessmarvel.com";
         private const int DefaultTlsPort = 443;

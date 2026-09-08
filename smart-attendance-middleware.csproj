@@ -409,9 +409,6 @@
     <None Include="Resources\btn_connected.png" />
     <None Include="Resources\btn_connect.png" />
     <Content Include="favicon.ico" />
-    <None Include="Resources\ailogs.html">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="Resources\aceess denide note.mp3" />
     <Content Include="Resources\btn_setup.png" />
     <None Include="Resources\check-in note.mp3" />

@@ -59,6 +59,8 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Timer attendancePanelTimer;
         private CancellationTokenSource _deviceMonitorCts;
         private DateTime _lastPanelRefresh = DateTime.MinValue;
+        private DateTime _dashboardStartTime = DateTime.Now;
+        private int[] _hourlyCheckInCounts = new int[24];
         private readonly ToolTip _buttonTooltip = new ToolTip();
         private bool _uiReady = false;
         public HttpHandler _httpHandler;
@@ -123,8 +125,11 @@ namespace smart_attendance_middleware
             aiChatLogger.OnAddMessage += AiChatLogger_OnAddMessage;
             aiChatLogger.OnClearMessages += AiChatLogger_OnClearMessages;
 
-            // Initialize your WebView2 control
-            InitializeWebView2();
+            // Dashboard widgets (alert bar / activity chart / system health / member overview)
+            pnlActivityChart.Paint += PnlActivityChart_Paint;
+            InitializePendingJobsMiniList();
+            _dashboardStartTime = DateTime.Now;
+            RefreshDashboardWidgets();
 
             BiometricLoader = rectangularLoader1;
 
@@ -229,76 +234,255 @@ namespace smart_attendance_middleware
 
         // aiChatLogger Code Started from Here *************
 
-        private void InitializeWebView2()
-        {
-            try
-            {
-                // Path to the HTML file in Resources folder (copied to output)
-                string htmlPath = Path.Combine(Application.StartupPath, "Resources", "ailogs.html");
-
-                if (!File.Exists(htmlPath))
-                {
-                    MessageBox.Show("File not found: " + htmlPath);
-                    return;
-                }
-
-                // Correctly build file:// URI
-                aiChat.Source = new Uri(htmlPath);
-
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error initializing WebView2: " + ex.Message);
-            }
-        }
-
-        private async void AiChatLogger_OnAddMessage(string icon, string message)
+        private void AiChatLogger_OnAddMessage(string icon, string message)
         {
             // Handle cross-thread invocation
-            if (aiChat.InvokeRequired)
+            if (lblLastEvent.InvokeRequired)
             {
-                aiChat.Invoke(new Action<string, string>(AiChatLogger_OnAddMessage), icon, message);
+                lblLastEvent.Invoke(new Action<string, string>(AiChatLogger_OnAddMessage), icon, message);
                 return;
             }
 
-            try
-            {
-                if (aiChat.CoreWebView2 != null)
-                {
-                    string script = $"addMessage('{icon}', '{message}')";
-                    await aiChat.ExecuteScriptAsync(script);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error executing JavaScript: {ex.Message}");
-            }
+            // Only the latest message is shown — no history. Folded into the System
+            // Health tile's "Last event" line rather than its own dedicated space.
+            string text = string.IsNullOrEmpty(icon) ? message : $"{icon} {message}";
+            lblLastEvent.Text = "Last event: " + text;
         }
 
-        private async void AiChatLogger_OnClearMessages()
+        private void AiChatLogger_OnClearMessages()
         {
             // Handle cross-thread invocation
-            if (aiChat.InvokeRequired)
+            if (lblLastEvent.InvokeRequired)
             {
-                aiChat.Invoke(new Action(AiChatLogger_OnClearMessages));
+                lblLastEvent.Invoke(new Action(AiChatLogger_OnClearMessages));
                 return;
             }
 
-            try
-            {
-                if (aiChat.CoreWebView2 != null)
-                {
-                    await aiChat.ExecuteScriptAsync("clearMessages()");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error executing JavaScript: {ex.Message}");
-            }
+            lblLastEvent.Text = "Last event: Idle — no recent activity.";
         }
-
 
         // aiChatLogger Code Ended *************************
+
+        // ── Dashboard widgets: alert bar / activity chart / system health / member overview ──
+        // All data here comes from AppSession's already-cached in-memory lists (populated by
+        // CacheManager) — no new DB queries are added by this refresh, in line with this
+        // session's work on reducing unnecessary DB load.
+        private void RefreshDashboardWidgets()
+        {
+            try
+            {
+                RefreshAlertBar();
+                RefreshSystemHealth();
+                RefreshMemberOverview();
+                RefreshActivityChartData();
+                RefreshPendingJobsMiniList();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DashboardWidgets] Refresh error: {ex.Message}");
+            }
+        }
+
+        private void RefreshAlertBar()
+        {
+            // Matches the same figure shown on the "Pending Jobs" stat card
+            // (AppSession.SyncStatus.PendingBiometricJobs) — not the unrelated
+            // AppSession.PendingJobs device-operation queue.
+            int pendingCount = AppSession.SyncStatus?.PendingBiometricJobs ?? 0;
+            if (pendingCount == 0)
+            {
+                pnlAlertBar.Visible = false;
+                return;
+            }
+
+            lblAlertBar.Text = $"⚠ {pendingCount} pending biometric sync job(s) — please go take action.";
+            pnlAlertBar.BackColor = Color.FromArgb(220, 53, 69);
+            pnlAlertBar.Visible = true;
+        }
+
+        private DateTime _lastSqlMemoryCheck = DateTime.MinValue;
+        private bool _sqlMemoryCheckInFlight = false;
+
+        private void RefreshSystemHealth()
+        {
+            double memoryMb = Process.GetCurrentProcess().WorkingSet64 / 1024.0 / 1024.0;
+            lblMemoryUsage.Text = $"💾 App Memory: {memoryMb:F0} MB";
+
+            var uptime = DateTime.Now - _dashboardStartTime;
+            lblUptime.Text = uptime.TotalHours >= 1
+                ? $"⏱ Uptime: {(int)uptime.TotalHours}h {uptime.Minutes}m"
+                : $"⏱ Uptime: {uptime.Minutes}m {uptime.Seconds}s";
+
+            // SQL Server memory is checked far less often than everything else here (every 30s,
+            // not every 5s) and off the UI thread, since it's a live DB query rather than
+            // already-cached AppSession data — no reason to hit SQL Server more than necessary.
+            if (_sqlMemoryCheckInFlight || (DateTime.Now - _lastSqlMemoryCheck).TotalSeconds < 30)
+                return;
+
+            _sqlMemoryCheckInFlight = true;
+            _lastSqlMemoryCheck = DateTime.Now;
+
+            Task.Run(() =>
+            {
+                int? sqlMemoryMb = null;
+                try
+                {
+                    sqlMemoryMb = _dbHelper?.GetSqlServerMemoryUsageMb();
+
+                    if (IsDisposed) return;
+                    BeginInvoke(new Action(() =>
+                    {
+                        lblSqlMemoryUsage.Text = sqlMemoryMb.HasValue
+                            ? $"🗄 SQL Server: {sqlMemoryMb.Value} MB"
+                            : "🗄 SQL Server: N/A";
+                        _sqlMemoryCheckInFlight = false;
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"[DashboardWidgets] SQL memory check failed: {ex.Message}");
+                    _sqlMemoryCheckInFlight = false;
+                }
+            });
+        }
+
+        private void RefreshMemberOverview()
+        {
+            var members = AppSession.AllMembers ?? new List<Member>();
+            int activeCount = members.Count(m => string.Equals(m.Status, "active", StringComparison.OrdinalIgnoreCase));
+
+            var now = DateTime.Now;
+            int expiringSoon = members.Count(m =>
+                !string.IsNullOrEmpty(m.PackageExpiry)
+                && DateTime.TryParse(m.PackageExpiry, out var expiry)
+                && expiry >= now && expiry <= now.AddDays(7));
+
+            lblActiveMembers.Text = $"👤 Active: {activeCount}";
+            lblExpiringSoon.Text = $"📅 Expiring this week: {expiringSoon}";
+            lblTotalStaff.Text = $"👥 Staff: {(AppSession.AllStaff?.Count ?? 0)}";
+            lblPendingJobsOverview.Text = $"⏳ Pending Jobs: {(AppSession.SyncStatus?.PendingBiometricJobs ?? 0)}";
+        }
+
+        private void InitializePendingJobsMiniList()
+        {
+            lstPendingJobsMini.Columns.Clear();
+            lstPendingJobsMini.Columns.Add("Name", 130);
+            lstPendingJobsMini.Columns.Add("Device", 90);
+            lstPendingJobsMini.Columns.Add("Pending For", 90);
+            lstPendingJobsMini.Columns.Add("Since", 46);
+        }
+
+        // Same underlying list shown in Device Manager's pending jobs grid — sourced from
+        // AppSession.PendingBiometricSyncLogs (kept current by CacheManager), just condensed
+        // to the few most recent rows so it fits inside the Telemetry Cluster card.
+        private void RefreshPendingJobsMiniList()
+        {
+            try
+            {
+                var unsyncedEntries = AppSession.PendingBiometricSyncLogs ?? new List<LogEntry>();
+
+                var membersById = (AppSession.AllMembers ?? new List<Member>())
+                    .GroupBy(m => m.MemberID)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var devicesById = (AppSession.DeviceList ?? new List<Device>())
+                    .GroupBy(d => d.DeviceId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var displayItems = new List<ListViewItem>();
+
+                foreach (var entry in unsyncedEntries)
+                {
+                    string pendingFor = entry.SyncStatus == null
+                        ? "-"
+                        : string.Join(", ", entry.SyncStatus.Where(kv => !kv.Value).Select(kv => kv.Key));
+                    if (string.IsNullOrEmpty(pendingFor)) continue;
+
+                    string name = membersById.TryGetValue(entry.MemberID, out var m) && !string.IsNullOrWhiteSpace(m.Name)
+                        ? m.Name : "-";
+
+                    string deviceName = devicesById.TryGetValue(entry.DeviceID, out var d)
+                        ? (!string.IsNullOrWhiteSpace(d.Location) ? d.Location
+                           : !string.IsNullOrWhiteSpace(d.DeviceSerial) ? d.DeviceSerial
+                           : $"Device {entry.DeviceID}")
+                        : $"Device {entry.DeviceID}";
+
+                    var item = new ListViewItem(name);
+                    item.SubItems.Add(deviceName);
+                    item.SubItems.Add(pendingFor);
+                    item.SubItems.Add(string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt);
+                    displayItems.Add(item);
+                }
+
+                lstPendingJobsMini.BeginUpdate();
+                lstPendingJobsMini.Items.Clear();
+                lstPendingJobsMini.Items.AddRange(displayItems.Take(5).ToArray());
+                lstPendingJobsMini.EndUpdate();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DashboardWidgets] Pending jobs mini list refresh error: {ex.Message}");
+            }
+        }
+
+        private void RefreshActivityChartData()
+        {
+            var counts = new int[24];
+            var today = DateTime.Now.Date;
+
+            foreach (var log in AppSession.AllAttendanceLogs ?? new List<dynamic>())
+            {
+                try
+                {
+                    string checkInStr = log.CheckInTime;
+                    if (string.IsNullOrEmpty(checkInStr)) continue;
+                    if (!DateTime.TryParse(checkInStr, out var checkIn)) continue;
+                    if (checkIn.Date != today) continue;
+                    counts[checkIn.Hour]++;
+                }
+                catch { /* skip malformed/unexpected entries */ }
+            }
+
+            _hourlyCheckInCounts = counts;
+            pnlActivityChart.Invalidate();
+        }
+
+        private void PnlActivityChart_Paint(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            const int top = 34;      // leave room for the title label
+            const int bottomMargin = 20; // room for hour labels
+            int chartHeight = pnlActivityChart.Height - top - bottomMargin;
+            int chartWidth = pnlActivityChart.Width - 20;
+            int barAreaX = 10;
+
+            int max = Math.Max(1, _hourlyCheckInCounts.Max());
+            float barWidth = chartWidth / 24f;
+
+            using (var barBrush = new SolidBrush(Color.FromArgb(37, 99, 234)))
+            using (var axisPen = new Pen(Color.LightGray))
+            using (var font = new Font("Segoe UI", 7f))
+            using (var textBrush = new SolidBrush(Color.DimGray))
+            {
+                g.DrawLine(axisPen, barAreaX, top + chartHeight, barAreaX + chartWidth, top + chartHeight);
+
+                for (int hour = 0; hour < 24; hour++)
+                {
+                    int count = _hourlyCheckInCounts[hour];
+                    float barHeight = count == 0 ? 0 : Math.Max(2, (float)count / max * chartHeight);
+                    float x = barAreaX + hour * barWidth;
+                    float y = top + chartHeight - barHeight;
+
+                    if (barHeight > 0)
+                        g.FillRectangle(barBrush, x + 1, y, Math.Max(1, barWidth - 2), barHeight);
+
+                    if (hour % 3 == 0)
+                        g.DrawString(hour.ToString(), font, textBrush, x, top + chartHeight + 2);
+                }
+            }
+        }
 
 
 
@@ -622,6 +806,7 @@ namespace smart_attendance_middleware
                     if ((DateTime.Now - _lastPanelRefresh).TotalSeconds < 4) return;
                     await UpdateAttendancePanelsAsync();
                 };
+                attendancePanelTimer.Tick += (s, args) => RefreshDashboardWidgets();
                 attendancePanelTimer.Start();
 
                 _processor.update_session();
@@ -1024,12 +1209,6 @@ namespace smart_attendance_middleware
 
         }
 
-        private void cuiButton2_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        
 
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)

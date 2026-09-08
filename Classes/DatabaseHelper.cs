@@ -1159,6 +1159,36 @@ WHEN NOT MATCHED THEN
         }
 
         /// <summary>
+        /// Returns SQL Server's current process memory usage in MB (physical memory actually
+        /// in use, not the buffer pool target). Returns null if the query fails — e.g. the
+        /// login lacks VIEW SERVER STATE permission, or SQL Server is briefly unreachable —
+        /// so callers can show "N/A" instead of a misleading number.
+        /// Intentionally cheap: a single scalar read from a DMV, no table scans.
+        /// </summary>
+        public int? GetSqlServerMemoryUsageMb()
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var command = new SqlCommand(
+                        "SELECT physical_memory_in_use_kb / 1024 FROM sys.dm_os_process_memory;", connection))
+                    {
+                        var result = command.ExecuteScalar();
+                        if (result == null || result == DBNull.Value) return null;
+                        return Convert.ToInt32(result);
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                LogHelper.Log($"[DatabaseHelper] Error getting SQL Server memory usage: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Saves or updates a JSON array in the Settings table for the given key.
         /// The entire array is replaced with the provided list of values.
         /// </summary>

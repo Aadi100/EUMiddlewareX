@@ -71,30 +71,6 @@ namespace smart_attendance_middleware.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &lt;!DOCTYPE html&gt;
-        ///&lt;html lang=&quot;en&quot;&gt;
-        ///&lt;head&gt;
-        ///    &lt;meta charset=&quot;UTF-8&quot;&gt;
-        ///    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
-        ///    &lt;title&gt;AI Assistant Chat&lt;/title&gt;
-        ///    &lt;script src=&quot;https://cdn.tailwindcss.com&quot;&gt;&lt;/script&gt;
-        ///    &lt;script&gt;
-        ///        tailwind.config = {
-        ///            theme: {
-        ///                extend: {
-        ///                    fontFamily: { 
-        ///                        ui: [&apos;Segoe UI&apos;, &apos;Inter&apos;, &apos;system-ui&apos;, &apos;Arial&apos;] 
-        ///                    },
-        ///                    colors: {
-        ///              [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string ailogs {
-            get {
-                return ResourceManager.GetString("ailogs", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
         internal static System.Drawing.Bitmap btn_connect {

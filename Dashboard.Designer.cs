@@ -73,13 +73,28 @@
             this.lbl_adminsetting = new System.Windows.Forms.LinkLabel();
             this.btn_sync = new CuoreUI.Controls.cuiButton();
             this.label5 = new System.Windows.Forms.Label();
-            this.cuiPanel6 = new CuoreUI.Controls.cuiPanel();
-            this.cuiPanel7 = new CuoreUI.Controls.cuiPanel();
-            this.aiChat = new Microsoft.Web.WebView2.WinForms.WebView2();
-            this.cuiButton3 = new CuoreUI.Controls.cuiButton();
-            this.cuiButton2 = new CuoreUI.Controls.cuiButton();
-            this.cuiPanel8 = new CuoreUI.Controls.cuiPanel();
-            this.label23 = new System.Windows.Forms.Label();
+            this.pnlAlertBar = new System.Windows.Forms.Panel();
+            this.lblAlertBar = new System.Windows.Forms.Label();
+            this.cuiPanelTelemetry = new CuoreUI.Controls.cuiPanel();
+            this.pnlTelemetryHeader = new CuoreUI.Controls.cuiPanel();
+            this.lblTelemetryTitle = new System.Windows.Forms.Label();
+            this.pnlActivityChart = new System.Windows.Forms.Panel();
+            this.lblChartTitle = new System.Windows.Forms.Label();
+            this.pnlPendingJobsList = new System.Windows.Forms.Panel();
+            this.lblPendingJobsListTitle = new System.Windows.Forms.Label();
+            this.lstPendingJobsMini = new System.Windows.Forms.ListView();
+            this.pnlSystemHealth = new System.Windows.Forms.Panel();
+            this.lblHealthTitle = new System.Windows.Forms.Label();
+            this.lblMemoryUsage = new System.Windows.Forms.Label();
+            this.lblSqlMemoryUsage = new System.Windows.Forms.Label();
+            this.lblUptime = new System.Windows.Forms.Label();
+            this.lblLastEvent = new System.Windows.Forms.Label();
+            this.pnlMemberOverview = new System.Windows.Forms.Panel();
+            this.lblMemberTitle = new System.Windows.Forms.Label();
+            this.lblActiveMembers = new System.Windows.Forms.Label();
+            this.lblExpiringSoon = new System.Windows.Forms.Label();
+            this.lblTotalStaff = new System.Windows.Forms.Label();
+            this.lblPendingJobsOverview = new System.Windows.Forms.Label();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.prg_server = new System.Windows.Forms.ProgressBar();
             this.panel2 = new System.Windows.Forms.Panel();
@@ -99,12 +114,10 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).BeginInit();
             this.pnl_check_out.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).BeginInit();
-            this.cuiPanel6.SuspendLayout();
-            this.cuiPanel7.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.aiChat)).BeginInit();
-            this.cuiPanel8.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panel2.SuspendLayout();
+            this.cuiPanelTelemetry.SuspendLayout();
+            this.pnlTelemetryHeader.SuspendLayout();
             this.SuspendLayout();
             // 
             // panel1
@@ -360,7 +373,7 @@
             this.label7.ForeColor = System.Drawing.Color.Gray;
             this.label7.Location = new System.Drawing.Point(3, 55);
             this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(184, 26);
+            this.label7.Size = new System.Drawing.Size(191, 26);
             this.label7.TabIndex = 6;
             this.label7.Text = "Member Synced";
             this.label7.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -399,7 +412,7 @@
             this.label9.ForeColor = System.Drawing.Color.Gray;
             this.label9.Location = new System.Drawing.Point(3, 55);
             this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(189, 26);
+            this.label9.Size = new System.Drawing.Size(184, 26);
             this.label9.TabIndex = 8;
             this.label9.Text = "Pending Jobs";
             this.label9.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -706,152 +719,256 @@
             this.label5.TabIndex = 2;
             this.label5.Text = "Quick Actions";
             this.label5.UseCompatibleTextRendering = true;
-            // 
-            // cuiPanel6
-            // 
-            this.cuiPanel6.BackColor = System.Drawing.Color.Transparent;
-            this.cuiPanel6.Controls.Add(this.cuiPanel7);
-            this.cuiPanel6.Controls.Add(this.cuiButton3);
-            this.cuiPanel6.Controls.Add(this.cuiButton2);
-            this.cuiPanel6.Controls.Add(this.cuiPanel8);
-            this.cuiPanel6.Location = new System.Drawing.Point(341, 125);
-            this.cuiPanel6.Name = "cuiPanel6";
-            this.cuiPanel6.OutlineThickness = 1F;
-            this.cuiPanel6.PanelColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(234)))), ((int)(((byte)(226)))));
-            this.cuiPanel6.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
-            this.cuiPanel6.Rounding = new System.Windows.Forms.Padding(12);
-            this.cuiPanel6.Size = new System.Drawing.Size(618, 393);
-            this.cuiPanel6.TabIndex = 4;
-            // 
-            // cuiPanel7
-            // 
-            this.cuiPanel7.BackColor = System.Drawing.Color.Transparent;
-            this.cuiPanel7.Controls.Add(this.aiChat);
-            this.cuiPanel7.Location = new System.Drawing.Point(0, 43);
-            this.cuiPanel7.Name = "cuiPanel7";
-            this.cuiPanel7.OutlineThickness = 1F;
-            this.cuiPanel7.PanelColor = System.Drawing.Color.Transparent;
-            this.cuiPanel7.PanelOutlineColor = System.Drawing.Color.Transparent;
-            this.cuiPanel7.Rounding = new System.Windows.Forms.Padding(0);
-            this.cuiPanel7.Size = new System.Drawing.Size(616, 337);
-            this.cuiPanel7.TabIndex = 14;
-            // 
-            // aiChat
-            // 
-            this.aiChat.AllowExternalDrop = true;
-            this.aiChat.CreationProperties = null;
-            this.aiChat.DefaultBackgroundColor = System.Drawing.Color.White;
-            this.aiChat.Location = new System.Drawing.Point(1, 6);
-            this.aiChat.Name = "aiChat";
-            this.aiChat.Size = new System.Drawing.Size(612, 326);
-            this.aiChat.Source = new System.Uri("file:///E:/[PRODUCTION]/[ABDULHADI-LATEST-VERSION]/ailogs.html", System.UriKind.Absolute);
-            this.aiChat.TabIndex = 0;
-            this.aiChat.ZoomFactor = 1D;
-            // 
-            // cuiButton3
-            // 
-            this.cuiButton3.BackColor = System.Drawing.Color.Transparent;
-            this.cuiButton3.CheckButton = false;
-            this.cuiButton3.Checked = false;
-            this.cuiButton3.CheckedBackground = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(106)))), ((int)(((byte)(0)))));
-            this.cuiButton3.CheckedForeColor = System.Drawing.Color.White;
-            this.cuiButton3.CheckedImageTint = System.Drawing.Color.White;
-            this.cuiButton3.CheckedOutline = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(106)))), ((int)(((byte)(0)))));
-            this.cuiButton3.Content = "Finger print required";
-            this.cuiButton3.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.cuiButton3.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.cuiButton3.Font = new System.Drawing.Font("Segoe UI Semilight", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.cuiButton3.ForeColor = System.Drawing.Color.DimGray;
-            this.cuiButton3.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(3)))), ((int)(((byte)(70)))), ((int)(((byte)(214)))));
-            this.cuiButton3.HoverForeColor = System.Drawing.Color.White;
-            this.cuiButton3.HoverImageTint = System.Drawing.Color.White;
-            this.cuiButton3.HoverOutline = System.Drawing.Color.White;
-            this.cuiButton3.Image = null;
-            this.cuiButton3.ImageAutoCenter = true;
-            this.cuiButton3.ImageExpand = new System.Drawing.Point(0, 0);
-            this.cuiButton3.ImageOffset = new System.Drawing.Point(0, 0);
-            this.cuiButton3.Location = new System.Drawing.Point(162, 48);
-            this.cuiButton3.Name = "cuiButton3";
-            this.cuiButton3.NormalBackground = System.Drawing.Color.WhiteSmoke;
-            this.cuiButton3.NormalForeColor = System.Drawing.Color.DimGray;
-            this.cuiButton3.NormalImageTint = System.Drawing.Color.White;
-            this.cuiButton3.NormalOutline = System.Drawing.Color.Gainsboro;
-            this.cuiButton3.OutlineThickness = 1F;
-            this.cuiButton3.PressedBackground = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
-            this.cuiButton3.PressedForeColor = System.Drawing.Color.White;
-            this.cuiButton3.PressedImageTint = System.Drawing.Color.White;
-            this.cuiButton3.PressedOutline = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.cuiButton3.Rounding = new System.Windows.Forms.Padding(4);
-            this.cuiButton3.Size = new System.Drawing.Size(154, 29);
-            this.cuiButton3.TabIndex = 13;
-            this.cuiButton3.TextAlignment = System.Drawing.StringAlignment.Center;
-            this.cuiButton3.TextOffset = new System.Drawing.Point(0, 0);
-            // 
-            // cuiButton2
-            // 
-            this.cuiButton2.BackColor = System.Drawing.Color.Transparent;
-            this.cuiButton2.CheckButton = false;
-            this.cuiButton2.Checked = false;
-            this.cuiButton2.CheckedBackground = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(106)))), ((int)(((byte)(0)))));
-            this.cuiButton2.CheckedForeColor = System.Drawing.Color.White;
-            this.cuiButton2.CheckedImageTint = System.Drawing.Color.White;
-            this.cuiButton2.CheckedOutline = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(106)))), ((int)(((byte)(0)))));
-            this.cuiButton2.Content = "Overview";
-            this.cuiButton2.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.cuiButton2.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.cuiButton2.Font = new System.Drawing.Font("Segoe UI Semilight", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.cuiButton2.ForeColor = System.Drawing.Color.DimGray;
-            this.cuiButton2.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(3)))), ((int)(((byte)(70)))), ((int)(((byte)(214)))));
-            this.cuiButton2.HoverForeColor = System.Drawing.Color.White;
-            this.cuiButton2.HoverImageTint = System.Drawing.Color.White;
-            this.cuiButton2.HoverOutline = System.Drawing.Color.White;
-            this.cuiButton2.Image = null;
-            this.cuiButton2.ImageAutoCenter = true;
-            this.cuiButton2.ImageExpand = new System.Drawing.Point(0, 0);
-            this.cuiButton2.ImageOffset = new System.Drawing.Point(0, 0);
-            this.cuiButton2.Location = new System.Drawing.Point(39, 49);
-            this.cuiButton2.Name = "cuiButton2";
-            this.cuiButton2.NormalBackground = System.Drawing.Color.White;
-            this.cuiButton2.NormalForeColor = System.Drawing.Color.DimGray;
-            this.cuiButton2.NormalImageTint = System.Drawing.Color.White;
-            this.cuiButton2.NormalOutline = System.Drawing.Color.Gainsboro;
-            this.cuiButton2.OutlineThickness = 1F;
-            this.cuiButton2.PressedBackground = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
-            this.cuiButton2.PressedForeColor = System.Drawing.Color.White;
-            this.cuiButton2.PressedImageTint = System.Drawing.Color.White;
-            this.cuiButton2.PressedOutline = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.cuiButton2.Rounding = new System.Windows.Forms.Padding(4);
-            this.cuiButton2.Size = new System.Drawing.Size(117, 29);
-            this.cuiButton2.TabIndex = 12;
-            this.cuiButton2.TextAlignment = System.Drawing.StringAlignment.Center;
-            this.cuiButton2.TextOffset = new System.Drawing.Point(0, 0);
-            this.cuiButton2.Click += new System.EventHandler(this.cuiButton2_Click);
-            // 
-            // cuiPanel8
-            // 
-            this.cuiPanel8.Controls.Add(this.label23);
-            this.cuiPanel8.Location = new System.Drawing.Point(4, 4);
-            this.cuiPanel8.Name = "cuiPanel8";
-            this.cuiPanel8.OutlineThickness = 1F;
-            this.cuiPanel8.PanelColor = System.Drawing.Color.FromArgb(((int)(((byte)(42)))), ((int)(((byte)(141)))), ((int)(((byte)(142)))));
-            this.cuiPanel8.PanelOutlineColor = System.Drawing.Color.Transparent;
-            this.cuiPanel8.Rounding = new System.Windows.Forms.Padding(12, 12, 0, 0);
-            this.cuiPanel8.Size = new System.Drawing.Size(609, 39);
-            this.cuiPanel8.TabIndex = 15;
-            // 
-            // label23
-            // 
-            this.label23.AutoSize = true;
-            this.label23.BackColor = System.Drawing.Color.Transparent;
-            this.label23.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label23.ForeColor = System.Drawing.Color.White;
-            this.label23.Location = new System.Drawing.Point(21, 10);
-            this.label23.Name = "label23";
-            this.label23.Size = new System.Drawing.Size(74, 25);
-            this.label23.TabIndex = 3;
-            this.label23.Text = "Overview";
-            this.label23.UseCompatibleTextRendering = true;
-            // 
+            //
+            // pnlAlertBar
+            //
+            this.pnlAlertBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(234)))), ((int)(((byte)(226)))));
+            this.pnlAlertBar.Controls.Add(this.lblAlertBar);
+            this.pnlAlertBar.Location = new System.Drawing.Point(341, 125);
+            this.pnlAlertBar.Name = "pnlAlertBar";
+            this.pnlAlertBar.Size = new System.Drawing.Size(618, 32);
+            this.pnlAlertBar.TabIndex = 20;
+            this.pnlAlertBar.Visible = false;
+            //
+            // lblAlertBar
+            //
+            this.lblAlertBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAlertBar.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblAlertBar.ForeColor = System.Drawing.Color.White;
+            this.lblAlertBar.Name = "lblAlertBar";
+            this.lblAlertBar.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblAlertBar.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            //
+            // cuiPanelTelemetry
+            //
+            this.cuiPanelTelemetry.BackColor = System.Drawing.Color.Transparent;
+            this.cuiPanelTelemetry.Controls.Add(this.pnlActivityChart);
+            this.cuiPanelTelemetry.Controls.Add(this.pnlPendingJobsList);
+            this.cuiPanelTelemetry.Controls.Add(this.pnlSystemHealth);
+            this.cuiPanelTelemetry.Controls.Add(this.pnlMemberOverview);
+            this.cuiPanelTelemetry.Controls.Add(this.pnlTelemetryHeader);
+            this.cuiPanelTelemetry.Location = new System.Drawing.Point(341, 163);
+            this.cuiPanelTelemetry.Name = "cuiPanelTelemetry";
+            this.cuiPanelTelemetry.OutlineThickness = 1F;
+            this.cuiPanelTelemetry.PanelColor = System.Drawing.Color.White;
+            this.cuiPanelTelemetry.PanelOutlineColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
+            this.cuiPanelTelemetry.Rounding = new System.Windows.Forms.Padding(12);
+            this.cuiPanelTelemetry.Size = new System.Drawing.Size(618, 376);
+            this.cuiPanelTelemetry.TabIndex = 21;
+            //
+            // pnlTelemetryHeader
+            //
+            this.pnlTelemetryHeader.BackColor = System.Drawing.Color.Transparent;
+            this.pnlTelemetryHeader.Controls.Add(this.lblTelemetryTitle);
+            this.pnlTelemetryHeader.Location = new System.Drawing.Point(4, 4);
+            this.pnlTelemetryHeader.Name = "pnlTelemetryHeader";
+            this.pnlTelemetryHeader.OutlineThickness = 1F;
+            this.pnlTelemetryHeader.PanelColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
+            this.pnlTelemetryHeader.PanelOutlineColor = System.Drawing.Color.Transparent;
+            this.pnlTelemetryHeader.Rounding = new System.Windows.Forms.Padding(12, 12, 0, 0);
+            this.pnlTelemetryHeader.Size = new System.Drawing.Size(610, 38);
+            this.pnlTelemetryHeader.TabIndex = 0;
+            //
+            // lblTelemetryTitle
+            //
+            this.lblTelemetryTitle.AutoSize = true;
+            this.lblTelemetryTitle.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblTelemetryTitle.ForeColor = System.Drawing.Color.White;
+            this.lblTelemetryTitle.Location = new System.Drawing.Point(16, 8);
+            this.lblTelemetryTitle.Name = "lblTelemetryTitle";
+            this.lblTelemetryTitle.Size = new System.Drawing.Size(140, 20);
+            this.lblTelemetryTitle.TabIndex = 0;
+            this.lblTelemetryTitle.Text = "Telemetry Cluster";
+            //
+            // pnlActivityChart
+            //
+            this.pnlActivityChart.BackColor = System.Drawing.Color.Transparent;
+            this.pnlActivityChart.Controls.Add(this.lblChartTitle);
+            this.pnlActivityChart.Location = new System.Drawing.Point(10, 48);
+            this.pnlActivityChart.Name = "pnlActivityChart";
+            this.pnlActivityChart.Size = new System.Drawing.Size(360, 160);
+            this.pnlActivityChart.TabIndex = 1;
+            //
+            // lblChartTitle
+            //
+            this.lblChartTitle.AutoSize = true;
+            this.lblChartTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblChartTitle.ForeColor = System.Drawing.Color.Black;
+            this.lblChartTitle.Location = new System.Drawing.Point(0, 0);
+            this.lblChartTitle.Name = "lblChartTitle";
+            this.lblChartTitle.Size = new System.Drawing.Size(180, 19);
+            this.lblChartTitle.TabIndex = 0;
+            this.lblChartTitle.Text = "Today\'s Check-Ins by Hour";
+            //
+            // pnlPendingJobsList
+            //
+            this.pnlPendingJobsList.BackColor = System.Drawing.Color.Transparent;
+            this.pnlPendingJobsList.Controls.Add(this.lblPendingJobsListTitle);
+            this.pnlPendingJobsList.Controls.Add(this.lstPendingJobsMini);
+            this.pnlPendingJobsList.Location = new System.Drawing.Point(10, 216);
+            this.pnlPendingJobsList.Name = "pnlPendingJobsList";
+            this.pnlPendingJobsList.Size = new System.Drawing.Size(360, 152);
+            this.pnlPendingJobsList.TabIndex = 4;
+            //
+            // lblPendingJobsListTitle
+            //
+            this.lblPendingJobsListTitle.AutoSize = true;
+            this.lblPendingJobsListTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblPendingJobsListTitle.ForeColor = System.Drawing.Color.Black;
+            this.lblPendingJobsListTitle.Location = new System.Drawing.Point(0, 0);
+            this.lblPendingJobsListTitle.Name = "lblPendingJobsListTitle";
+            this.lblPendingJobsListTitle.Size = new System.Drawing.Size(110, 19);
+            this.lblPendingJobsListTitle.TabIndex = 0;
+            this.lblPendingJobsListTitle.Text = "Pending Jobs";
+            //
+            // lstPendingJobsMini
+            //
+            this.lstPendingJobsMini.FullRowSelect = true;
+            this.lstPendingJobsMini.GridLines = true;
+            this.lstPendingJobsMini.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            this.lstPendingJobsMini.Location = new System.Drawing.Point(0, 24);
+            this.lstPendingJobsMini.MultiSelect = false;
+            this.lstPendingJobsMini.Name = "lstPendingJobsMini";
+            this.lstPendingJobsMini.Size = new System.Drawing.Size(360, 128);
+            this.lstPendingJobsMini.TabIndex = 1;
+            this.lstPendingJobsMini.UseCompatibleStateImageBehavior = false;
+            this.lstPendingJobsMini.View = System.Windows.Forms.View.Details;
+            //
+            // pnlSystemHealth
+            //
+            this.pnlSystemHealth.BackColor = System.Drawing.Color.Transparent;
+            this.pnlSystemHealth.Controls.Add(this.lblHealthTitle);
+            this.pnlSystemHealth.Controls.Add(this.lblMemoryUsage);
+            this.pnlSystemHealth.Controls.Add(this.lblSqlMemoryUsage);
+            this.pnlSystemHealth.Controls.Add(this.lblUptime);
+            this.pnlSystemHealth.Controls.Add(this.lblLastEvent);
+            this.pnlSystemHealth.Location = new System.Drawing.Point(384, 48);
+            this.pnlSystemHealth.Name = "pnlSystemHealth";
+            this.pnlSystemHealth.Size = new System.Drawing.Size(224, 168);
+            this.pnlSystemHealth.TabIndex = 2;
+            //
+            // lblHealthTitle
+            //
+            this.lblHealthTitle.AutoSize = true;
+            this.lblHealthTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblHealthTitle.ForeColor = System.Drawing.Color.Black;
+            this.lblHealthTitle.Location = new System.Drawing.Point(0, 0);
+            this.lblHealthTitle.Name = "lblHealthTitle";
+            this.lblHealthTitle.Size = new System.Drawing.Size(105, 19);
+            this.lblHealthTitle.TabIndex = 0;
+            this.lblHealthTitle.Text = "System Health";
+            //
+            // lblMemoryUsage
+            //
+            this.lblMemoryUsage.AutoSize = true;
+            this.lblMemoryUsage.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblMemoryUsage.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.lblMemoryUsage.Location = new System.Drawing.Point(2, 28);
+            this.lblMemoryUsage.Name = "lblMemoryUsage";
+            this.lblMemoryUsage.Size = new System.Drawing.Size(90, 15);
+            this.lblMemoryUsage.TabIndex = 1;
+            this.lblMemoryUsage.Text = "💾 Memory: -- MB";
+            //
+            // lblSqlMemoryUsage
+            //
+            this.lblSqlMemoryUsage.AutoSize = true;
+            this.lblSqlMemoryUsage.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblSqlMemoryUsage.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.lblSqlMemoryUsage.Location = new System.Drawing.Point(2, 50);
+            this.lblSqlMemoryUsage.Name = "lblSqlMemoryUsage";
+            this.lblSqlMemoryUsage.Size = new System.Drawing.Size(110, 15);
+            this.lblSqlMemoryUsage.TabIndex = 2;
+            this.lblSqlMemoryUsage.Text = "🗄 SQL Server: -- MB";
+            //
+            // lblUptime
+            //
+            this.lblUptime.AutoSize = true;
+            this.lblUptime.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblUptime.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.lblUptime.Location = new System.Drawing.Point(2, 72);
+            this.lblUptime.Name = "lblUptime";
+            this.lblUptime.Size = new System.Drawing.Size(66, 15);
+            this.lblUptime.TabIndex = 3;
+            this.lblUptime.Text = "⏱ Uptime: --";
+            //
+            // lblLastEvent
+            //
+            this.lblLastEvent.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblLastEvent.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(90)))));
+            this.lblLastEvent.Location = new System.Drawing.Point(2, 96);
+            this.lblLastEvent.Name = "lblLastEvent";
+            this.lblLastEvent.Size = new System.Drawing.Size(220, 70);
+            this.lblLastEvent.TabIndex = 4;
+            this.lblLastEvent.Text = "✓ Last event: Idle — no recent activity.";
+            //
+            // pnlMemberOverview
+            //
+            this.pnlMemberOverview.BackColor = System.Drawing.Color.Transparent;
+            this.pnlMemberOverview.Controls.Add(this.lblMemberTitle);
+            this.pnlMemberOverview.Controls.Add(this.lblActiveMembers);
+            this.pnlMemberOverview.Controls.Add(this.lblExpiringSoon);
+            this.pnlMemberOverview.Controls.Add(this.lblTotalStaff);
+            this.pnlMemberOverview.Controls.Add(this.lblPendingJobsOverview);
+            this.pnlMemberOverview.Location = new System.Drawing.Point(384, 224);
+            this.pnlMemberOverview.Name = "pnlMemberOverview";
+            this.pnlMemberOverview.Size = new System.Drawing.Size(224, 144);
+            this.pnlMemberOverview.TabIndex = 3;
+            //
+            // lblMemberTitle
+            //
+            this.lblMemberTitle.AutoSize = true;
+            this.lblMemberTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblMemberTitle.ForeColor = System.Drawing.Color.Black;
+            this.lblMemberTitle.Location = new System.Drawing.Point(0, 0);
+            this.lblMemberTitle.Name = "lblMemberTitle";
+            this.lblMemberTitle.Size = new System.Drawing.Size(75, 19);
+            this.lblMemberTitle.TabIndex = 0;
+            this.lblMemberTitle.Text = "Members";
+            //
+            // lblActiveMembers
+            //
+            this.lblActiveMembers.AutoSize = true;
+            this.lblActiveMembers.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblActiveMembers.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.lblActiveMembers.Location = new System.Drawing.Point(2, 28);
+            this.lblActiveMembers.Name = "lblActiveMembers";
+            this.lblActiveMembers.Size = new System.Drawing.Size(60, 15);
+            this.lblActiveMembers.TabIndex = 1;
+            this.lblActiveMembers.Text = "👤 Active: --";
+            //
+            // lblExpiringSoon
+            //
+            this.lblExpiringSoon.AutoSize = true;
+            this.lblExpiringSoon.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblExpiringSoon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.lblExpiringSoon.Location = new System.Drawing.Point(2, 50);
+            this.lblExpiringSoon.Name = "lblExpiringSoon";
+            this.lblExpiringSoon.Size = new System.Drawing.Size(150, 15);
+            this.lblExpiringSoon.TabIndex = 2;
+            this.lblExpiringSoon.Text = "📅 Expiring this week: --";
+            //
+            // lblTotalStaff
+            //
+            this.lblTotalStaff.AutoSize = true;
+            this.lblTotalStaff.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblTotalStaff.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.lblTotalStaff.Location = new System.Drawing.Point(2, 72);
+            this.lblTotalStaff.Name = "lblTotalStaff";
+            this.lblTotalStaff.Size = new System.Drawing.Size(58, 15);
+            this.lblTotalStaff.TabIndex = 3;
+            this.lblTotalStaff.Text = "👥 Staff: --";
+            //
+            // lblPendingJobsOverview
+            //
+            this.lblPendingJobsOverview.AutoSize = true;
+            this.lblPendingJobsOverview.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblPendingJobsOverview.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(53)))), ((int)(((byte)(69)))));
+            this.lblPendingJobsOverview.Location = new System.Drawing.Point(2, 94);
+            this.lblPendingJobsOverview.Name = "lblPendingJobsOverview";
+            this.lblPendingJobsOverview.Size = new System.Drawing.Size(100, 15);
+            this.lblPendingJobsOverview.TabIndex = 4;
+            this.lblPendingJobsOverview.Text = "⏳ Pending Jobs: --";
+            //
             // pictureBox1
             // 
             this.pictureBox1.Image = ((System.Drawing.Image)(resources.GetObject("pictureBox1.Image")));
@@ -875,7 +992,8 @@
             this.panel2.Controls.Add(this.rectangularLoader1);
             this.panel2.Controls.Add(this.prg_server);
             this.panel2.Controls.Add(this.pictureBox1);
-            this.panel2.Controls.Add(this.cuiPanel6);
+            this.panel2.Controls.Add(this.cuiPanelTelemetry);
+            this.panel2.Controls.Add(this.pnlAlertBar);
             this.panel2.Controls.Add(this.cuiPanel5);
             this.panel2.Controls.Add(this.cuiPanel4);
             this.panel2.Controls.Add(this.cuiPanel3);
@@ -896,7 +1014,7 @@
             this.rectangularLoader1.IdleForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(130)))), ((int)(((byte)(180)))));
             this.rectangularLoader1.IdleText = "● Idle — waiting for activity";
             this.rectangularLoader1.LoaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
-            this.rectangularLoader1.Location = new System.Drawing.Point(341, 527);
+            this.rectangularLoader1.Location = new System.Drawing.Point(341, 545);
             this.rectangularLoader1.MiddleColor = System.Drawing.Color.FromArgb(((int)(((byte)(122)))), ((int)(((byte)(68)))), ((int)(((byte)(242)))));
             this.rectangularLoader1.Name = "rectangularLoader1";
             this.rectangularLoader1.Size = new System.Drawing.Size(618, 55);
@@ -945,12 +1063,10 @@
             this.pnl_check_out.ResumeLayout(false);
             this.pnl_check_out.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).EndInit();
-            this.cuiPanel6.ResumeLayout(false);
-            this.cuiPanel7.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.aiChat)).EndInit();
-            this.cuiPanel8.ResumeLayout(false);
-            this.cuiPanel8.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
+            this.pnlTelemetryHeader.ResumeLayout(false);
+            this.pnlTelemetryHeader.PerformLayout();
+            this.cuiPanelTelemetry.ResumeLayout(false);
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
             this.ResumeLayout(false);
@@ -969,13 +1085,28 @@
         private Controls.RectangularLoader rectangularLoader1;
         private System.Windows.Forms.ProgressBar prg_server;
         private System.Windows.Forms.PictureBox pictureBox1;
-        private CuoreUI.Controls.cuiPanel cuiPanel6;
-        private CuoreUI.Controls.cuiPanel cuiPanel7;
-        private Microsoft.Web.WebView2.WinForms.WebView2 aiChat;
-        private CuoreUI.Controls.cuiButton cuiButton3;
-        private CuoreUI.Controls.cuiButton cuiButton2;
-        private CuoreUI.Controls.cuiPanel cuiPanel8;
-        private System.Windows.Forms.Label label23;
+        private System.Windows.Forms.Panel pnlAlertBar;
+        private CuoreUI.Controls.cuiPanel cuiPanelTelemetry;
+        private CuoreUI.Controls.cuiPanel pnlTelemetryHeader;
+        private System.Windows.Forms.Label lblTelemetryTitle;
+        private System.Windows.Forms.Label lblAlertBar;
+        private System.Windows.Forms.Panel pnlActivityChart;
+        private System.Windows.Forms.Label lblChartTitle;
+        private System.Windows.Forms.Panel pnlPendingJobsList;
+        private System.Windows.Forms.Label lblPendingJobsListTitle;
+        private System.Windows.Forms.ListView lstPendingJobsMini;
+        private System.Windows.Forms.Panel pnlSystemHealth;
+        private System.Windows.Forms.Label lblHealthTitle;
+        private System.Windows.Forms.Label lblMemoryUsage;
+        private System.Windows.Forms.Label lblSqlMemoryUsage;
+        private System.Windows.Forms.Label lblUptime;
+        private System.Windows.Forms.Label lblLastEvent;
+        private System.Windows.Forms.Panel pnlMemberOverview;
+        private System.Windows.Forms.Label lblMemberTitle;
+        private System.Windows.Forms.Label lblActiveMembers;
+        private System.Windows.Forms.Label lblExpiringSoon;
+        private System.Windows.Forms.Label lblTotalStaff;
+        private System.Windows.Forms.Label lblPendingJobsOverview;
         private CuoreUI.Controls.cuiPanel cuiPanel5;
         private System.Windows.Forms.Panel panel3;
         private CuoreUI.Controls.cuiPanel pnl_last_check_in;
