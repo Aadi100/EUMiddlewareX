@@ -828,6 +828,11 @@ namespace smart_attendance_middleware
                 await ServiceManager.StartStaffAttendanceLogSyncServiceAsync();
                 UpdateLoaderMessage("Sync: Staff stream active.");
 
+                // 3b. Catalog Sync (Packages/Trainers for offline enrollment & subscription)
+                UpdateLoaderMessage("Sync: Fetching packages & trainers catalog...");
+                await ServiceManager.StartOfflineEnrollmentSubscriptionServiceAsync();
+                UpdateLoaderMessage("Sync: Catalog ready.");
+
                 // 4. Maintenance & Backup
                 UpdateLoaderMessage("System: Scheduling periodic maintenance...");
                 await ServiceManager.StartPeriodicMaintenanceServiceAsync(this);

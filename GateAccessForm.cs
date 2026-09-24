@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.VisualBasic;
+using smart_attendance_middleware.Classes;
 
 namespace smart_attendance_middleware
 {
@@ -70,123 +71,59 @@ namespace smart_attendance_middleware
         {
             LogHelper.Log("Save button clicked.");
 
-            // Inline prompt to ask for the password
-            Form prompt = new Form()
+            // Same "RequireGatePassword" rule as the no-form direct-open path.
+            if (CommonUtils.IsGatePasswordRequired(_dbHelper) && !CommonUtils.PromptForPassword(_loggedInUser, _dbHelper))
             {
-                Width = 360,
-                Height = 160,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = $"Password Required - {_loggedInUser}",
-                StartPosition = FormStartPosition.CenterScreen
-            };
+                return;
+            }
 
-            Label label = new Label()
+            int memberId = 0;
+            if (!chkVisitor.Checked)
             {
-                Left = 10,
-                Top = 20,
-                Width = 320,
-                Text = "Enter your password:"
-            };
-
-            TextBox inputBox = new TextBox()
-            {
-                Left = 10,
-                Top = 50,
-                Width = 320,
-                UseSystemPasswordChar = true // This ensures that the password is masked with asterisks (*)
-            };
-
-            Button okButton = new Button()
-            {
-                Text = "OK",
-                Left = 180,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.OK
-            };
-
-            Button cancelButton = new Button()
-            {
-                Text = "Cancel",
-                Left = 260,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.Cancel
-            };
-
-            prompt.Controls.Add(label);
-            prompt.Controls.Add(inputBox);
-            prompt.Controls.Add(okButton);
-            prompt.Controls.Add(cancelButton);
-            prompt.AcceptButton = okButton;
-            prompt.CancelButton = cancelButton;
-
-            if (prompt.ShowDialog() == DialogResult.OK)
-            {
-                string password = inputBox.Text;
-                LogHelper.Log("Password entered.");
-
-                // Verify the password using the entered value.
-                if (!_dbHelper.VerifyLoginUser(_loggedInUser, password))
+                // Get the selected member's ID from the database.
+                List<Member> members = _dbHelper.GetMembers();
+                var selectedMember = members.FirstOrDefault(m => string.Equals(m.Name?.Trim(), txtMemberName.Text?.Trim(), StringComparison.OrdinalIgnoreCase));
+                if (selectedMember == null)
                 {
-                    MessageBox.Show("Incorrect password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    LogHelper.Log("Incorrect password entered.");
+                    MessageBox.Show("Please select a valid member.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    LogHelper.Log("Invalid member selected.");
                     return;
                 }
-                LogHelper.Log("Password verified successfully.");
-
-                int memberId = 0;
-                if (!chkVisitor.Checked)
-                {
-                    // Get the selected member's ID from the database.
-                    List<Member> members = _dbHelper.GetMembers();
-                    var selectedMember = members.FirstOrDefault(m => string.Equals(m.Name?.Trim(), txtMemberName.Text?.Trim(), StringComparison.OrdinalIgnoreCase));
-                    if (selectedMember == null)
-                    {
-                        MessageBox.Show("Please select a valid member.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        LogHelper.Log("Invalid member selected.");
-                        return;
-                    }
-                    memberId = selectedMember.MemberID;
-                    LogHelper.Log($"Selected member ID: {memberId}, Name: {selectedMember.Name}");
-                }
-                else
-                {
-                    // Validate visitor details.
-                    if (string.IsNullOrWhiteSpace(txtVisitorName.Text) || string.IsNullOrWhiteSpace(txtVisitorPhone.Text))
-                    {
-                        MessageBox.Show("Please enter visitor name and phone number.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        LogHelper.Log("Visitor details missing.");
-                        return;
-                    }
-                    LogHelper.Log($"Visitor Name: {txtVisitorName.Text}, Phone: {txtVisitorPhone.Text}");
-                }
-
-                // Create a new GateAccessed object.
-                GateAccessed gateAccessed = new GateAccessed
-                {
-                    DeviceIP = _deviceIP,
-                    MemberId = chkVisitor.Checked ? 0 : memberId,
-                    IsVisitor = chkVisitor.Checked,
-                    VisitorName = chkVisitor.Checked ? txtVisitorName.Text : null,
-                    VisitorPhone = chkVisitor.Checked ? txtVisitorPhone.Text : null,
-                    Reason = txtReason.Text,
-                    AccessedTime = DateTime.Now,
-                    Username = _loggedInUser
-                };
-                LogHelper.Log("GateAccessed object created.");
-
-                // Insert the gate access record into the database.
-                _dbHelper.InsertGateAccessed(gateAccessed);
-                LogHelper.Log("Gate access recorded in the database.");
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-                LogHelper.Log("Gate access recorded successfully. Form closed.");
+                memberId = selectedMember.MemberID;
+                LogHelper.Log($"Selected member ID: {memberId}, Name: {selectedMember.Name}");
             }
             else
             {
-                LogHelper.Log("Password prompt cancelled.");
+                // Only the visitor's name is required — phone and reason are optional for visitors.
+                if (string.IsNullOrWhiteSpace(txtVisitorName.Text))
+                {
+                    MessageBox.Show("Please enter the visitor's name.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    LogHelper.Log("Visitor name missing.");
+                    return;
+                }
+                LogHelper.Log($"Visitor Name: {txtVisitorName.Text}, Phone: {txtVisitorPhone.Text}");
             }
+
+            // Create a new GateAccessed object.
+            GateAccessed gateAccessed = new GateAccessed
+            {
+                DeviceIP = _deviceIP,
+                MemberId = chkVisitor.Checked ? 0 : memberId,
+                IsVisitor = chkVisitor.Checked,
+                VisitorName = chkVisitor.Checked ? txtVisitorName.Text : null,
+                VisitorPhone = chkVisitor.Checked ? txtVisitorPhone.Text : null,
+                Reason = txtReason.Text,
+                AccessedTime = DateTime.Now,
+                Username = _loggedInUser
+            };
+            LogHelper.Log("GateAccessed object created.");
+
+            // Insert the gate access record into the database.
+            _dbHelper.InsertGateAccessed(gateAccessed);
+            LogHelper.Log("Gate access recorded in the database.");
+            this.DialogResult = DialogResult.OK;
+            this.Close();
+            LogHelper.Log("Gate access recorded successfully. Form closed.");
         }
 
         private void btnCancel_Click(object sender, EventArgs e)

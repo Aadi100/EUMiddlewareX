@@ -590,12 +590,21 @@ public class AttendanceLogSyncService : IDisposable
             // Prepare items for batching
             var items = unsyncedLogs
                 .Where(log => log.EnrollmentId > 0)                          // ← skip zero/invalid enrollment IDs
-                .Select(log => new
+                .Select(log =>
                 {
-                    log.EnrollmentId,
-                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.ConvertToUtc0(log.CheckInTime, gmtSetting) : null,
-                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.ConvertToUtc0(log.CheckOutTime, gmtSetting) : null,
-                    Id = log.AttendanceId
+                    var (gateSerial, gateAlias) = AppSession.GetDeviceGateInfo(log.CheckInDeviceId);
+                    var (gateSerialOut, gateAliasOut) = AppSession.GetDeviceGateInfo(log.CheckOutDeviceId);
+                    return new
+                    {
+                        log.EnrollmentId,
+                        CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.ConvertToUtc0(log.CheckInTime, gmtSetting) : null,
+                        CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.ConvertToUtc0(log.CheckOutTime, gmtSetting) : null,
+                        Id = log.AttendanceId,
+                        GateSerial = gateSerial,
+                        GateAlias = gateAlias,
+                        GateSerialOut = gateSerialOut,
+                        GateAliasOut = gateAliasOut
+                    };
                 })
                 .Where(x => x.CheckIn != null || x.CheckOut != null)
                 .ToList();
@@ -626,7 +635,7 @@ public class AttendanceLogSyncService : IDisposable
 
                 var batch = items.Skip(i).Take(maxBatchSize)
                     .Select(x => {
-                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, x.Id);
+                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, x.Id, x.GateSerial, x.GateAlias, x.GateSerialOut, x.GateAliasOut);
                     })
                     .ToList();
 
@@ -679,6 +688,10 @@ public class AttendanceLogSyncService : IDisposable
 
             string action = (string)type.GetProperty("Action").GetValue(resultObj, null);
             DateTime eventTime = (DateTime)type.GetProperty("EventTime").GetValue(resultObj, null);
+            int? eventDeviceId = null;
+            var deviceIdProp = type.GetProperty("DeviceId");
+            if (deviceIdProp != null)
+                eventDeviceId = (int?)deviceIdProp.GetValue(resultObj, null);
 
             if (enrollmentId <= 0)
             {
@@ -738,11 +751,15 @@ public class AttendanceLogSyncService : IDisposable
             {
                 checkInStr = CommonUtils.ConvertToUtc0(eventTime, gmtSetting);
 
+                var (gateSerial, gateAlias) = AppSession.GetDeviceGateInfo(eventDeviceId);
+
                 await _httpHandler.PostAttendanceRecordAsync(
                     enrollmentId,
                     checkinTime: checkInStr,
                     checkoutTime: null,
-                    id: resolvedId
+                    id: resolvedId,
+                    gateSerial: gateSerial,
+                    gateAlias: gateAlias
                 ).ConfigureAwait(false);
 
                 LogHelper.Log($"[LogAttendanceToServerAsync] CHECK-IN sent for Member={memberId} at {eventTime:yyyy-MM-dd HH:mm:ss} (GMT {gmtSetting})");
@@ -767,11 +784,15 @@ public class AttendanceLogSyncService : IDisposable
                 }
                 checkOutStr = CommonUtils.ConvertToUtc0(eventTime, gmtSetting);
 
+                var (gateSerialOut, gateAliasOut) = AppSession.GetDeviceGateInfo(eventDeviceId);
+
                 await _httpHandler.PostAttendanceRecordAsync(
                     enrollmentId,
                     checkinTime: checkInStr,
                     checkoutTime: checkOutStr,
-                    id: resolvedId
+                    id: resolvedId,
+                    gateSerialOut: gateSerialOut,
+                    gateAliasOut: gateAliasOut
                 ).ConfigureAwait(false);
 
                 LogHelper.Log($"[LogAttendanceToServerAsync] CHECK-OUT sent for Member={memberId} with Check-In at {(checkInTime.HasValue ? checkInTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")} and Check-Out at {eventTime:yyyy-MM-dd HH:mm:ss} (GMT {gmtSetting})");

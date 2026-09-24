@@ -337,6 +337,142 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
+        // Same as ProcessAllEntries but for offline (locally-enrolled) members only —
+        // pushes their biometrics (RFID/Face/Fingerprint) to every member device.
+        public async Task ProcessAllOfflineEntries()
+        {
+            LogHelper.Log("[Offline] ProcessAllOfflineEntries started");
+            Dashboard.GlobalStartBiometricLoader("Processing unsynced offline member biometric entries...");
+
+            try
+            {
+                List<OfflineLogEntry> unsyncedEntries;
+                List<OfflineMember> offlineMembers;
+                List<Device> devices;
+                List<FingerprintData> allFingerprints;
+
+                // Step 1: read snapshot under short lock - Offline Members
+                unsyncedEntries = await _dbHelper.GetUnsyncedOfflineLogEntriesAsync();
+                LogHelper.Log($"[Offline] Found {unsyncedEntries.Count} unsynced OfflineMemberLog entries");
+                if (unsyncedEntries.Count == 0)
+                {
+                    LogHelper.Log("[Offline] No unsynced offline member entries found");
+                    Dashboard.GlobalUpdateBiometricLoader("No unsynced offline member entries found.");
+                    return;
+                }
+
+                offlineMembers = _dbHelper.GetOfflineMembers();
+                devices = _dbHelper.LoadDevices();
+                allFingerprints = _dbHelper.GetAllFingerprints();
+                LogHelper.Log($"[Offline] Loaded {offlineMembers.Count} offline members, {devices.Count} devices, {allFingerprints.Count} fingerprints");
+
+                // Step 2: process offline member entries without holding DB lock
+                int processed = 0;
+                int total = unsyncedEntries.Count;
+
+                foreach (var entry in unsyncedEntries)
+                {
+                    try
+                    {
+                        var offlineMember = offlineMembers.FirstOrDefault(m => m.ClientId == entry.ClientId);
+                        var device = devices.FirstOrDefault(d => d.DeviceId == entry.DeviceID);
+
+                        if (offlineMember == null)
+                        {
+                            LogHelper.Log($"[Offline] Skipping log entry {entry.Id}: no OfflineMember found for ClientId={entry.ClientId}");
+                            continue;
+                        }
+                        if (device == null)
+                        {
+                            LogHelper.Log($"[Offline] Skipping log entry {entry.Id}: no Device found for DeviceID={entry.DeviceID}");
+                            continue;
+                        }
+
+                        LogHelper.Log($"[Offline] Processing {offlineMember.Name} (Enroll={offlineMember.EnrollmentID}) on {device.DeviceIP} (DeviceId={device.DeviceId})");
+                        Dashboard.GlobalUpdateBiometricLoader($"[Offline] Processing {offlineMember.Name} on {device.DeviceId} ({processed + 1}/{total})");
+
+                        await SetUsername(offlineMember.EnrollmentID, offlineMember.Name, device.DeviceSerial);
+                        await Task.Delay(200);
+
+                        var processResults = new Dictionary<string, bool>();
+
+                        foreach (var biometric in entry.BiometricData)
+                        {
+                            if (entry.SyncStatus.ContainsKey(biometric.Key) && entry.SyncStatus[biometric.Key])
+                            {
+                                LogHelper.Log($"[Offline] {biometric.Key} already synced for {offlineMember.Name} on DeviceId={device.DeviceId}; skipping");
+                                continue;
+                            }
+
+                            LogHelper.Log($"[Offline] Pushing {biometric.Key} for {offlineMember.Name} (Enroll={offlineMember.EnrollmentID}) to DeviceId={device.DeviceId}");
+
+                            bool success = false;
+
+                            switch (biometric.Key)
+                            {
+                                case "Fingerprint":
+                                    success = await ProcessFingerprint(entry.EnrollmentID, offlineMember.Name, device.DeviceSerial, allFingerprints);
+                                    await Task.Delay(200);
+                                    break;
+                                case "Face":
+                                    success = await ProcessFace(biometric.Value, offlineMember.EnrollmentID, offlineMember.Name, device.DeviceSerial);
+                                    await Task.Delay(200);
+                                    break;
+                                case "RFID":
+                                    success = await ProcessRFID(biometric.Value, offlineMember.EnrollmentID, offlineMember.Name, device.DeviceSerial);
+                                    await Task.Delay(200);
+                                    break;
+                                default:
+                                    LogHelper.Log($"[Offline] Unknown biometric type '{biometric.Key}' for {offlineMember.Name}; skipping");
+                                    break;
+                            }
+
+                            LogHelper.Log($"[Offline] {biometric.Key} for {offlineMember.Name} on DeviceId={device.DeviceId}: {(success ? "SUCCESS" : "FAILED")}");
+
+                            if (success)
+                            {
+                                // Step 3: brief write under lock
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllOfflineEntries_Write", DbTaskPriority.High);
+                                try
+                                {
+                                    await _dbHelper.UpdateOfflineBiometricSyncStatus(entry.Id, biometric.Key, true);
+                                    LogHelper.Log($"[Offline] Marked {biometric.Key} synced for log entry {entry.Id}");
+
+                                    bool memberDeviceFullySynced = await _dbHelper.CheckAndUpdateOfflineMemberDeviceSyncStatus(entry.ClientId, entry.DeviceID);
+                                    if (memberDeviceFullySynced)
+                                        LogHelper.Log($"[Offline] {offlineMember.Name} is now fully synced for DeviceId={device.DeviceId}");
+                                }
+                                finally
+                                {
+                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllOfflineEntries_Write");
+                                }
+                            }
+
+                            processResults[biometric.Key] = success;
+                        }
+
+                        processed++;
+                        LogHelper.Log($"[Offline] Finished entry {entry.Id} for {offlineMember.Name} on DeviceId={device.DeviceId} ({processed}/{total})");
+                        Dashboard.GlobalUpdateBiometricLoader($"[Offline] Processed {processed}/{total} entries...");
+                        await Task.Delay(200);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"[Offline] Error processing entry {entry.Id}: {ex.Message}");
+                        Dashboard.GlobalUpdateBiometricLoader($"[Offline] Error on entry {entry.Id}: {ex.Message}");
+                    }
+                }
+
+                LogHelper.Log($"[Offline] ProcessAllOfflineEntries completed. Processed {processed}/{total} entries.");
+                Dashboard.GlobalUpdateBiometricLoader("Offline member biometric processing completed.");
+            }
+            finally
+            {
+                Dashboard.GlobalStopBiometricLoader();
+                LogHelper.Log("[Offline] ProcessAllOfflineEntries finished");
+            }
+        }
+
         private async Task SetUsername(int enrollId, string name, string deviceSerial)
         {
             var nameParams = new { enrollid = enrollId, name };

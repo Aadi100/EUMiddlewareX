@@ -38,6 +38,7 @@ namespace smart_attendance_middleware
             public int EnrollmentId { get; set; }
             public string Action { get; set; }
             public DateTime EventTime { get; set; } // Echo of device timestamp
+            public int? DeviceId { get; set; } // Staff device that fired this specific check-in/check-out event
         }
 
 
@@ -298,6 +299,7 @@ namespace smart_attendance_middleware
                 }
 
                 string deviceTimeStr = deviceTime.ToString("yyyy-MM-dd HH:mm:ss");
+                int? eventDeviceId = _dbHelper.GetStaffDeviceIdByMachineNo(machineNo);
 
                 // Use action-aware staff helpers:
                 // - For "check-in" use InsertStaffCheckInByStaffId(staffId, time)
@@ -306,7 +308,7 @@ namespace smart_attendance_middleware
                 {
                     if (action.Equals("check-in", StringComparison.OrdinalIgnoreCase))
                     {
-                        int newLogId = _dbHelper.InsertStaffCheckInByStaffId(staffId, deviceTimeStr);
+                        int newLogId = _dbHelper.InsertStaffCheckInByStaffId(staffId, deviceTimeStr, eventDeviceId);
                         if (newLogId <= 0)
                         {
                             LogHelper.Log($"[StaffAttendanceProcess] Staff check-in for Enroll={enrollmentId} ignored/suppressed (possible duplicate/debounce).");
@@ -317,7 +319,7 @@ namespace smart_attendance_middleware
                     }
                     else if (action.Equals("check-out", StringComparison.OrdinalIgnoreCase))
                     {
-                        bool ok = _dbHelper.InsertStaffCheckOutByStaffId(staffId, deviceTimeStr);
+                        bool ok = _dbHelper.InsertStaffCheckOutByStaffId(staffId, deviceTimeStr, eventDeviceId);
                         if (!ok)
                         {
                             LogHelper.Log($"[StaffAttendanceProcess] Staff check-out for Enroll={enrollmentId} not applied (no open session or validation failed).");
@@ -340,7 +342,8 @@ namespace smart_attendance_middleware
                     StaffId = staffId,
                     EnrollmentId = enrollmentId,
                     Action = action,
-                    EventTime = deviceTime
+                    EventTime = deviceTime,
+                    DeviceId = eventDeviceId
                 };
             }
             catch (Exception ex)
@@ -428,11 +431,15 @@ namespace smart_attendance_middleware
                 {
                     checkInStr = CommonUtils.ConvertToUtc0(result.EventTime, gmtSetting);
 
+                    var (gateSerial, gateAlias) = AppSession.GetStaffDeviceGateInfo(result.DeviceId);
+
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,
                         checkinTime: checkInStr,
                         checkoutTime: null,
-                        id: resolvedId
+                        id: resolvedId,
+                        gateSerial: gateSerial,
+                        gateAlias: gateAlias
                     );
 
                     LogHelper.Log($"[LogStaffAttendanceToServer] CHECK-IN sent for Enroll={enrollmentId} Staff={result.StaffId} at {result.EventTime:yyyy-MM-dd HH:mm:ss} (normalized to UTC +00) id={resolvedId}");
@@ -444,11 +451,15 @@ namespace smart_attendance_middleware
                     if (pairedCheckIn.HasValue)
                         checkInStr = CommonUtils.ConvertToUtc0(pairedCheckIn.Value, gmtSetting);
 
+                    var (gateSerialOut, gateAliasOut) = AppSession.GetStaffDeviceGateInfo(result.DeviceId);
+
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,
                         checkinTime: checkInStr,
                         checkoutTime: checkOutStr,
-                        id: resolvedId
+                        id: resolvedId,
+                        gateSerialOut: gateSerialOut,
+                        gateAliasOut: gateAliasOut
                     );
 
                     LogHelper.Log($"[LogStaffAttendanceToServer] CHECK-OUT sent for Enroll={enrollmentId} Staff={result.StaffId} (normalized to UTC +00) id={resolvedId} paired_checkin={(checkInStr ?? "null")}");

@@ -19,6 +19,7 @@ namespace smart_attendance_middleware
     public class Member
     {
         public int MemberID { get; set; }
+        public string ClientId { get; set; }
         public string Name { get; set; }
         public string Status { get; set; }
         public string RFID { get; set; }
@@ -28,6 +29,48 @@ namespace smart_attendance_middleware
         public string PackageExpiry { get; set; }
         public bool is_staff { get; set; } 
         public Dictionary<int, bool> SyncStatus { get; set; } = new Dictionary<int, bool>();
+    }
+
+    public class Package
+    {
+        public int PackageId { get; set; }
+        public string Title { get; set; }
+        public string Code { get; set; }
+        public string Description { get; set; }
+        public string PricingTierJson { get; set; } // raw JSON, e.g. {"monthly":5000,"quarterly":14000}
+        public decimal? RegistrationFee { get; set; }
+        public string RegistrationFeeBasis { get; set; }
+        public string GroupMode { get; set; }
+        public bool Active { get; set; }
+    }
+
+    public class Trainer
+    {
+        public string TrainerId { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Name => $"{FirstName} {LastName}".Trim();
+    }
+
+    public class OfflineMember
+    {
+        public string ClientId { get; set; }
+        public string Name { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Gender { get; set; }
+        public string Phone { get; set; }
+        public string SubscriptionJson { get; set; }
+        public Dictionary<int, bool> SyncStatus { get; set; } = new Dictionary<int, bool>();
+        public string Picture { get; set; }
+        public string RFID { get; set; }
+        public bool Fingerprint { get; set; }
+        public int EnrollmentID { get; set; }
+        public bool ServerSync { get; set; }
+        // Per-device deletion progress after a successful server sync: {deviceId: true} once
+        // that device's deleteuser call has succeeded. Only meaningful once ServerSync = true.
+        public Dictionary<int, bool> DeviceCleanupStatus { get; set; } = new Dictionary<int, bool>();
+        public string CreatedAt { get; set; }
     }
 
     public class Staff
@@ -56,7 +99,29 @@ namespace smart_attendance_middleware
         public string UpdatedAt { get; set; }
     }
 
-    // StaffLog model 
+    // OfflineMemberLog model — mirrors LogEntry but keyed by ClientId instead of MemberID
+    public class OfflineLogEntry
+    {
+        public int Id { get; set; }
+        public string ClientId { get; set; }
+        public int DeviceID { get; set; }
+        public int EnrollmentID { get; set; }
+        public Dictionary<string, string> BiometricData { get; set; }
+        public Dictionary<string, bool> SyncStatus { get; set; }
+        public string CreatedAt { get; set; }
+        public string UpdatedAt { get; set; }
+    }
+
+    // A pending membership-renewal awaiting upload to /api/sync/enrollments.
+    public class OfflineSubscription
+    {
+        public int Id { get; set; }
+        public int MemberId { get; set; }
+        public string ClientId { get; set; }
+        public string SubscriptionJson { get; set; }
+    }
+
+    // StaffLog model
     public class StaffLogEntry
     {
         public int Id { get; set; }
@@ -144,6 +209,8 @@ namespace smart_attendance_middleware
         public DateTime CheckOutTime { get; set; }
         public bool NeedsCheckInSync { get; set; }
         public bool NeedsCheckOutSync { get; set; }
+        public int? CheckInDeviceId { get; set; }
+        public int? CheckOutDeviceId { get; set; }
     }
 
 
@@ -265,6 +332,7 @@ IF OBJECT_ID('dbo.Members','U') IS NULL
 BEGIN
     CREATE TABLE dbo.Members (
         MemberID INT IDENTITY(1,1) PRIMARY KEY,
+        ClientId NVARCHAR(36),
         Name NVARCHAR(255),
         Status NVARCHAR(50),
         RFID NVARCHAR(100),
@@ -305,6 +373,7 @@ BEGIN
         CheckInTime DATETIME2,
         CheckOutTime DATETIME2,
         SyncStatus NVARCHAR(50),
+        DeviceInfo NVARCHAR(100),
         CreatedAt DATETIME2,
         UpdatedAt DATETIME2,
         CONSTRAINT FK_AttendanceLogs_Members FOREIGN KEY(MemberID) REFERENCES dbo.Members(MemberID)
@@ -469,6 +538,7 @@ BEGIN
         CheckInTime DATETIME2,
         CheckOutTime DATETIME2,
         SyncStatus NVARCHAR(500),
+        DeviceInfo NVARCHAR(100),
         CreatedAt DATETIME2,
         UpdatedAt DATETIME2
     );
@@ -510,6 +580,93 @@ BEGIN
         BackupNumber INT NOT NULL,
         CreatedAt DATETIME2,
         CONSTRAINT FK_PendingJobs_Devices FOREIGN KEY (DeviceId) REFERENCES dbo.Devices(DeviceId)
+    );
+END";
+
+                var createPackagesSql = @"
+IF OBJECT_ID('dbo.Packages','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Packages (
+        PackageId INT PRIMARY KEY,
+        Title NVARCHAR(200),
+        Code NVARCHAR(100),
+        Description NVARCHAR(MAX),
+        PricingTier NVARCHAR(MAX),
+        RegistrationFee DECIMAL(18,2) NULL,
+        RegistrationFeeBasis NVARCHAR(50),
+        GroupMode NVARCHAR(50),
+        Active BIT,
+        RemoteUpdatedAt DATETIME2,
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createTrainersSql = @"
+IF OBJECT_ID('dbo.Trainers','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Trainers (
+        TrainerId NVARCHAR(100) PRIMARY KEY,
+        FirstName NVARCHAR(150),
+        LastName NVARCHAR(150),
+        PersonalInformation NVARCHAR(MAX),
+        RemoteUpdatedAt DATETIME2,
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createOfflineMembersSql = @"
+IF OBJECT_ID('dbo.OfflineMembers','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.OfflineMembers (
+        ClientId NVARCHAR(36) PRIMARY KEY,
+        Name NVARCHAR(255),
+        FirstName NVARCHAR(150),
+        LastName NVARCHAR(150),
+        Gender NVARCHAR(20),
+        Phone NVARCHAR(50),
+        Subscription NVARCHAR(MAX),
+        SyncStatus NVARCHAR(50),
+        Picture NVARCHAR(500),
+        RFID NVARCHAR(100),
+        Fingerprint BIT,
+        EnrollmentID INT UNIQUE,
+        ServerSync BIT,
+        DeviceCleanupStatus NVARCHAR(500),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2
+    );
+END";
+
+                var createOfflineMemberLogSql = @"
+IF OBJECT_ID('dbo.OfflineMemberLog','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.OfflineMemberLog (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        ClientId NVARCHAR(36) NOT NULL,
+        DeviceID INT NOT NULL,
+        EnrollmentID INT,
+        BiometricData NVARCHAR(MAX),
+        SyncStatus NVARCHAR(50),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2,
+        CONSTRAINT FK_OfflineMemberLog_OfflineMembers FOREIGN KEY (ClientId) REFERENCES dbo.OfflineMembers(ClientId),
+        CONSTRAINT FK_OfflineMemberLog_Devices FOREIGN KEY (DeviceID) REFERENCES dbo.Devices(DeviceId)
+    );
+END";
+
+                var createOfflineSubscriptionsSql = @"
+IF OBJECT_ID('dbo.OfflineSubscriptions','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.OfflineSubscriptions (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        MemberId INT NOT NULL,
+        ClientId NVARCHAR(36),
+        Subscription NVARCHAR(MAX),
+        CreatedAt DATETIME2,
+        UpdatedAt DATETIME2,
+        CONSTRAINT FK_OfflineSubscriptions_Members FOREIGN KEY (MemberId) REFERENCES dbo.Members(MemberID)
     );
 END";
 
@@ -564,7 +721,28 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_DeviceId' 
     CREATE INDEX IX_PendingJobs_DeviceId ON dbo.PendingJobs(DeviceId);
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt' AND object_id = OBJECT_ID('dbo.PendingJobs'))
-    CREATE INDEX IX_PendingJobs_CreatedAt ON dbo.PendingJobs(CreatedAt);";
+    CREATE INDEX IX_PendingJobs_CreatedAt ON dbo.PendingJobs(CreatedAt);
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.AttendanceLogs') AND name = 'DeviceInfo')
+    ALTER TABLE dbo.AttendanceLogs ADD DeviceInfo NVARCHAR(100);
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.StaffAttendanceLog') AND name = 'DeviceInfo')
+    ALTER TABLE dbo.StaffAttendanceLog ADD DeviceInfo NVARCHAR(100);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OfflineMemberLog_ClientId' AND object_id = OBJECT_ID('dbo.OfflineMemberLog'))
+    CREATE INDEX IX_OfflineMemberLog_ClientId ON dbo.OfflineMemberLog(ClientId);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OfflineMemberLog_DeviceID' AND object_id = OBJECT_ID('dbo.OfflineMemberLog'))
+    CREATE INDEX IX_OfflineMemberLog_DeviceID ON dbo.OfflineMemberLog(DeviceID);
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Members') AND name = 'ClientId')
+BEGIN
+    ALTER TABLE dbo.Members ADD ClientId NVARCHAR(36) NULL;
+    EXEC('UPDATE dbo.Members SET ClientId = LOWER(CONVERT(NVARCHAR(36), NEWID())) WHERE ClientId IS NULL');
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.OfflineMembers') AND name = 'DeviceCleanupStatus')
+    ALTER TABLE dbo.OfflineMembers ADD DeviceCleanupStatus NVARCHAR(500);";
 
                 var ddlCommands = new[]
                 {
@@ -577,6 +755,11 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt'
                 createAttendanceLogsSql,
                 createLocalUsersSql,
                 createSyncLogSql,
+                createPackagesSql,
+                createTrainersSql,
+                createOfflineMembersSql,
+                createOfflineMemberLogSql,
+                createOfflineSubscriptionsSql,
                 createStaffDevicesSql,
                 createStaffLogSql,
                 createStaffGLogSql,
@@ -1206,7 +1389,7 @@ WHEN NOT MATCHED THEN
                 {
                     connection.Open();
                     using (var command = new SqlCommand(
-                        "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus " +
+                        "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus, ClientId " +
                         "FROM Members WHERE MemberID = @MemberID", connection))
                     {
                         command.Parameters.AddWithValue("@MemberID", memberId);
@@ -1225,7 +1408,8 @@ WHEN NOT MATCHED THEN
                                     Fingerprint = !reader.IsDBNull(5) && reader.GetBoolean(5),
                                     EnrollmentID = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
                                     PackageExpiry = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                    SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>()
+                                    SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>(),
+                                    ClientId = reader.IsDBNull(9) ? null : reader.GetString(9)
                                 };
                             }
                         }
@@ -1249,7 +1433,7 @@ WHEN NOT MATCHED THEN
                 {
                     connection.Open();
                     using (var command = new SqlCommand(
-                        "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus FROM Members", connection))
+                        "SELECT MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus, ClientId FROM Members", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -1265,7 +1449,8 @@ WHEN NOT MATCHED THEN
                                 Fingerprint = !reader.IsDBNull(5) && reader.GetBoolean(5),
                                 EnrollmentID = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
                                 PackageExpiry = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>()
+                                SyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(syncStatusJson) ?? new Dictionary<int, bool>(),
+                                ClientId = reader.IsDBNull(9) ? null : reader.GetString(9)
                             });
                         }
                     }
@@ -1400,10 +1585,11 @@ WHERE MemberID = @id", conn, transaction))
                             }
 
                             using (var cmd = new SqlCommand(@"
-INSERT INTO Members (MemberID, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus, CreatedAt, UpdatedAt)
-VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @package_expiry, @syncStatus, @createdAt, @updatedAt);", conn, transaction))
+INSERT INTO Members (MemberID, ClientId, Name, Status, RFID, Picture, Fingerprint, EnrollmentID, PackageExpiry, SyncStatus, CreatedAt, UpdatedAt)
+VALUES (@id, @clientId, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @package_expiry, @syncStatus, @createdAt, @updatedAt);", conn, transaction))
                             {
                                 cmd.Parameters.AddWithValue("@id", memberId);
+                                cmd.Parameters.AddWithValue("@clientId", Guid.NewGuid().ToString());
                                 cmd.Parameters.AddWithValue("@name", name);
                                 cmd.Parameters.AddWithValue("@status", status ?? (object)DBNull.Value);
                                 cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
@@ -1430,6 +1616,438 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                     {
                         try { transaction.Rollback(); } catch { /* ignore */ }
                         LogHelper.Log($"Error upserting member {memberId}: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        public void UpsertPackage(JObject package)
+        {
+            int packageId = (int)package["id"];
+            string title = package["title"]?.ToString();
+            string code = package["code"]?.ToString();
+            string description = package["description"]?.ToString();
+            string pricingTierJson = package["pricing_tier"] != null ? package["pricing_tier"].ToString(Formatting.None) : null;
+            decimal? registrationFee = package["registration_fee"]?.ToObject<decimal?>();
+            string registrationFeeBasis = package["registration_fee_basis"]?.ToString();
+            string groupMode = package["group_mode"]?.ToString();
+            bool active = package["active"]?.ToObject<bool>() ?? false;
+            DateTime? remoteUpdatedAt = package["updated_at"]?.ToObject<DateTime?>();
+            string timestamp = GetTimestamp();
+
+            using (var conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                using (var transaction = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        bool exists;
+                        using (var checkCmd = new SqlCommand("SELECT COUNT(1) FROM Packages WHERE PackageId = @id", conn, transaction))
+                        {
+                            checkCmd.Parameters.AddWithValue("@id", packageId);
+                            exists = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
+                        }
+
+                        if (exists)
+                        {
+                            using (var cmd = new SqlCommand(@"
+UPDATE Packages
+SET Title = @title,
+    Code = @code,
+    Description = @description,
+    PricingTier = @pricingTier,
+    RegistrationFee = @registrationFee,
+    RegistrationFeeBasis = @registrationFeeBasis,
+    GroupMode = @groupMode,
+    Active = @active,
+    RemoteUpdatedAt = @remoteUpdatedAt,
+    UpdatedAt = @updatedAt
+WHERE PackageId = @id", conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@id", packageId);
+                                cmd.Parameters.AddWithValue("@title", (object)title ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@code", (object)code ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@description", (object)description ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@pricingTier", (object)pricingTierJson ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@registrationFee", (object)registrationFee ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@registrationFeeBasis", (object)registrationFeeBasis ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@groupMode", (object)groupMode ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@active", active);
+                                cmd.Parameters.AddWithValue("@remoteUpdatedAt", (object)remoteUpdatedAt ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                        else
+                        {
+                            using (var cmd = new SqlCommand(@"
+INSERT INTO Packages (PackageId, Title, Code, Description, PricingTier, RegistrationFee, RegistrationFeeBasis, GroupMode, Active, RemoteUpdatedAt, CreatedAt, UpdatedAt)
+VALUES (@id, @title, @code, @description, @pricingTier, @registrationFee, @registrationFeeBasis, @groupMode, @active, @remoteUpdatedAt, @createdAt, @updatedAt);", conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@id", packageId);
+                                cmd.Parameters.AddWithValue("@title", (object)title ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@code", (object)code ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@description", (object)description ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@pricingTier", (object)pricingTierJson ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@registrationFee", (object)registrationFee ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@registrationFeeBasis", (object)registrationFeeBasis ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@groupMode", (object)groupMode ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@active", active);
+                                cmd.Parameters.AddWithValue("@remoteUpdatedAt", (object)remoteUpdatedAt ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@createdAt", timestamp);
+                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        try { transaction.Rollback(); } catch { /* ignore */ }
+                        LogHelper.Log($"Error upserting package {packageId}: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        public void UpsertTrainer(JObject trainer)
+        {
+            string trainerId = trainer["id"]?.ToString();
+            if (string.IsNullOrWhiteSpace(trainerId)) return;
+
+            string firstName = trainer["first_name"]?.ToString();
+            string lastName = trainer["last_name"]?.ToString();
+            string personalInfoJson = trainer["personal_information"] != null ? trainer["personal_information"].ToString(Formatting.None) : null;
+            DateTime? remoteUpdatedAt = trainer["updated_at"]?.ToObject<DateTime?>();
+            string timestamp = GetTimestamp();
+
+            using (var conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                using (var transaction = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        bool exists;
+                        using (var checkCmd = new SqlCommand("SELECT COUNT(1) FROM Trainers WHERE TrainerId = @id", conn, transaction))
+                        {
+                            checkCmd.Parameters.AddWithValue("@id", trainerId);
+                            exists = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
+                        }
+
+                        if (exists)
+                        {
+                            using (var cmd = new SqlCommand(@"
+UPDATE Trainers
+SET FirstName = @firstName,
+    LastName = @lastName,
+    PersonalInformation = @personalInfo,
+    RemoteUpdatedAt = @remoteUpdatedAt,
+    UpdatedAt = @updatedAt
+WHERE TrainerId = @id", conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@id", trainerId);
+                                cmd.Parameters.AddWithValue("@firstName", (object)firstName ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@lastName", (object)lastName ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@personalInfo", (object)personalInfoJson ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@remoteUpdatedAt", (object)remoteUpdatedAt ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                        else
+                        {
+                            using (var cmd = new SqlCommand(@"
+INSERT INTO Trainers (TrainerId, FirstName, LastName, PersonalInformation, RemoteUpdatedAt, CreatedAt, UpdatedAt)
+VALUES (@id, @firstName, @lastName, @personalInfo, @remoteUpdatedAt, @createdAt, @updatedAt);", conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@id", trainerId);
+                                cmd.Parameters.AddWithValue("@firstName", (object)firstName ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@lastName", (object)lastName ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@personalInfo", (object)personalInfoJson ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@remoteUpdatedAt", (object)remoteUpdatedAt ?? DBNull.Value);
+                                cmd.Parameters.AddWithValue("@createdAt", timestamp);
+                                cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        try { transaction.Rollback(); } catch { /* ignore */ }
+                        LogHelper.Log($"Error upserting trainer {trainerId}: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns active packages for populating enrollment/subscription pickers.
+        /// </summary>
+        public List<Package> GetPackages(bool activeOnly = true)
+        {
+            var packages = new List<Package>();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = @"
+                    SELECT PackageId, Title, Code, Description, PricingTier, RegistrationFee, RegistrationFeeBasis, GroupMode, Active
+                    FROM Packages" + (activeOnly ? " WHERE Active = 1" : "") + @"
+                    ORDER BY Title";
+
+                using (var command = new SqlCommand(query, connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        packages.Add(new Package
+                        {
+                            PackageId = reader.GetInt32(0),
+                            Title = reader.IsDBNull(1) ? null : reader.GetString(1),
+                            Code = reader.IsDBNull(2) ? null : reader.GetString(2),
+                            Description = reader.IsDBNull(3) ? null : reader.GetString(3),
+                            PricingTierJson = reader.IsDBNull(4) ? null : reader.GetString(4),
+                            RegistrationFee = reader.IsDBNull(5) ? (decimal?)null : reader.GetDecimal(5),
+                            RegistrationFeeBasis = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            GroupMode = reader.IsDBNull(7) ? null : reader.GetString(7),
+                            Active = !reader.IsDBNull(8) && reader.GetBoolean(8)
+                        });
+                    }
+                }
+            }
+            return packages;
+        }
+
+        public List<Trainer> GetTrainers()
+        {
+            var trainers = new List<Trainer>();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(
+                    "SELECT TrainerId, FirstName, LastName FROM Trainers ORDER BY FirstName, LastName", connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        trainers.Add(new Trainer
+                        {
+                            TrainerId = reader.GetString(0),
+                            FirstName = reader.IsDBNull(1) ? null : reader.GetString(1),
+                            LastName = reader.IsDBNull(2) ? null : reader.GetString(2)
+                        });
+                    }
+                }
+            }
+            return trainers;
+        }
+
+        /// <summary>
+        /// Creates a locally-enrolled ("offline") member with a subscription snapshot.
+        /// Assigns a ClientId (GUID) and a decrementing EnrollmentID starting at 999998,
+        /// keeping a private numbering block clear of real server-assigned EnrollmentIDs.
+        /// </summary>
+        public OfflineMember InsertOfflineMember(
+            string firstName,
+            string lastName,
+            string gender,
+            string phone,
+            JObject subscription,
+            string picture = null,
+            string rfid = null,
+            bool fingerprint = false)
+        {
+            string clientId = Guid.NewGuid().ToString();
+            string name = $"{firstName} {lastName}".Trim();
+            string subscriptionJson = subscription != null ? subscription.ToString(Formatting.None) : null;
+            string timestamp = GetTimestamp();
+
+            var devices = LoadDevices();
+            var syncStatus = new Dictionary<int, bool>();
+            foreach (var device in devices)
+                syncStatus[device.DeviceId] = false;
+            string syncStatusJson = JsonConvert.SerializeObject(syncStatus);
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        int nextEnrollmentId;
+                        using (var cmd = new SqlCommand(
+                            "SELECT MIN(EnrollmentID) FROM OfflineMembers WITH (UPDLOCK, HOLDLOCK)", connection, transaction))
+                        {
+                            var result = cmd.ExecuteScalar();
+                            nextEnrollmentId = (result == null || result == DBNull.Value) ? 999998 : Convert.ToInt32(result) - 1;
+                        }
+
+                        using (var cmd = new SqlCommand(@"
+INSERT INTO OfflineMembers (ClientId, Name, FirstName, LastName, Gender, Phone, Subscription, SyncStatus, Picture, RFID, Fingerprint, EnrollmentID, ServerSync, CreatedAt, UpdatedAt)
+VALUES (@clientId, @name, @firstName, @lastName, @gender, @phone, @subscription, @syncStatus, @picture, @rfid, @fingerprint, @enrollmentId, @serverSync, @createdAt, @updatedAt);", connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@clientId", clientId);
+                            cmd.Parameters.AddWithValue("@name", name);
+                            cmd.Parameters.AddWithValue("@firstName", (object)firstName ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@lastName", (object)lastName ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@gender", (object)gender ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@phone", (object)phone ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@subscription", (object)subscriptionJson ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
+                            cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
+                            cmd.Parameters.AddWithValue("@rfid", string.IsNullOrEmpty(rfid) ? (object)DBNull.Value : rfid);
+                            cmd.Parameters.AddWithValue("@fingerprint", fingerprint);
+                            cmd.Parameters.AddWithValue("@enrollmentId", nextEnrollmentId);
+                            cmd.Parameters.AddWithValue("@serverSync", false);
+                            cmd.Parameters.AddWithValue("@createdAt", timestamp);
+                            cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        // One OfflineMemberLog row per (member) device — same shape/purpose as dbo.Log
+                        // for real Members. Staff devices are intentionally excluded.
+                        var logBiometricData = new Dictionary<string, string>();
+                        var logSyncStatus = new Dictionary<string, bool>();
+                        if (!string.IsNullOrWhiteSpace(rfid))
+                        {
+                            logBiometricData["RFID"] = rfid;
+                            logSyncStatus["RFID"] = false;
+                        }
+                        if (fingerprint)
+                        {
+                            logBiometricData["Fingerprint"] = nextEnrollmentId.ToString();
+                            logSyncStatus["Fingerprint"] = false;
+                        }
+                        string logBiometricJson = JsonConvert.SerializeObject(logBiometricData);
+                        string logSyncJson = JsonConvert.SerializeObject(logSyncStatus);
+
+                        foreach (var device in devices)
+                        {
+                            using (var logCmd = new SqlCommand(@"
+INSERT INTO OfflineMemberLog (ClientId, DeviceID, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt)
+VALUES (@clientId, @deviceId, @enrollmentId, @biometricData, @syncStatus, @createdAt, @updatedAt);", connection, transaction))
+                            {
+                                logCmd.Parameters.AddWithValue("@clientId", clientId);
+                                logCmd.Parameters.AddWithValue("@deviceId", device.DeviceId);
+                                logCmd.Parameters.AddWithValue("@enrollmentId", nextEnrollmentId);
+                                logCmd.Parameters.AddWithValue("@biometricData", logBiometricJson);
+                                logCmd.Parameters.AddWithValue("@syncStatus", logSyncJson);
+                                logCmd.Parameters.AddWithValue("@createdAt", timestamp);
+                                logCmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                                logCmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+
+                        return new OfflineMember
+                        {
+                            ClientId = clientId,
+                            Name = name,
+                            FirstName = firstName,
+                            LastName = lastName,
+                            Gender = gender,
+                            Phone = phone,
+                            SubscriptionJson = subscriptionJson,
+                            SyncStatus = syncStatus,
+                            Picture = picture,
+                            RFID = rfid,
+                            Fingerprint = fingerprint,
+                            EnrollmentID = nextEnrollmentId,
+                            ServerSync = false
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        try { transaction.Rollback(); } catch { /* ignore */ }
+                        LogHelper.Log($"Error inserting offline member: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sets the Picture path for an offline member after the enrollment-numbered
+        /// face image file has been written to disk (the file is named after EnrollmentID,
+        /// which is only known once the row has been inserted).
+        /// </summary>
+        public void UpdateOfflineMemberPicture(string clientId, string picturePath)
+        {
+            string timestamp = GetTimestamp();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var cmd = new SqlCommand(
+                            "UPDATE OfflineMembers SET Picture = @picture, UpdatedAt = @updatedAt WHERE ClientId = @clientId", connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@clientId", clientId);
+                            cmd.Parameters.AddWithValue("@picture", (object)picturePath ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        // Patch "Face" into every device's OfflineMemberLog row for this member —
+                        // the photo is only known after InsertOfflineMember already created these rows.
+                        var rows = new List<(int Id, string BiometricData, string SyncStatus)>();
+                        using (var selectCmd = new SqlCommand(
+                            "SELECT Id, BiometricData, SyncStatus FROM OfflineMemberLog WHERE ClientId = @clientId", connection, transaction))
+                        {
+                            selectCmd.Parameters.AddWithValue("@clientId", clientId);
+                            using (var reader = selectCmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    rows.Add((
+                                        reader.GetInt32(0),
+                                        reader.IsDBNull(1) ? null : reader.GetString(1),
+                                        reader.IsDBNull(2) ? null : reader.GetString(2)));
+                                }
+                            }
+                        }
+
+                        foreach (var row in rows)
+                        {
+                            var biometricData = !string.IsNullOrWhiteSpace(row.BiometricData)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, string>>(row.BiometricData) ?? new Dictionary<string, string>()
+                                : new Dictionary<string, string>();
+                            var syncStatus = !string.IsNullOrWhiteSpace(row.SyncStatus)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, bool>>(row.SyncStatus) ?? new Dictionary<string, bool>()
+                                : new Dictionary<string, bool>();
+
+                            biometricData["Face"] = picturePath;
+                            syncStatus["Face"] = false;
+
+                            using (var updateLogCmd = new SqlCommand(
+                                "UPDATE OfflineMemberLog SET BiometricData = @biometricData, SyncStatus = @syncStatus, UpdatedAt = @updatedAt WHERE Id = @id",
+                                connection, transaction))
+                            {
+                                updateLogCmd.Parameters.AddWithValue("@id", row.Id);
+                                updateLogCmd.Parameters.AddWithValue("@biometricData", JsonConvert.SerializeObject(biometricData));
+                                updateLogCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
+                                updateLogCmd.Parameters.AddWithValue("@updatedAt", timestamp);
+                                updateLogCmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        try { transaction.Rollback(); } catch { /* ignore */ }
+                        LogHelper.Log($"Error updating offline member picture for {clientId}: {ex.Message}");
                         throw;
                     }
                 }
@@ -1467,9 +2085,10 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
         }
 
 
-        public (int LogId, string AttendanceId) InsertAttendanceLog(int memberId, string checkInValue)
+        public (int LogId, string AttendanceId) InsertAttendanceLog(int memberId, string checkInValue, int? deviceId = null)
         {
             string syncStatusJson = JsonConvert.SerializeObject(new { checkIn = false, checkOut = false });
+            string deviceInfoJson = JsonConvert.SerializeObject(new { checkIn = deviceId, checkOut = (int?)null });
             string timestamp = GetTimestamp();
             int newLogId = 0;
             string attendanceId = Guid.NewGuid().ToString();
@@ -1495,14 +2114,15 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
 
                         using (var command = new SqlCommand(
                             @"INSERT INTO AttendanceLogs
-                      (MemberID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, CreatedAt, UpdatedAt)
-                      VALUES (@memberId, @attendanceId, @checkIn, NULL, @syncStatus, @createdAt, @updatedAt);
+                      (MemberID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, DeviceInfo, CreatedAt, UpdatedAt)
+                      VALUES (@memberId, @attendanceId, @checkIn, NULL, @syncStatus, @deviceInfo, @createdAt, @updatedAt);
                       SELECT SCOPE_IDENTITY();", connection, transaction))
                         {
                             command.Parameters.AddWithValue("@memberId", memberId);
                             command.Parameters.AddWithValue("@attendanceId", attendanceId);
                             command.Parameters.AddWithValue("@checkIn", (object)checkInValue ?? DBNull.Value);
                             command.Parameters.AddWithValue("@syncStatus", syncStatusJson);
+                            command.Parameters.AddWithValue("@deviceInfo", deviceInfoJson);
                             command.Parameters.AddWithValue("@createdAt", timestamp);
                             command.Parameters.AddWithValue("@updatedAt", timestamp);
 
@@ -1523,7 +2143,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
             return (newLogId, attendanceId);
         }
 
-        public void UpdateAttendanceLogForCheckOut(int memberId, string checkOutValue)
+        public void UpdateAttendanceLogForCheckOut(int memberId, string checkOutValue, int? deviceId = null)
         {
             string timestamp = GetTimestamp();
 
@@ -1547,15 +2167,16 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
 
                         int logId = 0;
                         string existingJson = null;
+                        string existingDeviceJson = null;
                         DateTime checkInTime = DateTime.MinValue;
 
                         if (hasCheckInForDate)
                         {
                             // Get latest open (no checkout) log for this member on the same date
                             using (var get = new SqlCommand(
-                                @"SELECT LogID, CheckInTime, SyncStatus 
-                  FROM AttendanceLogs 
-                  WHERE MemberID = @memberId AND CheckOutTime IS NULL 
+                                @"SELECT LogID, CheckInTime, SyncStatus, DeviceInfo
+                  FROM AttendanceLogs
+                  WHERE MemberID = @memberId AND CheckOutTime IS NULL
                   AND CONVERT(DATE, CheckInTime) = @checkOutDate
                   ORDER BY CheckInTime DESC", connection, transaction))
                             {
@@ -1576,6 +2197,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                                             return; // Prevent invalid check-out
                                         }
                                         existingJson = reader.IsDBNull(2) ? null : reader.GetString(2);
+                                        existingDeviceJson = reader.IsDBNull(3) ? null : reader.GetString(3);
                                     }
                                     else
                                     {
@@ -1591,9 +2213,9 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                             DateTime previousDay = checkOutDateTime.Date.AddDays(-1);
 
                             using (var get = new SqlCommand(
-                                @"SELECT LogID, CheckInTime, SyncStatus
-                  FROM AttendanceLogs 
-                  WHERE MemberID = @memberId AND CheckOutTime IS NULL 
+                                @"SELECT LogID, CheckInTime, SyncStatus, DeviceInfo
+                  FROM AttendanceLogs
+                  WHERE MemberID = @memberId AND CheckOutTime IS NULL
                   AND CONVERT(DATE, CheckInTime) = @previousDay
                   ORDER BY CheckInTime DESC", connection, transaction))
                             {
@@ -1614,6 +2236,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                                             return; // Prevent invalid check-out
                                         }
                                         existingJson = reader.IsDBNull(2) ? null : reader.GetString(2);
+                                        existingDeviceJson = reader.IsDBNull(3) ? null : reader.GetString(3);
                                     }
                                     else
                                     {
@@ -1632,13 +2255,20 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                         if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
                         syncDict["checkOut"] = false;
 
+                        var deviceDict = !string.IsNullOrWhiteSpace(existingDeviceJson)
+                            ? JsonConvert.DeserializeObject<Dictionary<string, int?>>(existingDeviceJson) ?? new Dictionary<string, int?>()
+                            : new Dictionary<string, int?>();
+                        if (!deviceDict.ContainsKey("checkIn")) deviceDict["checkIn"] = null;
+                        deviceDict["checkOut"] = deviceId;
+
                         using (var update = new SqlCommand(
-                            @"UPDATE AttendanceLogs 
-              SET CheckOutTime = @checkOut, SyncStatus = @syncStatus, UpdatedAt = @updatedAt
+                            @"UPDATE AttendanceLogs
+              SET CheckOutTime = @checkOut, SyncStatus = @syncStatus, DeviceInfo = @deviceInfo, UpdatedAt = @updatedAt
               WHERE LogID = @logId", connection, transaction))
                         {
                             update.Parameters.AddWithValue("@checkOut", (object)checkOutValue ?? DBNull.Value);
                             update.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncDict));
+                            update.Parameters.AddWithValue("@deviceInfo", JsonConvert.SerializeObject(deviceDict));
                             update.Parameters.AddWithValue("@updatedAt", timestamp);
                             update.Parameters.AddWithValue("@logId", logId);
                             update.ExecuteNonQuery();
@@ -2399,9 +3029,9 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                 {
                     await connection.OpenAsync().ConfigureAwait(false);
                     string query = @"
-                        SELECT LogID, EnrollmentID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus
+                        SELECT LogID, EnrollmentID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, DeviceInfo
                         FROM StaffAttendanceLog
-                        WHERE SyncStatus LIKE '%""checkIn"":false%' 
+                        WHERE SyncStatus LIKE '%""checkIn"":false%'
                            OR SyncStatus LIKE '%""checkOut"":false%'";
 
                     using (var cmd = new SqlCommand(query, connection))
@@ -2417,6 +3047,19 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                             bool needsCheckIn = syncDict.ContainsKey("checkIn") && !syncDict["checkIn"];
                             bool needsCheckOut = syncDict.ContainsKey("checkOut") && !syncDict["checkOut"];
 
+                            string deviceInfoJson = reader.IsDBNull(6) ? null : reader.GetString(6);
+                            Dictionary<string, int?> deviceInfo;
+                            try
+                            {
+                                deviceInfo = !string.IsNullOrWhiteSpace(deviceInfoJson)
+                                    ? JsonConvert.DeserializeObject<Dictionary<string, int?>>(deviceInfoJson) ?? new Dictionary<string, int?>()
+                                    : new Dictionary<string, int?>();
+                            }
+                            catch
+                            {
+                                deviceInfo = new Dictionary<string, int?>();
+                            }
+
                             if (needsCheckIn || needsCheckOut)
                             {
                                 list.Add(new UnsyncedAttendanceLog
@@ -2427,7 +3070,9 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                                     CheckInTime = reader.IsDBNull(3) ? DateTime.MinValue : reader.GetDateTime(3),
                                     CheckOutTime = reader.IsDBNull(4) ? DateTime.MinValue : reader.GetDateTime(4),
                                     NeedsCheckInSync = needsCheckIn,
-                                    NeedsCheckOutSync = needsCheckOut
+                                    NeedsCheckOutSync = needsCheckOut,
+                                    CheckInDeviceId = deviceInfo.ContainsKey("checkIn") ? deviceInfo["checkIn"] : null,
+                                    CheckOutDeviceId = deviceInfo.ContainsKey("checkOut") ? deviceInfo["checkOut"] : null
                                 });
                             }
                         }
@@ -2852,7 +3497,8 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                     al.CheckInTime,
                     al.CheckOutTime,
                     al.SyncStatus,
-                    m.EnrollmentID
+                    m.EnrollmentID,
+                    al.DeviceInfo
                 FROM
                     AttendanceLogs al
                 INNER JOIN Members m ON al.MemberID = m.MemberID
@@ -2879,6 +3525,7 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
 
                             // Retrieve EnrollmentID from the join results
                             int enrollmentId = reader.IsDBNull(5) ? 0 : reader.GetInt32(5);
+                            string deviceInfoJson = reader.IsDBNull(6) ? null : reader.GetString(6);
 
                             Dictionary<string, bool> syncStatus;
                             try
@@ -2888,6 +3535,18 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                             catch
                             {
                                 syncStatus = new Dictionary<string, bool>();
+                            }
+
+                            Dictionary<string, int?> deviceInfo;
+                            try
+                            {
+                                deviceInfo = !string.IsNullOrWhiteSpace(deviceInfoJson)
+                                    ? JsonConvert.DeserializeObject<Dictionary<string, int?>>(deviceInfoJson) ?? new Dictionary<string, int?>()
+                                    : new Dictionary<string, int?>();
+                            }
+                            catch
+                            {
+                                deviceInfo = new Dictionary<string, int?>();
                             }
 
                             bool needsCheckInSync = syncStatus.ContainsKey("checkIn") && !syncStatus["checkIn"];
@@ -2903,7 +3562,9 @@ VALUES (@id, @name, @status, @rfid, @picture, @fingerprint, @enrollment_id, @pac
                                     CheckInTime = checkInTime,
                                     CheckOutTime = checkOutTime ?? DateTime.MinValue,
                                     NeedsCheckInSync = needsCheckInSync,
-                                    NeedsCheckOutSync = needsCheckOutSync
+                                    NeedsCheckOutSync = needsCheckOutSync,
+                                    CheckInDeviceId = deviceInfo.ContainsKey("checkIn") ? deviceInfo["checkIn"] : null,
+                                    CheckOutDeviceId = deviceInfo.ContainsKey("checkOut") ? deviceInfo["checkOut"] : null
                                 });
                             }
                         }
@@ -3847,6 +4508,405 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
             return unsyncedEntries;
         }
 
+        // Get unsynced offline-member log entries (mirrors GetUnsyncedLogEntriesAsync)
+        public async Task<List<OfflineLogEntry>> GetUnsyncedOfflineLogEntriesAsync()
+        {
+            var unsyncedEntries = new List<OfflineLogEntry>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var command = new SqlCommand(
+                        "SELECT Id, ClientId, DeviceID, EnrollmentID, BiometricData, SyncStatus, CreatedAt, UpdatedAt " +
+                        "FROM OfflineMemberLog WHERE SyncStatus LIKE '%false%'", connection))
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var entry = new OfflineLogEntry
+                            {
+                                Id = Convert.ToInt32(reader["Id"]),
+                                ClientId = Convert.ToString(reader["ClientId"]),
+                                DeviceID = Convert.ToInt32(reader["DeviceID"]),
+                                EnrollmentID = reader["EnrollmentID"] != DBNull.Value ? Convert.ToInt32(reader["EnrollmentID"]) : 0,
+                                BiometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(Convert.ToString(reader["BiometricData"])),
+                                SyncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(Convert.ToString(reader["SyncStatus"])),
+                                CreatedAt = Convert.ToString(reader["CreatedAt"]),
+                                UpdatedAt = Convert.ToString(reader["UpdatedAt"])
+                            };
+                            if (entry.SyncStatus.Any(s => !s.Value)) unsyncedEntries.Add(entry);
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"Error getting unsynced offline log entries: {ex.Message}");
+            }
+            return unsyncedEntries;
+        }
+
+        // Mirrors UpdateBiometricSyncStatus, targeting OfflineMemberLog
+        public async Task UpdateOfflineBiometricSyncStatus(int logId, string biometricType, bool isSynced)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        Dictionary<string, bool> syncStatus = null;
+                        using (var cmd = new SqlCommand(
+                            "SELECT SyncStatus FROM OfflineMemberLog WHERE Id = @logId",
+                            connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@logId", logId);
+                            var result = await cmd.ExecuteScalarAsync();
+
+                            if (result != null && result != DBNull.Value)
+                            {
+                                syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(result.ToString());
+                            }
+                            else
+                            {
+                                throw new Exception($"OfflineMemberLog entry with ID {logId} not found");
+                            }
+                        }
+
+                        if (syncStatus.ContainsKey(biometricType))
+                            syncStatus[biometricType] = isSynced;
+                        else
+                            syncStatus.Add(biometricType, isSynced);
+
+                        using (var updateCmd = new SqlCommand(
+                            "UPDATE OfflineMemberLog SET SyncStatus = @syncStatus WHERE Id = @logId",
+                            connection, transaction))
+                        {
+                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
+                            updateCmd.Parameters.AddWithValue("@logId", logId);
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+
+                        transaction.Commit();
+                        LogHelper.Log($"Updated {biometricType} sync status for offline log {logId} to {isSynced}");
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        LogHelper.Log($"Error updating sync status for offline log {logId}: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        // Mirrors CheckAndUpdateMemberDeviceSyncStatus, targeting OfflineMemberLog/OfflineMembers
+        public async Task<bool> CheckAndUpdateOfflineMemberDeviceSyncStatus(string clientId, int deviceId)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                bool logExists = false;
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var checkCmd = new SqlCommand(
+                            "SELECT TOP 1 1 FROM OfflineMemberLog WHERE ClientId = @clientId AND DeviceID = @deviceId",
+                            connection, transaction))
+                        {
+                            checkCmd.Parameters.AddWithValue("@clientId", clientId);
+                            checkCmd.Parameters.AddWithValue("@deviceId", deviceId);
+                            logExists = (await checkCmd.ExecuteScalarAsync()) != null;
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error checking offline log existence: {ex.Message}");
+                        return false;
+                    }
+                }
+
+                if (!logExists) return false;
+
+                bool allSynced = true;
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var cmd = new SqlCommand(
+                            "SELECT BiometricData, SyncStatus FROM OfflineMemberLog WHERE ClientId = @clientId AND DeviceID = @deviceId",
+                            connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@clientId", clientId);
+                            cmd.Parameters.AddWithValue("@deviceId", deviceId);
+
+                            using (var reader = await cmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    var biometricData = JsonConvert.DeserializeObject<Dictionary<string, string>>(
+                                        reader["BiometricData"].ToString());
+                                    var syncStatus = JsonConvert.DeserializeObject<Dictionary<string, bool>>(
+                                        reader["SyncStatus"].ToString());
+
+                                    allSynced = biometricData.Keys.All(key =>
+                                        syncStatus.ContainsKey(key) && syncStatus[key]);
+                                }
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Error checking offline sync status: {ex.Message}");
+                        return false;
+                    }
+                }
+
+                if (!allSynced) return false;
+
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        Dictionary<int, bool> memberSyncStatus = new Dictionary<int, bool>();
+
+                        using (var cmd = new SqlCommand(
+                            "SELECT SyncStatus FROM OfflineMembers WHERE ClientId = @clientId",
+                            connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@clientId", clientId);
+                            var result = await cmd.ExecuteScalarAsync();
+                            if (result != null && result != DBNull.Value)
+                            {
+                                memberSyncStatus = JsonConvert.DeserializeObject<Dictionary<int, bool>>(result.ToString())
+                                                  ?? new Dictionary<int, bool>();
+                            }
+                        }
+
+                        bool alreadyTrue;
+                        if (memberSyncStatus.TryGetValue(deviceId, out alreadyTrue) && alreadyTrue)
+                        {
+                            transaction.Commit();
+                            return false; // no change performed
+                        }
+
+                        memberSyncStatus[deviceId] = true;
+
+                        using (var updateCmd = new SqlCommand(
+                            "UPDATE OfflineMembers SET SyncStatus = @syncStatus WHERE ClientId = @clientId",
+                            connection, transaction))
+                        {
+                            updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(memberSyncStatus));
+                            updateCmd.Parameters.AddWithValue("@clientId", clientId);
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+
+                        LogHelper.Log($"Updated offline member {clientId} sync status for device {deviceId}");
+
+                        transaction.Commit();
+                        return true; // changed
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        LogHelper.Log($"Error updating offline member sync status: {ex.Message}");
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Returns offline members for the biometric-sync worker (ClientId/Name/EnrollmentID)
+        public List<OfflineMember> GetOfflineMembers()
+        {
+            var members = new List<OfflineMember>();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(
+                    "SELECT ClientId, Name, FirstName, LastName, Gender, Phone, Subscription, Picture, RFID, Fingerprint, EnrollmentID, ServerSync, CreatedAt, DeviceCleanupStatus " +
+                    "FROM OfflineMembers ORDER BY CreatedAt DESC", connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        string cleanupJson = reader.IsDBNull(13) ? null : reader.GetString(13);
+                        Dictionary<int, bool> cleanupStatus;
+                        try
+                        {
+                            cleanupStatus = !string.IsNullOrWhiteSpace(cleanupJson)
+                                ? JsonConvert.DeserializeObject<Dictionary<int, bool>>(cleanupJson) ?? new Dictionary<int, bool>()
+                                : new Dictionary<int, bool>();
+                        }
+                        catch
+                        {
+                            cleanupStatus = new Dictionary<int, bool>();
+                        }
+
+                        members.Add(new OfflineMember
+                        {
+                            ClientId = reader.GetString(0),
+                            Name = reader.IsDBNull(1) ? null : reader.GetString(1),
+                            FirstName = reader.IsDBNull(2) ? null : reader.GetString(2),
+                            LastName = reader.IsDBNull(3) ? null : reader.GetString(3),
+                            Gender = reader.IsDBNull(4) ? null : reader.GetString(4),
+                            Phone = reader.IsDBNull(5) ? null : reader.GetString(5),
+                            SubscriptionJson = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            Picture = reader.IsDBNull(7) ? null : reader.GetString(7),
+                            RFID = reader.IsDBNull(8) ? null : reader.GetString(8),
+                            Fingerprint = !reader.IsDBNull(9) && reader.GetBoolean(9),
+                            EnrollmentID = reader.IsDBNull(10) ? 0 : reader.GetInt32(10),
+                            ServerSync = !reader.IsDBNull(11) && reader.GetBoolean(11),
+                            CreatedAt = reader.IsDBNull(12) ? null : Convert.ToString(reader.GetValue(12)),
+                            DeviceCleanupStatus = cleanupStatus
+                        });
+                    }
+                }
+            }
+            return members;
+        }
+
+        // OfflineMemberLog rows for one offline member (which devices they were pushed to).
+        public List<OfflineLogEntry> GetOfflineMemberLogs(string clientId)
+        {
+            var logs = new List<OfflineLogEntry>();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(
+                    "SELECT Id, ClientId, DeviceID, EnrollmentID FROM OfflineMemberLog WHERE ClientId = @clientId", connection))
+                {
+                    command.Parameters.AddWithValue("@clientId", clientId);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            logs.Add(new OfflineLogEntry
+                            {
+                                Id = reader.GetInt32(0),
+                                ClientId = reader.GetString(1),
+                                DeviceID = reader.GetInt32(2),
+                                EnrollmentID = reader.IsDBNull(3) ? 0 : reader.GetInt32(3)
+                            });
+                        }
+                    }
+                }
+            }
+            return logs;
+        }
+
+        /// <summary>
+        /// Flips an offline member to "accepted by server, pending device cleanup": sets
+        /// ServerSync = 1 and seeds DeviceCleanupStatus with one {deviceId: false} entry per
+        /// device it was actually pushed to. Called once, right after a successful
+        /// /api/sync/enrollments upload — never re-uploads after this.
+        /// </summary>
+        public void MarkOfflineMemberServerSynced(string clientId, IEnumerable<int> deviceIds)
+        {
+            var cleanupStatus = new Dictionary<int, bool>();
+            foreach (var deviceId in deviceIds.Distinct())
+                cleanupStatus[deviceId] = false;
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(
+                    "UPDATE OfflineMembers SET ServerSync = 1, DeviceCleanupStatus = @status, UpdatedAt = @updatedAt WHERE ClientId = @clientId", connection))
+                {
+                    command.Parameters.AddWithValue("@clientId", clientId);
+                    command.Parameters.AddWithValue("@status", JsonConvert.SerializeObject(cleanupStatus));
+                    command.Parameters.AddWithValue("@updatedAt", GetTimestamp());
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Marks one device as successfully cleaned up for an already-server-synced offline
+        /// member. Read-modify-write on DeviceCleanupStatus so progress survives across timer
+        /// ticks — a device that already succeeded is never retried.
+        /// </summary>
+        public void MarkOfflineMemberDeviceCleaned(string clientId, int deviceId)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        string existingJson = null;
+                        using (var cmd = new SqlCommand(
+                            "SELECT DeviceCleanupStatus FROM OfflineMembers WHERE ClientId = @clientId", connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@clientId", clientId);
+                            var result = cmd.ExecuteScalar();
+                            existingJson = result != null && result != DBNull.Value ? result.ToString() : null;
+                        }
+
+                        var status = !string.IsNullOrWhiteSpace(existingJson)
+                            ? JsonConvert.DeserializeObject<Dictionary<int, bool>>(existingJson) ?? new Dictionary<int, bool>()
+                            : new Dictionary<int, bool>();
+                        status[deviceId] = true;
+
+                        using (var cmd = new SqlCommand(
+                            "UPDATE OfflineMembers SET DeviceCleanupStatus = @status, UpdatedAt = @updatedAt WHERE ClientId = @clientId", connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@clientId", clientId);
+                            cmd.Parameters.AddWithValue("@status", JsonConvert.SerializeObject(status));
+                            cmd.Parameters.AddWithValue("@updatedAt", GetTimestamp());
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        try { transaction.Rollback(); } catch { /* ignore */ }
+                        LogHelper.Log($"Error marking device {deviceId} cleaned for offline member {clientId}: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        // Deletes every OfflineMemberLog row for a member (call before DeleteOfflineMember —
+        // OfflineMemberLog.ClientId is FK'd to OfflineMembers.ClientId).
+        public void DeleteOfflineMemberLogs(string clientId)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand("DELETE FROM OfflineMemberLog WHERE ClientId = @clientId", connection))
+                {
+                    command.Parameters.AddWithValue("@clientId", clientId);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        // Deletes the OfflineMembers row itself. Call after DeleteOfflineMemberLogs.
+        public void DeleteOfflineMember(string clientId)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand("DELETE FROM OfflineMembers WHERE ClientId = @clientId", connection))
+                {
+                    command.Parameters.AddWithValue("@clientId", clientId);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
 
         public bool AddOrUpdateFingerprint(FingerprintData fingerprintdata)
         {
@@ -4510,6 +5570,106 @@ CheckMemberAccessStatus(int memberId)
                 LogHelper.Log($"❌ Error updating status for member {memberId}: {ex.Message}");
                 LogHelper.Log($"🔍 Stack Trace: {ex.StackTrace}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Local, immediate side of an offline renewal: marks the member active and clears
+        /// PackageExpiry (the real expiry only becomes known once the server processes the
+        /// queued OfflineSubscriptions row and returns package_expiry).
+        /// </summary>
+        public void RenewMemberLocally(int memberId)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var cmd = new SqlCommand(
+                    "UPDATE Members SET Status = @status, PackageExpiry = NULL, UpdatedAt = @updatedAt WHERE MemberID = @memberId", connection))
+                {
+                    cmd.Parameters.AddWithValue("@status", "active");
+                    cmd.Parameters.AddWithValue("@updatedAt", GetTimestamp());
+                    cmd.Parameters.AddWithValue("@memberId", memberId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void UpdateMemberPackageExpiry(int memberId, string packageExpiry)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var cmd = new SqlCommand(
+                    "UPDATE Members SET PackageExpiry = @packageExpiry, UpdatedAt = @updatedAt WHERE MemberID = @memberId", connection))
+                {
+                    cmd.Parameters.AddWithValue("@packageExpiry", (object)packageExpiry ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@updatedAt", GetTimestamp());
+                    cmd.Parameters.AddWithValue("@memberId", memberId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public int InsertOfflineSubscription(int memberId, string clientId, JObject subscription)
+        {
+            string timestamp = GetTimestamp();
+            string subscriptionJson = subscription != null ? subscription.ToString(Formatting.None) : null;
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var cmd = new SqlCommand(@"
+INSERT INTO OfflineSubscriptions (MemberId, ClientId, Subscription, CreatedAt, UpdatedAt)
+VALUES (@memberId, @clientId, @subscription, @createdAt, @updatedAt);
+SELECT SCOPE_IDENTITY();", connection))
+                {
+                    cmd.Parameters.AddWithValue("@memberId", memberId);
+                    cmd.Parameters.AddWithValue("@clientId", (object)clientId ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@subscription", (object)subscriptionJson ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@createdAt", timestamp);
+                    cmd.Parameters.AddWithValue("@updatedAt", timestamp);
+
+                    var result = cmd.ExecuteScalar();
+                    return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+                }
+            }
+        }
+
+        public List<OfflineSubscription> GetPendingOfflineSubscriptions()
+        {
+            var list = new List<OfflineSubscription>();
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var cmd = new SqlCommand(
+                    "SELECT Id, MemberId, ClientId, Subscription FROM OfflineSubscriptions ORDER BY CreatedAt", connection))
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        list.Add(new OfflineSubscription
+                        {
+                            Id = reader.GetInt32(0),
+                            MemberId = reader.GetInt32(1),
+                            ClientId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                            SubscriptionJson = reader.IsDBNull(3) ? null : reader.GetString(3)
+                        });
+                    }
+                }
+            }
+            return list;
+        }
+
+        public void DeleteOfflineSubscription(int id)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var cmd = new SqlCommand("DELETE FROM OfflineSubscriptions WHERE Id = @id", connection))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    cmd.ExecuteNonQuery();
+                }
             }
         }
 
@@ -6662,7 +7822,7 @@ WHERE EXISTS (
             return null;
         }
 
-        public int InsertStaffCheckInByStaffId(string staffId, string checkInValue)
+        public int InsertStaffCheckInByStaffId(string staffId, string checkInValue, int? deviceId = null)
         {
             if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkInValue))
                 return 0;
@@ -6685,7 +7845,7 @@ WHERE EXISTS (
                     if (!enrollmentId.HasValue) return 0;
 
                     // Reuse existing InsertStaffAttendanceLog which handles duplicates and insert logic
-                    int newId = InsertStaffAttendanceLog(enrollmentId.Value, checkInValue);
+                    int newId = InsertStaffAttendanceLog(enrollmentId.Value, checkInValue, deviceId);
                     if (newId > 0)
                         LogHelper.Log($"[InsertStaffCheckInByStaffId] Inserted check-in LogID={newId} StaffID={staffId} Enroll={enrollmentId} Time={checkInValue}");
                     else
@@ -6701,7 +7861,7 @@ WHERE EXISTS (
             }
         }
 
-        public bool InsertStaffCheckOutByStaffId(string staffId, string checkOutValue)
+        public bool InsertStaffCheckOutByStaffId(string staffId, string checkOutValue, int? deviceId = null)
         {
             if (string.IsNullOrWhiteSpace(staffId) || string.IsNullOrWhiteSpace(checkOutValue))
                 return false;
@@ -6725,7 +7885,7 @@ WHERE EXISTS (
                 if (!enrollmentId.HasValue) return false;
 
                 // Reuse existing UpdateStaffAttendanceLogForCheckOut which implements pairing and validation
-                bool success = UpdateStaffAttendanceLogForCheckOut(enrollmentId.Value, checkOutValue);
+                bool success = UpdateStaffAttendanceLogForCheckOut(enrollmentId.Value, checkOutValue, deviceId);
                 LogHelper.Log($"[InsertStaffCheckOutByStaffId] StaffID={staffId} Enroll={enrollmentId} Time={checkOutValue} Success={success}");
                 return success;
             }
@@ -8043,7 +9203,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
         }
 
 
-        public int InsertStaffAttendanceLog(int enrollmentId, string checkInValue)
+        public int InsertStaffAttendanceLog(int enrollmentId, string checkInValue, int? deviceId = null)
         {
             if (string.IsNullOrWhiteSpace(checkInValue))
                 return 0;
@@ -8059,6 +9219,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
 
             // initial sync JSON for staff rows (same shape as AttendanceLogs)
             string initialSyncJson = JsonConvert.SerializeObject(new Dictionary<string, bool> { { "checkIn", false }, { "checkOut", false } });
+            string initialDeviceJson = JsonConvert.SerializeObject(new Dictionary<string, int?> { { "checkIn", deviceId }, { "checkOut", null } });
 
             using (var connection = new SqlConnection(connectionString))
             {
@@ -8113,14 +9274,15 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                         // 3. Insert new row (Include generated randomAttendanceId)
                         using (var insert = new SqlCommand(
                             @"INSERT INTO StaffAttendanceLog
-              (EnrollmentID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, CreatedAt, UpdatedAt)
-              VALUES (@enrollmentId, @attendanceId, @checkIn, NULL, @syncStatus, @createdAt, @updatedAt);
+              (EnrollmentID, AttendanceId, CheckInTime, CheckOutTime, SyncStatus, DeviceInfo, CreatedAt, UpdatedAt)
+              VALUES (@enrollmentId, @attendanceId, @checkIn, NULL, @syncStatus, @deviceInfo, @createdAt, @updatedAt);
               SELECT SCOPE_IDENTITY();", connection, transaction))
                         {
                             insert.Parameters.AddWithValue("@enrollmentId", enrollmentId);
                             insert.Parameters.AddWithValue("@attendanceId", randomAttendanceId);
                             insert.Parameters.AddWithValue("@checkIn", checkInDt.ToString("yyyy-MM-dd HH:mm:ss"));
                             insert.Parameters.AddWithValue("@syncStatus", initialSyncJson);
+                            insert.Parameters.AddWithValue("@deviceInfo", initialDeviceJson);
                             insert.Parameters.AddWithValue("@createdAt", timestamp);
                             insert.Parameters.AddWithValue("@updatedAt", timestamp);
 
@@ -8142,7 +9304,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
 
 
 
-        public bool UpdateStaffAttendanceLogForCheckOut(int enrollmentId, string checkOutValue)
+        public bool UpdateStaffAttendanceLogForCheckOut(int enrollmentId, string checkOutValue, int? deviceId = null)
         {
             if (string.IsNullOrWhiteSpace(checkOutValue))
                 return false;
@@ -8173,9 +9335,10 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                         int? logId = null;
                         DateTime chosenCheckIn = DateTime.MinValue;
                         string existingSyncJson = null;
+                        string existingDeviceJson = null;
 
                         using (var sameDay = new SqlCommand(
-                            @"SELECT TOP 1 LogID, CheckInTime, SyncStatus FROM StaffAttendanceLog
+                            @"SELECT TOP 1 LogID, CheckInTime, SyncStatus, DeviceInfo FROM StaffAttendanceLog
                       WHERE EnrollmentID = @enrollmentId
                         AND CheckOutTime IS NULL
                         AND CONVERT(DATE, CheckInTime) = CONVERT(DATE, @checkOut)
@@ -8191,6 +9354,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                                     logId = r.GetInt32(0);
                                     DateTime.TryParse(r.GetValue(1).ToString(), out chosenCheckIn);
                                     existingSyncJson = r.IsDBNull(2) ? null : r.GetString(2);
+                                    existingDeviceJson = r.IsDBNull(3) ? null : r.GetString(3);
                                 }
                             }
                         }
@@ -8199,7 +9363,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                         if (!logId.HasValue)
                         {
                             using (var prevDay = new SqlCommand(
-                                @"SELECT TOP 1 LogID, CheckInTime, SyncStatus FROM StaffAttendanceLog
+                                @"SELECT TOP 1 LogID, CheckInTime, SyncStatus, DeviceInfo FROM StaffAttendanceLog
                           WHERE EnrollmentID = @enrollmentId
                             AND CheckOutTime IS NULL
                             AND CONVERT(DATE, CheckInTime) = CONVERT(DATE, DATEADD(DAY, -1, @checkOut))
@@ -8215,6 +9379,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                                         logId = r.GetInt32(0);
                                         DateTime.TryParse(r.GetValue(1).ToString(), out chosenCheckIn);
                                         existingSyncJson = r.IsDBNull(2) ? null : r.GetString(2);
+                                        existingDeviceJson = r.IsDBNull(3) ? null : r.GetString(3);
                                     }
                                 }
                             }
@@ -8224,7 +9389,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                         if (!logId.HasValue)
                         {
                             using (var anyOpen = new SqlCommand(
-                                @"SELECT TOP 1 LogID, CheckInTime, SyncStatus FROM StaffAttendanceLog
+                                @"SELECT TOP 1 LogID, CheckInTime, SyncStatus, DeviceInfo FROM StaffAttendanceLog
                           WHERE EnrollmentID = @enrollmentId
                             AND CheckOutTime IS NULL
                             AND CheckInTime <= @checkOut
@@ -8239,6 +9404,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                                         logId = r.GetInt32(0);
                                         DateTime.TryParse(r.GetValue(1).ToString(), out chosenCheckIn);
                                         existingSyncJson = r.IsDBNull(2) ? null : r.GetString(2);
+                                        existingDeviceJson = r.IsDBNull(3) ? null : r.GetString(3);
                                     }
                                 }
                             }
@@ -8274,13 +9440,28 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                         if (!syncDict.ContainsKey("checkIn")) syncDict["checkIn"] = false;
                         syncDict["checkOut"] = false;
 
+                        Dictionary<string, int?> deviceDict;
+                        try
+                        {
+                            deviceDict = !string.IsNullOrWhiteSpace(existingDeviceJson)
+                                ? JsonConvert.DeserializeObject<Dictionary<string, int?>>(existingDeviceJson) ?? new Dictionary<string, int?>()
+                                : new Dictionary<string, int?>();
+                        }
+                        catch
+                        {
+                            deviceDict = new Dictionary<string, int?>();
+                        }
+                        if (!deviceDict.ContainsKey("checkIn")) deviceDict["checkIn"] = null;
+                        deviceDict["checkOut"] = deviceId;
+
                         using (var update = new SqlCommand(
                             @"UPDATE StaffAttendanceLog
-                      SET CheckOutTime = @checkOut, SyncStatus = @syncStatus, UpdatedAt = @updatedAt
+                      SET CheckOutTime = @checkOut, SyncStatus = @syncStatus, DeviceInfo = @deviceInfo, UpdatedAt = @updatedAt
                       WHERE LogID = @logId AND CheckOutTime IS NULL", connection, transaction))
                         {
                             update.Parameters.AddWithValue("@checkOut", checkOutDt.ToString("yyyy-MM-dd HH:mm:ss"));
                             update.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncDict));
+                            update.Parameters.AddWithValue("@deviceInfo", JsonConvert.SerializeObject(deviceDict));
                             update.Parameters.AddWithValue("@updatedAt", timestamp);
                             update.Parameters.AddWithValue("@logId", logId.Value);
                             var rowsAffected = update.ExecuteNonQuery();

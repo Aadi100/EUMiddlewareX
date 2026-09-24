@@ -10,6 +10,7 @@ public static class ServiceManager
     public static AttendanceLogSyncService AttendanceLogSyncService { get; private set; }
     public static StaffAttendanceLogSyncService StaffAttendanceLogSyncService { get; private set; }
     public static PeriodicMaintenanceService PeriodicMaintenanceService { get; private set; }
+    public static OfflineEnrollmentSubscriptionService OfflineEnrollmentSubscriptionService { get; private set; }
 
     public static Task StartWebsocketServerAsync(bool showUI = true)
     {
@@ -120,6 +121,28 @@ public static class ServiceManager
         }
     }
 
+    public static Task StartOfflineEnrollmentSubscriptionServiceAsync()
+    {
+        if (OfflineEnrollmentSubscriptionService == null)
+        {
+            OfflineEnrollmentSubscriptionService = new OfflineEnrollmentSubscriptionService();
+            OfflineEnrollmentSubscriptionService.Start();
+        }
+
+        return OfflineEnrollmentSubscriptionService.Started;
+    }
+
+    public static void StopOfflineEnrollmentSubscriptionService()
+    {
+        if (OfflineEnrollmentSubscriptionService != null)
+        {
+            OfflineEnrollmentSubscriptionService.Stop();
+            OfflineEnrollmentSubscriptionService.Dispose();
+            OfflineEnrollmentSubscriptionService = null;
+            LogHelper.Log("🛑 OfflineEnrollmentSubscriptionService stopped");
+        }
+    }
+
     public static void StopAllServices()
     {
         StopWebsocketServer();
@@ -127,6 +150,7 @@ public static class ServiceManager
         StopAttendanceLogSyncService();
         StopStaffAttendanceLogSyncService();
         StopPeriodicMaintenanceService();
+        StopOfflineEnrollmentSubscriptionService();
         LogHelper.Log("🛑 All services stopped");
     }
 }

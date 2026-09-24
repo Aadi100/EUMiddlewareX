@@ -48,6 +48,7 @@ namespace smart_attendance_middleware
             public string Action { get; set; }
             public DateTime EventTime { get; set; } // Echo of device timestamp
             public string AttendanceId { get; set; }
+            public int? DeviceId { get; set; } // Device that fired this specific check-in/check-out event
         }
 
         // Inside the Process method, add a WebSocketManager check and attempt to get it from the application state
@@ -252,11 +253,15 @@ namespace smart_attendance_middleware
                     // Convert local EventTime (under configured GMT) to UTC and format with "+00"
                     checkInStr = CommonUtils.ConvertToUtc0(result.EventTime, gmtSetting);
 
+                    var (gateSerial, gateAlias) = AppSession.GetDeviceGateInfo(result.DeviceId);
+
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,
                         checkinTime: checkInStr,
                         checkoutTime: null,
-                        id: resolvedId
+                        id: resolvedId,
+                        gateSerial: gateSerial,
+                        gateAlias: gateAlias
                     );
 
                     LogHelper.Log($"[LogMemberAttendanceToServer] CHECK-IN sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss} (normalized to UTC +00)");
@@ -281,11 +286,15 @@ namespace smart_attendance_middleware
                     }
                     checkOutStr = CommonUtils.ConvertToUtc0(result.EventTime, gmtSetting);
 
+                    var (gateSerialOut, gateAliasOut) = AppSession.GetDeviceGateInfo(result.DeviceId);
+
                     await _httpHandler.PostAttendanceRecordAsync(
                         enrollmentId,
                         checkinTime: checkInStr,
                         checkoutTime: checkOutStr,
-                        id: resolvedId
+                        id: resolvedId,
+                        gateSerialOut: gateSerialOut,
+                        gateAliasOut: gateAliasOut
                     );
 
                     LogHelper.Log($"[LogMemberAttendanceToServer] CHECK-OUT sent for Member={result.MemberId} at {result.EventTime:yyyy-MM-dd HH:mm:ss} (normalized to UTC +00)");
@@ -335,6 +344,7 @@ namespace smart_attendance_middleware
 
                 // Unified gate (today + previous-day open session logic)
                 bool gate = _dbHelper.CanProcessAttendance(memberId.Value, deviceTime, action);
+                int? eventDeviceId = _dbHelper.GetDeviceIdByMachineNo(machineNo);
 
                 if (action == "check-in")
                 {
@@ -348,7 +358,7 @@ namespace smart_attendance_middleware
                     try
                     {
                         // Use the updated tuple return from DatabaseHelper
-                        var result = _dbHelper.InsertAttendanceLog(memberId.Value, deviceTimeStr);
+                        var result = _dbHelper.InsertAttendanceLog(memberId.Value, deviceTimeStr, eventDeviceId);
                         attendanceId = result.AttendanceId;
 
                         if (result.LogId > 0)
@@ -368,7 +378,7 @@ namespace smart_attendance_middleware
                         await DatabaseQueueManager.EnterDbWriteLockAsync("UpdateAttendanceLogForCheckOut", DbTaskPriority.Medium);
                         try
                         {
-                            _dbHelper.UpdateAttendanceLogForCheckOut(memberId.Value, deviceTimeStr);
+                            _dbHelper.UpdateAttendanceLogForCheckOut(memberId.Value, deviceTimeStr, eventDeviceId);
 
                             // For Check-out, we must fetch the AttendanceId of the session we just updated.
                             attendanceId = _dbHelper.GetAttendanceIdForMember(memberId.Value, null, deviceTime);
@@ -405,7 +415,8 @@ namespace smart_attendance_middleware
                     EnrollmentId = enrollmentId,
                     Action = action,
                     EventTime = deviceTime,
-                    AttendanceId = attendanceId 
+                    AttendanceId = attendanceId,
+                    DeviceId = eventDeviceId
                 };
             }
             catch (Exception ex)

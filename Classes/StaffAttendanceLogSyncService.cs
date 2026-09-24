@@ -751,7 +751,7 @@ public class StaffAttendanceLogSyncService : IDisposable
 
                     if (string.Equals(actionToApply, "check-in", StringComparison.OrdinalIgnoreCase))
                     {
-                        int newId = _dbHelper.InsertStaffCheckInByStaffId(staffId, ts);
+                        int newId = _dbHelper.InsertStaffCheckInByStaffId(staffId, ts, log.DeviceId);
                         if (newId > 0)
                         {
                             inserted++;
@@ -765,7 +765,7 @@ public class StaffAttendanceLogSyncService : IDisposable
                     }
                     else if (string.Equals(actionToApply, "check-out", StringComparison.OrdinalIgnoreCase))
                     {
-                        bool ok = _dbHelper.InsertStaffCheckOutByStaffId(staffId, ts);
+                        bool ok = _dbHelper.InsertStaffCheckOutByStaffId(staffId, ts, log.DeviceId);
                         if (ok)
                         {
                             updated++;
@@ -828,12 +828,21 @@ public class StaffAttendanceLogSyncService : IDisposable
 
             // Prepare items for batching
             var items = unsyncedLogs
-                .Select(log => new
+                .Select(log =>
                 {
-                    log.EnrollmentId,
-                    CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.ConvertToUtc0(log.CheckInTime, gmtSetting) : null,
-                    CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.ConvertToUtc0(log.CheckOutTime, gmtSetting) : null,
-                    Id = log.AttendanceId
+                    var (gateSerial, gateAlias) = AppSession.GetStaffDeviceGateInfo(log.CheckInDeviceId);
+                    var (gateSerialOut, gateAliasOut) = AppSession.GetStaffDeviceGateInfo(log.CheckOutDeviceId);
+                    return new
+                    {
+                        log.EnrollmentId,
+                        CheckIn = log.CheckInTime != DateTime.MinValue ? CommonUtils.ConvertToUtc0(log.CheckInTime, gmtSetting) : null,
+                        CheckOut = (log.CheckOutTime != DateTime.MinValue && log.NeedsCheckOutSync) ? CommonUtils.ConvertToUtc0(log.CheckOutTime, gmtSetting) : null,
+                        Id = log.AttendanceId,
+                        GateSerial = gateSerial,
+                        GateAlias = gateAlias,
+                        GateSerialOut = gateSerialOut,
+                        GateAliasOut = gateAliasOut
+                    };
                 })
                 .Where(x => x.CheckIn != null || x.CheckOut != null)
                 .ToList();
@@ -848,7 +857,7 @@ public class StaffAttendanceLogSyncService : IDisposable
 
                 var batch = items.Skip(i).Take(maxBatchSize)
                     .Select(x => {
-                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, x.Id);
+                        return (x.EnrollmentId, x.CheckIn, x.CheckOut, x.Id, x.GateSerial, x.GateAlias, x.GateSerialOut, x.GateAliasOut);
                     })
                     .ToList();
 

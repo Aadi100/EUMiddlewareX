@@ -17,6 +17,7 @@ using System.Net.NetworkInformation;
 using System.Text; 
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace smart_attendance_middleware.Classes
 {
@@ -1035,15 +1036,36 @@ namespace smart_attendance_middleware.Classes
                     return false;
                 }
 
-                // 2. Show the GateAccessForm for authorization/logging (Same as before)
-                string loggedInUser = AppSession.LoggedInUser;
-                using (var gateAccessForm = new GateAccessForm(ip, dbHelper, loggedInUser))
+                // 2. Show the GateAccessForm for authorization/logging — unless the
+                // "RequireGateEntryForm" setting has been turned off (Setup Management),
+                // in which case skip straight to opening the door with no prompt/logging.
+                string requireFormSetting = dbHelper.GetSetting("RequireGateEntryForm");
+                bool requireForm = string.IsNullOrWhiteSpace(requireFormSetting) ||
+                                    requireFormSetting.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+                if (requireForm)
                 {
-                    if (gateAccessForm.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                    string loggedInUser = AppSession.LoggedInUser;
+                    using (var gateAccessForm = new GateAccessForm(ip, dbHelper, loggedInUser))
                     {
-                        LogHelper.Log($"[HandleDoorOpenRequestAsync] Info: Gate access cancelled/denied for {ip} (SN: {sn}).");
+                        if (gateAccessForm.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                        {
+                            LogHelper.Log($"[HandleDoorOpenRequestAsync] Info: Gate access cancelled/denied for {ip} (SN: {sn}).");
+                            return false;
+                        }
+                    }
+                }
+                else
+                {
+                    // No entry form, but the "RequireGatePassword" setting still applies here
+                    // exactly like it does inside GateAccessForm — same gate, same rule either way.
+                    if (IsGatePasswordRequired(dbHelper) && !PromptForPassword(AppSession.LoggedInUser, dbHelper))
+                    {
+                        LogHelper.Log($"[HandleDoorOpenRequestAsync] Info: Password verification failed/cancelled for direct open on {ip} (SN: {sn}).");
                         return false;
                     }
+
+                    LogHelper.Log($"[HandleDoorOpenRequestAsync] RequireGateEntryForm is off — opening {ip} (SN: {sn}) directly, no entry form.");
                 }
 
                 // 3. Execute physical door open command via WebSocket
@@ -1067,6 +1089,65 @@ namespace smart_attendance_middleware.Classes
                 LogHelper.Log($"[HandleDoorOpenRequestAsync] Exception: {ex.Message}");
                 System.Windows.Forms.MessageBox.Show($"An error occurred: {ex.Message}", "System Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Reads the "RequireGatePassword" setting (default true — same rule for both the
+        /// with-form and without-form gate-open paths).
+        /// </summary>
+        public static bool IsGatePasswordRequired(DatabaseHelper dbHelper)
+        {
+            string setting = dbHelper.GetSetting("RequireGatePassword");
+            return string.IsNullOrWhiteSpace(setting) || setting.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Shows the inline password prompt and verifies it against the logged-in user.
+        /// Shared by GateAccessForm and the no-form direct-open path so both enforce the
+        /// same "RequireGatePassword" rule identically. Returns false on cancel or a wrong
+        /// password (an error is already shown to the user in the wrong-password case).
+        /// </summary>
+        public static bool PromptForPassword(string loggedInUser, DatabaseHelper dbHelper)
+        {
+            using (var prompt = new Form
+            {
+                Width = 360,
+                Height = 160,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Text = $"Password Required - {loggedInUser}",
+                StartPosition = FormStartPosition.CenterScreen,
+                MaximizeBox = false,
+                MinimizeBox = false
+            })
+            {
+                var label = new Label { Left = 10, Top = 20, Width = 320, Text = "Enter your password:" };
+                var inputBox = new TextBox { Left = 10, Top = 50, Width = 320, UseSystemPasswordChar = true };
+                var okButton = new Button { Text = "OK", Left = 180, Width = 70, Top = 85, DialogResult = DialogResult.OK };
+                var cancelButton = new Button { Text = "Cancel", Left = 260, Width = 70, Top = 85, DialogResult = DialogResult.Cancel };
+
+                prompt.Controls.Add(label);
+                prompt.Controls.Add(inputBox);
+                prompt.Controls.Add(okButton);
+                prompt.Controls.Add(cancelButton);
+                prompt.AcceptButton = okButton;
+                prompt.CancelButton = cancelButton;
+
+                if (prompt.ShowDialog() != DialogResult.OK)
+                {
+                    LogHelper.Log("[PromptForPassword] Password prompt cancelled.");
+                    return false;
+                }
+
+                if (!dbHelper.VerifyLoginUser(loggedInUser, inputBox.Text))
+                {
+                    MessageBox.Show("Incorrect password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    LogHelper.Log("[PromptForPassword] Incorrect password entered.");
+                    return false;
+                }
+
+                LogHelper.Log("[PromptForPassword] Password verified successfully.");
+                return true;
             }
         }
 

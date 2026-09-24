@@ -17,6 +17,22 @@ namespace smart_attendance_middleware
         public static List<Device> DeviceList { get; set; } = new List<Device>();
         public static List<Device> StaffDeviceList { get; set; } = new List<Device>();
 
+        // Resolve gate_serial/gate_alias (DeviceSerial/Department) for a member device by its DeviceId
+        public static (string GateSerial, string GateAlias) GetDeviceGateInfo(int? deviceId)
+        {
+            if (!deviceId.HasValue) return (null, null);
+            var device = DeviceList?.Find(d => d.DeviceId == deviceId.Value);
+            return device == null ? (null, null) : (device.DeviceSerial, device.Department);
+        }
+
+        // Resolve gate_serial/gate_alias (DeviceSerial/Department) for a staff device by its StaffDeviceId
+        public static (string GateSerial, string GateAlias) GetStaffDeviceGateInfo(int? staffDeviceId)
+        {
+            if (!staffDeviceId.HasValue) return (null, null);
+            var device = StaffDeviceList?.Find(d => d.StaffDeviceId == staffDeviceId.Value);
+            return device == null ? (null, null) : (device.DeviceSerial, device.Department);
+        }
+
         public static List<Member> AllMembers { get; set; } = new List<Member>();
         public static List<Staff> AllStaff { get; set; } = new List<Staff>();
 

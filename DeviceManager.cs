@@ -76,6 +76,609 @@ namespace smart_attendance_middleware
             _wsManager.LiveUpdate += WsManager_LiveUpdate;
             this.Shown += DeviceManager_Shown;
 
+            BuildOfflineMemberManagementUi();
+            AddGateEntryFormSetting();
+        }
+
+        //////////////////////////////////GATE ACCESS SETTING///////////////////////////////
+
+        private const string RequireGateEntryFormSettingKey = "RequireGateEntryForm";
+        private const string RequireGatePasswordSettingKey = "RequireGatePassword";
+        private CheckBox chk_requireGateEntryForm;
+        private CheckBox chk_requireGatePassword;
+
+        // Adds two toggles to Setup Management, both defaulting to checked (existing behavior)
+        // when never saved:
+        // - RequireGateEntryForm: when unchecked, Open skips GateAccessForm entirely and opens
+        //   the gate directly with no visitor/member logging.
+        // - RequireGatePassword: applies identically whether or not the form is shown — when
+        //   unchecked, no password prompt on Open either way.
+        private void AddGateEntryFormSetting()
+        {
+            var lblSection = new Label
+            {
+                Text = "Gate Access",
+                Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(16, 432)
+            };
+            subpnl_setup.Controls.Add(lblSection);
+
+            chk_requireGateEntryForm = new CheckBox
+            {
+                Name = "chk_requireGateEntryForm",
+                Text = "Require entry form (member/visitor + reason) before opening a gate",
+                AutoSize = true,
+                Location = new Point(16, 456)
+            };
+            chk_requireGatePassword = new CheckBox
+            {
+                Name = "chk_requireGatePassword",
+                Text = "Require password before opening a gate (with or without the entry form)",
+                AutoSize = true,
+                Location = new Point(16, 480)
+            };
+            try
+            {
+                string formSetting = _dbHelper.GetSetting(RequireGateEntryFormSettingKey);
+                chk_requireGateEntryForm.Checked = string.IsNullOrWhiteSpace(formSetting) || formSetting.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+                string passwordSetting = _dbHelper.GetSetting(RequireGatePasswordSettingKey);
+                chk_requireGatePassword.Checked = string.IsNullOrWhiteSpace(passwordSetting) || passwordSetting.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Setup][GateEntryForm] Failed to load settings: {ex.Message}");
+                chk_requireGateEntryForm.Checked = true;
+                chk_requireGatePassword.Checked = true;
+            }
+            subpnl_setup.Controls.Add(chk_requireGateEntryForm);
+            subpnl_setup.Controls.Add(chk_requireGatePassword);
+
+            var btnSaveGateSetting = new Button
+            {
+                Text = "Save",
+                Location = new Point(16, 508),
+                Size = new Size(90, 26)
+            };
+            btnSaveGateSetting.Click += (s, e) =>
+            {
+                try
+                {
+                    _dbHelper.SaveSetting(RequireGateEntryFormSettingKey, chk_requireGateEntryForm.Checked ? "true" : "false");
+                    _dbHelper.SaveSetting(RequireGatePasswordSettingKey, chk_requireGatePassword.Checked ? "true" : "false");
+                    LogHelper.Log($"[Setup][GateEntryForm] Saved {RequireGateEntryFormSettingKey}={chk_requireGateEntryForm.Checked}, {RequireGatePasswordSettingKey}={chk_requireGatePassword.Checked}");
+                    MessageBox.Show("Gate access settings saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"[Setup][GateEntryForm][ERROR] {ex.Message}");
+                    MessageBox.Show("Failed to save gate access settings.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+            subpnl_setup.Controls.Add(btnSaveGateSetting);
+        }
+
+        //////////////////////////////////OFFLINE MEMBER MANAGEMENT///////////////////////////////
+
+        private Panel pnl_offlineMembers;
+        private ListView lst_offlineMembers;
+        private TextBox txt_offlineMemberSearch;
+        private Label nav_offlineMembers;
+        private Label btn_offlineMembers;
+        private Panel tile_offlineMembers;
+        private List<OfflineMember> _offlineMembersCache = new List<OfflineMember>();
+
+        private ListView lst_allMembers;
+        private TextBox txt_allMembersSearch;
+        private List<Member> _allMembersCache = new List<Member>();
+
+        private void BuildOfflineMemberManagementUi()
+        {
+            AddOfflineMembersWelcomeTile();
+            AddOfflineMembersNavTab();
+            AddOfflineMembersSidebarButton();
+            BuildOfflineMembersPanel();
+        }
+
+        // Mirrors tile_member's exact style/size so it flows into the welcome-screen tile grid
+        // (pnl_welcome_tiles is a FlowLayoutPanel, so it lands right after Setup Management).
+        private void AddOfflineMembersWelcomeTile()
+        {
+            var iconLbl = new Label
+            {
+                Font = new Font("Segoe UI Emoji", 26F),
+                ForeColor = Color.FromArgb(18, 23, 49),
+                Location = new Point(0, 18),
+                Size = new Size(180, 52),
+                Text = "🗂️",
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            var nameLbl = new Label
+            {
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 35, 60),
+                Location = new Point(10, 74),
+                Size = new Size(160, 22),
+                Text = "Offline Management",
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            var descLbl = new Label
+            {
+                Font = new Font("Segoe UI", 7.5F),
+                ForeColor = Color.FromArgb(120, 125, 145),
+                Location = new Point(10, 98),
+                Size = new Size(160, 38),
+                Text = "Enroll and track\nlocally-created members",
+                TextAlign = ContentAlignment.TopCenter
+            };
+
+            tile_offlineMembers = new Panel
+            {
+                Name = "tile_offlineMembers",
+                BackColor = Color.White,
+                Cursor = Cursors.Hand,
+                Margin = new Padding(0, 0, 18, 18),
+                Size = new Size(180, 160)
+            };
+            tile_offlineMembers.Controls.Add(iconLbl);
+            tile_offlineMembers.Controls.Add(nameLbl);
+            tile_offlineMembers.Controls.Add(descLbl);
+
+            foreach (Control c in new Control[] { tile_offlineMembers, iconLbl, nameLbl, descLbl })
+                c.Click += btn_offlineMembers_Click;
+
+            pnl_welcome_tiles.Controls.Add(tile_offlineMembers);
+        }
+
+        // Resize the existing 5 top-nav tabs to make room for a 6th ("Offline Members") tab,
+        // keeping pnl_topnav's total width unchanged so nothing overflows the form.
+        private void AddOfflineMembersNavTab()
+        {
+            var navLabels = new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup };
+            int totalWidth = pnl_topnav.Width; // 881
+            int slots = navLabels.Length + 1;  // 6
+            int evenWidth = totalWidth / slots; // 146
+            int x = 0;
+            foreach (var lbl in navLabels)
+            {
+                lbl.Location = new Point(x, 0);
+                lbl.Width = evenWidth;
+                x += evenWidth;
+            }
+
+            nav_offlineMembers = new Label
+            {
+                Name = "nav_offlineMembers",
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand,
+                Font = nav_setup.Font,
+                ForeColor = Color.White,
+                Location = new Point(x, 0),
+                Size = new Size(totalWidth - x, nav_setup.Height), // remainder fills the tab strip exactly
+                Text = "Offline Management",
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            nav_offlineMembers.Click += btn_offlineMembers_Click;
+            nav_offlineMembers.MouseEnter += NavBtn_MouseEnter;
+            nav_offlineMembers.MouseLeave += NavBtn_MouseLeave;
+            pnl_topnav.Controls.Add(nav_offlineMembers);
+        }
+
+        // panel2 mirrors the same left-sidebar buttons as pnl_topnav's tabs (kept in sync via
+        // SetActiveButton); added here for parity even though panel2 itself is currently hidden.
+        private void AddOfflineMembersSidebarButton()
+        {
+            btn_offlineMembers = new Label
+            {
+                Name = "btn_offlineMembers",
+                BackColor = Color.Transparent,
+                Font = btn_setupmanage.Font,
+                ForeColor = Color.White,
+                Location = new Point(btn_setupmanage.Left, btn_setupmanage.Bottom),
+                Padding = new Padding(10, 0, 0, 0),
+                Size = btn_setupmanage.Size,
+                Text = "Offline Management",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            btn_offlineMembers.Click += btn_offlineMembers_Click;
+            btn_offlineMembers.MouseHover += SidebarButton_MouseHover;
+            btn_offlineMembers.MouseLeave += SidebarButton_MouseLeave;
+            panel2.Controls.Add(btn_offlineMembers);
+        }
+
+        private void BuildOfflineMembersPanel()
+        {
+            pnl_offlineMembers = new Panel
+            {
+                Name = "pnl_offlineMembers",
+                BackColor = Color.WhiteSmoke,
+                Location = new Point(1114, 750), // off-canvas until shown, matches pnl_attendence's pattern
+                Size = pnl_attendence.Size,
+                Visible = false
+            };
+            Controls.Add(pnl_offlineMembers);
+            // Dynamically-added controls land on top of the z-order by default, which would
+            // permanently cover the navy header + top-nav tabs (added earlier by InitializeComponent).
+            // Send it to the back once, like every other section panel already sits behind them.
+            pnl_offlineMembers.SendToBack();
+
+            // Like tab_attendence (y=156) inside pnl_attendence, this panel's top ~156px sit
+            // behind the navy header + top-nav tabs (siblings on the Form, drawn in front of
+            // every section panel) — content must start below that, not at y=8.
+            const int contentTop = 164;
+
+            var tabs = new TabControl
+            {
+                Name = "tab_offlineMemberMgmt",
+                Location = new Point(8, contentTop),
+                Size = new Size(pnl_offlineMembers.Width - 16, pnl_offlineMembers.Height - contentTop - 10),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+            };
+            pnl_offlineMembers.Controls.Add(tabs);
+
+            var tabOffline = new TabPage("Offline Members");
+            var tabAllMembers = new TabPage("Members");
+            tabs.TabPages.Add(tabOffline);
+            tabs.TabPages.Add(tabAllMembers);
+
+            BuildOfflineMembersTab(tabOffline);
+            BuildAllMembersTab(tabAllMembers);
+        }
+
+        private void BuildOfflineMembersTab(TabPage tab)
+        {
+            var btnAddOfflineMember = new Button
+            {
+                Name = "btn_addOfflineMember",
+                Text = "Add Offline Member",
+                Location = new Point(8, 8),
+                Size = new Size(160, 28)
+            };
+            btnAddOfflineMember.Click += (s, e) =>
+            {
+                using (var form = new AddOfflineMemberForm())
+                {
+                    form.ShowDialog(this);
+                }
+                LoadOfflineMembersList();
+            };
+            tab.Controls.Add(btnAddOfflineMember);
+
+            var btnRetryOfflineLogs = new Button
+            {
+                Name = "btn_retryOfflineLogs",
+                Text = "Retry Pending Offline Logs",
+                Location = new Point(btnAddOfflineMember.Right + 10, 8),
+                Size = new Size(180, 28)
+            };
+            btnRetryOfflineLogs.Click += BtnRetryOfflineLogs_Click;
+            tab.Controls.Add(btnRetryOfflineLogs);
+
+            var lblSearch = new Label
+            {
+                Text = "Search:",
+                Location = new Point(btnRetryOfflineLogs.Right + 16, 14),
+                AutoSize = true
+            };
+            tab.Controls.Add(lblSearch);
+
+            txt_offlineMemberSearch = new TextBox
+            {
+                Name = "txt_offlineMemberSearch",
+                Location = new Point(lblSearch.Right + 6, 11),
+                Size = new Size(200, 23)
+            };
+            txt_offlineMemberSearch.TextChanged += (s, e) => FilterOfflineMembersList();
+            tab.Controls.Add(txt_offlineMemberSearch);
+
+            lst_offlineMembers = new ListView
+            {
+                Name = "lst_offlineMembers",
+                Location = new Point(8, 44),
+                Size = new Size(tab.ClientSize.Width - 16, tab.ClientSize.Height - 52),
+                View = View.Details,
+                FullRowSelect = true,
+                GridLines = true,
+                HideSelection = false,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+            };
+            lst_offlineMembers.Columns.Add("Enrollment", 90);
+            lst_offlineMembers.Columns.Add("Name", 160);
+            lst_offlineMembers.Columns.Add("Gender", 70);
+            lst_offlineMembers.Columns.Add("Phone", 110);
+            lst_offlineMembers.Columns.Add("Package", 130);
+            lst_offlineMembers.Columns.Add("Periodicity", 90);
+            lst_offlineMembers.Columns.Add("RFID", 90);
+            lst_offlineMembers.Columns.Add("Fingerprint", 80);
+            lst_offlineMembers.Columns.Add("Picture", 70);
+            lst_offlineMembers.Columns.Add("Server Sync", 90);
+            lst_offlineMembers.Columns.Add("Device Cleanup", 110);
+            lst_offlineMembers.Columns.Add("Created", 140);
+            tab.Controls.Add(lst_offlineMembers);
+        }
+
+        private void BuildAllMembersTab(TabPage tab)
+        {
+            var btnRefresh = new Button
+            {
+                Name = "btn_refreshAllMembers",
+                Text = "Refresh",
+                Location = new Point(8, 8),
+                Size = new Size(100, 28)
+            };
+            btnRefresh.Click += (s, e) => LoadAllMembersList();
+            tab.Controls.Add(btnRefresh);
+
+            var lblSearch = new Label
+            {
+                Text = "Search:",
+                Location = new Point(btnRefresh.Right + 16, 14),
+                AutoSize = true
+            };
+            tab.Controls.Add(lblSearch);
+
+            txt_allMembersSearch = new TextBox
+            {
+                Name = "txt_allMembersSearch",
+                Location = new Point(lblSearch.Right + 6, 11),
+                Size = new Size(200, 23)
+            };
+            txt_allMembersSearch.TextChanged += (s, e) => FilterAllMembersList();
+            tab.Controls.Add(txt_allMembersSearch);
+
+            lst_allMembers = new ListView
+            {
+                Name = "lst_allMembers",
+                Location = new Point(8, 44),
+                Size = new Size(tab.ClientSize.Width - 16, tab.ClientSize.Height - 52),
+                View = View.Details,
+                FullRowSelect = true,
+                GridLines = true,
+                HideSelection = false,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+            };
+            lst_allMembers.Columns.Add("Member ID", 80);
+            lst_allMembers.Columns.Add("Client ID", 220);
+            lst_allMembers.Columns.Add("Name", 150);
+            lst_allMembers.Columns.Add("Enrollment", 90);
+            lst_allMembers.Columns.Add("Status", 80);
+            lst_allMembers.Columns.Add("RFID", 100);
+            lst_allMembers.Columns.Add("Fingerprint", 80);
+            lst_allMembers.Columns.Add("Sync Status", 120);
+            lst_allMembers.Columns.Add("Package Expiry", 110);
+            lst_allMembers.Columns.Add("Action", 80);
+            lst_allMembers.ItemActivate += LstAllMembers_ItemActivate;
+            tab.Controls.Add(lst_allMembers);
+        }
+
+        private void btn_offlineMembers_Click(object sender, EventArgs e)
+        {
+            if (pnl_offlineMembers.Visible && pnl_offlineMembers.Location == Point.Empty) return;
+            HideAllPanels();
+            SetHeader("Offline Management", "View members enrolled locally while offline.");
+            pnl_topnav.Visible = true;
+            pnl_topnav.BringToFront();
+            pnl_welcome_header.BringToFront();
+            SetActiveButton(btn_offlineMembers);
+            SetActiveNavButton(nav_offlineMembers);
+            pnl_offlineMembers.Location = new Point(0, 0);
+            pnl_offlineMembers.Visible = true;
+            LoadOfflineMembersList();
+            LoadAllMembersList();
+        }
+
+        private void LoadOfflineMembersList()
+        {
+            try
+            {
+                _offlineMembersCache = _dbHelper.GetOfflineMembers() ?? new List<OfflineMember>();
+                var packagesById = _dbHelper.GetPackages(activeOnly: false).ToDictionary(p => p.PackageId, p => p.Title);
+
+                RenderOfflineMembersList(_offlineMembersCache, packagesById);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DeviceManager] Failed to load offline members: {ex.Message}");
+            }
+        }
+
+        private void FilterOfflineMembersList()
+        {
+            var packagesById = _dbHelper.GetPackages(activeOnly: false).ToDictionary(p => p.PackageId, p => p.Title);
+            string term = txt_offlineMemberSearch.Text.Trim();
+
+            var filtered = string.IsNullOrEmpty(term)
+                ? _offlineMembersCache
+                : _offlineMembersCache.Where(m =>
+                    (m.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (m.Phone ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    m.EnrollmentID.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                  ).ToList();
+
+            RenderOfflineMembersList(filtered, packagesById);
+        }
+
+        private void RenderOfflineMembersList(List<OfflineMember> members, Dictionary<int, string> packagesById)
+        {
+            lst_offlineMembers.Items.Clear();
+            foreach (var m in members)
+            {
+                string packageTitle = "-";
+                string periodicity = "-";
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(m.SubscriptionJson))
+                    {
+                        var sub = JObject.Parse(m.SubscriptionJson);
+                        int packageId = sub["package_id"]?.ToObject<int>() ?? 0;
+                        packageTitle = packagesById.TryGetValue(packageId, out var title) ? title : $"#{packageId}";
+                        periodicity = sub["periodicity"]?.ToString() ?? "-";
+                    }
+                }
+                catch { /* leave defaults on parse failure */ }
+
+                var item = new ListViewItem(m.EnrollmentID.ToString());
+                item.SubItems.Add(m.Name ?? "-");
+                item.SubItems.Add(m.Gender ?? "-");
+                item.SubItems.Add(m.Phone ?? "-");
+                item.SubItems.Add(packageTitle);
+                item.SubItems.Add(periodicity);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.RFID) ? "-" : m.RFID);
+                item.SubItems.Add(m.Fingerprint ? "Yes" : "No");
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Picture) ? "No" : "Yes");
+                item.SubItems.Add(m.ServerSync ? "Synced" : "Pending");
+
+                string cleanupText = "-";
+                if (m.ServerSync)
+                {
+                    int total = m.DeviceCleanupStatus?.Count ?? 0;
+                    int done = m.DeviceCleanupStatus?.Count(kv => kv.Value) ?? 0;
+                    cleanupText = total == 0 ? "Done" : $"{done}/{total} devices";
+                }
+                item.SubItems.Add(cleanupText);
+
+                item.SubItems.Add(m.CreatedAt ?? "-");
+                item.Tag = m;
+                lst_offlineMembers.Items.Add(item);
+            }
+        }
+
+        private async void BtnRetryOfflineLogs_Click(object sender, EventArgs e)
+        {
+            var btn = (Button)sender;
+            btn.Enabled = false;
+            string originalText = btn.Text;
+            btn.Text = "Retrying...";
+
+            try
+            {
+                var deviceFunctions = new DeviceFunctions();
+                await deviceFunctions.ProcessAllOfflineEntries();
+
+                MessageBox.Show(
+                    "Retry finished. Check the logs for details on which entries synced.",
+                    "Retry Pending Offline Logs",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
+                LoadOfflineMembersList();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DeviceManager] Retry pending offline logs failed: {ex.Message}");
+                MessageBox.Show(
+                    "Failed to retry pending offline logs: " + ex.Message,
+                    "Retry Pending Offline Logs",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btn.Enabled = true;
+                btn.Text = originalText;
+            }
+        }
+
+        private void LoadAllMembersList()
+        {
+            try
+            {
+                _allMembersCache = _dbHelper.GetMembers() ?? new List<Member>();
+                RenderAllMembersList(_allMembersCache);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DeviceManager] Failed to load members: {ex.Message}");
+            }
+        }
+
+        private void FilterAllMembersList()
+        {
+            string term = txt_allMembersSearch.Text.Trim();
+
+            var filtered = string.IsNullOrEmpty(term)
+                ? _allMembersCache
+                : _allMembersCache.Where(m =>
+                    (m.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (m.ClientId ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (m.EnrollmentID?.ToString() ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    m.MemberID.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                  ).ToList();
+
+            RenderAllMembersList(filtered);
+        }
+
+        private void RenderAllMembersList(List<Member> members)
+        {
+            var allDevices = AppSession.DeviceList ?? new List<Device>();
+            int totalDevices = allDevices.Count;
+
+            lst_allMembers.Items.Clear();
+            foreach (var m in members)
+            {
+                string syncStatusText = "-";
+                if (totalDevices > 0)
+                {
+                    int syncedCount = 0;
+                    foreach (var d in allDevices)
+                    {
+                        if (m.SyncStatus != null && m.SyncStatus.TryGetValue(d.DeviceId, out bool isSynced) && isSynced)
+                            syncedCount++;
+                    }
+                    syncStatusText = $"{syncedCount}/{totalDevices} devices";
+                }
+
+                var item = new ListViewItem(m.MemberID.ToString());
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.ClientId) ? "-" : m.ClientId);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Name) ? "-" : m.Name);
+                item.SubItems.Add(m.EnrollmentID.HasValue && m.EnrollmentID.Value > 0 ? m.EnrollmentID.Value.ToString() : "-");
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Status) ? "-" : m.Status);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.RFID) ? "-" : m.RFID);
+                item.SubItems.Add(m.Fingerprint ? "Yes" : "No");
+                item.SubItems.Add(syncStatusText);
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry);
+                item.SubItems.Add("Renew");
+                item.Tag = m;
+                lst_allMembers.Items.Add(item);
+            }
+        }
+
+        private void LstAllMembers_ItemActivate(object sender, EventArgs e)
+        {
+            try
+            {
+                var listView = sender as ListView;
+                if (listView?.SelectedItems.Count != 1) return;
+
+                var item = listView.SelectedItems[0];
+                var clickedPoint = listView.PointToClient(Control.MousePosition);
+                var hitInfo = listView.HitTest(clickedPoint);
+                if (hitInfo.Item == null || hitInfo.SubItem == null) return;
+
+                int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
+                if (columnIndex != listView.Columns.Count - 1) return; // only the Action column opens Renew
+
+                if (!(item.Tag is Member member)) return;
+
+                if (!member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0)
+                {
+                    MessageBox.Show("This member has no EnrollmentID and cannot be renewed.", "Renew Membership", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                using (var form = new RenewMembershipForm(member))
+                {
+                    if (form.ShowDialog(this) == DialogResult.OK)
+                    {
+                        LoadAllMembersList();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[LstAllMembers_ItemActivate] Error: {ex.Message}");
+            }
         }
 
         private void InitializeWebSocketManager()
@@ -219,7 +822,7 @@ namespace smart_attendance_middleware
                 pnl_welcome.Visible = true;
 
                 // Wire hover effects for welcome tiles
-                foreach (var tile in new[] { tile_device, tile_user, tile_staff, tile_member, tile_setup })
+                foreach (var tile in new[] { tile_device, tile_user, tile_staff, tile_member, tile_setup, tile_offlineMembers })
                 {
                     var t = tile;
                     foreach (Control c in new Control[] { t }.Concat<Control>(t.Controls.Cast<Control>()))
@@ -424,13 +1027,15 @@ namespace smart_attendance_middleware
             pnl_setup.Visible           = false;
             pnl_welcome.Visible         = false;
             pnl_topnav.Visible          = false;
+            if (pnl_offlineMembers != null) pnl_offlineMembers.Visible = false;
         }
 
         private void SetActiveButton(Label active)
         {
             foreach (var btn in new[] { btn_device_management, btn_userManagement,
-                                        btn_staffmanagment, btn_attendencemanagment, btn_setupmanage })
+                                        btn_staffmanagment, btn_attendencemanagment, btn_setupmanage, btn_offlineMembers })
             {
+                if (btn == null) continue;
                 btn.BackColor = SidebarBg;
                 btn.ForeColor = Color.White;
             }
@@ -586,8 +1191,9 @@ namespace smart_attendance_middleware
 
         private void SetActiveNavButton(Label active)
         {
-            foreach (var btn in new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup })
+            foreach (var btn in new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup, nav_offlineMembers })
             {
+                if (btn == null) continue;
                 btn.BackColor = Color.Transparent;
                 btn.ForeColor = Color.White;
             }
@@ -1584,6 +2190,7 @@ namespace smart_attendance_middleware
                 lst_members.FullRowSelect = true;
                 lst_members.GridLines = true;
                 lst_members.Columns.Add("Member ID", 90);
+                lst_members.Columns.Add("Client ID", 220);
                 lst_members.Columns.Add("Name", 160);
                 lst_members.Columns.Add("Enrollment No", 110);
                 lst_members.Columns.Add("Status", 90);
@@ -1663,6 +2270,7 @@ namespace smart_attendance_middleware
                 }
 
                 var item = new ListViewItem(m.MemberID.ToString());
+                item.SubItems.Add(string.IsNullOrWhiteSpace(m.ClientId)    ? "-" : m.ClientId);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.Name)        ? "-" : m.Name);
                 item.SubItems.Add(enrollmentText);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.Status)      ? "-" : m.Status);
@@ -2605,7 +3213,7 @@ namespace smart_attendance_middleware
                 {
                     int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
 
-                    if (columnIndex == 9) // Device Status column
+                    if (columnIndex == lst_members.Columns.Count - 1) // Device Status column (always last)
                     {
                         if (item.Tag is Member member)
                         {

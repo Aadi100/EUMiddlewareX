@@ -22,11 +22,15 @@ namespace smart_attendance_middleware
         private readonly DatabaseHelper _dbHelper;
         private readonly Processor _processor;
 
-        private const string BaseUrl = "https://eu.ws.fitnessmarvel.com";
+        //private const string BaseUrl = "https://eu.ws.fitnessmarvel.com";
 
-        //private const string BaseUrl = "https://ws-stg.fitnessmarvel.com";
+        private const string BaseUrl = "https://ws-stg.fitnessmarvel.com";
         private const string GetMembersEndpoint = "/api/sync/members-staff";
         private const string UploadAttendanceEndpoint = "/api/attendance/upload";
+        private const string GetCatalogEndpoint = "/api/sync/catalog";
+        private const string CatalogSyncSettingKey = "CatalogSync";
+        private const string PostEnrollmentsEndpoint = "/api/sync/enrollments";
+        private const string PostMemberPictureEndpoint = "/api/sync/member-picture";
 
         private const string ApiKeySettingKey = "GWTToken";
 
@@ -68,6 +72,10 @@ namespace smart_attendance_middleware
             string checkinTime = null,
             string checkoutTime = null,
             string id = null,
+            string gateSerial = null,
+            string gateAlias = null,
+            string gateSerialOut = null,
+            string gateAliasOut = null,
             CancellationToken token = default(CancellationToken))
         {
             try
@@ -89,11 +97,15 @@ namespace smart_attendance_middleware
 
             if (id != null) record["id"] = id;
             if (!string.IsNullOrWhiteSpace(checkinTime)) record["checkin_time"] = checkinTime;
+            if (!string.IsNullOrWhiteSpace(gateSerial)) record["gate_serial"] = gateSerial;
+            if (!string.IsNullOrWhiteSpace(gateAlias)) record["gate_alias"] = gateAlias;
             if (!string.IsNullOrWhiteSpace(checkoutTime))
             {
                 record["checkout_time"] = checkoutTime;
                 // Only include source_out when there is a checkout value
                 record["source_out"] = "biometric";
+                if (!string.IsNullOrWhiteSpace(gateSerialOut)) record["gate_serial_out"] = gateSerialOut;
+                if (!string.IsNullOrWhiteSpace(gateAliasOut)) record["gate_alias_out"] = gateAliasOut;
             }
 
             var payload = new JObject
@@ -135,7 +147,7 @@ namespace smart_attendance_middleware
         /// Optional per-record: id, checkin_time, checkout_time (ISO 8601 strings, e.g. 2024-01-01T10:00:00Z).
         /// </summary>
         public async Task<JObject> UploadAttendanceRecordsAsync(
-            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, string id)> records,
+            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, string id, string gateSerial, string gateAlias, string gateSerialOut, string gateAliasOut)> records,
             CancellationToken token = default(CancellationToken))
         {
             if (records == null)
@@ -172,10 +184,15 @@ namespace smart_attendance_middleware
 
                 if (!string.IsNullOrWhiteSpace(r.id)) rec["id"] = r.id;
                 if (!string.IsNullOrWhiteSpace(r.checkinTime)) rec["checkin_time"] = r.checkinTime;
+                if (!string.IsNullOrWhiteSpace(r.gateSerial)) rec["gate_serial"] = r.gateSerial;
+                if (!string.IsNullOrWhiteSpace(r.gateAlias)) rec["gate_alias"] = r.gateAlias;
                 if (!string.IsNullOrWhiteSpace(r.checkoutTime))
                 {
                     rec["checkout_time"] = r.checkoutTime;
-                    rec["source_out"] = "biometric";                    }
+                    rec["source_out"] = "biometric";
+                    if (!string.IsNullOrWhiteSpace(r.gateSerialOut)) rec["gate_serial_out"] = r.gateSerialOut;
+                    if (!string.IsNullOrWhiteSpace(r.gateAliasOut)) rec["gate_alias_out"] = r.gateAliasOut;
+                }
 
                 array.Add(rec);
             }
@@ -278,7 +295,177 @@ namespace smart_attendance_middleware
             }
         }
 
+        /// <summary>
+        /// Retrieves the packages/trainers catalog. Sends no query param for a full pull
+        /// when there is no stored CatalogSync watermark, otherwise sends ?last_sync=... .
+        /// </summary>
+        public async Task<(List<JObject> packages, List<JObject> trainers, string syncedAt)> GetCatalogAsync(CancellationToken token)
+        {
+            try
+            {
+                SetBearerAuthorization();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ {ex.Message} Cannot get catalog.");
+                return (null, null, null);
+            }
 
+            var requestUrl = BaseUrl + GetCatalogEndpoint;
+            string lastSync = null;
+            try
+            {
+                lastSync = _dbHelper.GetSetting(CatalogSyncSettingKey);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"⚠️ Failed to read '{CatalogSyncSettingKey}' setting: {ex.Message}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(lastSync))
+            {
+                requestUrl = $"{requestUrl}?last_sync={Uri.EscapeDataString(lastSync)}";
+            }
+
+            LogHelper.Log($"➡️ GET {requestUrl}");
+
+            using (var response = await _client.GetAsync(requestUrl, token).ConfigureAwait(false))
+            {
+                var raw = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    LogHelper.Log($"📤 Get catalog response: {raw}");
+                    LogHelper.Log($"❌ Get catalog HTTP {response.StatusCode}: {raw}");
+                    return (null, null, null);
+                }
+
+                try
+                {
+                    var root = JObject.Parse(raw);
+                    var packages = (root["packages"] as JArray)?.OfType<JObject>().ToList() ?? new List<JObject>();
+                    var trainers = (root["trainers"] as JArray)?.OfType<JObject>().ToList() ?? new List<JObject>();
+                    var syncedAt = root["synced_at"]?.ToString();
+
+                    return (packages, trainers, syncedAt);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"❌ Failed to parse catalog response: {ex.Message}. Raw: {raw}");
+                    return (null, null, null);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Uploads offline-enrolled members (member + subscription) so the server can create the
+        /// real member/enrollment/subscription/invoice records. Returns the parsed response
+        /// (uploaded/duplicates_resolved/errors/records[]), or null on failure.
+        /// </summary>
+        public async Task<JObject> PostEnrollmentsAsync(JArray records, CancellationToken token = default(CancellationToken))
+        {
+            if (records == null || records.Count == 0)
+            {
+                LogHelper.Log("❌ PostEnrollmentsAsync called with no records.");
+                return null;
+            }
+
+            try
+            {
+                SetBearerAuthorization();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ {ex.Message} Cannot post enrollments.");
+                return null;
+            }
+
+            var payload = new JObject { ["records"] = records };
+            var requestUrl = BaseUrl + PostEnrollmentsEndpoint;
+            LogHelper.Log($"➡️ POST {requestUrl}");
+            LogHelper.Log($"🧾 Body: {payload.ToString(Formatting.None)}");
+
+            using (var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json"))
+            using (var response = await _client.PostAsync(requestUrl, content, token).ConfigureAwait(false))
+            {
+                var raw = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    LogHelper.Log($"📤 Post enrollments response: {raw}");
+                    LogHelper.Log($"❌ Post enrollments HTTP {response.StatusCode}: {raw}");
+                    return null;
+                }
+
+                try
+                {
+                    return JObject.Parse(raw);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"❌ Failed to parse enrollments response: {ex.Message}. Raw: {raw}");
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Uploads a member's photo (base64 data URL) so the server can store it on the CDN and
+        /// hand back a public URL to embed in the enrollment body. Returns null on any failure.
+        /// </summary>
+        public async Task<string> PostMemberPictureAsync(string base64DataUrl, string firstName, string lastName, CancellationToken token = default(CancellationToken))
+        {
+            if (string.IsNullOrWhiteSpace(base64DataUrl))
+            {
+                LogHelper.Log("❌ PostMemberPictureAsync called with no picture data.");
+                return null;
+            }
+
+            try
+            {
+                SetBearerAuthorization();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ {ex.Message} Cannot upload member picture.");
+                return null;
+            }
+
+            var payload = new JObject { ["picture"] = base64DataUrl };
+            if (!string.IsNullOrWhiteSpace(firstName)) payload["first_name"] = firstName;
+            if (!string.IsNullOrWhiteSpace(lastName)) payload["last_name"] = lastName;
+
+            var requestUrl = BaseUrl + PostMemberPictureEndpoint;
+            LogHelper.Log($"➡️ POST {requestUrl}");
+
+            using (var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json"))
+            using (var response = await _client.PostAsync(requestUrl, content, token).ConfigureAwait(false))
+            {
+                var raw = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                LogHelper.Log($"📤 Post member-picture response: {raw}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    LogHelper.Log($"❌ Post member-picture HTTP {response.StatusCode}: {raw}");
+                    return null;
+                }
+
+                try
+                {
+                    var root = JObject.Parse(raw);
+                    var url = root["picture"]?.ToString();
+                    if (string.IsNullOrWhiteSpace(url))
+                    {
+                        LogHelper.Log($"❌ member-picture response had no 'picture' url. Raw: {raw}");
+                        return null;
+                    }
+                    return url;
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"❌ Failed to parse member-picture response: {ex.Message}. Raw: {raw}");
+                    return null;
+                }
+            }
+        }
 
 
 
@@ -326,6 +513,10 @@ namespace smart_attendance_middleware
             string checkinTime = null,
             string checkoutTime = null,
             string id = null,
+            string gateSerial = null,
+            string gateAlias = null,
+            string gateSerialOut = null,
+            string gateAliasOut = null,
             CancellationToken token = default(CancellationToken))
         {
             if (_processor == null)
@@ -334,7 +525,7 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            var response = await UploadAttendanceRecordAsync(enrollmentId, checkinTime, checkoutTime, id, token).ConfigureAwait(false);
+            var response = await UploadAttendanceRecordAsync(enrollmentId, checkinTime, checkoutTime, id, gateSerial, gateAlias, gateSerialOut, gateAliasOut, token).ConfigureAwait(false);
             if (response == null)
             {
                 LogHelper.Log("❌ Failed to upload attendance record, no response to process.");
@@ -348,7 +539,7 @@ namespace smart_attendance_middleware
         /// Uploads multiple attendance records and passes the response to the Processor.
         /// </summary>
         public async Task PostAttendanceRecordsBulkAsync(
-            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, string id)> records,
+            IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, string id, string gateSerial, string gateAlias, string gateSerialOut, string gateAliasOut)> records,
             CancellationToken token = default(CancellationToken))
         {
             if (_processor == null)
