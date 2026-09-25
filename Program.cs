@@ -29,7 +29,7 @@ namespace smart_attendance_middleware
             Application.ApplicationExit += OnApplicationExit;
 
             // Setup firewall rule for port 7788 on first run
-            if (!FirewallRuleExists("Smart Attendance Port 7788"))
+            if (!FirewallRuleExists("FitnessMarvel"))
             {
                 CreateFirewallRule();
             }
@@ -114,7 +114,7 @@ namespace smart_attendance_middleware
                 var psi = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = @"-NoProfile -Command ""New-NetFirewallRule -DisplayName 'Smart Attendance Port 7788' -Direction Inbound -LocalPort 7788 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue""",
+                    Arguments = @"-NoProfile -Command ""New-NetFirewallRule -DisplayName 'FitnessMarvel' -Direction Inbound -LocalPort 7788 -Protocol TCP -Action Allow -RemoteAddress Any -ErrorAction SilentlyContinue""",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     CreateNoWindow = true
