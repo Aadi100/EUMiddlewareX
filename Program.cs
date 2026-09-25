@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,12 @@ namespace smart_attendance_middleware
 
             // Ensure cleanup runs
             Application.ApplicationExit += OnApplicationExit;
+
+            // Setup firewall rule for port 7788 on first run
+            if (!FirewallRuleExists("Smart Attendance Port 7788"))
+            {
+                CreateFirewallRule();
+            }
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -76,6 +83,49 @@ namespace smart_attendance_middleware
                 }
                 catch { }
             }
+        }
+
+        private static bool FirewallRuleExists(string ruleName)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $@"-NoProfile -Command ""Get-NetFirewallRule -DisplayName '{ruleName}' -ErrorAction SilentlyContinue | Select-Object -First 1 | Measure-Object | Select-Object -ExpandProperty Count""",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+
+                using (var process = Process.Start(psi))
+                {
+                    string output = process.StandardOutput.ReadToEnd().Trim();
+                    return output == "1";
+                }
+            }
+            catch { return false; }
+        }
+
+        private static void CreateFirewallRule()
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = @"-NoProfile -Command ""New-NetFirewallRule -DisplayName 'Smart Attendance Port 7788' -Direction Inbound -LocalPort 7788 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue""",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+
+                using (var process = Process.Start(psi))
+                {
+                    process.WaitForExit();
+                }
+            }
+            catch { }
         }
     }
 }
