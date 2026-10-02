@@ -329,7 +329,7 @@ namespace smart_attendance_middleware
                 {
                     sqlMemoryMb = _dbHelper?.GetSqlServerMemoryUsageMb();
 
-                    if (IsDisposed) return;
+                    if (IsDisposed || !IsHandleCreated) return;
                     BeginInvoke(new Action(() =>
                     {
                         lblSqlMemoryUsage.Text = sqlMemoryMb.HasValue
@@ -636,14 +636,14 @@ namespace smart_attendance_middleware
 
                 // Ensure UI update runs on UI thread by calling the existing UpdateSyncStatusLabels
                 // which already marshals to the UI thread.
-                UpdateSyncStatusLabels(membersSynced, pendingBiometricJobs, missingFingerprints);
+                await UpdateSyncStatusLabels(membersSynced, pendingBiometricJobs, missingFingerprints);
 
                 LogHelper.Log("✅ Device sync status refresh completed successfully");
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Error refreshing device sync status: {ex.Message}");
-                UpdateSyncStatusLabels(0, 0, 0);
+                await UpdateSyncStatusLabels(0, 0, 0);
             }
         }
 
@@ -652,14 +652,14 @@ namespace smart_attendance_middleware
         /// <summary>
         /// Updates the UI labels with sync status information
         /// </summary>
-        private void UpdateSyncStatusLabels(int membersSynced, int pendingJobs, int missingFingerprints)
+        private async Task UpdateSyncStatusLabels(int membersSynced, int pendingJobs, int missingFingerprints)
         {
             try
             {
                 // Ensure UI updates are performed on the UI thread
                 if (InvokeRequired)
                 {
-                    Invoke(new Action(() => UpdateSyncStatusLabels(membersSynced, pendingJobs, missingFingerprints)));
+                    Invoke(new Func<Task>(async () => await UpdateSyncStatusLabels(membersSynced, pendingJobs, missingFingerprints)));
                     return;
                 }
 
@@ -675,29 +675,45 @@ namespace smart_attendance_middleware
                     lbl_pendingjobs.Text = pendingJobs.ToString();
                 }
 
-                // Enable/disable retry button based on pending jobs count and change color
+                // Enable/disable retry button based on pending jobs count and attempt count threshold
                 if (btn_retry != null)
                 {
+                    // Check if any members/staff have attempt count >= 5
+                    bool hasHighAttempts = await CheckForHighAttemptCounts();
                     bool hasJobs = pendingJobs > 0;
-                    btn_retry.Enabled = hasJobs;
 
-                    if (hasJobs)
+                    if (hasHighAttempts)
                     {
+                        // Red color for blocked state
+                        btn_retry.Enabled = false;
+                        btn_retry.NormalBackground = System.Drawing.Color.FromArgb(220, 53, 69);  // Red
+                        btn_retry.HoverBackground = System.Drawing.Color.FromArgb(200, 35, 51);
+                        btn_retry.NormalForeColor = System.Drawing.Color.White;
+                        btn_retry.HoverForeColor = System.Drawing.Color.White;
+                        _buttonTooltip.SetToolTip(btn_retry, "⚠️ Some members/staff have high attempt counts (5+). Retries paused until counts drop below 5");
+                        LogHelper.Log($"🔴 Retry button disabled - members/staff with high attempt counts detected");
+                    }
+                    else if (hasJobs)
+                    {
+                        // Orange color for normal retry
+                        btn_retry.Enabled = true;
                         btn_retry.NormalBackground = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
                         btn_retry.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(35)))));
                         btn_retry.NormalForeColor = System.Drawing.Color.White;
                         btn_retry.HoverForeColor = System.Drawing.Color.White;
                         _buttonTooltip.SetToolTip(btn_retry, $"Retry {pendingJobs} pending sync job(s)");
-                        LogHelper.Log($"🔘 Retry button enabled - pending jobs: {pendingJobs}");
+                        LogHelper.Log($"🟠 Retry button enabled - pending jobs: {pendingJobs}");
                     }
                     else
                     {
+                        // Gray color for no jobs
+                        btn_retry.Enabled = false;
                         btn_retry.NormalBackground = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
                         btn_retry.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
                         btn_retry.NormalForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
                         btn_retry.HoverForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
                         _buttonTooltip.SetToolTip(btn_retry, "No pending jobs to retry");
-                        LogHelper.Log($"🔘 Retry button disabled and grayed out - no pending jobs");
+                        LogHelper.Log($"⚪ Retry button disabled - no pending jobs");
                     }
 
                     // Force the button to refresh its appearance
@@ -1428,10 +1444,80 @@ namespace smart_attendance_middleware
             }
         }
 
+        private async Task<bool> CheckForHighAttemptCounts()
+        {
+            try
+            {
+                if (_dbHelper == null) return false;
+
+                // Check members for attempt count >= 5
+                var members = _dbHelper.GetMembers();
+                if (members != null && members.Count > 0)
+                {
+                    foreach (var member in members)
+                    {
+                        if (member == null) continue;
+                        if (member.EnrollmentID.HasValue && member.EnrollmentID.Value > 0)
+                        {
+                            var logEntry = await _dbHelper.GetLatestLogForMember(member.EnrollmentID.Value);
+                            if (logEntry != null && logEntry.AttemptCount >= 5)
+                            {
+                                LogHelper.Log($"Found member {member.Name} with attempt count {logEntry.AttemptCount}");
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                // Check staff for attempt count >= 5
+                var staffs = _dbHelper.GetStaffs();
+                if (staffs != null && staffs.Count > 0)
+                {
+                    foreach (var staff in staffs)
+                    {
+                        if (staff == null) continue;
+                        if (staff.EnrollmentID.HasValue && staff.EnrollmentID.Value > 0)
+                        {
+                            var logEntry = await _dbHelper.GetLatestStaffLogForEnrollment(staff.EnrollmentID.Value);
+                            if (logEntry != null && logEntry.AttemptCount >= 5)
+                            {
+                                LogHelper.Log($"Found staff {staff.Name} with attempt count {logEntry.AttemptCount}");
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"Error checking attempt counts: {ex.Message}");
+                return false;
+            }
+        }
+
         private async void cuiButton5_Click(object sender, EventArgs e)
         {
             try
             {
+                // Check for high attempt counts before retrying
+                bool hasHighAttempts = await CheckForHighAttemptCounts();
+                if (hasHighAttempts)
+                {
+                    MessageBox.Show(
+                        "⚠️ Cannot retry at this moment.\n\n" +
+                        "Some members/staff have reached the maximum attempt limit (5+ failed syncs).\n" +
+                        "Automatic retries are paused for these entries to prevent repeated failures.\n\n" +
+                        "The system will automatically resume retrying once their attempt counts drop below 5.\n" +
+                        "You can manually reset attempt counts in the database if needed.",
+                        "High Attempt Count Detected",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    LogHelper.Log("⚠️ Retry blocked - high attempt counts detected");
+                    return;
+                }
+
                 LogHelper.Log("🔄 Starting retry jobs...");
 
                 await _deviceFunctions.ProcessUserWorkflowAsync();

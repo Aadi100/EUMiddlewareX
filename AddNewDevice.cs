@@ -26,14 +26,12 @@ namespace smart_attendance_middleware
         private Processor _processor;
         private WebSocketManager _wsManager;
         private DeviceFunctions _deviceFunctions = new DeviceFunctions();
-
-
-        private string deviceSerialNo ;
         public AddNewDevice()
         {
             InitializeComponent();
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
+            _wsManager = new WebSocketManager(_dbHelper);
             _processor = new Processor(_dbHelper, _wsManager,_deviceFunctions);
         }
 

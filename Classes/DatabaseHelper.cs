@@ -742,7 +742,26 @@ BEGIN
 END
 
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.OfflineMembers') AND name = 'DeviceCleanupStatus')
-    ALTER TABLE dbo.OfflineMembers ADD DeviceCleanupStatus NVARCHAR(500);";
+    ALTER TABLE dbo.OfflineMembers ADD DeviceCleanupStatus NVARCHAR(500);
+
+-- Migration: Add error logging columns
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Log') AND name = 'AttemptCount')
+    ALTER TABLE dbo.Log ADD AttemptCount INT DEFAULT 0;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Log') AND name = 'FailureReason')
+    ALTER TABLE dbo.Log ADD FailureReason NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.StaffLog') AND name = 'AttemptCount')
+    ALTER TABLE dbo.StaffLog ADD AttemptCount INT DEFAULT 0;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.StaffLog') AND name = 'FailureReason')
+    ALTER TABLE dbo.StaffLog ADD FailureReason NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.OfflineMemberLog') AND name = 'AttemptCount')
+    ALTER TABLE dbo.OfflineMemberLog ADD AttemptCount INT DEFAULT 0;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.OfflineMemberLog') AND name = 'FailureReason')
+    ALTER TABLE dbo.OfflineMemberLog ADD FailureReason NVARCHAR(MAX) NULL;";
 
                 var ddlCommands = new[]
                 {
@@ -4225,7 +4244,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
             }
         }
 
-        public async Task UpdateBiometricSyncStatus(int logId, string biometricType, bool isSynced)
+        public async Task UpdateBiometricSyncStatus(int logId, string biometricType, bool isSynced, string failureReason = null, int attemptCount = 0)
         {
             using (var connection = new SqlConnection(connectionString))
             {
@@ -4263,18 +4282,36 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
                             syncStatus.Add(biometricType, isSynced);
                         }
 
-                        // 3. Update only the Log table
-                        using (var updateCmd = new SqlCommand(
-                            "UPDATE Log SET SyncStatus = @syncStatus WHERE Id = @logId",
-                            connection, transaction))
+                        // 3. Update the Log table with sync status and error details (if failed)
+                        string updateQuery = "UPDATE Log SET SyncStatus = @syncStatus";
+                        if (!isSynced)
+                        {
+                            updateQuery += ", FailureReason = @failureReason";
+                            if (attemptCount > 0)
+                                updateQuery += ", AttemptCount = ISNULL(AttemptCount, 0) + @attemptCount";
+                        }
+                        updateQuery += " WHERE Id = @logId";
+
+                        using (var updateCmd = new SqlCommand(updateQuery, connection, transaction))
                         {
                             updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
                             updateCmd.Parameters.AddWithValue("@logId", logId);
+
+                            if (!isSynced)
+                            {
+                                updateCmd.Parameters.AddWithValue("@failureReason", failureReason ?? "Sync failed");
+                                if (attemptCount > 0)
+                                    updateCmd.Parameters.AddWithValue("@attemptCount", attemptCount);
+                            }
+
                             await updateCmd.ExecuteNonQueryAsync();
                         }
 
                         transaction.Commit();
-                        LogHelper.Log($"Updated {biometricType} sync status for log {logId} to {isSynced}");
+                        if (isSynced)
+                            LogHelper.Log($"Updated {biometricType} sync status for log {logId} to {isSynced}");
+                        else
+                            LogHelper.Log($"Updated {biometricType} sync status for log {logId} to FAILED: {failureReason}");
                     }
                     catch (Exception ex)
                     {
@@ -4548,7 +4585,7 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
         }
 
         // Mirrors UpdateBiometricSyncStatus, targeting OfflineMemberLog
-        public async Task UpdateOfflineBiometricSyncStatus(int logId, string biometricType, bool isSynced)
+        public async Task UpdateOfflineBiometricSyncStatus(int logId, string biometricType, bool isSynced, string failureReason = null, int attemptCount = 0)
         {
             using (var connection = new SqlConnection(connectionString))
             {
@@ -4580,17 +4617,35 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
                         else
                             syncStatus.Add(biometricType, isSynced);
 
-                        using (var updateCmd = new SqlCommand(
-                            "UPDATE OfflineMemberLog SET SyncStatus = @syncStatus WHERE Id = @logId",
-                            connection, transaction))
+                        string updateQuery = "UPDATE OfflineMemberLog SET SyncStatus = @syncStatus";
+                        if (!isSynced)
+                        {
+                            updateQuery += ", FailureReason = @failureReason";
+                            if (attemptCount > 0)
+                                updateQuery += ", AttemptCount = ISNULL(AttemptCount, 0) + @attemptCount";
+                        }
+                        updateQuery += " WHERE Id = @logId";
+
+                        using (var updateCmd = new SqlCommand(updateQuery, connection, transaction))
                         {
                             updateCmd.Parameters.AddWithValue("@syncStatus", JsonConvert.SerializeObject(syncStatus));
                             updateCmd.Parameters.AddWithValue("@logId", logId);
+
+                            if (!isSynced)
+                            {
+                                updateCmd.Parameters.AddWithValue("@failureReason", failureReason ?? "Sync failed");
+                                if (attemptCount > 0)
+                                    updateCmd.Parameters.AddWithValue("@attemptCount", attemptCount);
+                            }
+
                             await updateCmd.ExecuteNonQueryAsync();
                         }
 
                         transaction.Commit();
-                        LogHelper.Log($"Updated {biometricType} sync status for offline log {logId} to {isSynced}");
+                        if (isSynced)
+                            LogHelper.Log($"Updated {biometricType} sync status for offline log {logId} to {isSynced}");
+                        else
+                            LogHelper.Log($"Updated {biometricType} sync status for offline log {logId} to FAILED: {failureReason}");
                     }
                     catch (Exception ex)
                     {
@@ -8847,7 +8902,7 @@ WHERE StaffDeviceId = @StaffDeviceId", connection, transaction))
         }
 
         // Staff: update a single biometric sync flag in StaffLog
-        public async Task UpdateStaffBiometricSyncStatusAsync(int staffLogId, string biometricType, bool isSynced)
+        public async Task UpdateStaffBiometricSyncStatusAsync(int staffLogId, string biometricType, bool isSynced, string failureReason = null, int attemptCount = 0)
         {
             using (var connection = new SqlConnection(connectionString))
             {
@@ -8869,11 +8924,28 @@ WHERE StaffDeviceId = @StaffDeviceId", connection, transaction))
 
                         sync[biometricType] = isSynced;
 
-                        using (var upd = new SqlCommand("UPDATE StaffLog SET SyncStatus = @sync, UpdatedAt = @ts WHERE Id = @id", connection, transaction))
+                        string updateQuery = "UPDATE StaffLog SET SyncStatus = @sync, UpdatedAt = @ts";
+                        if (!isSynced)
+                        {
+                            updateQuery += ", FailureReason = @failureReason";
+                            if (attemptCount > 0)
+                                updateQuery += ", AttemptCount = ISNULL(AttemptCount, 0) + @attemptCount";
+                        }
+                        updateQuery += " WHERE Id = @id";
+
+                        using (var upd = new SqlCommand(updateQuery, connection, transaction))
                         {
                             upd.Parameters.AddWithValue("@sync", JsonConvert.SerializeObject(sync));
                             upd.Parameters.AddWithValue("@ts", GetTimestamp());
                             upd.Parameters.AddWithValue("@id", staffLogId);
+
+                            if (!isSynced)
+                            {
+                                upd.Parameters.AddWithValue("@failureReason", failureReason ?? "Sync failed");
+                                if (attemptCount > 0)
+                                    upd.Parameters.AddWithValue("@attemptCount", attemptCount);
+                            }
+
                             await upd.ExecuteNonQueryAsync();
                         }
 
@@ -9815,5 +9887,115 @@ public bool UpdateStaffAttendanceLogFromCloud(
 
 
 
+        /// <summary>
+        /// Get latest log entry for a member to display attempt count and failure reason
+        /// </summary>
+        public dynamic GetLatestLogForMember(int enrollmentId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        @"SELECT TOP 1 AttemptCount, FailureReason
+                          FROM Log
+                          WHERE EnrollmentID = @enrollId
+                          AND FailureReason IS NOT NULL
+                          ORDER BY CreatedAt DESC",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@enrollId", enrollmentId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                return new
+                                {
+                                    AttemptCount = reader.IsDBNull(0) ? (int?)null : reader.GetInt32(0),
+                                    FailureReason = reader.IsDBNull(1) ? null : reader.GetString(1)
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>
+        /// Get latest staff log entry to display attempt count and failure reason
+        /// </summary>
+        public dynamic GetLatestStaffLogForEnrollment(int enrollmentId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        @"SELECT TOP 1 AttemptCount, FailureReason
+                          FROM StaffLog
+                          WHERE EnrollmentID = @enrollId
+                          AND FailureReason IS NOT NULL
+                          ORDER BY CreatedAt DESC",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@enrollId", enrollmentId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                return new
+                                {
+                                    AttemptCount = reader.IsDBNull(0) ? (int?)null : reader.GetInt32(0),
+                                    FailureReason = reader.IsDBNull(1) ? null : reader.GetString(1)
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>
+        /// Get latest offline member log entry to display attempt count and failure reason
+        /// </summary>
+        public dynamic GetLatestOfflineLogForMember(string clientId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        @"SELECT TOP 1 AttemptCount, FailureReason
+                          FROM OfflineMemberLog
+                          WHERE ClientId = @clientId
+                          AND FailureReason IS NOT NULL
+                          ORDER BY CreatedAt DESC",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@clientId", clientId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                return new
+                                {
+                                    AttemptCount = reader.IsDBNull(0) ? (int?)null : reader.GetInt32(0),
+                                    FailureReason = reader.IsDBNull(1) ? null : reader.GetString(1)
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
     }
 }

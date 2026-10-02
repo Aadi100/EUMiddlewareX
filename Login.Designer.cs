@@ -44,6 +44,7 @@
             this.pictureBox3 = new System.Windows.Forms.PictureBox();
             this.pictureBox4 = new System.Windows.Forms.PictureBox();
             this.btnLogin = new System.Windows.Forms.Button();
+            this.btnTogglePassword = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).BeginInit();
             this.panel1.SuspendLayout();
@@ -220,7 +221,7 @@
             this.pictureBox4.TabStop = false;
             // 
             // btnLogin
-            // 
+            //
             this.btnLogin.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(3)))), ((int)(((byte)(70)))), ((int)(((byte)(214)))));
             this.btnLogin.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnLogin.ForeColor = System.Drawing.Color.White;
@@ -231,6 +232,21 @@
             this.btnLogin.Text = "Login";
             this.btnLogin.UseVisualStyleBackColor = false;
             this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
+            //
+            // btnTogglePassword
+            //
+            this.btnTogglePassword.AutoSize = false;
+            this.btnTogglePassword.BackColor = System.Drawing.Color.White;
+            this.btnTogglePassword.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnTogglePassword.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnTogglePassword.ForeColor = System.Drawing.Color.Gray;
+            this.btnTogglePassword.Location = new System.Drawing.Point(710, 282);
+            this.btnTogglePassword.Name = "btnTogglePassword";
+            this.btnTogglePassword.Size = new System.Drawing.Size(30, 25);
+            this.btnTogglePassword.TabIndex = 41;
+            this.btnTogglePassword.Text = "👁";
+            this.btnTogglePassword.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnTogglePassword.Click += new System.EventHandler(this.btnTogglePassword_Click);
             // 
             // Login
             // 
@@ -239,6 +255,7 @@
             this.BackColor = System.Drawing.Color.White;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.ClientSize = new System.Drawing.Size(835, 564);
+            this.Controls.Add(this.btnTogglePassword);
             this.Controls.Add(this.btnLogin);
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.txt_password);
@@ -284,5 +301,6 @@
         private System.Windows.Forms.PictureBox pictureBox3;
         private System.Windows.Forms.PictureBox pictureBox4;
         private System.Windows.Forms.Button btnLogin;
+        private System.Windows.Forms.Label btnTogglePassword;
     }
 }

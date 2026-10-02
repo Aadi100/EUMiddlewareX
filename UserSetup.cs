@@ -22,6 +22,8 @@ namespace smart_attendance_middleware
 {
     public partial class UserSetup : Form
     {
+        private bool _passwordVisible = false;
+        private bool _confirmPasswordVisible = false;
 
         private DatabaseHelper _dbHelper;
         private WebSocketManager _wsManager;
@@ -245,19 +247,31 @@ namespace smart_attendance_middleware
 
                 string message = $"Important: Securely save your backup code.\nUse it if you forget your password.\nBackup Code: {backupCode}";
                 ShowBackupCodeMessageBox(message, "Success", backupCode);
-                txt_username.Clear();
-                txt_password.Clear();
-                txt_confirmpass.Clear();
-                chkBox_is_Admin.Checked = false;
-                this.Close();
-                Thread newThread = new Thread(Dashboard);
-                newThread.SetApartmentState(ApartmentState.STA);
-                newThread.Start();
+
+                // Show Dashboard on SAME UI thread
+                var dash = new Dashboard();
+                dash.FormClosed += (s, args) => this.Close();
+                this.Hide();
+                dash.Show();
             }
             else
             {
                 MessageBox.Show("Failed to create user.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void btnTogglePassword_Click(object sender, EventArgs e)
+        {
+            _passwordVisible = !_passwordVisible;
+            txt_password.PasswordChar = _passwordVisible ? '\0' : '*';
+            btnTogglePassword.Text = _passwordVisible ? "🙈" : "👁";
+        }
+
+        private void btnToggleConfirmPassword_Click(object sender, EventArgs e)
+        {
+            _confirmPasswordVisible = !_confirmPasswordVisible;
+            txt_confirmpass.PasswordChar = _confirmPasswordVisible ? '\0' : '*';
+            btnToggleConfirmPassword.Text = _confirmPasswordVisible ? "🙈" : "👁";
         }
     }
 }

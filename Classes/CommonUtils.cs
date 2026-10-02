@@ -545,7 +545,7 @@ namespace smart_attendance_middleware.Classes
             if (DateTimeOffset.TryParse(iso, out var dto))
             {
                 var utc = dto.ToUniversalTime();
-                return utc.ToString("yyyy-MM-dd HH:mm:ss") + "-00";
+                return utc.ToString("yyyy-MM-ddTHH:mm:ssZ");
             }
 
             // Fallback: try DateTime, normalize to UTC
@@ -553,7 +553,7 @@ namespace smart_attendance_middleware.Classes
             {
                 var utc = dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
                 utc = utc.ToUniversalTime();
-                return utc.ToString("yyyy-MM-dd HH:mm:ss") + "-00";
+                return utc.ToString("yyyy-MM-ddTHH:mm:ssZ");
             }
 
             return null;

@@ -11,10 +11,19 @@ namespace smart_attendance_middleware
     static class Program
     {
         private static readonly object _logLock = new object();
+        private static Mutex _singleInstanceMutex;
 
         [STAThread]
         static void Main()
         {
+            // Prevent multiple instances
+            _singleInstanceMutex = new Mutex(true, "smart_attendance_middleware_single_instance");
+            if (!_singleInstanceMutex.WaitOne(TimeSpan.Zero, true))
+            {
+                MessageBox.Show("Application is already running. Please close the existing instance first.", "Application Already Running", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += (s, e) => Log("ThreadException", e.Exception);
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
@@ -36,7 +45,19 @@ namespace smart_attendance_middleware
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Login());
+
+            // Check if admin exists, if not show UserSetup, else show Login
+            DatabaseHelper dbHelper = new DatabaseHelper();
+            dbHelper.InitializeDatabase();
+
+            if (dbHelper.AdminUserExists())
+            {
+                Application.Run(new Login());
+            }
+            else
+            {
+                Application.Run(new UserSetup());
+            }
         }
 
         private static void DisableDebugMode()
@@ -48,6 +69,8 @@ namespace smart_attendance_middleware
         {
             DisableDebugMode();
             ServiceManager.StopLogSyncService();
+            _singleInstanceMutex?.ReleaseMutex();
+            _singleInstanceMutex?.Dispose();
         }
 
         private static void Log(string tag, Exception ex, bool terminating = false)
@@ -87,24 +110,9 @@ namespace smart_attendance_middleware
 
         private static bool FirewallRuleExists(string ruleName)
         {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Arguments = $@"-NoProfile -Command ""Get-NetFirewallRule -DisplayName '{ruleName}' -ErrorAction SilentlyContinue | Select-Object -First 1 | Measure-Object | Select-Object -ExpandProperty Count""",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                };
-
-                using (var process = Process.Start(psi))
-                {
-                    string output = process.StandardOutput.ReadToEnd().Trim();
-                    return output == "1";
-                }
-            }
-            catch { return false; }
+            string markerFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".firewall_rule_created");
+            if (File.Exists(markerFile)) return true;
+            return false;
         }
 
         private static void CreateFirewallRule()
@@ -124,6 +132,13 @@ namespace smart_attendance_middleware
                 {
                     process.WaitForExit();
                 }
+
+                // Mark that rule was created successfully
+                try
+                {
+                    File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".firewall_rule_created"), "");
+                }
+                catch { }
             }
             catch { }
         }

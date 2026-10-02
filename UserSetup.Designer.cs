@@ -34,6 +34,8 @@
             this.txt_username = new System.Windows.Forms.TextBox();
             this.txt_password = new System.Windows.Forms.TextBox();
             this.txt_confirmpass = new System.Windows.Forms.TextBox();
+            this.btnTogglePassword = new System.Windows.Forms.Label();
+            this.btnToggleConfirmPassword = new System.Windows.Forms.Label();
             this.chkBox_is_Admin = new System.Windows.Forms.CheckBox();
             this.btn_close_window = new System.Windows.Forms.Label();
             this.linkLbl_terms = new System.Windows.Forms.LinkLabel();
@@ -107,7 +109,7 @@
             this.txt_password.TextChanged += new System.EventHandler(this.txt_password_TextChanged);
             // 
             // txt_confirmpass
-            // 
+            //
             this.txt_confirmpass.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.txt_confirmpass.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txt_confirmpass.Location = new System.Drawing.Point(512, 333);
@@ -115,7 +117,37 @@
             this.txt_confirmpass.Size = new System.Drawing.Size(204, 17);
             this.txt_confirmpass.TabIndex = 5;
             this.txt_confirmpass.TextChanged += new System.EventHandler(this.txt_confirmpass_TextChanged);
-            // 
+            //
+            // btnTogglePassword
+            //
+            this.btnTogglePassword.AutoSize = false;
+            this.btnTogglePassword.BackColor = System.Drawing.Color.White;
+            this.btnTogglePassword.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnTogglePassword.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnTogglePassword.ForeColor = System.Drawing.Color.Gray;
+            this.btnTogglePassword.Location = new System.Drawing.Point(696, 252);
+            this.btnTogglePassword.Name = "btnTogglePassword";
+            this.btnTogglePassword.Size = new System.Drawing.Size(30, 25);
+            this.btnTogglePassword.TabIndex = 41;
+            this.btnTogglePassword.Text = "👁";
+            this.btnTogglePassword.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnTogglePassword.Click += new System.EventHandler(this.btnTogglePassword_Click);
+            //
+            // btnToggleConfirmPassword
+            //
+            this.btnToggleConfirmPassword.AutoSize = false;
+            this.btnToggleConfirmPassword.BackColor = System.Drawing.Color.White;
+            this.btnToggleConfirmPassword.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnToggleConfirmPassword.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnToggleConfirmPassword.ForeColor = System.Drawing.Color.Gray;
+            this.btnToggleConfirmPassword.Location = new System.Drawing.Point(696, 328);
+            this.btnToggleConfirmPassword.Name = "btnToggleConfirmPassword";
+            this.btnToggleConfirmPassword.Size = new System.Drawing.Size(30, 25);
+            this.btnToggleConfirmPassword.TabIndex = 42;
+            this.btnToggleConfirmPassword.Text = "👁";
+            this.btnToggleConfirmPassword.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnToggleConfirmPassword.Click += new System.EventHandler(this.btnToggleConfirmPassword_Click);
+            //
             // chkBox_is_Admin
             // 
             this.chkBox_is_Admin.AutoSize = true;
@@ -288,6 +320,8 @@
             this.BackColor = System.Drawing.Color.White;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.ClientSize = new System.Drawing.Size(822, 562);
+            this.Controls.Add(this.btnToggleConfirmPassword);
+            this.Controls.Add(this.btnTogglePassword);
             this.Controls.Add(this.btnCreateAccount);
             this.Controls.Add(this.label8);
             this.Controls.Add(this.txt_confirmpass);
@@ -343,6 +377,8 @@
         private System.Windows.Forms.PictureBox pictureBox4;
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Button btnCreateAccount;
+        private System.Windows.Forms.Label btnTogglePassword;
+        private System.Windows.Forms.Label btnToggleConfirmPassword;
     }
 }
 

@@ -17,6 +17,13 @@ namespace smart_attendance_middleware.Classes
         private WebSocketManager _wsManager;
         private Processor _processor;
 
+        // Result class to capture both success and error details
+        public class BiometricProcessResult
+        {
+            public bool Success { get; set; }
+            public string ErrorReason { get; set; }
+            public int? ConflictingId { get; set; }
+        }
 
         private static readonly object _pendingJobLock = new object();
         private volatile bool _workflowRunning = false;
@@ -120,6 +127,93 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
+        private async Task<string> BuildDetailedErrorReason(string biometricType, string deviceSerial, int enrollId)
+        {
+            try
+            {
+                // Try to get error details from WebsocketServer
+                string errorKey = $"{deviceSerial}_{enrollId}";
+                if (WebsocketServer.LastCommandErrors.TryGetValue(errorKey, out var errorResponse))
+                {
+                    int? reasonCode = errorResponse["reason"]?.Value<int>();
+                    string errorMsg = errorResponse["msg"]?.Value<string>() ?? "";
+
+                    // Try to extract conflicting enrollment ID from message
+                    // Format: "face is double,id=23783"
+                    int conflictingEnrollId = 0;
+                    if (errorMsg.Contains("id="))
+                    {
+                        string idPart = errorMsg.Substring(errorMsg.LastIndexOf("id=") + 3);
+                        if (int.TryParse(idPart, out int id))
+                            conflictingEnrollId = id;
+                    }
+
+                    // Build error message
+                    string reason = $"{biometricType} sync failed";
+
+                    if (!string.IsNullOrEmpty(errorMsg))
+                        reason += $": {errorMsg}";
+
+                    if (reasonCode.HasValue)
+                        reason += $" (Code: {reasonCode.Value})";
+
+                    // Try to get conflicting entity from any of the 3 tables (Member, Staff, Offline)
+                    if (conflictingEnrollId > 0)
+                    {
+                        try
+                        {
+                            // Try Member table first
+                            int? memberId = _dbHelper.GetMemberIdByEnrollment(conflictingEnrollId);
+                            if (memberId.HasValue)
+                            {
+                                var conflictingMember = _dbHelper.GetMember(memberId.Value);
+                                if (conflictingMember != null)
+                                {
+                                    reason += $" | Conflicts with: {conflictingMember.Name} (Member Enrollment: {conflictingEnrollId})";
+                                }
+                                else
+                                {
+                                    reason += $" | Conflicts with: Unknown Member (Enrollment: {conflictingEnrollId})";
+                                }
+                            }
+                            else
+                            {
+                                // Try OfflineMember table
+                                var offlineMembers = _dbHelper.GetOfflineMembers();
+                                var conflictingOffline = offlineMembers?.FirstOrDefault(o => o.EnrollmentID == conflictingEnrollId);
+                                if (conflictingOffline != null)
+                                {
+                                    reason += $" | Conflicts with: {conflictingOffline.Name} (Offline Member Enrollment: {conflictingEnrollId})";
+                                }
+                                else
+                                {
+                                    // Enrollment not found in any table
+                                    reason += $" | Conflicts with: Unknown (Enrollment: {conflictingEnrollId})";
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            LogHelper.Log($"[ErrorDetail] Error looking up conflicting enrollment {conflictingEnrollId}: {ex.Message}");
+                            reason += $" | Conflicts with: Unknown (Enrollment: {conflictingEnrollId})";
+                        }
+                    }
+
+                    // Clean up
+                    WebsocketServer.LastCommandErrors.TryRemove(errorKey, out _);
+
+                    return reason;
+                }
+
+                return $"{biometricType} sync failed";
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[ErrorDetail] Failed to build detailed error reason: {ex.Message}");
+                return $"{biometricType} sync failed";
+            }
+        }
+
         public async Task<List<Member>> CheckMissingFingerprints()
         {
             try
@@ -186,6 +280,16 @@ namespace smart_attendance_middleware.Classes
 
                         if (member == null || device == null) continue;
 
+                        // Skip if attempt count is >= 5
+                        if (entry.EnrollmentID <= 0) continue;
+                        var logEntry = await _dbHelper.GetLatestLogForMember(entry.EnrollmentID);
+                        if (logEntry?.AttemptCount >= 5)
+                        {
+                            LogHelper.Log($"Skipping {member.Name} - attempt count is {logEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
+                            processed++;
+                            continue;
+                        }
+
                         LogHelper.Log($"Processing {member.Name} on {device.DeviceIP}");
                         Dashboard.GlobalUpdateBiometricLoader($"Processing {member.Name} on {device.DeviceId} ({processed + 1}/{total})");
 
@@ -224,6 +328,20 @@ namespace smart_attendance_middleware.Classes
                                 {
                                     await _dbHelper.UpdateBiometricSyncStatus(entry.Id, biometric.Key, true);
                                     await _dbHelper.CheckAndUpdateMemberDeviceSyncStatus(entry.MemberID, entry.DeviceID);
+                                }
+                                finally
+                                {
+                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Write");
+                                }
+                            }
+                            else
+                            {
+                                // Log failure with detailed reason
+                                string errorReason = await BuildDetailedErrorReason(biometric.Key, device.DeviceSerial, entry.EnrollmentID);
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
+                                try
+                                {
+                                    await _dbHelper.UpdateBiometricSyncStatus(entry.Id, biometric.Key, false, errorReason, attemptCount: 1);
                                 }
                                 finally
                                 {
@@ -273,6 +391,15 @@ namespace smart_attendance_middleware.Classes
 
                         string staffName = staff.Name ?? sEntry.StaffID;
 
+                        // Skip if attempt count is >= 5
+                        var staffLogEntry = await _dbHelper.GetLatestStaffLogForEnrollment(sEntry.EnrollmentID ?? 0);
+                        if (staffLogEntry?.AttemptCount >= 5)
+                        {
+                            LogHelper.Log($"[Staff] Skipping {staffName} - attempt count is {staffLogEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
+                            staffProcessed++;
+                            continue;
+                        }
+
                         LogHelper.Log($"[Staff] Processing {staffName} on {device.DeviceIP}");
                         Dashboard.GlobalUpdateBiometricLoader($"[Staff] Processing {staffName} on {device.StaffDeviceId} ({staffProcessed + 1}/{staffTotal})");
 
@@ -310,6 +437,20 @@ namespace smart_attendance_middleware.Classes
                                 {
                                     await _dbHelper.UpdateStaffBiometricSyncStatusAsync(sEntry.Id, biometric.Key, true);
                                     await _dbHelper.CheckAndUpdateStaffDeviceSyncStatus(sEntry.StaffID, sEntry.StaffDeviceId);
+                                }
+                                finally
+                                {
+                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllEntries_Write");
+                                }
+                            }
+                            else
+                            {
+                                // Log failure with detailed reason
+                                string errorReason = await BuildDetailedErrorReason(biometric.Key, device.DeviceSerial, staffEnrollId);
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
+                                try
+                                {
+                                    await _dbHelper.UpdateStaffBiometricSyncStatusAsync(sEntry.Id, biometric.Key, false, errorReason, attemptCount: 1);
                                 }
                                 finally
                                 {
@@ -388,6 +529,15 @@ namespace smart_attendance_middleware.Classes
                             continue;
                         }
 
+                        // Skip if attempt count is >= 5
+                        var offlineLogEntry = await _dbHelper.GetLatestOfflineLogForMember(entry.ClientId);
+                        if (offlineLogEntry?.AttemptCount >= 5)
+                        {
+                            LogHelper.Log($"[Offline] Skipping {offlineMember.Name} - attempt count is {offlineLogEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
+                            processed++;
+                            continue;
+                        }
+
                         LogHelper.Log($"[Offline] Processing {offlineMember.Name} (Enroll={offlineMember.EnrollmentID}) on {device.DeviceIP} (DeviceId={device.DeviceId})");
                         Dashboard.GlobalUpdateBiometricLoader($"[Offline] Processing {offlineMember.Name} on {device.DeviceId} ({processed + 1}/{total})");
 
@@ -411,7 +561,7 @@ namespace smart_attendance_middleware.Classes
                             switch (biometric.Key)
                             {
                                 case "Fingerprint":
-                                    success = await ProcessFingerprint(entry.EnrollmentID, offlineMember.Name, device.DeviceSerial, allFingerprints);
+                                    success = await ProcessFingerprint(offlineMember.EnrollmentID, offlineMember.Name, device.DeviceSerial, allFingerprints);
                                     await Task.Delay(200);
                                     break;
                                 case "Face":
@@ -441,6 +591,20 @@ namespace smart_attendance_middleware.Classes
                                     bool memberDeviceFullySynced = await _dbHelper.CheckAndUpdateOfflineMemberDeviceSyncStatus(entry.ClientId, entry.DeviceID);
                                     if (memberDeviceFullySynced)
                                         LogHelper.Log($"[Offline] {offlineMember.Name} is now fully synced for DeviceId={device.DeviceId}");
+                                }
+                                finally
+                                {
+                                    DatabaseQueueManager.ReleaseDbWriteLock("ProcessAllOfflineEntries_Write");
+                                }
+                            }
+                            else
+                            {
+                                // Log failure with detailed reason
+                                string errorReason = await BuildDetailedErrorReason(biometric.Key, device.DeviceSerial, offlineMember.EnrollmentID);
+                                await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllOfflineEntries_Write", DbTaskPriority.High);
+                                try
+                                {
+                                    await _dbHelper.UpdateOfflineBiometricSyncStatus(entry.Id, biometric.Key, false, errorReason, attemptCount: 1);
                                 }
                                 finally
                                 {

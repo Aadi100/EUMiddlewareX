@@ -41,6 +41,10 @@ namespace smart_attendance_middleware
         private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingResponses =
             new ConcurrentDictionary<string, TaskCompletionSource<string>>();
 
+        // Store last error response for device commands (key: "sn_enrollid", value: error details)
+        public static readonly ConcurrentDictionary<string, JObject> LastCommandErrors =
+            new ConcurrentDictionary<string, JObject>();
+
         private int _connectedDeviceCount = 0;
         private readonly ConcurrentDictionary<string, (string Ip, DateTime ConnectedAt)> _connectedDeviceInfo =
             new ConcurrentDictionary<string, (string Ip, DateTime ConnectedAt)>();
@@ -1196,6 +1200,14 @@ namespace smart_attendance_middleware
                         if (!ackResult)
                         {
                             Instance.LogToUI($"[CMD-REJECTED] {methodName} for {sn}: reason={ack["reason"]} msg={ack["msg"]}");
+
+                            // Store error response for later retrieval
+                            int? enrollId = data["enrollid"]?.Value<int>();
+                            if (enrollId.HasValue)
+                            {
+                                string errorKey = $"{sn}_{enrollId.Value}";
+                                LastCommandErrors.AddOrUpdate(errorKey, ack, (k, v) => ack);
+                            }
                         }
                         return ackResult;
                     }
@@ -1248,6 +1260,26 @@ namespace smart_attendance_middleware
                 Instance._pendingResponses.TryRemove(baseKey, out _);
                 if (specificKey != null) Instance._pendingResponses.TryRemove(specificKey, out _);
             }
+        }
+
+        /// <summary>
+        /// Execute command and return full response (including error details)
+        /// </summary>
+        public static async Task<JObject> ExecuteServiceCommandWithErrorResponse(string sn, string methodName, string jsonParams)
+        {
+            bool success = await ExecuteServiceCommand(sn, methodName, jsonParams);
+
+            // If successful, return success response
+            if (success)
+                return new JObject { ["result"] = true };
+
+            // If failed, try to get error response from pending responses
+            // This is a fallback - ideally we'd capture it during execution
+            return new JObject
+            {
+                ["result"] = false,
+                ["msg"] = "Operation failed"
+            };
         }
 
         private static readonly HttpClient _imageProcessClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };

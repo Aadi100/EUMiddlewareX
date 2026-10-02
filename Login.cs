@@ -14,6 +14,7 @@ namespace smart_attendance_middleware
 {
     public partial class Login : Form
     {
+        private bool _passwordVisible = false;
 
         //*******************************************************************************************
         // This is used to make the form draggable by clicking and dragging anywhere on the form.
@@ -67,14 +68,6 @@ namespace smart_attendance_middleware
         private void Login_Load(object sender, EventArgs e)
         {
             txt_password.PasswordChar = '*';
-
-            if (_dbHelper.AdminUserExists() == false)
-            {
-                this.Close();
-                Thread newThread = new Thread(StartForm1);
-                newThread.SetApartmentState(ApartmentState.STA);
-                newThread.Start();
-            }
         }
 
         //Abdul Hadi Code
@@ -137,6 +130,13 @@ namespace smart_attendance_middleware
             dash.FormClosed += (s, args) => this.Close();
             this.Hide();
             dash.Show();
+        }
+
+        private void btnTogglePassword_Click(object sender, EventArgs e)
+        {
+            _passwordVisible = !_passwordVisible;
+            txt_password.PasswordChar = _passwordVisible ? '\0' : '*';
+            btnTogglePassword.Text = _passwordVisible ? "🙈" : "👁";
         }
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)

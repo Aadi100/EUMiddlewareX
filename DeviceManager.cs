@@ -345,20 +345,11 @@ namespace smart_attendance_middleware
             };
             tab.Controls.Add(btnAddOfflineMember);
 
-            var btnRetryOfflineLogs = new Button
-            {
-                Name = "btn_retryOfflineLogs",
-                Text = "Retry Pending Offline Logs",
-                Location = new Point(btnAddOfflineMember.Right + 10, 8),
-                Size = new Size(180, 28)
-            };
-            btnRetryOfflineLogs.Click += BtnRetryOfflineLogs_Click;
-            tab.Controls.Add(btnRetryOfflineLogs);
 
             var lblSearch = new Label
             {
                 Text = "Search:",
-                Location = new Point(btnRetryOfflineLogs.Right + 16, 14),
+                Location = new Point(btnAddOfflineMember.Right + 16, 14),
                 AutoSize = true
             };
             tab.Controls.Add(lblSearch);
@@ -383,37 +374,30 @@ namespace smart_attendance_middleware
                 HideSelection = false,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
-            lst_offlineMembers.Columns.Add("Enrollment", 90);
-            lst_offlineMembers.Columns.Add("Name", 160);
-            lst_offlineMembers.Columns.Add("Gender", 70);
-            lst_offlineMembers.Columns.Add("Phone", 110);
-            lst_offlineMembers.Columns.Add("Package", 130);
-            lst_offlineMembers.Columns.Add("Periodicity", 90);
-            lst_offlineMembers.Columns.Add("RFID", 90);
+            lst_offlineMembers.Columns.Add("Enrollment", 80);
+            lst_offlineMembers.Columns.Add("Name", 120);
+            lst_offlineMembers.Columns.Add("Gender", 60);
+            lst_offlineMembers.Columns.Add("Phone", 100);
+            lst_offlineMembers.Columns.Add("Package", 110);
+            lst_offlineMembers.Columns.Add("Periodicity", 80);
+            lst_offlineMembers.Columns.Add("RFID", 80);
             lst_offlineMembers.Columns.Add("Fingerprint", 80);
-            lst_offlineMembers.Columns.Add("Picture", 70);
-            lst_offlineMembers.Columns.Add("Server Sync", 90);
-            lst_offlineMembers.Columns.Add("Device Cleanup", 110);
-            lst_offlineMembers.Columns.Add("Created", 140);
+            lst_offlineMembers.Columns.Add("Picture", 60);
+            lst_offlineMembers.Columns.Add("Server Sync", 80);
+            lst_offlineMembers.Columns.Add("Device Cleanup", 100);
+            lst_offlineMembers.Columns.Add("Created", 130);
+            lst_offlineMembers.Columns.Add("Attempt Count", 90);
+            lst_offlineMembers.Columns.Add("Failure Reason", 400);
             tab.Controls.Add(lst_offlineMembers);
         }
 
         private void BuildAllMembersTab(TabPage tab)
         {
-            var btnRefresh = new Button
-            {
-                Name = "btn_refreshAllMembers",
-                Text = "Refresh",
-                Location = new Point(8, 8),
-                Size = new Size(100, 28)
-            };
-            btnRefresh.Click += (s, e) => LoadAllMembersList();
-            tab.Controls.Add(btnRefresh);
 
             var lblSearch = new Label
             {
                 Text = "Search:",
-                Location = new Point(btnRefresh.Right + 16, 14),
+                Location = new Point(16, 14),
                 AutoSize = true
             };
             tab.Controls.Add(lblSearch);
@@ -539,44 +523,26 @@ namespace smart_attendance_middleware
                 item.SubItems.Add(cleanupText);
 
                 item.SubItems.Add(m.CreatedAt ?? "-");
+
+                // Get attempt count and failure reason from OfflineMemberLog table
+                int attemptCount = 0;
+                string failureReason = "-";
+                try
+                {
+                    var logEntry = _dbHelper.GetLatestOfflineLogForMember(m.ClientId);
+                    if (logEntry != null)
+                    {
+                        int? count = (int?)logEntry.AttemptCount;
+                        attemptCount = count ?? 0;
+                        failureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
+                    }
+                }
+                catch { }
+
+                item.SubItems.Add(attemptCount.ToString());
+                item.SubItems.Add(failureReason);
                 item.Tag = m;
                 lst_offlineMembers.Items.Add(item);
-            }
-        }
-
-        private async void BtnRetryOfflineLogs_Click(object sender, EventArgs e)
-        {
-            var btn = (Button)sender;
-            btn.Enabled = false;
-            string originalText = btn.Text;
-            btn.Text = "Retrying...";
-
-            try
-            {
-                var deviceFunctions = new DeviceFunctions();
-                await deviceFunctions.ProcessAllOfflineEntries();
-
-                MessageBox.Show(
-                    "Retry finished. Check the logs for details on which entries synced.",
-                    "Retry Pending Offline Logs",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-
-                LoadOfflineMembersList();
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[DeviceManager] Retry pending offline logs failed: {ex.Message}");
-                MessageBox.Show(
-                    "Failed to retry pending offline logs: " + ex.Message,
-                    "Retry Pending Offline Logs",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-            }
-            finally
-            {
-                btn.Enabled = true;
-                btn.Text = originalText;
             }
         }
 
@@ -2189,18 +2155,19 @@ namespace smart_attendance_middleware
                 lst_members.View = View.Details;
                 lst_members.FullRowSelect = true;
                 lst_members.GridLines = true;
-                lst_members.Columns.Add("Member ID", 90);
-                lst_members.Columns.Add("Client ID", 220);
-                lst_members.Columns.Add("Name", 160);
-                lst_members.Columns.Add("Enrollment No", 110);
-                lst_members.Columns.Add("Status", 90);
-                lst_members.Columns.Add("RFID", 120);
-                lst_members.Columns.Add("Picture", 160);
-                lst_members.Columns.Add("Fingerprint", 100);
-                lst_members.Columns.Add("Sync Status", 140);
-                lst_members.Columns.Add("Package Expiry", 130);
-                lst_members.Columns.Add("Device Status", 100);
-                lst_members.Columns[lst_members.Columns.Count - 1].Width = -2;
+                lst_members.Columns.Add("Member ID", 80);
+                lst_members.Columns.Add("Client ID", 180);
+                lst_members.Columns.Add("Name", 120);
+                lst_members.Columns.Add("Enrollment No", 100);
+                lst_members.Columns.Add("Status", 70);
+                lst_members.Columns.Add("RFID", 100);
+                lst_members.Columns.Add("Picture", 80);
+                lst_members.Columns.Add("Fingerprint", 80);
+                lst_members.Columns.Add("Sync Status", 100);
+                lst_members.Columns.Add("Package Expiry", 100);
+                lst_members.Columns.Add("Attempt Count", 90);
+                lst_members.Columns.Add("Failure Reason", 400);
+                lst_members.Columns.Add("Actions", 80);
             }
 
             LoadMembersIntoListView(null);
@@ -2279,6 +2246,30 @@ namespace smart_attendance_middleware
                 item.SubItems.Add(m.Fingerprint ? "Yes" : "No");
                 item.SubItems.Add(syncStatusText);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry);
+
+                // Get device status - placeholder for now
+                string deviceStatus = "-";
+
+                // Get attempt count and failure reason from Log table
+                int attemptCount = 0;
+                string failureReason = "-";
+                try
+                {
+                    if (m.EnrollmentID.HasValue && m.EnrollmentID.Value > 0)
+                    {
+                        var logEntry = _dbHelper.GetLatestLogForMember(m.EnrollmentID.Value);
+                        if (logEntry != null)
+                        {
+                            int? count = (int?)logEntry.AttemptCount;
+                            attemptCount = count ?? 0;
+                            failureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
+                        }
+                    }
+                }
+                catch { }
+
+                item.SubItems.Add(attemptCount.ToString());
+                item.SubItems.Add(failureReason);
                 item.SubItems.Add("[View]");
                 item.Tag = m;
                 result.Add(item);
@@ -3120,8 +3111,30 @@ namespace smart_attendance_middleware
                     item.SubItems.Add(string.IsNullOrWhiteSpace(enrollmentIdText) ? "-" : enrollmentIdText);
                     item.SubItems.Add(syncStatusText);
 
-                    // Actions column: clickable link-style text for both Enroll and Delete
-                    item.SubItems.Add("[Enroll] [Delete]");  // Will be styled as links
+                    // Get attempt count and failure reason from StaffLog table
+                    int attemptCount = 0;
+                    string failureReason = "-";
+                    try
+                    {
+                        int enrollId = 0;
+                        if (int.TryParse(enrollmentIdText, out enrollId) && enrollId > 0)
+                        {
+                            var logEntry = _dbHelper.GetLatestStaffLogForEnrollment(enrollId);
+                            if (logEntry != null)
+                            {
+                                int? count = (int?)logEntry.AttemptCount;
+                                attemptCount = count ?? 0;
+                                failureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
+                            }
+                        }
+                    }
+                    catch { }
+
+                    item.SubItems.Add(attemptCount.ToString());
+                    item.SubItems.Add(failureReason);
+
+                    // Actions column: View button to open details form
+                    item.SubItems.Add("[View]");
 
                     // Store staff object for action handlers
                     item.Tag = new { StaffID = staffIdText, Name = nameText, EnrollmentID = enrollmentIdText, StaffObject = s };
@@ -3165,16 +3178,17 @@ namespace smart_attendance_middleware
             lst_staffs.GridLines = true;
 
             // Columns matching Members pattern
-            lst_staffs.Columns.Add("Staff ID", 80);
-            lst_staffs.Columns.Add("Name", 160);
-            lst_staffs.Columns.Add("Status", 100);
-            lst_staffs.Columns.Add("RFID", 120);
-            lst_staffs.Columns.Add("Picture", 180);
-            lst_staffs.Columns.Add("Fingerprint", 110);
-            lst_staffs.Columns.Add("Enrollment ID", 110);
-            lst_staffs.Columns.Add("Sync Status", 140);
-            lst_staffs.Columns.Add("Actions", 120);  
-            lst_staffs.Columns[lst_staffs.Columns.Count - 1].Width = -2;
+            lst_staffs.Columns.Add("Staff ID", 70);
+            lst_staffs.Columns.Add("Name", 120);
+            lst_staffs.Columns.Add("Status", 80);
+            lst_staffs.Columns.Add("RFID", 100);
+            lst_staffs.Columns.Add("Picture", 80);
+            lst_staffs.Columns.Add("Fingerprint", 90);
+            lst_staffs.Columns.Add("Enrollment ID", 100);
+            lst_staffs.Columns.Add("Sync Status", 100);
+            lst_staffs.Columns.Add("Attempt Count", 90);
+            lst_staffs.Columns.Add("Failure Reason", 400);
+            lst_staffs.Columns.Add("Actions", 100);
 
             lst_staffs.EndUpdate();
 
@@ -3213,7 +3227,7 @@ namespace smart_attendance_middleware
                 {
                     int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
 
-                    if (columnIndex == lst_members.Columns.Count - 1) // Device Status column (always last)
+                    if (columnIndex == lst_members.Columns.Count - 1) // Actions column [View]
                     {
                         if (item.Tag is Member member)
                         {
@@ -3284,7 +3298,7 @@ namespace smart_attendance_middleware
                 }
 
                 Dashboard.GlobalStopLoader();
-                using (var dlg = new MemberDeviceStatusDialog(member, deviceData))
+                using (var dlg = new DeviceStatusDialog(member, deviceData))
                 {
                     dlg.ShowDialog();
                 }
@@ -3493,41 +3507,97 @@ namespace smart_attendance_middleware
                 var clickedPoint = listView.PointToClient(Control.MousePosition);
                 var hitInfo = listView.HitTest(clickedPoint);
 
-                // If Actions column (index 8) was clicked
+                // If Actions column (index 10) was clicked
                 if (hitInfo.Item != null && hitInfo.SubItem != null)
                 {
                     int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
 
-                    if (columnIndex == 8) // Actions column
+                    if (columnIndex == 10) // Actions column [View]
                     {
                         dynamic staffTag = item.Tag;
-                        string staffIdStr = staffTag.StaffID;        // may be GUID or numeric string
-                        string enrollmentStr = staffTag.EnrollmentID; // enrollment id if present
+                        string staffIdStr = staffTag.StaffID;
+                        string enrollmentStr = staffTag.EnrollmentID;
                         string staffName = staffTag.Name;
 
-                        // Determine which action was clicked based on position
-                        string actionsText = item.SubItems[8].Text;
-                        Rectangle subItemBounds = hitInfo.SubItem.Bounds;
-                        int relativeX = clickedPoint.X - subItemBounds.X;
-                        int midPoint = subItemBounds.Width / 2;
-
-                        // If clicked on left half -> Enroll, right half -> Delete
-                        if (relativeX < midPoint)
-                        {
-                            // Enroll action
-                            EnrollStaffFromListView(staffIdStr, staffName, enrollmentStr);
-                        }
-                        else
-                        {
-                            // Delete action
-                            DeleteStaffFromListView(staffIdStr, staffName, enrollmentStr);
-                        }
+                        // Open staff details form with Enroll/Delete buttons
+                        ShowStaffDetailsForm(staffIdStr, staffName, enrollmentStr);
                     }
                 }
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[lst_staffs_ItemActivate] Error: {ex.Message}");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async void ShowStaffDetailsForm(string staffId, string staffName, string enrollmentId)
+        {
+            if (string.IsNullOrEmpty(enrollmentId) || !int.TryParse(enrollmentId, out int enrollmentIdInt) || enrollmentIdInt <= 0)
+            {
+                MessageBox.Show("This staff member does not have a valid Enrollment ID.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var allDevices = new List<Device>();
+            if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
+            if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
+
+            if (allDevices.Count == 0)
+            {
+                MessageBox.Show("No devices available to check.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                Dashboard.GlobalStartLoader($"Fetching device details for {staffName}...");
+                var deviceData = new List<(Device Device, Newtonsoft.Json.Linq.JObject Details, string Error)>();
+
+                foreach (var device in allDevices)
+                {
+                    Dashboard.GlobalUpdateLoaderMessage($"Checking {device.Location ?? device.DeviceIP}...");
+                    string sn = CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                    if (string.IsNullOrEmpty(sn))
+                    {
+                        deviceData.Add((device, null, "Device not connected via WebSocket"));
+                        continue;
+                    }
+                    try
+                    {
+                        string detailsJson = await WebsocketServer.ExecuteServiceGetCommand(sn, "getuserdetails",
+                            $"{{\"enrollid\":{enrollmentIdInt}}}");
+                        if (string.IsNullOrEmpty(detailsJson))
+                        {
+                            deviceData.Add((device, null, "No response from device (timeout or not enrolled)"));
+                        }
+                        else
+                        {
+                            var jObj = Newtonsoft.Json.Linq.JObject.Parse(detailsJson);
+                            deviceData.Add((device, jObj, null));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        deviceData.Add((device, null, ex.Message));
+                    }
+                }
+
+                Dashboard.GlobalStopLoader();
+
+                // Use DeviceStatusDialog with staff data (same UI as members) and Enroll/Delete callbacks
+                using (var dlg = new DeviceStatusDialog(
+                    new { StaffID = staffId, Name = staffName, EnrollmentID = enrollmentId },
+                    deviceData,
+                    onEnroll: () => EnrollStaffFromListView(staffId, staffName, enrollmentId),
+                    onDelete: () => DeleteStaffFromListView(staffId, staffName, enrollmentId)))
+                {
+                    dlg.ShowDialog();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[ShowStaffDetailsForm] Error: {ex.Message}");
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
