@@ -84,7 +84,6 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                LogHelper.Log($"❌ {ex.Message} Cannot upload attendance.");
                 return null;
             }
 
@@ -115,7 +114,7 @@ namespace smart_attendance_middleware
 
             var requestUrl = BaseUrl + UploadAttendanceEndpoint;
             LogHelper.Log($"➡️ POST {requestUrl}");
-            LogHelper.Log($"🧾 Body: {payload.ToString(Formatting.None)}");
+            LogHelper.LogDev($"🧾 Body: {payload.ToString(Formatting.None)}");
 
             using (var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json"))
             using (var response = await _client.PostAsync(requestUrl, content, token).ConfigureAwait(false))
@@ -124,8 +123,8 @@ namespace smart_attendance_middleware
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    LogHelper.Log($"📤 Upload attendance response: {raw}");
-                    LogHelper.Log($"❌ Upload attendance HTTP {response.StatusCode}: {raw}");
+                    LogHelper.LogDev($"📤 Upload attendance response: {raw}");
+                    LogHelper.LogDev($"❌ Upload attendance HTTP {response.StatusCode}: {raw}");
                     return null;
                 }
 
@@ -135,7 +134,7 @@ namespace smart_attendance_middleware
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"❌ Failed to parse upload response: {ex.Message}. Raw: {raw}");
+                    LogHelper.LogDev($"❌ Failed to parse upload response: {ex.Message}. Raw: {raw}");
                     return null;
                 }
             }
@@ -152,7 +151,6 @@ namespace smart_attendance_middleware
         {
             if (records == null)
             {
-                LogHelper.Log("❌ UploadAttendanceRecordsAsync called with null records collection.");
                 return null;
             }
 
@@ -202,7 +200,8 @@ namespace smart_attendance_middleware
                 ["records"] = array
             };
 
-            LogHelper.Log($"📤 [BulkUpload] Sending {array.Count} records. Payload: {payload.ToString(Formatting.None)}");
+            LogHelper.Log($"📤 [BulkUpload] Sending {array.Count} records.");
+            LogHelper.LogDev($"🧾 [BulkUpload] Payload: {payload.ToString(Formatting.None)}");
 
             using (var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json"))
             using (var response = await _client.PostAsync(BaseUrl + UploadAttendanceEndpoint, content, token).ConfigureAwait(false))
@@ -211,8 +210,8 @@ namespace smart_attendance_middleware
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    LogHelper.Log($"📤 Upload attendance (bulk) response: {raw}");
-                    LogHelper.Log($"❌ Upload attendance (bulk) HTTP {response.StatusCode}: {raw}");
+                    LogHelper.LogDev($"📤 Upload attendance (bulk) response: {raw}");
+                    LogHelper.LogDev($"❌ Upload attendance (bulk) HTTP {response.StatusCode}: {raw}");
                     return null;
                 }
 
@@ -222,7 +221,7 @@ namespace smart_attendance_middleware
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"❌ Failed to parse bulk upload response: {ex.Message}. Raw: {raw}");
+                    LogHelper.LogDev($"❌ Failed to parse bulk upload response: {ex.Message}. Raw: {raw}");
                     return null;
                 }
             }
@@ -269,8 +268,8 @@ namespace smart_attendance_middleware
                 var raw = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    LogHelper.Log($"📤 Get members response: {raw}");
-                    LogHelper.Log($"❌ Get members HTTP {response.StatusCode}: {raw}");
+                    LogHelper.LogDev($"📤 Get members response: {raw}");
+                    LogHelper.Log($"❌ Get members HTTP {response.StatusCode} ({raw.Length} bytes)");
                     return (null, null);
                 }
 
@@ -289,7 +288,7 @@ namespace smart_attendance_middleware
                 }
                 catch (System.Exception ex)
                 {
-                    LogHelper.Log($"❌ Failed to parse members response: {ex.Message}. Raw: {raw}");
+                    LogHelper.LogDev($"❌ Failed to parse members response: {ex.Message}. Raw: {raw}");
                     return (null, null);
                 }
             }
@@ -334,8 +333,8 @@ namespace smart_attendance_middleware
                 var raw = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    LogHelper.Log($"📤 Get catalog response: {raw}");
-                    LogHelper.Log($"❌ Get catalog HTTP {response.StatusCode}: {raw}");
+                    LogHelper.LogDev($"📤 Get catalog response: {raw}");
+                    LogHelper.Log($"❌ Get catalog HTTP {response.StatusCode} ({raw.Length} bytes)");
                     return (null, null, null);
                 }
 
@@ -350,7 +349,7 @@ namespace smart_attendance_middleware
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"❌ Failed to parse catalog response: {ex.Message}. Raw: {raw}");
+                    LogHelper.LogDev($"❌ Failed to parse catalog response: {ex.Message}. Raw: {raw}");
                     return (null, null, null);
                 }
             }
@@ -365,7 +364,6 @@ namespace smart_attendance_middleware
         {
             if (records == null || records.Count == 0)
             {
-                LogHelper.Log("❌ PostEnrollmentsAsync called with no records.");
                 return null;
             }
 
@@ -382,7 +380,7 @@ namespace smart_attendance_middleware
             var payload = new JObject { ["records"] = records };
             var requestUrl = BaseUrl + PostEnrollmentsEndpoint;
             LogHelper.Log($"➡️ POST {requestUrl}");
-            LogHelper.Log($"🧾 Body: {payload.ToString(Formatting.None)}");
+            LogHelper.LogDev($"🧾 Body: {payload.ToString(Formatting.None)}");
 
             using (var content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json"))
             using (var response = await _client.PostAsync(requestUrl, content, token).ConfigureAwait(false))
@@ -390,8 +388,8 @@ namespace smart_attendance_middleware
                 var raw = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    LogHelper.Log($"📤 Post enrollments response: {raw}");
-                    LogHelper.Log($"❌ Post enrollments HTTP {response.StatusCode}: {raw}");
+                    LogHelper.LogDev($"📤 Post enrollments response: {raw}");
+                    LogHelper.Log($"❌ Post enrollments HTTP {response.StatusCode} ({raw.Length} bytes)");
                     return null;
                 }
 
@@ -401,7 +399,7 @@ namespace smart_attendance_middleware
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"❌ Failed to parse enrollments response: {ex.Message}. Raw: {raw}");
+                    LogHelper.LogDev($"❌ Failed to parse enrollments response: {ex.Message}. Raw: {raw}");
                     return null;
                 }
             }
@@ -415,7 +413,6 @@ namespace smart_attendance_middleware
         {
             if (string.IsNullOrWhiteSpace(base64DataUrl))
             {
-                LogHelper.Log("❌ PostMemberPictureAsync called with no picture data.");
                 return null;
             }
 
@@ -440,11 +437,11 @@ namespace smart_attendance_middleware
             using (var response = await _client.PostAsync(requestUrl, content, token).ConfigureAwait(false))
             {
                 var raw = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                LogHelper.Log($"📤 Post member-picture response: {raw}");
+                LogHelper.LogDev($"📤 Post member-picture response: {raw}");
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    LogHelper.Log($"❌ Post member-picture HTTP {response.StatusCode}: {raw}");
+                    LogHelper.Log($"❌ Post member-picture HTTP {response.StatusCode} ({raw.Length} bytes)");
                     return null;
                 }
 
@@ -454,14 +451,14 @@ namespace smart_attendance_middleware
                     var url = root["picture"]?.ToString();
                     if (string.IsNullOrWhiteSpace(url))
                     {
-                        LogHelper.Log($"❌ member-picture response had no 'picture' url. Raw: {raw}");
+                        LogHelper.LogDev($"❌ member-picture response had no 'picture' url. Raw: {raw}");
                         return null;
                     }
                     return url;
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"❌ Failed to parse member-picture response: {ex.Message}. Raw: {raw}");
+                    LogHelper.LogDev($"❌ Failed to parse member-picture response: {ex.Message}. Raw: {raw}");
                     return null;
                 }
             }
@@ -480,18 +477,10 @@ namespace smart_attendance_middleware
         /// </summary>
         public async Task FetchAllMembers(CancellationToken token)
         {
-            if (_processor == null)
-            {
-                LogHelper.Log("❌ Processor not initialized in HttpHandler. Cannot process members.");
-                return;
-            }
+            if (_processor == null) return;
 
             var (members, syncedAt) = await GetAllMembersAsync(token).ConfigureAwait(false);
-            if (members == null)
-            {
-                LogHelper.Log("❌ Failed to fetch members for processing.");
-                return;
-            }
+            if (members == null) return;
 
             LogHelper.Log($"✅ Fetched {members.Count} members for processing.");
 
@@ -519,18 +508,10 @@ namespace smart_attendance_middleware
             string gateAliasOut = null,
             CancellationToken token = default(CancellationToken))
         {
-            if (_processor == null)
-            {
-                LogHelper.Log("❌ Processor not initialized in HttpHandler. Cannot process attendance response.");
-                return;
-            }
+            if (_processor == null) return;
 
             var response = await UploadAttendanceRecordAsync(enrollmentId, checkinTime, checkoutTime, id, gateSerial, gateAlias, gateSerialOut, gateAliasOut, token).ConfigureAwait(false);
-            if (response == null)
-            {
-                LogHelper.Log("❌ Failed to upload attendance record, no response to process.");
-                return;
-            }
+            if (response == null) return;
 
             await _processor.HandleHttpEvent("attendance.response", response).ConfigureAwait(false);
         }
@@ -542,18 +523,10 @@ namespace smart_attendance_middleware
             IEnumerable<(int enrollmentId, string checkinTime, string checkoutTime, string id, string gateSerial, string gateAlias, string gateSerialOut, string gateAliasOut)> records,
             CancellationToken token = default(CancellationToken))
         {
-            if (_processor == null)
-            {
-                LogHelper.Log("❌ Processor not initialized in HttpHandler. Cannot process bulk attendance response.");
-                return;
-            }
+            if (_processor == null) return;
 
             var response = await UploadAttendanceRecordsAsync(records, token).ConfigureAwait(false);
-            if (response == null)
-            {
-                LogHelper.Log("❌ Failed to upload bulk attendance records, no response to process.");
-                return;
-            }
+            if (response == null) return;
 
             // Route to the bulk response handler in Processor
             await _processor.HandleHttpEvent("attendance.response.bulk", response).ConfigureAwait(false);

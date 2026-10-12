@@ -46,6 +46,28 @@ namespace smart_attendance_middleware
         // Guard: prevents TextChanged handlers from firing during form initialization
         private bool _isInitialized = false;
 
+        // Filter controls — added programmatically in Initialize methods
+        private ComboBox cmbMemberStatus;
+        private ComboBox cmbMemberSync;
+        private CheckBox chkMemberFailure;
+        private ComboBox cmbAllMemberStatus;
+        private ComboBox cmbAllMemberBiometric;
+        private ComboBox cmbAllMemberExpiry;
+        private ComboBox cmbOfflineServerSync;
+        private ComboBox cmbOfflinePackage;
+        private CheckBox chkOfflineFailure;
+        private ComboBox cmbStaffStatus;
+        private ComboBox cmbStaffSync;
+        private CheckBox chkStaffFailure;
+        private ComboBox cmbPendingDevice;
+        private ComboBox cmbPendingFor;
+        private ComboBox cmbStaffPendingDevice;
+        private ComboBox cmbStaffPendingFor;
+        private ComboBox cmbDoorVisitor;
+        private ComboBox cmbDeviceStatus;
+        private CheckBox chkDeviceIsStaff;
+        private ComboBox cmbUserRole;
+
         // Font hierarchy — Title / Body / Small
         private static readonly Font FontTitle = new Font("Microsoft Sans Serif", 16F, FontStyle.Regular);
         private static readonly Font FontBody   = new Font("Microsoft Sans Serif", 10F, FontStyle.Regular);
@@ -363,6 +385,25 @@ namespace smart_attendance_middleware
             txt_offlineMemberSearch.TextChanged += (s, e) => FilterOfflineMembersList();
             tab.Controls.Add(txt_offlineMemberSearch);
 
+            int ox = txt_offlineMemberSearch.Right + 10;
+            cmbOfflineServerSync = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ox, 11), Width = 110 };
+            cmbOfflineServerSync.Items.AddRange(new object[] { "All Sync", "Synced", "Pending" });
+            cmbOfflineServerSync.SelectedIndex = 0;
+            cmbOfflineServerSync.SelectedIndexChanged += (s, e) => FilterOfflineMembersList();
+            tab.Controls.Add(cmbOfflineServerSync);
+            ox += 118;
+
+            cmbOfflinePackage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ox, 11), Width = 130 };
+            cmbOfflinePackage.Items.Add("All Packages");
+            cmbOfflinePackage.SelectedIndex = 0;
+            cmbOfflinePackage.SelectedIndexChanged += (s, e) => FilterOfflineMembersList();
+            tab.Controls.Add(cmbOfflinePackage);
+            ox += 138;
+
+            chkOfflineFailure = new CheckBox { Text = "Has Failure Only", Location = new Point(ox, 13), AutoSize = true };
+            chkOfflineFailure.CheckedChanged += (s, e) => FilterOfflineMembersList();
+            tab.Controls.Add(chkOfflineFailure);
+
             lst_offlineMembers = new ListView
             {
                 Name = "lst_offlineMembers",
@@ -375,19 +416,16 @@ namespace smart_attendance_middleware
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
             lst_offlineMembers.Columns.Add("Enrollment", 80);
-            lst_offlineMembers.Columns.Add("Name", 120);
+            lst_offlineMembers.Columns.Add("Name", 130);
             lst_offlineMembers.Columns.Add("Gender", 60);
             lst_offlineMembers.Columns.Add("Phone", 100);
             lst_offlineMembers.Columns.Add("Package", 110);
             lst_offlineMembers.Columns.Add("Periodicity", 80);
-            lst_offlineMembers.Columns.Add("RFID", 80);
-            lst_offlineMembers.Columns.Add("Fingerprint", 80);
-            lst_offlineMembers.Columns.Add("Picture", 60);
+            lst_offlineMembers.Columns.Add("Biometric", 130);
             lst_offlineMembers.Columns.Add("Server Sync", 80);
             lst_offlineMembers.Columns.Add("Device Cleanup", 100);
-            lst_offlineMembers.Columns.Add("Created", 130);
-            lst_offlineMembers.Columns.Add("Attempt Count", 90);
-            lst_offlineMembers.Columns.Add("Failure Reason", 400);
+            lst_offlineMembers.Columns.Add("Failure Reason", 85);
+            lst_offlineMembers.ItemActivate += LstOfflineMembers_ItemActivate;
             tab.Controls.Add(lst_offlineMembers);
         }
 
@@ -411,6 +449,27 @@ namespace smart_attendance_middleware
             txt_allMembersSearch.TextChanged += (s, e) => FilterAllMembersList();
             tab.Controls.Add(txt_allMembersSearch);
 
+            int ax = txt_allMembersSearch.Right + 10;
+            cmbAllMemberStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ax, 11), Width = 110 };
+            cmbAllMemberStatus.Items.AddRange(new object[] { "All Status", "active", "inactive", "expired" });
+            cmbAllMemberStatus.SelectedIndex = 0;
+            cmbAllMemberStatus.SelectedIndexChanged += (s, e) => FilterAllMembersList();
+            tab.Controls.Add(cmbAllMemberStatus);
+            ax += 118;
+
+            cmbAllMemberBiometric = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ax, 11), Width = 130 };
+            cmbAllMemberBiometric.Items.AddRange(new object[] { "All Biometric", "Has Face", "Has Fingerprint", "Has RFID", "Missing Any" });
+            cmbAllMemberBiometric.SelectedIndex = 0;
+            cmbAllMemberBiometric.SelectedIndexChanged += (s, e) => FilterAllMembersList();
+            tab.Controls.Add(cmbAllMemberBiometric);
+            ax += 138;
+
+            cmbAllMemberExpiry = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ax, 11), Width = 140 };
+            cmbAllMemberExpiry.Items.AddRange(new object[] { "Any Expiry", "Expires in 7 days", "Expires in 30 days", "Expired" });
+            cmbAllMemberExpiry.SelectedIndex = 0;
+            cmbAllMemberExpiry.SelectedIndexChanged += (s, e) => FilterAllMembersList();
+            tab.Controls.Add(cmbAllMemberExpiry);
+
             lst_allMembers = new ListView
             {
                 Name = "lst_allMembers",
@@ -423,12 +482,10 @@ namespace smart_attendance_middleware
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
             lst_allMembers.Columns.Add("Member ID", 80);
-            lst_allMembers.Columns.Add("Client ID", 220);
-            lst_allMembers.Columns.Add("Name", 150);
+            lst_allMembers.Columns.Add("Name", 160);
             lst_allMembers.Columns.Add("Enrollment", 90);
             lst_allMembers.Columns.Add("Status", 80);
-            lst_allMembers.Columns.Add("RFID", 100);
-            lst_allMembers.Columns.Add("Fingerprint", 80);
+            lst_allMembers.Columns.Add("Biometric", 130);
             lst_allMembers.Columns.Add("Sync Status", 120);
             lst_allMembers.Columns.Add("Package Expiry", 110);
             lst_allMembers.Columns.Add("Action", 80);
@@ -459,6 +516,30 @@ namespace smart_attendance_middleware
                 _offlineMembersCache = _dbHelper.GetOfflineMembers() ?? new List<OfflineMember>();
                 var packagesById = _dbHelper.GetPackages(activeOnly: false).ToDictionary(p => p.PackageId, p => p.Title);
 
+                // Populate package filter with distinct packages used by offline members
+                if (cmbOfflinePackage != null)
+                {
+                    string prevSel = cmbOfflinePackage.SelectedItem?.ToString() ?? "All Packages";
+                    cmbOfflinePackage.Items.Clear();
+                    cmbOfflinePackage.Items.Add("All Packages");
+                    var usedPackages = new System.Collections.Generic.HashSet<string>();
+                    foreach (var m in _offlineMembersCache)
+                    {
+                        if (string.IsNullOrWhiteSpace(m.SubscriptionJson)) continue;
+                        try
+                        {
+                            var sub = JObject.Parse(m.SubscriptionJson);
+                            int pkgId = sub["package_id"]?.ToObject<int>() ?? 0;
+                            if (packagesById.TryGetValue(pkgId, out var title) && !string.IsNullOrWhiteSpace(title))
+                                usedPackages.Add(title);
+                        }
+                        catch { }
+                    }
+                    foreach (var pkg in usedPackages.OrderBy(p => p))
+                        cmbOfflinePackage.Items.Add(pkg);
+                    cmbOfflinePackage.SelectedIndex = cmbOfflinePackage.Items.Contains(prevSel) ? cmbOfflinePackage.Items.IndexOf(prevSel) : 0;
+                }
+
                 RenderOfflineMembersList(_offlineMembersCache, packagesById);
             }
             catch (Exception ex)
@@ -473,12 +554,47 @@ namespace smart_attendance_middleware
             string term = txt_offlineMemberSearch.Text.Trim();
 
             var filtered = string.IsNullOrEmpty(term)
-                ? _offlineMembersCache
+                ? _offlineMembersCache.ToList()
                 : _offlineMembersCache.Where(m =>
                     (m.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     (m.Phone ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     m.EnrollmentID.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
                   ).ToList();
+
+            // Server sync filter
+            string syncSel = cmbOfflineServerSync?.SelectedItem?.ToString() ?? "All Sync";
+            if (syncSel == "Synced")
+                filtered = filtered.Where(m => m.ServerSync).ToList();
+            else if (syncSel == "Pending")
+                filtered = filtered.Where(m => !m.ServerSync).ToList();
+
+            // Package filter
+            string pkgSel = cmbOfflinePackage?.SelectedItem?.ToString() ?? "All Packages";
+            if (pkgSel != "All Packages")
+            {
+                filtered = filtered.Where(m =>
+                {
+                    if (string.IsNullOrWhiteSpace(m.SubscriptionJson)) return false;
+                    try
+                    {
+                        var sub = JObject.Parse(m.SubscriptionJson);
+                        int pkgId = sub["package_id"]?.ToObject<int>() ?? 0;
+                        string pkgTitle = packagesById.TryGetValue(pkgId, out var t) ? t : null;
+                        return string.Equals(pkgTitle, pkgSel, StringComparison.OrdinalIgnoreCase);
+                    }
+                    catch { return false; }
+                }).ToList();
+            }
+
+            // Has Failure filter
+            if (chkOfflineFailure?.Checked == true)
+            {
+                filtered = filtered.Where(m =>
+                {
+                    var log = _dbHelper.GetLatestOfflineLogForMember(m.ClientId);
+                    return log != null && !string.IsNullOrWhiteSpace(log.FailureReason) && log.FailureReason != "-";
+                }).ToList();
+            }
 
             RenderOfflineMembersList(filtered, packagesById);
         }
@@ -502,15 +618,19 @@ namespace smart_attendance_middleware
                 }
                 catch { /* leave defaults on parse failure */ }
 
+                var offBioList = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrWhiteSpace(m.RFID)) offBioList.Add("RFID");
+                if (!string.IsNullOrWhiteSpace(m.Picture)) offBioList.Add("Face");
+                if (m.Fingerprint) offBioList.Add("Fingerprint");
+                string offBioText = offBioList.Count > 0 ? string.Join(", ", offBioList) : "-";
+
                 var item = new ListViewItem(m.EnrollmentID.ToString());
                 item.SubItems.Add(m.Name ?? "-");
                 item.SubItems.Add(m.Gender ?? "-");
                 item.SubItems.Add(m.Phone ?? "-");
                 item.SubItems.Add(packageTitle);
                 item.SubItems.Add(periodicity);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.RFID) ? "-" : m.RFID);
-                item.SubItems.Add(m.Fingerprint ? "Yes" : "No");
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Picture) ? "No" : "Yes");
+                item.SubItems.Add(offBioText);
                 item.SubItems.Add(m.ServerSync ? "Synced" : "Pending");
 
                 string cleanupText = "-";
@@ -522,27 +642,60 @@ namespace smart_attendance_middleware
                 }
                 item.SubItems.Add(cleanupText);
 
-                item.SubItems.Add(m.CreatedAt ?? "-");
-
-                // Get attempt count and failure reason from OfflineMemberLog table
-                int attemptCount = 0;
-                string failureReason = "-";
+                // Get failure reason from OfflineMemberLog table
+                string offlineFailureReason = "-";
                 try
                 {
                     var logEntry = _dbHelper.GetLatestOfflineLogForMember(m.ClientId);
                     if (logEntry != null)
                     {
-                        int? count = (int?)logEntry.AttemptCount;
-                        attemptCount = count ?? 0;
-                        failureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
+                        offlineFailureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
                     }
                 }
                 catch { }
 
-                item.SubItems.Add(attemptCount.ToString());
-                item.SubItems.Add(failureReason);
+                item.SubItems.Add(offlineFailureReason != "-" ? "[View]" : "-");
                 item.Tag = m;
                 lst_offlineMembers.Items.Add(item);
+            }
+        }
+
+        private void LstOfflineMembers_ItemActivate(object sender, EventArgs e)
+        {
+            try
+            {
+                var listView = sender as ListView;
+                if (listView?.SelectedItems.Count != 1) return;
+
+                var item = listView.SelectedItems[0];
+                var clickedPoint = listView.PointToClient(Control.MousePosition);
+                var hitInfo = listView.HitTest(clickedPoint);
+                if (hitInfo.Item == null || hitInfo.SubItem == null) return;
+
+                int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
+                if (columnIndex != lst_offlineMembers.Columns.Count - 1) return; // Failure Reason is last column
+                if (item.SubItems[columnIndex].Text != "[View]") return;
+
+                if (!(item.Tag is OfflineMember om)) return;
+
+                string fullReason = "-";
+                try
+                {
+                    var log = _dbHelper.GetLatestOfflineLogForMember(om.ClientId);
+                    if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
+                        fullReason = (string)log.FailureReason;
+                }
+                catch { }
+
+                if (fullReason != "-")
+                {
+                    using (var dlg = new FailureReasonDetailForm(fullReason, null, om.EnrollmentID, om.Name, om.Picture, _dbHelper))
+                        dlg.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[LstOfflineMembers_ItemActivate] Error: {ex.Message}");
             }
         }
 
@@ -564,13 +717,44 @@ namespace smart_attendance_middleware
             string term = txt_allMembersSearch.Text.Trim();
 
             var filtered = string.IsNullOrEmpty(term)
-                ? _allMembersCache
+                ? _allMembersCache.ToList()
                 : _allMembersCache.Where(m =>
                     (m.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     (m.ClientId ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     (m.EnrollmentID?.ToString() ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     m.MemberID.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
                   ).ToList();
+
+            // Status filter
+            string statusSel = cmbAllMemberStatus?.SelectedItem?.ToString() ?? "All Status";
+            if (statusSel != "All Status")
+                filtered = filtered.Where(m => string.Equals(m.Status, statusSel, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            // Biometric filter
+            string bioSel = cmbAllMemberBiometric?.SelectedItem?.ToString() ?? "All Biometric";
+            if (bioSel == "Has Face")
+                filtered = filtered.Where(m => !string.IsNullOrWhiteSpace(m.Picture)).ToList();
+            else if (bioSel == "Has Fingerprint")
+                filtered = filtered.Where(m => m.Fingerprint).ToList();
+            else if (bioSel == "Has RFID")
+                filtered = filtered.Where(m => !string.IsNullOrWhiteSpace(m.RFID)).ToList();
+            else if (bioSel == "Missing Any")
+                filtered = filtered.Where(m => string.IsNullOrWhiteSpace(m.Picture) || !m.Fingerprint || string.IsNullOrWhiteSpace(m.RFID)).ToList();
+
+            // Expiry filter
+            string expirySel = cmbAllMemberExpiry?.SelectedItem?.ToString() ?? "Any Expiry";
+            if (expirySel != "Any Expiry")
+            {
+                var now = DateTime.Today;
+                filtered = filtered.Where(m =>
+                {
+                    if (!DateTime.TryParse(m.PackageExpiry, out var expDate)) return false;
+                    if (expirySel == "Expired") return expDate < now;
+                    if (expirySel == "Expires in 7 days") return expDate >= now && expDate <= now.AddDays(7);
+                    if (expirySel == "Expires in 30 days") return expDate >= now && expDate <= now.AddDays(30);
+                    return true;
+                }).ToList();
+            }
 
             RenderAllMembersList(filtered);
         }
@@ -595,13 +779,17 @@ namespace smart_attendance_middleware
                     syncStatusText = $"{syncedCount}/{totalDevices} devices";
                 }
 
+                var allBioList = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrWhiteSpace(m.RFID)) allBioList.Add("RFID");
+                if (!string.IsNullOrWhiteSpace(m.Picture)) allBioList.Add("Face");
+                if (m.Fingerprint) allBioList.Add("Fingerprint");
+                string allBioText = allBioList.Count > 0 ? string.Join(", ", allBioList) : "-";
+
                 var item = new ListViewItem(m.MemberID.ToString());
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.ClientId) ? "-" : m.ClientId);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.Name) ? "-" : m.Name);
                 item.SubItems.Add(m.EnrollmentID.HasValue && m.EnrollmentID.Value > 0 ? m.EnrollmentID.Value.ToString() : "-");
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.Status) ? "-" : m.Status);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.RFID) ? "-" : m.RFID);
-                item.SubItems.Add(m.Fingerprint ? "Yes" : "No");
+                item.SubItems.Add(allBioText);
                 item.SubItems.Add(syncStatusText);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry);
                 item.SubItems.Add("Renew");
@@ -686,9 +874,30 @@ namespace smart_attendance_middleware
                 listViewDevices.Columns[listViewDevices.Columns.Count - 1].Width = -2;
             }
 
+            // Add filter controls on first call
+            if (cmbDeviceStatus == null && listViewDevices.Parent != null)
+            {
+                // Shift the ListView down to make room for the filter row above it
+                listViewDevices.Location = new Point(listViewDevices.Left, 36);
+                listViewDevices.Height = Math.Max(listViewDevices.Height - 36, 50);
+
+                var devPanel = listViewDevices.Parent;
+                cmbDeviceStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(9, 8), Width = 110 };
+                cmbDeviceStatus.Items.AddRange(new object[] { "All Status", "Active", "Inactive" });
+                cmbDeviceStatus.SelectedIndex = 0;
+                cmbDeviceStatus.SelectedIndexChanged += (s, e) => SetupDeviceList();
+                devPanel.Controls.Add(cmbDeviceStatus);
+
+                chkDeviceIsStaff = new CheckBox { Text = "Staff Devices Only", Location = new Point(127, 10), AutoSize = true };
+                chkDeviceIsStaff.CheckedChanged += (s, e) => SetupDeviceList();
+                devPanel.Controls.Add(chkDeviceIsStaff);
+            }
+
             // Load devices from AppSession
             var devices = AppSession.DeviceList ?? new List<Device>();
             var staffDevices = AppSession.StaffDeviceList ?? new List<Device>();
+
+            var allDeviceItems = new List<ListViewItem>();
 
             // Populate normal devices
             foreach (var d in devices)
@@ -701,10 +910,8 @@ namespace smart_attendance_middleware
                 item.SubItems.Add(d.ConnectionType ?? "-");
                 item.SubItems.Add(d.IsActive ? "Active" : "Inactive");
                 item.SubItems.Add("No"); // Is Staff
-
-                // Store the full device object
                 item.Tag = d;
-                listViewDevices.Items.Add(item);
+                allDeviceItems.Add(item);
             }
 
             // Populate staff devices
@@ -712,22 +919,26 @@ namespace smart_attendance_middleware
             {
                 var item = new ListViewItem(sd.StaffDeviceId.ToString());
                 item.SubItems.Add(sd.MachineNo.ToString());
-
-                // StaffAttendanceType is TEXT: "Check-in" / "Check-out" / "Check-in/Check-out"
                 var attText = string.IsNullOrWhiteSpace(sd.StaffAttendanceType) ? "-" : sd.StaffAttendanceType;
                 item.SubItems.Add(attText);
-
                 item.SubItems.Add(sd.DeviceIP ?? "-");
                 item.SubItems.Add(sd.Port.ToString());
-
-                // These fields may be null if not stored in StaffDevices schema
                 item.SubItems.Add(sd.ConnectionType ?? "-");
                 item.SubItems.Add(sd.IsActive ? "Active" : "Inactive");
                 item.SubItems.Add("Yes"); // Is Staff
-
                 item.Tag = sd;
-                listViewDevices.Items.Add(item);
+                allDeviceItems.Add(item);
             }
+
+            // Apply filters
+            string devStatusSel = cmbDeviceStatus?.SelectedItem?.ToString() ?? "All Status";
+            if (devStatusSel != "All Status")
+                allDeviceItems = allDeviceItems.Where(i => string.Equals(i.SubItems[6].Text, devStatusSel, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (chkDeviceIsStaff?.Checked == true)
+                allDeviceItems = allDeviceItems.Where(i => i.SubItems[7].Text == "Yes").ToList();
+
+            listViewDevices.Items.AddRange(allDeviceItems.ToArray());
         }
 
         //*************************************Event Listview Setup************************************//
@@ -757,11 +968,37 @@ namespace smart_attendance_middleware
             // Load users from AppSession cache
             List<LocalUser> users = AppSession.AllUsers ?? new List<LocalUser>();
 
-            foreach (var user in users)
-            {
-                if (string.Equals(user.Role, "developer", StringComparison.OrdinalIgnoreCase))
-                    continue;
+            var visibleUsers = users.Where(u => !string.Equals(u.Role, "developer", StringComparison.OrdinalIgnoreCase)).ToList();
 
+            // Add role filter control on first call
+            if (cmbUserRole == null && list_LocalUser.Parent != null)
+            {
+                var userTab = list_LocalUser.Parent;
+                cmbUserRole = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(9, 21), Width = 130 };
+                cmbUserRole.Items.Add("All Roles");
+                foreach (var role in visibleUsers.Select(u => u.Role).Distinct().OrderBy(r => r))
+                    if (!string.IsNullOrWhiteSpace(role)) cmbUserRole.Items.Add(role);
+                cmbUserRole.SelectedIndex = 0;
+                cmbUserRole.SelectedIndexChanged += (s, e) => LoadLocalUserData();
+                userTab.Controls.Add(cmbUserRole);
+            }
+            else if (cmbUserRole != null)
+            {
+                // Refresh roles list without resetting selection
+                string prevRole = cmbUserRole.SelectedItem?.ToString() ?? "All Roles";
+                cmbUserRole.Items.Clear();
+                cmbUserRole.Items.Add("All Roles");
+                foreach (var role in visibleUsers.Select(u => u.Role).Distinct().OrderBy(r => r))
+                    if (!string.IsNullOrWhiteSpace(role)) cmbUserRole.Items.Add(role);
+                cmbUserRole.SelectedIndex = cmbUserRole.Items.Contains(prevRole) ? cmbUserRole.Items.IndexOf(prevRole) : 0;
+            }
+
+            string roleSel = cmbUserRole?.SelectedItem?.ToString() ?? "All Roles";
+            if (roleSel != "All Roles")
+                visibleUsers = visibleUsers.Where(u => string.Equals(u.Role, roleSel, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            foreach (var user in visibleUsers)
+            {
                 ListViewItem item = new ListViewItem(user.LocalUserID.ToString());
                 item.SubItems.Add(user.UserName);
                 item.SubItems.Add(user.Role);
@@ -2156,18 +2393,37 @@ namespace smart_attendance_middleware
                 lst_members.FullRowSelect = true;
                 lst_members.GridLines = true;
                 lst_members.Columns.Add("Member ID", 80);
-                lst_members.Columns.Add("Client ID", 180);
-                lst_members.Columns.Add("Name", 120);
+                lst_members.Columns.Add("Name", 140);
                 lst_members.Columns.Add("Enrollment No", 100);
                 lst_members.Columns.Add("Status", 70);
-                lst_members.Columns.Add("RFID", 100);
-                lst_members.Columns.Add("Picture", 80);
-                lst_members.Columns.Add("Fingerprint", 80);
-                lst_members.Columns.Add("Sync Status", 100);
-                lst_members.Columns.Add("Package Expiry", 100);
-                lst_members.Columns.Add("Attempt Count", 90);
-                lst_members.Columns.Add("Failure Reason", 400);
+                lst_members.Columns.Add("Biometric", 130);
+                lst_members.Columns.Add("Sync Status", 110);
+                lst_members.Columns.Add("Package Expiry", 110);
+                lst_members.Columns.Add("Failure Reason", 85);
                 lst_members.Columns.Add("Actions", 80);
+            }
+
+            // Add second filter row if not already added
+            if (cmbMemberStatus == null && tab_members != null)
+            {
+                int x = 290;
+                cmbMemberStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(x, 11), Width = 110 };
+                cmbMemberStatus.Items.AddRange(new object[] { "All Status", "active", "inactive", "expired" });
+                cmbMemberStatus.SelectedIndex = 0;
+                cmbMemberStatus.SelectedIndexChanged += (s, e) => LoadMembersIntoListView(txt_memb_name.Text?.Trim());
+                tab_members.Controls.Add(cmbMemberStatus);
+                x += 118;
+
+                cmbMemberSync = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(x, 11), Width = 130 };
+                cmbMemberSync.Items.AddRange(new object[] { "All Sync", "Fully Synced", "Partially Synced", "Not Synced" });
+                cmbMemberSync.SelectedIndex = 0;
+                cmbMemberSync.SelectedIndexChanged += (s, e) => LoadMembersIntoListView(txt_memb_name.Text?.Trim());
+                tab_members.Controls.Add(cmbMemberSync);
+                x += 138;
+
+                chkMemberFailure = new CheckBox { Text = "Has Failure Only", Location = new Point(x, 13), AutoSize = true };
+                chkMemberFailure.CheckedChanged += (s, e) => LoadMembersIntoListView(txt_memb_name.Text?.Trim());
+                tab_members.Controls.Add(chkMemberFailure);
             }
 
             LoadMembersIntoListView(null);
@@ -2236,22 +2492,21 @@ namespace smart_attendance_middleware
                     syncStatusText = $"{syncedCount}/{totalDevices} devices";
                 }
 
+                var bioList = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrWhiteSpace(m.RFID)) bioList.Add("RFID");
+                if (!string.IsNullOrWhiteSpace(m.Picture)) bioList.Add("Face");
+                if (m.Fingerprint) bioList.Add("Fingerprint");
+                string bioText = bioList.Count > 0 ? string.Join(", ", bioList) : "-";
+
                 var item = new ListViewItem(m.MemberID.ToString());
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.ClientId)    ? "-" : m.ClientId);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.Name)        ? "-" : m.Name);
                 item.SubItems.Add(enrollmentText);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.Status)      ? "-" : m.Status);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.RFID)        ? "-" : m.RFID);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Picture)     ? "-" : System.IO.Path.GetFileName(m.Picture));
-                item.SubItems.Add(m.Fingerprint ? "Yes" : "No");
+                item.SubItems.Add(bioText);
                 item.SubItems.Add(syncStatusText);
                 item.SubItems.Add(string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry);
 
-                // Get device status - placeholder for now
-                string deviceStatus = "-";
-
-                // Get attempt count and failure reason from Log table
-                int attemptCount = 0;
+                // Get failure reason from Log table
                 string failureReason = "-";
                 try
                 {
@@ -2260,16 +2515,13 @@ namespace smart_attendance_middleware
                         var logEntry = _dbHelper.GetLatestLogForMember(m.EnrollmentID.Value);
                         if (logEntry != null)
                         {
-                            int? count = (int?)logEntry.AttemptCount;
-                            attemptCount = count ?? 0;
                             failureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
                         }
                     }
                 }
                 catch { }
 
-                item.SubItems.Add(attemptCount.ToString());
-                item.SubItems.Add(failureReason);
+                item.SubItems.Add(failureReason != "-" ? "[View]" : "-");
                 item.SubItems.Add("[View]");
                 item.Tag = m;
                 result.Add(item);
@@ -2290,7 +2542,7 @@ namespace smart_attendance_middleware
                 List<ListViewItem> displayItems;
                 if (string.IsNullOrWhiteSpace(nameFilter))
                 {
-                    displayItems = _cachedMemberItems;
+                    displayItems = _cachedMemberItems.ToList();
                 }
                 else
                 {
@@ -2299,6 +2551,45 @@ namespace smart_attendance_middleware
                                        !string.IsNullOrWhiteSpace(m.Name) &&
                                        m.Name.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) >= 0)
                         .ToList();
+                }
+
+                // Status filter
+                if (cmbMemberStatus != null && cmbMemberStatus.SelectedIndex > 0)
+                {
+                    string statusFilter = cmbMemberStatus.SelectedItem.ToString();
+                    displayItems = displayItems.Where(item => item.Tag is Member m &&
+                        (m.Status ?? "").Equals(statusFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+
+                // Sync filter (SyncStatus is subitem index 5)
+                if (cmbMemberSync != null && cmbMemberSync.SelectedIndex > 0)
+                {
+                    string syncFilter = cmbMemberSync.SelectedItem.ToString();
+                    displayItems = displayItems.Where(item =>
+                    {
+                        string syncText = item.SubItems.Count > 5 ? item.SubItems[5].Text : "";
+                        if (syncFilter == "Not Synced") return syncText.StartsWith("0/");
+                        if (syncFilter == "Fully Synced")
+                        {
+                            if (!syncText.Contains("/")) return false;
+                            var parts = syncText.Split('/');
+                            return parts.Length == 2 && parts[0].Trim() == parts[1].Split(' ')[0].Trim();
+                        }
+                        if (syncFilter == "Partially Synced")
+                        {
+                            if (!syncText.Contains("/")) return false;
+                            var parts = syncText.Split('/');
+                            return parts.Length == 2 && parts[0].Trim() != "0" && parts[0].Trim() != parts[1].Split(' ')[0].Trim();
+                        }
+                        return true;
+                    }).ToList();
+                }
+
+                // Has Failure filter (Failure Reason is subitem index 7)
+                if (chkMemberFailure != null && chkMemberFailure.Checked)
+                {
+                    displayItems = displayItems.Where(item =>
+                        item.SubItems.Count > 7 && item.SubItems[7].Text == "[View]").ToList();
                 }
 
                 if (_membersPagination == null && lst_members.Parent != null)
@@ -2353,6 +2644,26 @@ namespace smart_attendance_middleware
                 lst_pendingjobs.Columns[lst_pendingjobs.Columns.Count - 1].Width = -2;
             }
 
+            // Add filter controls — anchored to the right so they don't overlap lbl_pendingjobs_info
+            var pendingTab = lst_pendingjobs.Parent;
+            if (pendingTab != null && cmbPendingDevice == null)
+            {
+                // Position from the right edge; tab inner width ~857
+                cmbPendingFor = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(727, 11), Width = 120, Anchor = AnchorStyles.Right | AnchorStyles.Top };
+                cmbPendingFor.Items.AddRange(new object[] { "All Types", "Fingerprint", "Face", "RFID" });
+                cmbPendingFor.SelectedIndex = 0;
+                cmbPendingFor.SelectedIndexChanged += (s, e) => RefreshMemberPendingJobsList();
+                pendingTab.Controls.Add(cmbPendingFor);
+
+                cmbPendingDevice = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(569, 11), Width = 150, Anchor = AnchorStyles.Right | AnchorStyles.Top };
+                cmbPendingDevice.Items.Add("All Devices");
+                foreach (var d in AppSession.DeviceList ?? new List<Device>())
+                    cmbPendingDevice.Items.Add(!string.IsNullOrWhiteSpace(d.Location) ? d.Location : d.DeviceSerial ?? $"Device {d.DeviceId}");
+                cmbPendingDevice.SelectedIndex = 0;
+                cmbPendingDevice.SelectedIndexChanged += (s, e) => RefreshMemberPendingJobsList();
+                pendingTab.Controls.Add(cmbPendingDevice);
+            }
+
             RefreshMemberPendingJobsList();
         }
 
@@ -2398,6 +2709,15 @@ namespace smart_attendance_middleware
                     displayItems.Add(item);
                 }
 
+                // Apply filters
+                string devSel = cmbPendingDevice?.SelectedItem?.ToString() ?? "All Devices";
+                if (devSel != "All Devices")
+                    displayItems = displayItems.Where(i => string.Equals(i.SubItems[3].Text, devSel, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                string typeSel = cmbPendingFor?.SelectedItem?.ToString() ?? "All Types";
+                if (typeSel != "All Types")
+                    displayItems = displayItems.Where(i => i.SubItems[4].Text.IndexOf(typeSel, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+
                 if (_pendingJobsPagination == null && lst_pendingjobs.Parent != null)
                     _pendingJobsPagination = new ListViewPagination(lst_pendingjobs, lst_pendingjobs.Parent);
 
@@ -2435,6 +2755,25 @@ namespace smart_attendance_middleware
                 lst_staffpendingjobs.Columns.Add("Pending For", 190);
                 lst_staffpendingjobs.Columns.Add("Since", 130);
                 lst_staffpendingjobs.Columns[lst_staffpendingjobs.Columns.Count - 1].Width = -2;
+            }
+
+            // Add filter controls — anchored to the right so they don't overlap lbl_staffpendingjobs_info
+            var staffPendingTab = lst_staffpendingjobs.Parent;
+            if (staffPendingTab != null && cmbStaffPendingDevice == null)
+            {
+                cmbStaffPendingFor = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(727, 11), Width = 120, Anchor = AnchorStyles.Right | AnchorStyles.Top };
+                cmbStaffPendingFor.Items.AddRange(new object[] { "All Types", "Fingerprint", "Face", "RFID" });
+                cmbStaffPendingFor.SelectedIndex = 0;
+                cmbStaffPendingFor.SelectedIndexChanged += (s, e) => RefreshStaffPendingJobsList();
+                staffPendingTab.Controls.Add(cmbStaffPendingFor);
+
+                cmbStaffPendingDevice = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(569, 11), Width = 150, Anchor = AnchorStyles.Right | AnchorStyles.Top };
+                cmbStaffPendingDevice.Items.Add("All Devices");
+                foreach (var d in AppSession.StaffDeviceList ?? new List<Device>())
+                    cmbStaffPendingDevice.Items.Add(!string.IsNullOrWhiteSpace(d.Location) ? d.Location : d.DeviceSerial ?? $"Device {d.DeviceId}");
+                cmbStaffPendingDevice.SelectedIndex = 0;
+                cmbStaffPendingDevice.SelectedIndexChanged += (s, e) => RefreshStaffPendingJobsList();
+                staffPendingTab.Controls.Add(cmbStaffPendingDevice);
             }
 
             RefreshStaffPendingJobsList();
@@ -2481,6 +2820,15 @@ namespace smart_attendance_middleware
                     item.Tag = entry;
                     displayItems.Add(item);
                 }
+
+                // Apply filters
+                string sDevSel = cmbStaffPendingDevice?.SelectedItem?.ToString() ?? "All Devices";
+                if (sDevSel != "All Devices")
+                    displayItems = displayItems.Where(i => string.Equals(i.SubItems[3].Text, sDevSel, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                string sTypeSel = cmbStaffPendingFor?.SelectedItem?.ToString() ?? "All Types";
+                if (sTypeSel != "All Types")
+                    displayItems = displayItems.Where(i => i.SubItems[4].Text.IndexOf(sTypeSel, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
 
                 if (_staffPendingJobsPagination == null && lst_staffpendingjobs.Parent != null)
                     _staffPendingJobsPagination = new ListViewPagination(lst_staffpendingjobs, lst_staffpendingjobs.Parent);
@@ -2739,6 +3087,18 @@ namespace smart_attendance_middleware
             lst_manualdoor.Columns.Add("Username", 80);
             lst_manualdoor.Columns[lst_manualdoor.Columns.Count - 1].Width = -2;
 
+            // Add visitor filter control on first call
+            if (cmbDoorVisitor == null && lst_manualdoor.Parent != null)
+            {
+                var doorTab = lst_manualdoor.Parent;
+                int dvx = btn_filter_manualdoor != null ? btn_filter_manualdoor.Right + 10 : 300;
+                cmbDoorVisitor = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(dvx, 6), Width = 130 };
+                cmbDoorVisitor.Items.AddRange(new object[] { "All", "Members Only", "Visitors Only" });
+                cmbDoorVisitor.SelectedIndex = 0;
+                cmbDoorVisitor.SelectedIndexChanged += (s, e) => LoadFilteredManualDoorLogs();
+                doorTab.Controls.Add(cmbDoorVisitor);
+            }
+
             DateTime selectedDate = date_manualdoor.Value.Date; // Get the date part
 
             var gateAccessLogs = AppSession.AllGateLogs ?? new List<GateAccessed>();
@@ -2746,6 +3106,13 @@ namespace smart_attendance_middleware
 
             // Apply date filter
             var filteredLogs = gateAccessLogs.Where(log => log.AccessedTime.Date == selectedDate).ToList();
+
+            // Apply visitor filter
+            string visitorSel = cmbDoorVisitor?.SelectedItem?.ToString() ?? "All";
+            if (visitorSel == "Members Only")
+                filteredLogs = filteredLogs.Where(log => !log.IsVisitor).ToList();
+            else if (visitorSel == "Visitors Only")
+                filteredLogs = filteredLogs.Where(log => log.IsVisitor).ToList();
 
             var allItems = new List<ListViewItem>();
 
@@ -3101,18 +3468,21 @@ namespace smart_attendance_middleware
                         syncStatusText = $"{syncedCount}/{totalDevices} devices";
                     }
 
+                    var staffBioList = new System.Collections.Generic.List<string>();
+                    if (!string.IsNullOrWhiteSpace(rfidText) && rfidText != "-") staffBioList.Add("RFID");
+                    if (!string.IsNullOrWhiteSpace(pictureText) && pictureText != "-" && pictureText != "No") staffBioList.Add("Face");
+                    if (!string.IsNullOrWhiteSpace(fingerprintText) && fingerprintText != "No") staffBioList.Add("Fingerprint");
+                    string staffBioText = staffBioList.Count > 0 ? string.Join(", ", staffBioList) : "-";
+
                     // Create list item with all fields
                     var item = new ListViewItem(string.IsNullOrWhiteSpace(staffIdText) ? "-" : staffIdText);
                     item.SubItems.Add(string.IsNullOrWhiteSpace(nameText) ? "-" : nameText);
                     item.SubItems.Add(string.IsNullOrWhiteSpace(statusText) ? "-" : statusText);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(rfidText) ? "-" : rfidText);
-                    item.SubItems.Add(pictureText);
-                    item.SubItems.Add(fingerprintText);
+                    item.SubItems.Add(staffBioText);
                     item.SubItems.Add(string.IsNullOrWhiteSpace(enrollmentIdText) ? "-" : enrollmentIdText);
                     item.SubItems.Add(syncStatusText);
 
-                    // Get attempt count and failure reason from StaffLog table
-                    int attemptCount = 0;
+                    // Get failure reason from StaffLog table
                     string failureReason = "-";
                     try
                     {
@@ -3122,16 +3492,13 @@ namespace smart_attendance_middleware
                             var logEntry = _dbHelper.GetLatestStaffLogForEnrollment(enrollId);
                             if (logEntry != null)
                             {
-                                int? count = (int?)logEntry.AttemptCount;
-                                attemptCount = count ?? 0;
                                 failureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
                             }
                         }
                     }
                     catch { }
 
-                    item.SubItems.Add(attemptCount.ToString());
-                    item.SubItems.Add(failureReason);
+                    item.SubItems.Add(failureReason != "-" ? "[View]" : "-");
 
                     // Actions column: View button to open details form
                     item.SubItems.Add("[View]");
@@ -3141,6 +3508,20 @@ namespace smart_attendance_middleware
 
                     allItems.Add(item);
                 }
+
+                // Apply staff filters
+                string staffStatusSel = cmbStaffStatus?.SelectedItem?.ToString() ?? "All Status";
+                if (staffStatusSel != "All Status")
+                    allItems = allItems.Where(i => string.Equals(i.SubItems[2].Text, staffStatusSel, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                string staffSyncSel = cmbStaffSync?.SelectedItem?.ToString() ?? "All Sync";
+                if (staffSyncSel == "Fully Synced")
+                    allItems = allItems.Where(i => { var p = i.SubItems[5].Text.Split('/'); return p.Length == 2 && p[0].Trim() == p[1].Split(' ')[0].Trim(); }).ToList();
+                else if (staffSyncSel == "Not Synced")
+                    allItems = allItems.Where(i => i.SubItems[5].Text.StartsWith("0/")).ToList();
+
+                if (chkStaffFailure?.Checked == true)
+                    allItems = allItems.Where(i => i.SubItems[6].Text == "[View]").ToList();
 
                 // Initialize pagination if not already done
                 if (_staffsPagination == null && lst_staffs.Parent != null)
@@ -3179,18 +3560,39 @@ namespace smart_attendance_middleware
 
             // Columns matching Members pattern
             lst_staffs.Columns.Add("Staff ID", 70);
-            lst_staffs.Columns.Add("Name", 120);
+            lst_staffs.Columns.Add("Name", 140);
             lst_staffs.Columns.Add("Status", 80);
-            lst_staffs.Columns.Add("RFID", 100);
-            lst_staffs.Columns.Add("Picture", 80);
-            lst_staffs.Columns.Add("Fingerprint", 90);
+            lst_staffs.Columns.Add("Biometric", 130);
             lst_staffs.Columns.Add("Enrollment ID", 100);
-            lst_staffs.Columns.Add("Sync Status", 100);
-            lst_staffs.Columns.Add("Attempt Count", 90);
-            lst_staffs.Columns.Add("Failure Reason", 400);
+            lst_staffs.Columns.Add("Sync Status", 110);
+            lst_staffs.Columns.Add("Failure Reason", 85);
             lst_staffs.Columns.Add("Actions", 100);
 
             lst_staffs.EndUpdate();
+
+            // Add filter controls to the tab
+            var staffTab = lst_staffs.Parent;
+            if (staffTab != null && cmbStaffStatus == null)
+            {
+                int sx = btn_stafffilter != null ? btn_stafffilter.Right + 10 : 290;
+                cmbStaffStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(sx, 11), Width = 110 };
+                cmbStaffStatus.Items.AddRange(new object[] { "All Status", "active", "inactive" });
+                cmbStaffStatus.SelectedIndex = 0;
+                cmbStaffStatus.SelectedIndexChanged += (s, e) => LoadStaffsIntoListView(txt_staff?.Text?.Trim());
+                staffTab.Controls.Add(cmbStaffStatus);
+                sx += 118;
+
+                cmbStaffSync = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(sx, 11), Width = 120 };
+                cmbStaffSync.Items.AddRange(new object[] { "All Sync", "Fully Synced", "Not Synced" });
+                cmbStaffSync.SelectedIndex = 0;
+                cmbStaffSync.SelectedIndexChanged += (s, e) => LoadStaffsIntoListView(txt_staff?.Text?.Trim());
+                staffTab.Controls.Add(cmbStaffSync);
+                sx += 128;
+
+                chkStaffFailure = new CheckBox { Text = "Has Failure Only", Location = new Point(sx, 13), AutoSize = true };
+                chkStaffFailure.CheckedChanged += (s, e) => LoadStaffsIntoListView(txt_staff?.Text?.Trim());
+                staffTab.Controls.Add(chkStaffFailure);
+            }
 
             // Initial full load
             LoadStaffsIntoListView(null);
@@ -3232,6 +3634,30 @@ namespace smart_attendance_middleware
                         if (item.Tag is Member member)
                         {
                             ShowMemberDeviceStatus(member);
+                        }
+                    }
+                    else if (columnIndex == lst_members.Columns.Count - 2) // Failure Reason [View] column
+                    {
+                        if (item.Tag is Member m && item.SubItems[columnIndex].Text == "[View]")
+                        {
+                            // Re-query full reason fresh from DB
+                            string fullReason = "-";
+                            try
+                            {
+                                if (m.EnrollmentID.HasValue)
+                                {
+                                    var log = _dbHelper.GetLatestLogForMember(m.EnrollmentID.Value);
+                                    if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
+                                        fullReason = (string)log.FailureReason;
+                                }
+                            }
+                            catch { }
+
+                            if (fullReason != "-")
+                            {
+                                using (var dlg = new FailureReasonDetailForm(fullReason, m, _dbHelper))
+                                    dlg.ShowDialog(this);
+                            }
                         }
                     }
                 }
@@ -3512,7 +3938,7 @@ namespace smart_attendance_middleware
                 {
                     int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
 
-                    if (columnIndex == 10) // Actions column [View]
+                    if (columnIndex == lst_staffs.Columns.Count - 1) // Actions column [View]
                     {
                         dynamic staffTag = item.Tag;
                         string staffIdStr = staffTag.StaffID;
@@ -3521,6 +3947,38 @@ namespace smart_attendance_middleware
 
                         // Open staff details form with Enroll/Delete buttons
                         ShowStaffDetailsForm(staffIdStr, staffName, enrollmentStr);
+                    }
+                    else if (columnIndex == lst_staffs.Columns.Count - 2 && item.SubItems[columnIndex].Text == "[View]") // Failure Reason [View]
+                    {
+                        dynamic staffTag = item.Tag;
+                        string staffName = staffTag.Name?.ToString() ?? "-";
+                        int.TryParse(staffTag.EnrollmentID?.ToString() ?? "", out int staffEnrollId);
+
+                        string fullReason = "-";
+                        string pictureUrl = null;
+                        try
+                        {
+                            var log = _dbHelper.GetLatestLogForMember(staffEnrollId);
+                            if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
+                                fullReason = (string)log.FailureReason;
+                            var memberId = _dbHelper.GetMemberIdByEnrollment(staffEnrollId);
+                            if (memberId.HasValue)
+                                pictureUrl = _dbHelper.GetMember(memberId.Value)?.Picture;
+                        }
+                        catch { }
+
+                        if (fullReason == "-") return;
+
+                        using (var dlg = new FailureReasonDetailForm(
+                            fullReason,
+                            currentMemberId: null,
+                            currentEnrollmentId: staffEnrollId > 0 ? staffEnrollId : (int?)null,
+                            currentName: staffName,
+                            currentPictureUrl: pictureUrl,
+                            dbHelper: _dbHelper))
+                        {
+                            dlg.ShowDialog(this);
+                        }
                     }
                 }
             }

@@ -286,6 +286,18 @@ public sealed class ConnectionStatusChecker
 
             if (isPongRecent)
             {
+                // Pong only proves the socket is alive; the channel subscription must also be confirmed.
+                if (!_wsManager.IsSubscribed)
+                {
+                    if (_wsManager.IsSubscribing)
+                        return false; // a subscribe attempt is already in flight
+
+                    LogHelper.Log("Subscription check: pong OK but channel not subscribed - re-subscribing");
+                    // Socket is healthy, only the channel subscribe is needed - retry sooner than a full reconnect.
+                    TriggerDashboardReconnection(minIntervalSeconds: 15);
+                    return false;
+                }
+
                 // Reset reconnection attempts when connection is healthy
                 reconnectionAttempts = 0;
                 return true;
@@ -314,13 +326,13 @@ public sealed class ConnectionStatusChecker
     }
 
     // Trigger reconnection through Dashboard form (not here)
-    private void TriggerDashboardReconnection()
+    private void TriggerDashboardReconnection(int minIntervalSeconds = 60)
     {
         try
         {
-            // Avoid reconnection attempts too frequently (minimum 60 seconds apart)
+            // Avoid reconnection attempts too frequently
             var timeSinceLastReconnection = DateTime.Now - lastReconnectionAttempt;
-            if (timeSinceLastReconnection.TotalSeconds < 60)
+            if (timeSinceLastReconnection.TotalSeconds < minIntervalSeconds)
             {
                 LogHelper.Log($"Reconnection skipped - last attempt was {timeSinceLastReconnection.TotalSeconds:F1} seconds ago");
                 return;

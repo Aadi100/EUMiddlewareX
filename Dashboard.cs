@@ -324,23 +324,30 @@ namespace smart_attendance_middleware
 
             Task.Run(() =>
             {
-                int? sqlMemoryMb = null;
+                bool applied = false;
                 try
                 {
-                    sqlMemoryMb = _dbHelper?.GetSqlServerMemoryUsageMb();
+                    int? sqlMemoryMb = _dbHelper?.GetSqlServerMemoryUsageMb();
 
-                    if (IsDisposed || !IsHandleCreated) return;
-                    BeginInvoke(new Action(() =>
+                    if (!IsDisposed && IsHandleCreated)
                     {
-                        lblSqlMemoryUsage.Text = sqlMemoryMb.HasValue
-                            ? $"🗄 SQL Server: {sqlMemoryMb.Value} MB"
-                            : "🗄 SQL Server: N/A";
-                        _sqlMemoryCheckInFlight = false;
-                    }));
+                        BeginInvoke(new Action(() =>
+                        {
+                            lblSqlMemoryUsage.Text = sqlMemoryMb.HasValue
+                                ? $"🗄 SQL Server: {sqlMemoryMb.Value} MB"
+                                : "🗄 SQL Server: N/A";
+                        }));
+                        applied = true;
+                    }
                 }
                 catch (Exception ex)
                 {
                     LogHelper.Log($"[DashboardWidgets] SQL memory check failed: {ex.Message}");
+                }
+                finally
+                {
+                    // Window not ready yet (or the check failed): allow the very next refresh to retry.
+                    if (!applied) _lastSqlMemoryCheck = DateTime.MinValue;
                     _sqlMemoryCheckInFlight = false;
                 }
             });
@@ -366,10 +373,9 @@ namespace smart_attendance_middleware
         private void InitializePendingJobsMiniList()
         {
             lstPendingJobsMini.Columns.Clear();
-            lstPendingJobsMini.Columns.Add("Name", 130);
-            lstPendingJobsMini.Columns.Add("Device", 90);
-            lstPendingJobsMini.Columns.Add("Pending For", 90);
-            lstPendingJobsMini.Columns.Add("Since", 46);
+            lstPendingJobsMini.Columns.Add("Name", 160);
+            lstPendingJobsMini.Columns.Add("Device", 110);
+            lstPendingJobsMini.Columns.Add("Pending For", 110);
         }
 
         // Same underlying list shown in Device Manager's pending jobs grid — sourced from
@@ -410,7 +416,6 @@ namespace smart_attendance_middleware
                     var item = new ListViewItem(name);
                     item.SubItems.Add(deviceName);
                     item.SubItems.Add(pendingFor);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt);
                     displayItems.Add(item);
                 }
 
@@ -681,8 +686,21 @@ namespace smart_attendance_middleware
                     // Check if any members/staff have attempt count >= 5
                     bool hasHighAttempts = await CheckForHighAttemptCounts();
                     bool hasJobs = pendingJobs > 0;
+                    _retryPendingJobs = pendingJobs;
 
-                    if (hasHighAttempts)
+                    bool hasOfflineRetries = false;
+                    try
+                    {
+                        var offlineService = ServiceManager.OfflineEnrollmentSubscriptionService;
+                        if (offlineService != null)
+                            hasOfflineRetries = await offlineService.HasPendingOfflineRetriesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"Error checking pending offline retries: {ex.Message}");
+                    }
+
+                    if (hasHighAttempts && !hasOfflineRetries)
                     {
                         // Red color for blocked state
                         btn_retry.Enabled = false;
@@ -690,10 +708,10 @@ namespace smart_attendance_middleware
                         btn_retry.HoverBackground = System.Drawing.Color.FromArgb(200, 35, 51);
                         btn_retry.NormalForeColor = System.Drawing.Color.White;
                         btn_retry.HoverForeColor = System.Drawing.Color.White;
-                        _buttonTooltip.SetToolTip(btn_retry, "⚠️ Some members/staff have high attempt counts (5+). Retries paused until counts drop below 5");
+                        _buttonTooltip.SetToolTip(btn_retry, "⚠️ All pending members/staff have reached 5+ failed attempts. Nothing left to retry right now.");
                         LogHelper.Log($"🔴 Retry button disabled - members/staff with high attempt counts detected");
                     }
-                    else if (hasJobs)
+                    else if (hasJobs || hasOfflineRetries)
                     {
                         // Orange color for normal retry
                         btn_retry.Enabled = true;
@@ -701,8 +719,11 @@ namespace smart_attendance_middleware
                         btn_retry.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(35)))));
                         btn_retry.NormalForeColor = System.Drawing.Color.White;
                         btn_retry.HoverForeColor = System.Drawing.Color.White;
-                        _buttonTooltip.SetToolTip(btn_retry, $"Retry {pendingJobs} pending sync job(s)");
-                        LogHelper.Log($"🟠 Retry button enabled - pending jobs: {pendingJobs}");
+                        string tip = hasJobs ? $"Retry {pendingJobs} pending sync job(s)" : "Retry pending offline member/renewal sync";
+                        if (hasJobs && hasOfflineRetries) tip += " + offline items";
+                        if (hasHighAttempts) tip += " (members/staff at 5+ attempts stay paused)";
+                        _buttonTooltip.SetToolTip(btn_retry, tip);
+                        LogHelper.Log($"🟠 Retry button enabled - pending jobs: {pendingJobs}, offline retries: {hasOfflineRetries}");
                     }
                     else
                     {
@@ -1334,10 +1355,14 @@ namespace smart_attendance_middleware
                         return false;
                     });
 
-                    if (pongReceived)
+                    if (pongReceived && _wsManager.IsSubscribed)
                     {
                         isAlreadyConnected = true;
-                        LogHelper.Log("✅ Already connected to WebSocket (verified with pong response)");
+                        LogHelper.Log("✅ Already connected to WebSocket (verified with pong response and channel subscription)");
+                    }
+                    else if (pongReceived)
+                    {
+                        LogHelper.Log("⚠️ Pong received but channel is not subscribed - re-subscribing");
                     }
                 }
                 catch (Exception ex)
@@ -1444,51 +1469,73 @@ namespace smart_attendance_middleware
             }
         }
 
+        /// <summary>
+        /// Returns true only when EVERY pending member/staff has attempt count >= 5
+        /// (i.e. nobody left who can actually be retried). If even one is below 5, returns false.
+        /// </summary>
         private async Task<bool> CheckForHighAttemptCounts()
         {
             try
             {
                 if (_dbHelper == null) return false;
 
-                // Check members for attempt count >= 5
+                bool anyRetryable = false;
+
                 var members = _dbHelper.GetMembers();
-                if (members != null && members.Count > 0)
+                if (members != null)
                 {
                     foreach (var member in members)
                     {
-                        if (member == null) continue;
-                        if (member.EnrollmentID.HasValue && member.EnrollmentID.Value > 0)
+                        if (member == null || !member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0) continue;
+                        var logEntry = _dbHelper.GetLatestLogForMember(member.EnrollmentID.Value);
+                        if (logEntry == null) continue;
+                        int attempts = (int?)logEntry.AttemptCount ?? 0;
+                        if (attempts > 0 && attempts < 5)
                         {
-                            var logEntry = await _dbHelper.GetLatestLogForMember(member.EnrollmentID.Value);
-                            if (logEntry != null && logEntry.AttemptCount >= 5)
-                            {
-                                LogHelper.Log($"Found member {member.Name} with attempt count {logEntry.AttemptCount}");
-                                return true;
-                            }
+                            // At least one member is retryable — button should be enabled
+                            anyRetryable = true;
+                            break;
                         }
                     }
                 }
 
-                // Check staff for attempt count >= 5
+                if (anyRetryable) return false;
+
                 var staffs = _dbHelper.GetStaffs();
-                if (staffs != null && staffs.Count > 0)
+                if (staffs != null)
                 {
                     foreach (var staff in staffs)
                     {
-                        if (staff == null) continue;
-                        if (staff.EnrollmentID.HasValue && staff.EnrollmentID.Value > 0)
+                        if (staff == null || !staff.EnrollmentID.HasValue || staff.EnrollmentID.Value <= 0) continue;
+                        var logEntry = _dbHelper.GetLatestStaffLogForEnrollment(staff.EnrollmentID.Value);
+                        if (logEntry == null) continue;
+                        int attempts = (int?)logEntry.AttemptCount ?? 0;
+                        if (attempts > 0 && attempts < 5)
                         {
-                            var logEntry = await _dbHelper.GetLatestStaffLogForEnrollment(staff.EnrollmentID.Value);
-                            if (logEntry != null && logEntry.AttemptCount >= 5)
-                            {
-                                LogHelper.Log($"Found staff {staff.Name} with attempt count {logEntry.AttemptCount}");
-                                return true;
-                            }
+                            anyRetryable = true;
+                            break;
                         }
                     }
                 }
 
-                return false;
+                if (anyRetryable) return false;
+
+                // Only return true (block button) if we found nobody retryable but someone IS at 5+
+                var membersHigh = members?.Any(m =>
+                {
+                    if (m == null || !m.EnrollmentID.HasValue || m.EnrollmentID.Value <= 0) return false;
+                    var log = _dbHelper.GetLatestLogForMember(m.EnrollmentID.Value);
+                    return log != null && (int?)log.AttemptCount >= 5;
+                }) ?? false;
+
+                var staffsHigh = staffs?.Any(s =>
+                {
+                    if (s == null || !s.EnrollmentID.HasValue || s.EnrollmentID.Value <= 0) return false;
+                    var log = _dbHelper.GetLatestStaffLogForEnrollment(s.EnrollmentID.Value);
+                    return log != null && (int?)log.AttemptCount >= 5;
+                }) ?? false;
+
+                return membersHigh || staffsHigh;
             }
             catch (Exception ex)
             {
@@ -1497,25 +1544,31 @@ namespace smart_attendance_middleware
             }
         }
 
+        private int _retryPendingJobs = 0;
+
         private async void cuiButton5_Click(object sender, EventArgs e)
         {
             try
             {
-                // Check for high attempt counts before retrying
-                bool hasHighAttempts = await CheckForHighAttemptCounts();
-                if (hasHighAttempts)
+                bool hasJobs = _retryPendingJobs > 0;
+                bool hasOfflineRetries = false;
+
+                var offlineService = ServiceManager.OfflineEnrollmentSubscriptionService;
+                if (offlineService != null)
+                    hasOfflineRetries = await offlineService.HasPendingOfflineRetriesAsync();
+
+                // Run only what is actually pending: offline retries, pending jobs, or both.
+                if (hasOfflineRetries)
                 {
-                    MessageBox.Show(
-                        "⚠️ Cannot retry at this moment.\n\n" +
-                        "Some members/staff have reached the maximum attempt limit (5+ failed syncs).\n" +
-                        "Automatic retries are paused for these entries to prevent repeated failures.\n\n" +
-                        "The system will automatically resume retrying once their attempt counts drop below 5.\n" +
-                        "You can manually reset attempt counts in the database if needed.",
-                        "High Attempt Count Detected",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    LogHelper.Log("⚠️ Retry blocked - high attempt counts detected");
-                    return;
+                    LogHelper.Log("🔄 Manual retry: offline member device push and renewal sync...");
+                    await offlineService.PushOfflineEntriesToDevicesAsync();
+                    await offlineService.SyncPendingRenewalsWithQuickRetryAsync();
+
+                    if (!hasJobs)
+                    {
+                        LogHelper.Log("✅ Manual retry completed (offline retries only)");
+                        return;
+                    }
                 }
 
                 LogHelper.Log("🔄 Starting retry jobs...");
@@ -1995,7 +2048,6 @@ namespace smart_attendance_middleware
 
                 dataPairPanel1.SetData(dataPairs);
 
-                LogHelper.Log($"[DEBUG] DataPairPanel populated with {allDevices.Count} devices from AppSession.");
 
                 // --- INTEGRATED CONTINUOUS DEVICE MONITORING ---
                 if (allDevices.Count > 0)

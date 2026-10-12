@@ -63,149 +63,283 @@ namespace smart_attendance_middleware
         private void BuildUi()
         {
             Text = "Add Offline Member";
-            Width = 660;
-            Height = 660;
+            Width = 780;
+            Height = 700;
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            BackColor = PanelBack;
+            BackColor = Color.FromArgb(245, 246, 250);
 
-            // ---- Header bar (matches the app's dark-navy brand chrome) ----
-            var header = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = BrandNavy };
-            var lblTitle = new Label
+            // ── Header ──────────────────────────────────────────────────────
+            var header = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = BrandNavy };
+            header.Controls.Add(new Label
             {
                 Text = "Add Offline Member",
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 13F, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(16, 14)
-            };
-            header.Controls.Add(lblTitle);
+                Location = new Point(20, 12)
+            });
+            header.Controls.Add(new Label
+            {
+                Text = "Enrollment will sync automatically when back online",
+                ForeColor = Color.FromArgb(160, 170, 200),
+                Font = new Font("Segoe UI", 8.5F),
+                AutoSize = true,
+                Location = new Point(22, 40)
+            });
             Controls.Add(header);
 
-            // ---- Photo panel (left) — live camera preview shows inline, no popup ----
-            var photoPanel = new Panel
+            // ── Photo column ─────────────────────────────────────────────────
+            var photoCard = new Panel
             {
-                Location = new Point(16, 64),
-                Size = new Size(200, 300),
+                Location = new Point(20, 86),
+                Size = new Size(210, 540),
                 BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
+                Padding = new Padding(12)
             };
-            Controls.Add(photoPanel);
+            photoCard.Paint += (s, e) =>
+            {
+                var r = new System.Drawing.Rectangle(0, 0, photoCard.Width - 1, photoCard.Height - 1);
+                e.Graphics.DrawRectangle(new Pen(Color.FromArgb(220, 222, 230)), r);
+            };
+            Controls.Add(photoCard);
+
+            var photoLabel = new Label
+            {
+                Text = "MEMBER PHOTO",
+                ForeColor = Color.FromArgb(130, 136, 160),
+                Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(12, 14)
+            };
+            photoCard.Controls.Add(photoLabel);
 
             picPreview = new PictureBox
             {
-                Location = new Point(8, 8),
-                Size = new Size(184, 184),
+                Location = new Point(12, 34),
+                Size = new Size(186, 186),
                 SizeMode = PictureBoxSizeMode.Zoom,
-                BackColor = Color.Gainsboro,
-                BorderStyle = BorderStyle.FixedSingle
+                BackColor = Color.FromArgb(240, 241, 246),
+                BorderStyle = BorderStyle.None
             };
-            photoPanel.Controls.Add(picPreview);
+            picPreview.Paint += (s, e) =>
+            {
+                if (picPreview.Image == null)
+                {
+                    e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    var icon = "👤";
+                    var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    e.Graphics.DrawString(icon, new Font("Segoe UI Emoji", 40F), Brushes.Silver,
+                        new RectangleF(0, 0, picPreview.Width, picPreview.Height), sf);
+                }
+            };
+            photoCard.Controls.Add(picPreview);
 
             cmbCameraDevice = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(8, 198),
-                Width = 184,
-                Visible = false
+                Location = new Point(12, 230),
+                Width = 186,
+                Visible = false,
+                Font = new Font("Segoe UI", 8.5F)
             };
             cmbCameraDevice.SelectedIndexChanged += CmbCameraDevice_SelectedIndexChanged;
-            photoPanel.Controls.Add(cmbCameraDevice);
+            photoCard.Controls.Add(cmbCameraDevice);
 
-            btnTakePicture = new Button { Text = "Take Picture", Location = new Point(8, 228), Width = 184 };
-            btnTakePicture.Click += BtnTakePicture_Click;
-            photoPanel.Controls.Add(btnTakePicture);
-
-            btnBrowsePicture = new Button { Text = "Browse...", Location = new Point(8, 258), Width = 184 };
-            btnBrowsePicture.Click += BtnBrowsePicture_Click;
-            photoPanel.Controls.Add(btnBrowsePicture);
-
-            // ---- Fields panel (right) ----
-            var layout = new TableLayoutPanel
+            btnTakePicture = new Button
             {
-                Location = new Point(228, 64),
-                Size = new Size(410, 420),
-                ColumnCount = 2,
-                AutoSize = true
+                Text = "📷  Take Picture",
+                Location = new Point(12, 256),
+                Width = 186,
+                Height = 34,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = BrandNavy,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9F),
+                Cursor = Cursors.Hand
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            Controls.Add(layout);
+            btnTakePicture.FlatAppearance.BorderSize = 0;
+            btnTakePicture.Click += BtnTakePicture_Click;
+            photoCard.Controls.Add(btnTakePicture);
 
-            void AddRow(string label, Control control)
+            btnBrowsePicture = new Button
             {
-                int row = layout.RowCount;
-                layout.RowCount++;
-                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3) }, 0, row);
-                control.Dock = DockStyle.Fill;
-                control.Margin = new Padding(3, 4, 3, 4);
-                layout.Controls.Add(control, 1, row);
+                Text = "📁  Browse File",
+                Location = new Point(12, 298),
+                Width = 186,
+                Height = 34,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(240, 241, 246),
+                ForeColor = Color.FromArgb(60, 65, 90),
+                Font = new Font("Segoe UI", 9F),
+                Cursor = Cursors.Hand
+            };
+            btnBrowsePicture.FlatAppearance.BorderColor = Color.FromArgb(200, 202, 215);
+            btnBrowsePicture.FlatAppearance.BorderSize = 1;
+            btnBrowsePicture.Click += BtnBrowsePicture_Click;
+            photoCard.Controls.Add(btnBrowsePicture);
+
+            // ── Right: two section cards ──────────────────────────────────────
+            int cardLeft = 244;
+            int cardWidth = 498;
+
+            Panel MakeCard(int top, int height, string sectionTitle, Color accentColor)
+            {
+                var card = new Panel
+                {
+                    Location = new Point(cardLeft, top),
+                    Size = new Size(cardWidth, height),
+                    BackColor = Color.White
+                };
+                card.Paint += (s, e) =>
+                {
+                    var r = new System.Drawing.Rectangle(0, 0, card.Width - 1, card.Height - 1);
+                    e.Graphics.DrawRectangle(new Pen(Color.FromArgb(220, 222, 230)), r);
+                    e.Graphics.FillRectangle(new SolidBrush(accentColor), 0, 0, 4, card.Height);
+                };
+                card.Controls.Add(new Label
+                {
+                    Text = sectionTitle,
+                    ForeColor = Color.FromArgb(50, 55, 80),
+                    Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                    AutoSize = true,
+                    Location = new Point(16, 12)
+                });
+                Controls.Add(card);
+                return card;
             }
 
+            TableLayoutPanel MakeGrid(Panel card, int top)
+            {
+                var grid = new TableLayoutPanel
+                {
+                    Location = new Point(12, top),
+                    Size = new Size(card.Width - 24, card.Height - top - 10),
+                    ColumnCount = 2,
+                    AutoSize = false,
+                    CellBorderStyle = TableLayoutPanelCellBorderStyle.None
+                };
+                grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 148));
+                grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                card.Controls.Add(grid);
+                return grid;
+            }
+
+            void AddRow(TableLayoutPanel grid, string labelText, Control ctrl, bool required = false)
+            {
+                int row = grid.RowCount++;
+                grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+                var lbl = new Label
+                {
+                    Text = labelText,
+                    ForeColor = Color.FromArgb(90, 96, 120),
+                    Font = new Font("Segoe UI", 8.5F),
+                    AutoSize = false,
+                    Size = new Size(140, 26),
+                    Anchor = AnchorStyles.Left | AnchorStyles.Top,
+                    Margin = new Padding(0, 8, 4, 0)
+                };
+                grid.Controls.Add(lbl, 0, row);
+                ctrl.Dock = DockStyle.Fill;
+                ctrl.Margin = new Padding(0, 4, 4, 4);
+                ctrl.Font = new Font("Segoe UI", 9F);
+                grid.Controls.Add(ctrl, 1, row);
+            }
+
+            // Section 1 — Member Information
+            var infoCard = MakeCard(86, 236, "Member Information", Color.FromArgb(41, 98, 255));
+            var infoGrid = MakeGrid(infoCard, 36);
+            infoGrid.RowCount = 0;
+
             txtFirstName = new TextBox();
-            AddRow("First Name*", txtFirstName);
-
+            AddRow(infoGrid, "First Name *", txtFirstName);
             txtLastName = new TextBox();
-            AddRow("Last Name*", txtLastName);
-
+            AddRow(infoGrid, "Last Name *", txtLastName);
             cmbGender = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             cmbGender.Items.AddRange(new object[] { "Male", "Female", "Other" });
-            AddRow("Gender", cmbGender);
-
+            AddRow(infoGrid, "Gender", cmbGender);
             txtPhone = new TextBox();
-            AddRow("Phone", txtPhone);
-
+            AddRow(infoGrid, "Phone", txtPhone);
             txtRfid = new TextBox();
-            AddRow("RFID", txtRfid);
+            AddRow(infoGrid, "RFID", txtRfid);
+
+            // Section 2 — Subscription & Payment
+            var subCard = MakeCard(334, 226, "Subscription & Payment", Color.FromArgb(0, 180, 140));
+            var subGrid = MakeGrid(subCard, 36);
+            subGrid.RowCount = 0;
 
             cmbPackage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPackage.SelectedIndexChanged += CmbPackage_SelectedIndexChanged;
-            AddRow("Package*", cmbPackage);
-
+            AddRow(subGrid, "Package *", cmbPackage);
             cmbPeriodicity = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            AddRow("Periodicity*", cmbPeriodicity);
-
+            AddRow(subGrid, "Periodicity *", cmbPeriodicity);
             dtpStartDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            AddRow("Start Date", dtpStartDate);
-
+            AddRow(subGrid, "Start Date", dtpStartDate);
             dtpPaymentCollectedAt = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            AddRow("Payment Collected At", dtpPaymentCollectedAt);
-
+            AddRow(subGrid, "Payment Collected At", dtpPaymentCollectedAt);
             cmbPaymentMethod = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPaymentMethod.Items.AddRange(new object[] { "cash", "card", "bank_transfer", "online" });
             cmbPaymentMethod.SelectedIndex = 0;
-            AddRow("Payment Method", cmbPaymentMethod);
+            AddRow(subGrid, "Payment Method", cmbPaymentMethod);
 
+            // ── Status label ─────────────────────────────────────────────────
             lblStatus = new Label
             {
                 AutoSize = false,
-                Location = new Point(16, 520),
-                Size = new Size(622, 40),
+                Location = new Point(20, 574),
+                Size = new Size(720, 22),
                 ForeColor = Color.Firebrick,
-                TextAlign = ContentAlignment.TopLeft
+                Font = new Font("Segoe UI", 8.5F),
+                TextAlign = ContentAlignment.MiddleLeft
             };
             Controls.Add(lblStatus);
 
-            var buttonPanel = new FlowLayoutPanel
+            // ── Bottom button bar ─────────────────────────────────────────────
+            var buttonPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                FlowDirection = FlowDirection.RightToLeft,
-                Height = 56,
-                Padding = new Padding(16)
+                Height = 58,
+                BackColor = Color.White
             };
+            buttonPanel.Paint += (s, e) =>
+                e.Graphics.DrawLine(new Pen(Color.FromArgb(220, 222, 230)), 0, 0, buttonPanel.Width, 0);
 
-            btnSave = new Button { Text = "Save", Width = 100, BackColor = BrandNavy, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            btnCancel = new Button
+            {
+                Text = "Cancel",
+                Width = 100,
+                Height = 34,
+                Location = new Point(buttonPanel.Width - 222, 12),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(80, 86, 110),
+                Font = new Font("Segoe UI", 9F),
+                Cursor = Cursors.Hand
+            };
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(200, 202, 215);
+            btnCancel.Click += (s, e) => Close();
+
+            btnSave = new Button
+            {
+                Text = "Save Member",
+                Width = 120,
+                Height = 34,
+                Location = new Point(buttonPanel.Width - 136, 12),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = BrandNavy,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
             btnSave.FlatAppearance.BorderSize = 0;
             btnSave.Click += BtnSave_Click;
 
-            btnCancel = new Button { Text = "Cancel", Width = 100 };
-            btnCancel.Click += (s, e) => Close();
-
-            buttonPanel.Controls.Add(btnSave);
             buttonPanel.Controls.Add(btnCancel);
+            buttonPanel.Controls.Add(btnSave);
             Controls.Add(buttonPanel);
 
             FormClosed += (s, e) => StopCamera();
@@ -510,8 +644,11 @@ namespace smart_attendance_middleware
                 {
                     try
                     {
-                        var deviceFunctions = new DeviceFunctions();
-                        await deviceFunctions.ProcessAllOfflineEntries();
+                        var offlineService = ServiceManager.OfflineEnrollmentSubscriptionService;
+                        if (offlineService != null)
+                            await offlineService.PushOfflineEntriesToDevicesAsync();
+                        else
+                            await new DeviceFunctions().ProcessAllOfflineEntries();
                     }
                     catch (Exception ex)
                     {

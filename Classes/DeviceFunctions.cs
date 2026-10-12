@@ -127,6 +127,19 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
+        // Returns true when the reason string is just a generic timeout/no-ack fallback
+        // with no device-supplied detail (e.g. "Face sync failed" with nothing after it).
+        private static bool IsGenericTimeoutReason(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) return true;
+            string lower = reason.Trim().ToLowerInvariant();
+            // Generic fallbacks produced when no LastCommandErrors entry exists (timeout/no-ack)
+            return lower == "face sync failed"
+                || lower == "fingerprint sync failed"
+                || lower == "rfid sync failed"
+                || lower == "sync failed";
+        }
+
         private async Task<string> BuildDetailedErrorReason(string biometricType, string deviceSerial, int enrollId)
         {
             try
@@ -282,8 +295,8 @@ namespace smart_attendance_middleware.Classes
 
                         // Skip if attempt count is >= 5
                         if (entry.EnrollmentID <= 0) continue;
-                        var logEntry = await _dbHelper.GetLatestLogForMember(entry.EnrollmentID);
-                        if (logEntry?.AttemptCount >= 5)
+                        var logEntry = _dbHelper.GetLatestLogForMember(entry.EnrollmentID);
+                        if (logEntry != null && (int?)logEntry.AttemptCount >= 5)
                         {
                             LogHelper.Log($"Skipping {member.Name} - attempt count is {logEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
                             processed++;
@@ -338,6 +351,13 @@ namespace smart_attendance_middleware.Classes
                             {
                                 // Log failure with detailed reason
                                 string errorReason = await BuildDetailedErrorReason(biometric.Key, device.DeviceSerial, entry.EnrollmentID);
+                                // Preserve any existing meaningful reason if new one is just a generic timeout fallback
+                                if (IsGenericTimeoutReason(errorReason))
+                                {
+                                    string existing = _dbHelper.GetLogFailureReasonById(entry.Id, "Log");
+                                    if (!string.IsNullOrWhiteSpace(existing) && !IsGenericTimeoutReason(existing))
+                                        errorReason = existing;
+                                }
                                 await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
                                 try
                                 {
@@ -392,8 +412,8 @@ namespace smart_attendance_middleware.Classes
                         string staffName = staff.Name ?? sEntry.StaffID;
 
                         // Skip if attempt count is >= 5
-                        var staffLogEntry = await _dbHelper.GetLatestStaffLogForEnrollment(sEntry.EnrollmentID ?? 0);
-                        if (staffLogEntry?.AttemptCount >= 5)
+                        var staffLogEntry = _dbHelper.GetLatestStaffLogForEnrollment(sEntry.EnrollmentID ?? 0);
+                        if (staffLogEntry != null && (int?)staffLogEntry.AttemptCount >= 5)
                         {
                             LogHelper.Log($"[Staff] Skipping {staffName} - attempt count is {staffLogEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
                             staffProcessed++;
@@ -447,6 +467,13 @@ namespace smart_attendance_middleware.Classes
                             {
                                 // Log failure with detailed reason
                                 string errorReason = await BuildDetailedErrorReason(biometric.Key, device.DeviceSerial, staffEnrollId);
+                                // Preserve any existing meaningful reason if new one is just a generic timeout fallback
+                                if (IsGenericTimeoutReason(errorReason))
+                                {
+                                    string existing = _dbHelper.GetLogFailureReasonById(sEntry.Id, "StaffLog");
+                                    if (!string.IsNullOrWhiteSpace(existing) && !IsGenericTimeoutReason(existing))
+                                        errorReason = existing;
+                                }
                                 await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllEntries_Write", DbTaskPriority.High);
                                 try
                                 {
@@ -530,8 +557,8 @@ namespace smart_attendance_middleware.Classes
                         }
 
                         // Skip if attempt count is >= 5
-                        var offlineLogEntry = await _dbHelper.GetLatestOfflineLogForMember(entry.ClientId);
-                        if (offlineLogEntry?.AttemptCount >= 5)
+                        var offlineLogEntry = _dbHelper.GetLatestOfflineLogForMember(entry.ClientId);
+                        if (offlineLogEntry != null && (int?)offlineLogEntry.AttemptCount >= 5)
                         {
                             LogHelper.Log($"[Offline] Skipping {offlineMember.Name} - attempt count is {offlineLogEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
                             processed++;
@@ -601,6 +628,13 @@ namespace smart_attendance_middleware.Classes
                             {
                                 // Log failure with detailed reason
                                 string errorReason = await BuildDetailedErrorReason(biometric.Key, device.DeviceSerial, offlineMember.EnrollmentID);
+                                // Preserve any existing meaningful reason if new one is just a generic timeout fallback
+                                if (IsGenericTimeoutReason(errorReason))
+                                {
+                                    string existing = _dbHelper.GetLogFailureReasonById(entry.Id, "OfflineMemberLog");
+                                    if (!string.IsNullOrWhiteSpace(existing) && !IsGenericTimeoutReason(existing))
+                                        errorReason = existing;
+                                }
                                 await DatabaseQueueManager.EnterDbWriteLockAsync("ProcessAllOfflineEntries_Write", DbTaskPriority.High);
                                 try
                                 {

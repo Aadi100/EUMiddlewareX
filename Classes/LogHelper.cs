@@ -69,6 +69,15 @@ public static class LogHelper
         }
     }
 
+    // Like Log() but only writes when a developer is logged in.
+    // Use this for messages that contain raw API payloads, PII, or biometric data.
+    public static void LogDev(string message)
+    {
+        if (!string.Equals(AppSession.UserRole, "developer", StringComparison.OrdinalIgnoreCase))
+            return;
+        Log(message);
+    }
+
     // Runs on the single dedicated writer thread only — no locking needed
     // since nothing else ever touches _logWriter.
     private static void ProcessQueue()

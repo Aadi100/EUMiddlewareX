@@ -37,6 +37,13 @@ namespace smart_attendance_middleware.Classes
         private System.Threading.Timer _enrollmentSyncTimer;
         private volatile bool _enrollmentSyncRunning = false;
 
+        private System.Threading.Timer _devicePushTimer;
+        private readonly SemaphoreSlim _devicePushGate = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _renewalGate = new SemaphoreSlim(1, 1);
+        private const int DevicePushIntervalMs = 60 * 1000;
+        private const int DevicePushQuickRetryMs = 3000;
+        private const int DevicePushMaxAttempts = 5;
+
         private readonly TaskCompletionSource<bool> _startedTcs =
             new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task Started => _startedTcs.Task;
@@ -81,6 +88,12 @@ namespace smart_attendance_middleware.Classes
                 EnrollmentSyncIntervalMs,
                 EnrollmentSyncIntervalMs);
             LogHelper.Log($"Offline enrollment push timer started (every {EnrollmentSyncIntervalMs / 1000}s)");
+
+            _devicePushTimer = new System.Threading.Timer(
+                _ => _ = CheckPendingOfflineDevicePushAsync(),
+                null,
+                DevicePushIntervalMs,
+                DevicePushIntervalMs);
         }
 
         public void Stop()
@@ -93,6 +106,79 @@ namespace smart_attendance_middleware.Classes
 
             _enrollmentSyncTimer?.Dispose();
             _enrollmentSyncTimer = null;
+
+            _devicePushTimer?.Dispose();
+            _devicePushTimer = null;
+        }
+
+        /// <summary>
+        /// Pushes unsynced OfflineMemberLog entries to the devices. If anything is still pending
+        /// afterwards, retries exactly once more after 3 seconds.
+        /// </summary>
+        public async Task PushOfflineEntriesToDevicesAsync()
+        {
+            await RunOfflineDevicePushOnceAsync(waitForGate: true);
+
+            if (await HasRetryableOfflineDeviceEntriesAsync())
+            {
+                LogHelper.Log("[OfflineDevicePush] Entries still pending - retrying in 3 seconds");
+                await Task.Delay(DevicePushQuickRetryMs);
+                await RunOfflineDevicePushOnceAsync(waitForGate: true);
+            }
+        }
+
+        // Runs every minute: retries only when there is a pending offline log below the attempt limit.
+        private async Task CheckPendingOfflineDevicePushAsync()
+        {
+            try
+            {
+                if (!await HasRetryableOfflineDeviceEntriesAsync()) return;
+                LogHelper.Log("[OfflineDevicePush] Pending offline entries found - retrying device push");
+                await RunOfflineDevicePushOnceAsync(waitForGate: false);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[OfflineDevicePush] Periodic check failed: {ex.Message}");
+            }
+        }
+
+        private async Task RunOfflineDevicePushOnceAsync(bool waitForGate)
+        {
+            if (waitForGate) await _devicePushGate.WaitAsync();
+            else if (!await _devicePushGate.WaitAsync(0)) return;
+
+            try
+            {
+                await new DeviceFunctions().ProcessAllOfflineEntries();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[OfflineDevicePush] ProcessAllOfflineEntries failed: {ex.Message}");
+            }
+            finally
+            {
+                _devicePushGate.Release();
+            }
+        }
+
+        // True if at least one unsynced offline log entry has fewer than 5 failed attempts.
+        private async Task<bool> HasRetryableOfflineDeviceEntriesAsync()
+        {
+            var entries = await _dbHelper.GetUnsyncedOfflineLogEntriesAsync();
+            if (entries == null) return false;
+
+            foreach (var entry in entries)
+            {
+                dynamic log = _dbHelper.GetLatestOfflineLogForMember(entry.ClientId);
+                int attempts = 0;
+                if (log != null)
+                {
+                    int? value = (int?)log.AttemptCount;
+                    attempts = value ?? 0;
+                }
+                if (attempts < DevicePushMaxAttempts) return true;
+            }
+            return false;
         }
 
         private async Task RunSyncLoopAsync(CancellationToken token)
@@ -293,31 +379,81 @@ namespace smart_attendance_middleware.Classes
         /// </summary>
         private async Task SyncPendingRenewalsAsync()
         {
-            List<OfflineSubscription> pendingRenewals;
+            await _renewalGate.WaitAsync().ConfigureAwait(false);
             try
             {
-                pendingRenewals = _dbHelper.GetPendingOfflineSubscriptions() ?? new List<OfflineSubscription>();
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[OfflineEnrollmentSync] Failed to read pending renewals: {ex.Message}");
-                return;
-            }
-
-            if (pendingRenewals.Count == 0) return;
-
-            LogHelper.Log($"[OfflineEnrollmentSync] {pendingRenewals.Count} renewal(s) pending server sync.");
-
-            foreach (var renewal in pendingRenewals)
-            {
+                List<OfflineSubscription> pendingRenewals;
                 try
                 {
-                    await SyncSingleRenewalAsync(renewal).ConfigureAwait(false);
+                    pendingRenewals = _dbHelper.GetPendingOfflineSubscriptions() ?? new List<OfflineSubscription>();
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Log($"[OfflineEnrollmentSync] Error syncing renewal Id={renewal.Id} (MemberId={renewal.MemberId}): {ex.Message}");
+                    LogHelper.Log($"[OfflineEnrollmentSync] Failed to read pending renewals: {ex.Message}");
+                    return;
                 }
+
+                if (pendingRenewals.Count == 0) return;
+
+                LogHelper.Log($"[OfflineEnrollmentSync] {pendingRenewals.Count} renewal(s) pending server sync.");
+
+                foreach (var renewal in pendingRenewals)
+                {
+                    try
+                    {
+                        await SyncSingleRenewalAsync(renewal).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Log($"[OfflineEnrollmentSync] Error syncing renewal Id={renewal.Id} (MemberId={renewal.MemberId}): {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                _renewalGate.Release();
+            }
+        }
+
+        /// <summary>
+        /// Pushes queued renewals right away; if any are still pending afterwards, retries exactly
+        /// once more after 3 seconds. The 1-minute enrollment timer keeps retrying after that.
+        /// </summary>
+        public async Task SyncPendingRenewalsWithQuickRetryAsync()
+        {
+            if (!ConnectionStatusChecker.Instance.IsInternetConnected)
+            {
+                LogHelper.Log("[OfflineEnrollmentSync] Renewal quick sync skipped — no internet; the 1-minute timer will retry.");
+                return;
+            }
+
+            await SyncPendingRenewalsAsync().ConfigureAwait(false);
+
+            if (HasPendingRenewals())
+            {
+                LogHelper.Log("[OfflineEnrollmentSync] Renewal(s) still pending — retrying in 3 seconds");
+                await Task.Delay(3000).ConfigureAwait(false);
+                await SyncPendingRenewalsAsync().ConfigureAwait(false);
+            }
+        }
+
+        // True if any offline member log can still be pushed to devices, or any renewal awaits upload.
+        public async Task<bool> HasPendingOfflineRetriesAsync()
+        {
+            if (HasPendingRenewals()) return true;
+            return await HasRetryableOfflineDeviceEntriesAsync().ConfigureAwait(false);
+        }
+
+        private bool HasPendingRenewals()
+        {
+            try
+            {
+                var pending = _dbHelper.GetPendingOfflineSubscriptions();
+                return pending != null && pending.Count > 0;
+            }
+            catch
+            {
+                return false;
             }
         }
 

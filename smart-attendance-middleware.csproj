@@ -291,6 +291,9 @@
     <Compile Include="AddOfflineMemberForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="FailureReasonDetailForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="CropForm.cs">
       <SubType>Form</SubType>
     </Compile>

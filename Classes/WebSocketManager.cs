@@ -96,6 +96,12 @@ namespace smart_attendance_middleware
         public string ActiveChannel => _activeChannel;
         public bool IsOpen => _websocket?.State == WebSocketState.Open; // NEW
 
+        private volatile bool _isSubscribed;
+        private volatile bool _subscribing;
+        // True only while the socket is open AND the server confirmed the channel subscription.
+        public bool IsSubscribed => _isSubscribed && IsOpen;
+        public bool IsSubscribing => _subscribing;
+
         public WebSocketManager(DatabaseHelper dbHelper)
         {
             _dbHelper = dbHelper ?? throw new ArgumentNullException(nameof(dbHelper));
@@ -213,6 +219,10 @@ namespace smart_attendance_middleware
 
             _websocket = null;
             _cts = null;
+            _isSubscribed = false;
+            // The socket_id belongs to the connection that just closed; a stale one would make
+            // the next private-channel auth be signed for a dead socket.
+            _socketId = null;
         }
 
         // Public shutdown — call this from app/Dashboard shutdown instead of only
@@ -225,6 +235,21 @@ namespace smart_attendance_middleware
         // Subscribe to a channel (supports private- channels via HTTP auth)
         public async Task<bool> SubscribeAsync(string channelName, string jwtToken = null)
         {
+            _subscribing = true;
+            try
+            {
+                return await SubscribeCoreAsync(channelName, jwtToken);
+            }
+            finally
+            {
+                _subscribing = false;
+            }
+        }
+
+        private async Task<bool> SubscribeCoreAsync(string channelName, string jwtToken)
+        {
+            _isSubscribed = false;
+
             if (_websocket?.State != WebSocketState.Open)
             {
                 OnErrorOccurred("WebSocket is not connected.");
@@ -280,6 +305,7 @@ namespace smart_attendance_middleware
             if (completedTask == _subscriptionTcs.Task && _subscriptionTcs.Task.Result)
             {
                 _activeChannel = channelName;
+                _isSubscribed = true;
                 OnStatusChanged($"Subscription confirmed by server for '{channelName}'.");
                 LogHelper.Log($"Subscription confirmed by server for '{channelName}'.");
                 return true;
@@ -521,6 +547,7 @@ namespace smart_attendance_middleware
                             result = await socket.ReceiveAsync(buffer, token);
                             if (result.MessageType == WebSocketMessageType.Close)
                             {
+                                _isSubscribed = false;
                                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                                 OnStatusChanged("WebSocket disconnected.");
                                 return;
@@ -586,8 +613,16 @@ namespace smart_attendance_middleware
                         break;
 
                     case "pusher_internal:subscription_succeeded":
+                        _isSubscribed = true;
                         _subscriptionTcs?.TrySetResult(true);
                         OnStatusChanged("Subscription confirmed by server.");
+                        return;
+
+                    case "pusher:subscription_error":
+                    case "pusher:error":
+                        _isSubscribed = false;
+                        LogHelper.Log($"Server rejected subscription/connection ({eventType}): {dataStr}");
+                        _subscriptionTcs?.TrySetResult(false);
                         return;
 
                     case "attendance_created":
@@ -629,7 +664,11 @@ namespace smart_attendance_middleware
         }
 
         protected virtual void OnStatusChanged(string status) => StatusChanged?.Invoke(this, status);
-        protected virtual void OnErrorOccurred(string error) => ErrorOccurred?.Invoke(this, error);
+        protected virtual void OnErrorOccurred(string error)
+        {
+            LogHelper.Log($"[WebSocket] {error}");
+            ErrorOccurred?.Invoke(this, error);
+        }
 
         // Heartbeat: manual ping trigger 
         public async Task ConnectionStatusAsync()

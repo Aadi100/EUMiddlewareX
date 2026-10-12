@@ -40,7 +40,6 @@ namespace smart_attendance_middleware
 
         private void GateAccessForm_Load(object sender, EventArgs e)
         {
-            LogHelper.Log("GateAccessForm loaded.");
         }
 
         private void InitializeMemberList()
@@ -64,13 +63,10 @@ namespace smart_attendance_middleware
 
             // Assign the collection to the AutoCompleteCustomSource
             txtMemberName.AutoCompleteCustomSource = memberCollection;
-            LogHelper.Log("Member list initialized with suggestions.");
         }
 
         private void btnSave_Click(object sender, EventArgs e)
         {
-            LogHelper.Log("Save button clicked.");
-
             // Same "RequireGatePassword" rule as the no-form direct-open path.
             if (CommonUtils.IsGatePasswordRequired(_dbHelper) && !CommonUtils.PromptForPassword(_loggedInUser, _dbHelper))
             {
@@ -90,7 +86,6 @@ namespace smart_attendance_middleware
                     return;
                 }
                 memberId = selectedMember.MemberID;
-                LogHelper.Log($"Selected member ID: {memberId}, Name: {selectedMember.Name}");
             }
             else
             {
@@ -101,7 +96,6 @@ namespace smart_attendance_middleware
                     LogHelper.Log("Visitor name missing.");
                     return;
                 }
-                LogHelper.Log($"Visitor Name: {txtVisitorName.Text}, Phone: {txtVisitorPhone.Text}");
             }
 
             // Create a new GateAccessed object.
@@ -116,22 +110,16 @@ namespace smart_attendance_middleware
                 AccessedTime = DateTime.Now,
                 Username = _loggedInUser
             };
-            LogHelper.Log("GateAccessed object created.");
-
             // Insert the gate access record into the database.
             _dbHelper.InsertGateAccessed(gateAccessed);
-            LogHelper.Log("Gate access recorded in the database.");
             this.DialogResult = DialogResult.OK;
             this.Close();
-            LogHelper.Log("Gate access recorded successfully. Form closed.");
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
-            LogHelper.Log("Cancel button clicked.");
             this.DialogResult = DialogResult.Cancel;
             this.Close();
-            LogHelper.Log("Gate access cancelled. Form closed.");
         }
 
         private void chkVisitor_CheckedChanged(object sender, EventArgs e)
@@ -140,7 +128,6 @@ namespace smart_attendance_middleware
             txtMemberName.Enabled = !chkVisitor.Checked;
             txtVisitorName.Enabled = chkVisitor.Checked;
             txtVisitorPhone.Enabled = chkVisitor.Checked;
-            LogHelper.Log($"Visitor checkbox checked: {chkVisitor.Checked}");
         }
     }
 }

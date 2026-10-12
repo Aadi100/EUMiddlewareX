@@ -1528,7 +1528,6 @@ WHEN NOT MATCHED THEN
                 {
                     // Reset to false (not synced) only if biometric data changed
                     syncStatus[device.DeviceId] = false;
-                    LogHelper.Log($"Member {memberId} biometric change detected - sync status for device {device.DeviceId}: Needs sync");
                 }
             }
             else
@@ -1537,7 +1536,6 @@ WHEN NOT MATCHED THEN
                 if (existingMember?.SyncStatus != null)
                 {
                     syncStatus = new Dictionary<int, bool>(existingMember.SyncStatus);
-                    LogHelper.Log($"Member {memberId} data unchanged - preserving existing sync status");
                 }
                 else
                 {
@@ -2480,7 +2478,6 @@ VALUES (@clientId, @deviceId, @enrollmentId, @biometricData, @syncStatus, @creat
                             }
                             else
                             {
-                                LogHelper.Log($"Check-in sync status already set to {checkIn.Value} for log {targetLogId}");
                                 transaction.Rollback();
                                 return false;
                             }
@@ -2494,7 +2491,6 @@ VALUES (@clientId, @deviceId, @enrollmentId, @biometricData, @syncStatus, @creat
                             }
                             else
                             {
-                                LogHelper.Log($"Check-out sync status already set to {checkOut.Value} for log {targetLogId}");
                                 transaction.Rollback();
                                 return false;
                             }
@@ -9996,6 +9992,28 @@ public bool UpdateStaffAttendanceLogFromCloud(
             }
             catch { }
             return null;
+        }
+
+        // Returns the current FailureReason stored for a specific log row by its Id.
+        // tableName must be one of: "Log", "StaffLog", "OfflineMemberLog"
+        public string GetLogFailureReasonById(int logId, string tableName)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        $"SELECT FailureReason FROM {tableName} WHERE Id = @id",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@id", logId);
+                        var result = cmd.ExecuteScalar();
+                        return result == DBNull.Value ? null : result as string;
+                    }
+                }
+            }
+            catch { return null; }
         }
     }
 }

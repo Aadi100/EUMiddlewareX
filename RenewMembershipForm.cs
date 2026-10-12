@@ -47,99 +47,186 @@ namespace smart_attendance_middleware
         private void BuildUi()
         {
             Text = "Renew Membership";
-            Width = 520;
-            Height = 520;
+            Width = 560;
+            Height = 620;
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            BackColor = Color.WhiteSmoke;
+            BackColor = Color.FromArgb(245, 246, 250);
 
-            var header = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = BrandNavy };
-            var lblTitle = new Label
+            // ── Header ──────────────────────────────────────────────────────
+            var header = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = BrandNavy };
+            header.Controls.Add(new Label
             {
-                Text = $"Renew Membership — {_member.Name}",
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Text = "Renew Membership",
+                ForeColor = Color.FromArgb(160, 170, 200),
+                Font = new Font("Segoe UI", 8.5F),
                 AutoSize = true,
-                Location = new Point(16, 14)
+                Location = new Point(58, 18)
+            });
+            header.Controls.Add(new Label
+            {
+                Text = _member.Name,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(58, 36)
+            });
+            // Avatar circle placeholder
+            var avatar = new Panel
+            {
+                Location = new Point(16, 16),
+                Size = new Size(36, 36),
+                BackColor = Color.FromArgb(41, 98, 255)
             };
-            header.Controls.Add(lblTitle);
+            avatar.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(41, 98, 255)), 0, 0, 35, 35);
+                string initials = _member.Name?.Length > 0
+                    ? _member.Name.Substring(0, Math.Min(2, _member.Name.Length)).ToUpper()
+                    : "?";
+                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                e.Graphics.DrawString(initials, new Font("Segoe UI", 11F, FontStyle.Bold), Brushes.White,
+                    new RectangleF(0, 0, 35, 35), sf);
+            };
+            header.Controls.Add(avatar);
             Controls.Add(header);
 
-            var layout = new TableLayoutPanel
+            // ── Helper: section card ─────────────────────────────────────────
+            Panel MakeCard(int top, int height, string title, Color accent)
             {
-                Location = new Point(16, 64),
-                Size = new Size(480, 340),
-                ColumnCount = 2,
-                AutoSize = true
-            };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            Controls.Add(layout);
-
-            void AddRow(string label, Control control)
-            {
-                int row = layout.RowCount;
-                layout.RowCount++;
-                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3) }, 0, row);
-                control.Dock = DockStyle.Fill;
-                control.Margin = new Padding(3, 4, 3, 4);
-                layout.Controls.Add(control, 1, row);
+                var card = new Panel
+                {
+                    Location = new Point(20, top),
+                    Size = new Size(Width - 56, height),
+                    BackColor = Color.White
+                };
+                card.Paint += (s, e) =>
+                {
+                    var r = new System.Drawing.Rectangle(0, 0, card.Width - 1, card.Height - 1);
+                    e.Graphics.DrawRectangle(new Pen(Color.FromArgb(220, 222, 230)), r);
+                    e.Graphics.FillRectangle(new SolidBrush(accent), 0, 0, 4, card.Height);
+                };
+                card.Controls.Add(new Label
+                {
+                    Text = title,
+                    ForeColor = Color.FromArgb(50, 55, 80),
+                    Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                    AutoSize = true,
+                    Location = new Point(16, 12)
+                });
+                Controls.Add(card);
+                return card;
             }
+
+            void AddRow(Panel card, ref int y, string labelText, Control ctrl)
+            {
+                card.Controls.Add(new Label
+                {
+                    Text = labelText,
+                    ForeColor = Color.FromArgb(90, 96, 120),
+                    Font = new Font("Segoe UI", 8.5F),
+                    AutoSize = false,
+                    Size = new Size(148, 22),
+                    Location = new Point(16, y + 4)
+                });
+                ctrl.Location = new Point(168, y);
+                ctrl.Size = new Size(card.Width - 184, 26);
+                ctrl.Font = new Font("Segoe UI", 9F);
+                card.Controls.Add(ctrl);
+                y += 36;
+            }
+
+            // ── Section 1: Subscription ──────────────────────────────────────
+            var subCard = MakeCard(96, 174, "Subscription Details", Color.FromArgb(41, 98, 255));
+            int y1 = 38;
 
             cmbPackage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPackage.SelectedIndexChanged += CmbPackage_SelectedIndexChanged;
-            AddRow("Package*", cmbPackage);
+            AddRow(subCard, ref y1, "Package *", cmbPackage);
 
             cmbPeriodicity = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            AddRow("Periodicity*", cmbPeriodicity);
+            AddRow(subCard, ref y1, "Periodicity *", cmbPeriodicity);
 
             cmbTrainer = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            AddRow("Trainer", cmbTrainer);
+            AddRow(subCard, ref y1, "Trainer", cmbTrainer);
 
             dtpStartDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            AddRow("Start Date", dtpStartDate);
+            AddRow(subCard, ref y1, "Start Date", dtpStartDate);
+
+            // ── Section 2: Payment ───────────────────────────────────────────
+            var payCard = MakeCard(282, 174, "Payment Details", Color.FromArgb(0, 180, 140));
+            int y2 = 38;
 
             dtpPaymentCollectedAt = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            AddRow("Payment Collected At", dtpPaymentCollectedAt);
+            AddRow(payCard, ref y2, "Payment Collected At", dtpPaymentCollectedAt);
 
             cmbPaymentMethod = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             cmbPaymentMethod.Items.AddRange(new object[] { "cash", "card", "pos_card", "bank_transfer", "online" });
             cmbPaymentMethod.SelectedIndex = 0;
-            AddRow("Payment Method", cmbPaymentMethod);
+            AddRow(payCard, ref y2, "Payment Method", cmbPaymentMethod);
 
             txtTransactionRef = new TextBox();
-            AddRow("Transaction Ref No", txtTransactionRef);
+            AddRow(payCard, ref y2, "Transaction Ref No", txtTransactionRef);
 
+            // ── Status label ─────────────────────────────────────────────────
             lblStatus = new Label
             {
                 AutoSize = false,
-                Location = new Point(16, 410),
-                Size = new Size(480, 40),
+                Location = new Point(20, 468),
+                Size = new Size(Width - 56, 22),
                 ForeColor = Color.Firebrick,
-                TextAlign = ContentAlignment.TopLeft
+                Font = new Font("Segoe UI", 8.5F),
+                TextAlign = ContentAlignment.MiddleLeft
             };
             Controls.Add(lblStatus);
 
-            var buttonPanel = new FlowLayoutPanel
+            // ── Bottom button bar ─────────────────────────────────────────────
+            var buttonPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                FlowDirection = FlowDirection.RightToLeft,
-                Height = 56,
-                Padding = new Padding(16)
+                Height = 58,
+                BackColor = Color.White
             };
+            buttonPanel.Paint += (s, e) =>
+                e.Graphics.DrawLine(new Pen(Color.FromArgb(220, 222, 230)), 0, 0, buttonPanel.Width, 0);
 
-            btnSave = new Button { Text = "Renew", Width = 100, BackColor = BrandNavy, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            btnCancel = new Button
+            {
+                Text = "Cancel",
+                Width = 100,
+                Height = 34,
+                Location = new Point(buttonPanel.Width - 216, 12),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(80, 86, 110),
+                Font = new Font("Segoe UI", 9F),
+                Cursor = Cursors.Hand
+            };
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(200, 202, 215);
+            btnCancel.Click += (s, e) => Close();
+
+            btnSave = new Button
+            {
+                Text = "Renew Membership",
+                Width = 140,
+                Height = 34,
+                Location = new Point(buttonPanel.Width - 160, 12),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = BrandNavy,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
             btnSave.FlatAppearance.BorderSize = 0;
             btnSave.Click += BtnSave_Click;
 
-            btnCancel = new Button { Text = "Cancel", Width = 90 };
-            btnCancel.Click += (s, e) => Close();
-
-            buttonPanel.Controls.Add(btnSave);
             buttonPanel.Controls.Add(btnCancel);
+            buttonPanel.Controls.Add(btnSave);
             Controls.Add(buttonPanel);
         }
 
@@ -244,6 +331,11 @@ namespace smart_attendance_middleware
 
                 // 3. Queue the renewal for the background enrollment-sync timer to upload.
                 _dbHelper.InsertOfflineSubscription(_member.MemberID, _member.ClientId, subscription);
+
+                // Try uploading right away; retries once after 3s, then the 1-minute timer takes over.
+                var offlineService = ServiceManager.OfflineEnrollmentSubscriptionService;
+                if (offlineService != null)
+                    _ = Task.Run(() => offlineService.SyncPendingRenewalsWithQuickRetryAsync());
 
                 DialogResult = DialogResult.OK;
                 Close();
