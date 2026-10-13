@@ -1,0 +1,287 @@
+diff --git a/Dashboard.cs b/Dashboard.cs
+index 345a736..a77044e 100644
+--- a/Dashboard.cs
++++ b/Dashboard.cs
+@@ -62,20 +62,19 @@ namespace smart_attendance_middleware
+         private DateTime _dashboardStartTime = DateTime.Now;
+         private int[] _hourlyCheckInCounts = new int[24];
+         private readonly ToolTip _buttonTooltip = new ToolTip();
+-        private bool _uiReady = false;
+         public HttpHandler _httpHandler;
+ 
+         private readonly object _loaderLock = new object();
+         private int _loaderRefCount = 0;
+ 
+-
+-        private Panel loadingOverlay;
+-        private Label loadingLabel;
+         private bool servicesInitialized = false;
+         private smart_attendance_middleware.UI.LoaderPopupForm _loaderPopup;
+         private BackupService _backupService;
+         private bool _attendanceInitialSyncHandled = false;
+         private FacePopupForm _facePopup;
++
++        // Header status cards (declared in Designer.cs)
++        private DateTime? _lastSyncTime = null;
+         // DTO to carry computed sync status results
+         public class SyncStatusResult
+         {
+@@ -88,8 +87,7 @@ namespace smart_attendance_middleware
+         public Dashboard()
+         {
+             InitializeComponent();
+-
+-            
++            InitializeHeaderCards();
+ 
+             _dbHelper = new DatabaseHelper();
+             _dbHelper.InitializeDatabase();
+@@ -313,6 +311,13 @@ namespace smart_attendance_middleware
+                 ? $"⏱ Uptime: {(int)uptime.TotalHours}h {uptime.Minutes}m"
+                 : $"⏱ Uptime: {uptime.Minutes}m {uptime.Seconds}s";
+ 
++            lblStatusAppMem.Text  = $"App memory {(int)memoryMb} MB";
++            lblStatusUptime.Text  = uptime.TotalHours >= 1
++                ? $"Uptime {(int)uptime.TotalHours}h {uptime.Minutes}m"
++                : $"Uptime {uptime.Minutes}m {uptime.Seconds}s";
++            lblStatusUser.Text    = $"Signed in: {AppSession.LoggedInUser ?? "–"}";
++            lblStatusRole.Text    = $"Role: {AppSession.UserRole ?? "–"}";
++
+             // SQL Server memory is checked far less often than everything else here (every 30s,
+             // not every 5s) and off the UI thread, since it's a live DB query rather than
+             // already-cached AppSession data — no reason to hit SQL Server more than necessary.
+@@ -336,6 +341,7 @@ namespace smart_attendance_middleware
+                             lblSqlMemoryUsage.Text = sqlMemoryMb.HasValue
+                                 ? $"🗄 SQL Server: {sqlMemoryMb.Value} MB"
+                                 : "🗄 SQL Server: N/A";
++                            lblStatusSqlMem.Text = $"SQL Server {(sqlMemoryMb.HasValue ? sqlMemoryMb.Value + " MB" : "N/A")}";
+                         }));
+                         applied = true;
+                     }
+@@ -506,6 +512,7 @@ namespace smart_attendance_middleware
+ 
+         private async void Dashboard_Load(object sender, EventArgs e)
+         {
++            PositionHeaderCards(); // panel4.Width is now correct
+             await UpdateAttendancePanelsAsync();
+         }
+ 
+@@ -530,6 +537,8 @@ namespace smart_attendance_middleware
+ 
+                 // Mark handled early to avoid re-entry
+                 _attendanceInitialSyncHandled = true;
++                _lastSyncTime = DateTime.Now;
++                UpdateLastSyncCard();
+ 
+                 // Unsubscribe immediately (defensive)
+                 AttendanceLogSyncService.InitialSyncCompleted -= OnAttendanceLogSyncCompleted;
+@@ -547,10 +556,6 @@ namespace smart_attendance_middleware
+ 
+ 
+ 
+-        /// <summary>
+-        /// Updates prg_server based on how many WebSocket devices are connected vs. total registered in DB.
+-        /// Green = all connected, Orange = some connected, Red = none connected.
+-        /// </summary>
+         private void OnDeviceConnectionChanged(int connected, int total)
+         {
+             if (InvokeRequired)
+@@ -559,34 +564,39 @@ namespace smart_attendance_middleware
+                 return;
+             }
+ 
+-            if (prg_server == null) return;
+-
+             try
+             {
+-                prg_server.Visible = true;
+-                prg_server.Style = ProgressBarStyle.Continuous;
+-                prg_server.Minimum = 0;
+-                prg_server.Maximum = total > 0 ? total : 1;
+-                prg_server.Value = Math.Min(connected, prg_server.Maximum);
+-
++                _pillsPanel?.UpdateDevices(connected, total);
++                int offline = total - connected;
+                 if (total == 0)
+                 {
+-                    prg_server.ForeColor = Color.Gray;
++                    lblDevStatus.Text      = "No devices registered";
++                    lblDevStatus.ForeColor = Color.FromArgb(100, 108, 132);
+                 }
+-                else if (connected == 0)
++                else if (offline == 0)
+                 {
+-                    prg_server.ForeColor = Color.Red;
++                    lblDevStatus.Text      = "All connected";
++                    lblDevStatus.ForeColor = Color.FromArgb(34, 139, 34);
+                 }
+-                else if (connected < total)
++                else if (connected == 0)
+                 {
+-                    prg_server.ForeColor = Color.Orange;
++                    lblDevStatus.Text      = "All offline";
++                    lblDevStatus.ForeColor = Color.FromArgb(220, 53, 69);
+                 }
+                 else
+                 {
+-                    prg_server.ForeColor = Color.LimeGreen;
++                    lblDevStatus.Text      = $"{offline} offline";
++                    lblDevStatus.ForeColor = Color.FromArgb(200, 100, 0);
++                }
++
++                // Reflow labels that follow the pills so they don't overlap
++                if (_pillsPanel != null)
++                {
++                    lblDevStatus.Left       = _pillsPanel.Right + 8;
++                    lblSep0.Left            = lblDevStatus.Right + 6;
++                    lblStatusLastSync.Left  = lblSep0.Right + 6;
+                 }
+ 
+-                prg_server.Refresh();
+                 LogHelper.Log($"[Dashboard] Device server: {connected}/{total} devices connected.");
+             }
+             catch (Exception ex)
+@@ -763,7 +773,6 @@ namespace smart_attendance_middleware
+ 
+                 // Phase 1: Data Caching and UI Prep
+                 await LoadInitialUiAsync();
+-                _uiReady = true;
+                 await Task.Delay(200);
+ 
+                 // Phase 2: WebSocket Device Server
+@@ -964,12 +973,9 @@ namespace smart_attendance_middleware
+                 return;
+             }
+ 
+-            pic_net_status.Image = isConnected
+-                ? Properties.Resources.inertnet_connected
+-                : Properties.Resources.internet_disconnected;
+-
+             internet = isConnected;
+             UpdateWorkStatus();
++            UpdateInternetCard(isConnected);
+ 
+             if (isConnected)
+             {
+@@ -989,10 +995,6 @@ namespace smart_attendance_middleware
+                 return;
+             }
+ 
+-            pic_device_status.Image = isConnected
+-                ? Properties.Resources.device_connected
+-                : Properties.Resources.device_disconnected;
+-
+             biometric = isConnected;
+             UpdateWorkStatus();
+ 
+@@ -1014,12 +1016,9 @@ namespace smart_attendance_middleware
+                 return;
+             }
+ 
+-            pic_cloud_status.Image = isConnected
+-                ? Properties.Resources.fitness_marvel_connected
+-                : Properties.Resources.fitness_marvel_disconnected;
+-
+             subscription = isConnected;
+             UpdateWorkStatus();
++            UpdateCloudCard(isConnected);
+ 
+             if (isConnected)
+             {
+@@ -1246,10 +1245,6 @@ namespace smart_attendance_middleware
+             }
+         }
+ 
+-        private void pic_cloud_status_Click(object sender, EventArgs e)
+-        {
+-
+-        }
+ 
+ 
+ 
+@@ -1755,7 +1750,61 @@ namespace smart_attendance_middleware
+ 
+         private void panel4_Paint(object sender, PaintEventArgs e)
+         {
++            // Reserved for future panel header painting
++        }
++
++        // ── Header status cards ──────────────────────────────────────────────────
++
++        private void InitializeHeaderCards()
++        {
++            // Cards are initialized in Designer.cs; just wire resize handler here
++            panel4.Resize += (s, e2) => PositionHeaderCards();
++        }
++
++        private void PositionHeaderCards()
++        {
++            const int cardW = 130, cardH = 52, gap = 8;
++            int top   = (panel4.Height - cardH) / 2;
++            int right = panel4.Width - 20;
++
++            if (_hdrLastSyncCard  != null) { _hdrLastSyncCard.SetBounds(right - cardW, top, cardW, cardH); right -= cardW + gap; }
++            if (_hdrCloudCard     != null) { _hdrCloudCard.SetBounds(right - cardW,    top, cardW, cardH); right -= cardW + gap; }
++            if (_hdrInternetCard  != null) { _hdrInternetCard.SetBounds(right - cardW, top, cardW, cardH); }
++        }
++
++        private void UpdateInternetCard(bool connected)
++            => _hdrInternetCard?.SetStatus(connected, connected ? "Connected" : "Disconnected");
++
++        private void UpdateCloudCard(bool connected)
++            => _hdrCloudCard?.SetStatus(connected, connected ? "Connected" : "Disconnected");
++
++        private void UpdateLastSyncCard()
++        {
++            string text;
++            if (_lastSyncTime == null)
++            {
++                text = "Never";
++            }
++            else
++            {
++                var dt     = _lastSyncTime.Value;
++                string day = dt.Date == DateTime.Today             ? "Today"
++                           : dt.Date == DateTime.Today.AddDays(-1) ? "Yesterday"
++                           : dt.ToString("MMM d");
++                text = $"{day} {dt:h:mm tt}";
++            }
++            // Update status bar label
++            if (lblStatusLastSync != null)
++                lblStatusLastSync.Text = $"Last sync: {text}";
++        }
++
++        private void _hdrLastSyncCard_Click(object sender, EventArgs e)
++        {
++            System.Diagnostics.Process.Start("https://eu.fitnessmarvel.com/");
++        }
+ 
++        private void btnReviewJobs_Click(object sender, EventArgs e)
++        {
+         }
+ 
+         private void txtLog_TextChanged(object sender, EventArgs e)
+@@ -2093,10 +2142,6 @@ namespace smart_attendance_middleware
+                                             if (lbl_connecteddevice != null)
+                                                 lbl_connecteddevice.Text = onlineCount.ToString();
+ 
+-                                            if (pic_device_status != null)
+-                                                pic_device_status.Image = (onlineCount > 0)
+-                                                    ? Properties.Resources.device_connected
+-                                                    : Properties.Resources.device_disconnected;
+                                         }));
+                                     }
+                                 }
+@@ -2218,12 +2263,6 @@ namespace smart_attendance_middleware
+                             lbl_connecteddevice.Text = onlineCount.ToString();
+                         }
+ 
+-                        if (pic_device_status != null)
+-                        {
+-                            pic_device_status.Image = (onlineCount > 0)
+-                                ? Properties.Resources.device_connected
+-                                : Properties.Resources.device_disconnected;
+-                        }
+                     }));
+                 }
+ 

@@ -82,7 +82,7 @@ namespace smart_attendance_middleware
             {
                 SetBearerAuthorization();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return null;
             }

@@ -189,7 +189,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-<Compile Include="Classes\AttendanceSimulator.cs" />
+    <Compile Include="Classes\AttendanceSimulator.cs" />
     <Compile Include="Classes\CacheManager.cs" />
     <Compile Include="Classes\CommonUtils.cs" />
     <Compile Include="Classes\DatabaseHelper.Incremental.cs" />
@@ -224,6 +224,12 @@
     <Compile Include="Classes\StaffAttendenceServerFunctions.cs" />
     <Compile Include="Classes\WebServerServices.cs" />
     <Compile Include="Controls\DataPairPanel.cs" />
+    <Compile Include="Controls\PillsPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\HeaderStatusCard.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\RectangularLoader.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -349,7 +355,6 @@
     <EmbeddedResource Include="AddNewUser.resx">
       <DependentUpon>AddNewUser.cs</DependentUpon>
     </EmbeddedResource>
-
     <EmbeddedResource Include="Dashboard.resx">
       <DependentUpon>Dashboard.cs</DependentUpon>
     </EmbeddedResource>

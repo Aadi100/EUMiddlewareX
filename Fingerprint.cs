@@ -1055,8 +1055,6 @@ namespace smart_attendance_middleware
             try
             {
                 bool bRet;
-                int verIndex = 0;
-                string strVersion = "";
 
                 try { bRet = axFpreader1.ConnectUsb(); } catch (Exception ex) { Message.Text = $"ConnectUsb error: {ex.Message}"; Message.Update(); return; }
                 try { bRet = axFpreader1.SetMonitorMode(10); } catch (Exception ex) { Message.Text = $"SetMonitorMode error: {ex.Message}"; Message.Update(); }

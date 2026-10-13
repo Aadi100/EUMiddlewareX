@@ -28,7 +28,6 @@ namespace smart_attendance_middleware
         private DatabaseHelper _dbHelper;
         private WebSocketManager _wsManager;
         private Processor _processor;
-        private DeviceFunctions _deviceFunctions;
 
         //*******************************************************************************************
         // This is used to make the form draggable by clicking and dragging anywhere on the form.
@@ -59,7 +58,7 @@ namespace smart_attendance_middleware
 
             InitializeWebSocketManager();
 
-            _processor = new Processor(_dbHelper, _wsManager, _deviceFunctions);
+            _processor = new Processor(_dbHelper, _wsManager, (DeviceFunctions)null);
             _wsManager.LiveUpdate += WsManager_LiveUpdate;
         }
 
