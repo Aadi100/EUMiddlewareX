@@ -29,13 +29,12 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Dashboard));
-            this.panel1 = new System.Windows.Forms.Panel();
-            this.pic_cloud_status = new System.Windows.Forms.PictureBox();
-            this.pic_net_status = new System.Windows.Forms.PictureBox();
-            this.pic_device_status = new System.Windows.Forms.PictureBox();
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
             this.lbl_version = new System.Windows.Forms.Label();
+            this._hdrLastSyncCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
+            this._hdrCloudCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
+            this._hdrInternetCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
             this.button2 = new System.Windows.Forms.Button();
             this.button1 = new System.Windows.Forms.Button();
             this.process1 = new System.Diagnostics.Process();
@@ -76,8 +75,6 @@
             this.pnlAlertBar = new System.Windows.Forms.Panel();
             this.lblAlertBar = new System.Windows.Forms.Label();
             this.cuiPanelTelemetry = new CuoreUI.Controls.cuiPanel();
-            this.pnlTelemetryHeader = new CuoreUI.Controls.cuiPanel();
-            this.lblTelemetryTitle = new System.Windows.Forms.Label();
             this.pnlActivityChart = new System.Windows.Forms.Panel();
             this.lblChartTitle = new System.Windows.Forms.Label();
             this.pnlPendingJobsList = new System.Windows.Forms.Panel();
@@ -95,14 +92,27 @@
             this.lblExpiringSoon = new System.Windows.Forms.Label();
             this.lblTotalStaff = new System.Windows.Forms.Label();
             this.lblPendingJobsOverview = new System.Windows.Forms.Label();
+            this.pnlTelemetryHeader = new CuoreUI.Controls.cuiPanel();
+            this.lblTelemetryTitle = new System.Windows.Forms.Label();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
-            this.prg_server = new System.Windows.Forms.ProgressBar();
             this.panel2 = new System.Windows.Forms.Panel();
             this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
-            this.panel1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pic_cloud_status)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pic_net_status)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pic_device_status)).BeginInit();
+            this.pnlStatusBar = new System.Windows.Forms.Panel();
+            this.lblDevConnHdr = new System.Windows.Forms.Label();
+            this._pillsPanel = new smart_attendance_middleware.Controls.PillsPanel();
+            this.lblDevStatus = new System.Windows.Forms.Label();
+            this.lblSep0 = new System.Windows.Forms.Label();
+            this.lblStatusLastSync = new System.Windows.Forms.Label();
+            this.lblSep1 = new System.Windows.Forms.Label();
+            this.lblStatusAppMem = new System.Windows.Forms.Label();
+            this.lblSep2 = new System.Windows.Forms.Label();
+            this.lblStatusSqlMem = new System.Windows.Forms.Label();
+            this.lblSep3 = new System.Windows.Forms.Label();
+            this.lblStatusUptime = new System.Windows.Forms.Label();
+            this.lblSep4 = new System.Windows.Forms.Label();
+            this.lblStatusUser = new System.Windows.Forms.Label();
+            this.lblSep5 = new System.Windows.Forms.Label();
+            this.lblStatusRole = new System.Windows.Forms.Label();
             this.panel4.SuspendLayout();
             this.cuiPanel2.SuspendLayout();
             this.cuiPanel1.SuspendLayout();
@@ -114,58 +124,17 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).BeginInit();
             this.pnl_check_out.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).BeginInit();
+            this.pnlAlertBar.SuspendLayout();
+            this.cuiPanelTelemetry.SuspendLayout();
+            this.pnlActivityChart.SuspendLayout();
+            this.pnlPendingJobsList.SuspendLayout();
+            this.pnlSystemHealth.SuspendLayout();
+            this.pnlMemberOverview.SuspendLayout();
+            this.pnlTelemetryHeader.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panel2.SuspendLayout();
-            this.cuiPanelTelemetry.SuspendLayout();
-            this.pnlTelemetryHeader.SuspendLayout();
+            this.pnlStatusBar.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // panel1
-            // 
-            this.panel1.BackColor = System.Drawing.Color.Transparent;
-            this.panel1.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("panel1.BackgroundImage")));
-            this.panel1.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.panel1.Controls.Add(this.pic_cloud_status);
-            this.panel1.Controls.Add(this.pic_net_status);
-            this.panel1.Controls.Add(this.pic_device_status);
-            this.panel1.Location = new System.Drawing.Point(558, 6);
-            this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(210, 69);
-            this.panel1.TabIndex = 11;
-            // 
-            // pic_cloud_status
-            // 
-            this.pic_cloud_status.BackColor = System.Drawing.Color.Transparent;
-            this.pic_cloud_status.Image = ((System.Drawing.Image)(resources.GetObject("pic_cloud_status.Image")));
-            this.pic_cloud_status.Location = new System.Drawing.Point(134, 8);
-            this.pic_cloud_status.Name = "pic_cloud_status";
-            this.pic_cloud_status.Size = new System.Drawing.Size(47, 47);
-            this.pic_cloud_status.TabIndex = 10;
-            this.pic_cloud_status.TabStop = false;
-            this.pic_cloud_status.Click += new System.EventHandler(this.pic_cloud_status_Click);
-            // 
-            // pic_net_status
-            // 
-            this.pic_net_status.BackColor = System.Drawing.Color.White;
-            this.pic_net_status.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.pic_net_status.Image = ((System.Drawing.Image)(resources.GetObject("pic_net_status.Image")));
-            this.pic_net_status.Location = new System.Drawing.Point(81, 8);
-            this.pic_net_status.Margin = new System.Windows.Forms.Padding(0);
-            this.pic_net_status.Name = "pic_net_status";
-            this.pic_net_status.Size = new System.Drawing.Size(47, 48);
-            this.pic_net_status.TabIndex = 9;
-            this.pic_net_status.TabStop = false;
-            // 
-            // pic_device_status
-            // 
-            this.pic_device_status.BackColor = System.Drawing.Color.Transparent;
-            this.pic_device_status.Image = ((System.Drawing.Image)(resources.GetObject("pic_device_status.Image")));
-            this.pic_device_status.Location = new System.Drawing.Point(28, 8);
-            this.pic_device_status.Name = "pic_device_status";
-            this.pic_device_status.Size = new System.Drawing.Size(47, 47);
-            this.pic_device_status.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
-            this.pic_device_status.TabIndex = 8;
-            this.pic_device_status.TabStop = false;
             // 
             // label8
             // 
@@ -183,7 +152,9 @@
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.panel4.Controls.Add(this.lbl_version);
             this.panel4.Controls.Add(this.label8);
-            this.panel4.Controls.Add(this.panel1);
+            this.panel4.Controls.Add(this._hdrLastSyncCard);
+            this.panel4.Controls.Add(this._hdrCloudCard);
+            this.panel4.Controls.Add(this._hdrInternetCard);
             this.panel4.Location = new System.Drawing.Point(0, -8);
             this.panel4.Name = "panel4";
             this.panel4.Size = new System.Drawing.Size(1295, 78);
@@ -192,13 +163,56 @@
             // 
             // lbl_version
             // 
-            this.lbl_version.AutoSize = true;
-            this.lbl_version.ForeColor = System.Drawing.Color.Transparent;
-            this.lbl_version.Location = new System.Drawing.Point(324, 41);
+            this.lbl_version.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lbl_version.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.lbl_version.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(165)))), ((int)(((byte)(215)))));
+            this.lbl_version.Location = new System.Drawing.Point(335, 36);
             this.lbl_version.Name = "lbl_version";
-            this.lbl_version.Size = new System.Drawing.Size(31, 13);
+            this.lbl_version.Size = new System.Drawing.Size(45, 22);
             this.lbl_version.TabIndex = 44;
             this.lbl_version.Text = "3.1.1";
+            this.lbl_version.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // _hdrLastSyncCard
+            // 
+            this._hdrLastSyncCard.BackColor = System.Drawing.Color.Transparent;
+            this._hdrLastSyncCard.BottomText = "Open web app";
+            this._hdrLastSyncCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
+            this._hdrLastSyncCard.Cursor = System.Windows.Forms.Cursors.Hand;
+            this._hdrLastSyncCard.IsConnected = false;
+            this._hdrLastSyncCard.Location = new System.Drawing.Point(1151, 13);
+            this._hdrLastSyncCard.Name = "_hdrLastSyncCard";
+            this._hdrLastSyncCard.ShowDot = false;
+            this._hdrLastSyncCard.Size = new System.Drawing.Size(130, 52);
+            this._hdrLastSyncCard.TabIndex = 45;
+            this._hdrLastSyncCard.TopLabel = "";
+            this._hdrLastSyncCard.Click += new System.EventHandler(this._hdrLastSyncCard_Click);
+            // 
+            // _hdrCloudCard
+            // 
+            this._hdrCloudCard.BackColor = System.Drawing.Color.Transparent;
+            this._hdrCloudCard.BottomText = "Connecting";
+            this._hdrCloudCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
+            this._hdrCloudCard.IsConnected = false;
+            this._hdrCloudCard.Location = new System.Drawing.Point(1013, 13);
+            this._hdrCloudCard.Name = "_hdrCloudCard";
+            this._hdrCloudCard.ShowDot = true;
+            this._hdrCloudCard.Size = new System.Drawing.Size(130, 52);
+            this._hdrCloudCard.TabIndex = 46;
+            this._hdrCloudCard.TopLabel = "Cloud";
+            // 
+            // _hdrInternetCard
+            // 
+            this._hdrInternetCard.BackColor = System.Drawing.Color.Transparent;
+            this._hdrInternetCard.BottomText = "Connecting";
+            this._hdrInternetCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
+            this._hdrInternetCard.IsConnected = false;
+            this._hdrInternetCard.Location = new System.Drawing.Point(875, 13);
+            this._hdrInternetCard.Name = "_hdrInternetCard";
+            this._hdrInternetCard.ShowDot = true;
+            this._hdrInternetCard.Size = new System.Drawing.Size(130, 52);
+            this._hdrInternetCard.TabIndex = 47;
+            this._hdrInternetCard.TopLabel = "Internet";
             // 
             // button2
             // 
@@ -719,9 +733,9 @@
             this.label5.TabIndex = 2;
             this.label5.Text = "Quick Actions";
             this.label5.UseCompatibleTextRendering = true;
-            //
+            // 
             // pnlAlertBar
-            //
+            // 
             this.pnlAlertBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(234)))), ((int)(((byte)(226)))));
             this.pnlAlertBar.Controls.Add(this.lblAlertBar);
             this.pnlAlertBar.Location = new System.Drawing.Point(341, 125);
@@ -729,9 +743,9 @@
             this.pnlAlertBar.Size = new System.Drawing.Size(618, 32);
             this.pnlAlertBar.TabIndex = 20;
             this.pnlAlertBar.Visible = false;
-            //
+            // 
             // lblAlertBar
-            //
+            // 
             this.lblAlertBar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAlertBar.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblAlertBar.ForeColor = System.Drawing.Color.White;
@@ -740,7 +754,7 @@
             this.lblAlertBar.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             //
             // cuiPanelTelemetry
-            //
+            // 
             this.cuiPanelTelemetry.BackColor = System.Drawing.Color.Transparent;
             this.cuiPanelTelemetry.Controls.Add(this.pnlActivityChart);
             this.cuiPanelTelemetry.Controls.Add(this.pnlPendingJobsList);
@@ -755,53 +769,29 @@
             this.cuiPanelTelemetry.Rounding = new System.Windows.Forms.Padding(12);
             this.cuiPanelTelemetry.Size = new System.Drawing.Size(618, 376);
             this.cuiPanelTelemetry.TabIndex = 21;
-            //
-            // pnlTelemetryHeader
-            //
-            this.pnlTelemetryHeader.BackColor = System.Drawing.Color.Transparent;
-            this.pnlTelemetryHeader.Controls.Add(this.lblTelemetryTitle);
-            this.pnlTelemetryHeader.Location = new System.Drawing.Point(4, 4);
-            this.pnlTelemetryHeader.Name = "pnlTelemetryHeader";
-            this.pnlTelemetryHeader.OutlineThickness = 1F;
-            this.pnlTelemetryHeader.PanelColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.pnlTelemetryHeader.PanelOutlineColor = System.Drawing.Color.Transparent;
-            this.pnlTelemetryHeader.Rounding = new System.Windows.Forms.Padding(12, 12, 0, 0);
-            this.pnlTelemetryHeader.Size = new System.Drawing.Size(610, 38);
-            this.pnlTelemetryHeader.TabIndex = 0;
-            //
-            // lblTelemetryTitle
-            //
-            this.lblTelemetryTitle.AutoSize = true;
-            this.lblTelemetryTitle.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblTelemetryTitle.ForeColor = System.Drawing.Color.White;
-            this.lblTelemetryTitle.Location = new System.Drawing.Point(16, 8);
-            this.lblTelemetryTitle.Name = "lblTelemetryTitle";
-            this.lblTelemetryTitle.Size = new System.Drawing.Size(140, 20);
-            this.lblTelemetryTitle.TabIndex = 0;
-            this.lblTelemetryTitle.Text = "Telemetry Cluster";
-            //
+            // 
             // pnlActivityChart
-            //
+            // 
             this.pnlActivityChart.BackColor = System.Drawing.Color.Transparent;
             this.pnlActivityChart.Controls.Add(this.lblChartTitle);
             this.pnlActivityChart.Location = new System.Drawing.Point(10, 48);
             this.pnlActivityChart.Name = "pnlActivityChart";
             this.pnlActivityChart.Size = new System.Drawing.Size(360, 160);
             this.pnlActivityChart.TabIndex = 1;
-            //
+            // 
             // lblChartTitle
-            //
+            // 
             this.lblChartTitle.AutoSize = true;
             this.lblChartTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblChartTitle.ForeColor = System.Drawing.Color.Black;
             this.lblChartTitle.Location = new System.Drawing.Point(0, 0);
             this.lblChartTitle.Name = "lblChartTitle";
-            this.lblChartTitle.Size = new System.Drawing.Size(180, 19);
+            this.lblChartTitle.Size = new System.Drawing.Size(185, 19);
             this.lblChartTitle.TabIndex = 0;
             this.lblChartTitle.Text = "Today\'s Check-Ins by Hour";
-            //
+            // 
             // pnlPendingJobsList
-            //
+            // 
             this.pnlPendingJobsList.BackColor = System.Drawing.Color.Transparent;
             this.pnlPendingJobsList.Controls.Add(this.lblPendingJobsListTitle);
             this.pnlPendingJobsList.Controls.Add(this.lstPendingJobsMini);
@@ -809,9 +799,9 @@
             this.pnlPendingJobsList.Name = "pnlPendingJobsList";
             this.pnlPendingJobsList.Size = new System.Drawing.Size(360, 152);
             this.pnlPendingJobsList.TabIndex = 4;
-            //
+            // 
             // lblPendingJobsListTitle
-            //
+            // 
             this.lblPendingJobsListTitle.AutoSize = true;
             this.lblPendingJobsListTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblPendingJobsListTitle.ForeColor = System.Drawing.Color.Black;
@@ -820,9 +810,9 @@
             this.lblPendingJobsListTitle.Size = new System.Drawing.Size(110, 19);
             this.lblPendingJobsListTitle.TabIndex = 0;
             this.lblPendingJobsListTitle.Text = "Pending Jobs";
-            //
+            // 
             // lstPendingJobsMini
-            //
+            // 
             this.lstPendingJobsMini.FullRowSelect = true;
             this.lstPendingJobsMini.GridLines = true;
             this.lstPendingJobsMini.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
@@ -833,9 +823,9 @@
             this.lstPendingJobsMini.TabIndex = 1;
             this.lstPendingJobsMini.UseCompatibleStateImageBehavior = false;
             this.lstPendingJobsMini.View = System.Windows.Forms.View.Details;
-            //
+            // 
             // pnlSystemHealth
-            //
+            // 
             this.pnlSystemHealth.BackColor = System.Drawing.Color.Transparent;
             this.pnlSystemHealth.Controls.Add(this.lblHealthTitle);
             this.pnlSystemHealth.Controls.Add(this.lblMemoryUsage);
@@ -846,9 +836,9 @@
             this.pnlSystemHealth.Name = "pnlSystemHealth";
             this.pnlSystemHealth.Size = new System.Drawing.Size(224, 168);
             this.pnlSystemHealth.TabIndex = 2;
-            //
+            // 
             // lblHealthTitle
-            //
+            // 
             this.lblHealthTitle.AutoSize = true;
             this.lblHealthTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblHealthTitle.ForeColor = System.Drawing.Color.Black;
@@ -857,42 +847,42 @@
             this.lblHealthTitle.Size = new System.Drawing.Size(105, 19);
             this.lblHealthTitle.TabIndex = 0;
             this.lblHealthTitle.Text = "System Health";
-            //
+            // 
             // lblMemoryUsage
-            //
+            // 
             this.lblMemoryUsage.AutoSize = true;
             this.lblMemoryUsage.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblMemoryUsage.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
             this.lblMemoryUsage.Location = new System.Drawing.Point(2, 28);
             this.lblMemoryUsage.Name = "lblMemoryUsage";
-            this.lblMemoryUsage.Size = new System.Drawing.Size(90, 15);
+            this.lblMemoryUsage.Size = new System.Drawing.Size(104, 15);
             this.lblMemoryUsage.TabIndex = 1;
             this.lblMemoryUsage.Text = "💾 Memory: -- MB";
-            //
+            // 
             // lblSqlMemoryUsage
-            //
+            // 
             this.lblSqlMemoryUsage.AutoSize = true;
             this.lblSqlMemoryUsage.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblSqlMemoryUsage.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
             this.lblSqlMemoryUsage.Location = new System.Drawing.Point(2, 50);
             this.lblSqlMemoryUsage.Name = "lblSqlMemoryUsage";
-            this.lblSqlMemoryUsage.Size = new System.Drawing.Size(110, 15);
+            this.lblSqlMemoryUsage.Size = new System.Drawing.Size(115, 15);
             this.lblSqlMemoryUsage.TabIndex = 2;
             this.lblSqlMemoryUsage.Text = "🗄 SQL Server: -- MB";
-            //
+            // 
             // lblUptime
-            //
+            // 
             this.lblUptime.AutoSize = true;
             this.lblUptime.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblUptime.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
             this.lblUptime.Location = new System.Drawing.Point(2, 72);
             this.lblUptime.Name = "lblUptime";
-            this.lblUptime.Size = new System.Drawing.Size(66, 15);
+            this.lblUptime.Size = new System.Drawing.Size(77, 15);
             this.lblUptime.TabIndex = 3;
             this.lblUptime.Text = "⏱ Uptime: --";
-            //
+            // 
             // lblLastEvent
-            //
+            // 
             this.lblLastEvent.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblLastEvent.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(90)))));
             this.lblLastEvent.Location = new System.Drawing.Point(2, 96);
@@ -900,9 +890,9 @@
             this.lblLastEvent.Size = new System.Drawing.Size(220, 70);
             this.lblLastEvent.TabIndex = 4;
             this.lblLastEvent.Text = "✓ Last event: Idle — no recent activity.";
-            //
+            // 
             // pnlMemberOverview
-            //
+            // 
             this.pnlMemberOverview.BackColor = System.Drawing.Color.Transparent;
             this.pnlMemberOverview.Controls.Add(this.lblMemberTitle);
             this.pnlMemberOverview.Controls.Add(this.lblActiveMembers);
@@ -913,31 +903,31 @@
             this.pnlMemberOverview.Name = "pnlMemberOverview";
             this.pnlMemberOverview.Size = new System.Drawing.Size(224, 144);
             this.pnlMemberOverview.TabIndex = 3;
-            //
+            // 
             // lblMemberTitle
-            //
+            // 
             this.lblMemberTitle.AutoSize = true;
             this.lblMemberTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblMemberTitle.ForeColor = System.Drawing.Color.Black;
             this.lblMemberTitle.Location = new System.Drawing.Point(0, 0);
             this.lblMemberTitle.Name = "lblMemberTitle";
-            this.lblMemberTitle.Size = new System.Drawing.Size(75, 19);
+            this.lblMemberTitle.Size = new System.Drawing.Size(72, 19);
             this.lblMemberTitle.TabIndex = 0;
             this.lblMemberTitle.Text = "Members";
-            //
+            // 
             // lblActiveMembers
-            //
+            // 
             this.lblActiveMembers.AutoSize = true;
             this.lblActiveMembers.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblActiveMembers.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
             this.lblActiveMembers.Location = new System.Drawing.Point(2, 28);
             this.lblActiveMembers.Name = "lblActiveMembers";
-            this.lblActiveMembers.Size = new System.Drawing.Size(60, 15);
+            this.lblActiveMembers.Size = new System.Drawing.Size(71, 15);
             this.lblActiveMembers.TabIndex = 1;
             this.lblActiveMembers.Text = "👤 Active: --";
-            //
+            // 
             // lblExpiringSoon
-            //
+            // 
             this.lblExpiringSoon.AutoSize = true;
             this.lblExpiringSoon.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblExpiringSoon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
@@ -946,9 +936,9 @@
             this.lblExpiringSoon.Size = new System.Drawing.Size(150, 15);
             this.lblExpiringSoon.TabIndex = 2;
             this.lblExpiringSoon.Text = "📅 Expiring this week: --";
-            //
+            // 
             // lblTotalStaff
-            //
+            // 
             this.lblTotalStaff.AutoSize = true;
             this.lblTotalStaff.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblTotalStaff.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
@@ -957,18 +947,42 @@
             this.lblTotalStaff.Size = new System.Drawing.Size(58, 15);
             this.lblTotalStaff.TabIndex = 3;
             this.lblTotalStaff.Text = "👥 Staff: --";
-            //
+            // 
             // lblPendingJobsOverview
-            //
+            // 
             this.lblPendingJobsOverview.AutoSize = true;
             this.lblPendingJobsOverview.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblPendingJobsOverview.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(53)))), ((int)(((byte)(69)))));
             this.lblPendingJobsOverview.Location = new System.Drawing.Point(2, 94);
             this.lblPendingJobsOverview.Name = "lblPendingJobsOverview";
-            this.lblPendingJobsOverview.Size = new System.Drawing.Size(100, 15);
+            this.lblPendingJobsOverview.Size = new System.Drawing.Size(111, 15);
             this.lblPendingJobsOverview.TabIndex = 4;
             this.lblPendingJobsOverview.Text = "⏳ Pending Jobs: --";
-            //
+            // 
+            // pnlTelemetryHeader
+            // 
+            this.pnlTelemetryHeader.BackColor = System.Drawing.Color.Transparent;
+            this.pnlTelemetryHeader.Controls.Add(this.lblTelemetryTitle);
+            this.pnlTelemetryHeader.Location = new System.Drawing.Point(4, 4);
+            this.pnlTelemetryHeader.Name = "pnlTelemetryHeader";
+            this.pnlTelemetryHeader.OutlineThickness = 1F;
+            this.pnlTelemetryHeader.PanelColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
+            this.pnlTelemetryHeader.PanelOutlineColor = System.Drawing.Color.Transparent;
+            this.pnlTelemetryHeader.Rounding = new System.Windows.Forms.Padding(12, 12, 0, 0);
+            this.pnlTelemetryHeader.Size = new System.Drawing.Size(610, 38);
+            this.pnlTelemetryHeader.TabIndex = 0;
+            // 
+            // lblTelemetryTitle
+            // 
+            this.lblTelemetryTitle.AutoSize = true;
+            this.lblTelemetryTitle.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblTelemetryTitle.ForeColor = System.Drawing.Color.White;
+            this.lblTelemetryTitle.Location = new System.Drawing.Point(16, 8);
+            this.lblTelemetryTitle.Name = "lblTelemetryTitle";
+            this.lblTelemetryTitle.Size = new System.Drawing.Size(140, 20);
+            this.lblTelemetryTitle.TabIndex = 0;
+            this.lblTelemetryTitle.Text = "Telemetry Cluster";
+            // 
             // pictureBox1
             // 
             this.pictureBox1.Image = ((System.Drawing.Image)(resources.GetObject("pictureBox1.Image")));
@@ -979,18 +993,10 @@
             this.pictureBox1.TabIndex = 0;
             this.pictureBox1.TabStop = false;
             // 
-            // prg_server
-            // 
-            this.prg_server.Location = new System.Drawing.Point(-24, 606);
-            this.prg_server.Name = "prg_server";
-            this.prg_server.Size = new System.Drawing.Size(1385, 10);
-            this.prg_server.TabIndex = 15;
-            // 
             // panel2
             // 
             this.panel2.BackColor = System.Drawing.Color.White;
             this.panel2.Controls.Add(this.rectangularLoader1);
-            this.panel2.Controls.Add(this.prg_server);
             this.panel2.Controls.Add(this.pictureBox1);
             this.panel2.Controls.Add(this.cuiPanelTelemetry);
             this.panel2.Controls.Add(this.pnlAlertBar);
@@ -1024,17 +1030,202 @@
             this.rectangularLoader1.Text = "rectangularLoader1";
             this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
             // 
+            // pnlStatusBar
+            // 
+            this.pnlStatusBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(241)))), ((int)(((byte)(246)))));
+            this.pnlStatusBar.Controls.Add(this.lblDevConnHdr);
+            this.pnlStatusBar.Controls.Add(this._pillsPanel);
+            this.pnlStatusBar.Controls.Add(this.lblDevStatus);
+            this.pnlStatusBar.Controls.Add(this.lblSep0);
+            this.pnlStatusBar.Controls.Add(this.lblStatusLastSync);
+            this.pnlStatusBar.Controls.Add(this.lblSep1);
+            this.pnlStatusBar.Controls.Add(this.lblStatusAppMem);
+            this.pnlStatusBar.Controls.Add(this.lblSep2);
+            this.pnlStatusBar.Controls.Add(this.lblStatusSqlMem);
+            this.pnlStatusBar.Controls.Add(this.lblSep3);
+            this.pnlStatusBar.Controls.Add(this.lblStatusUptime);
+            this.pnlStatusBar.Controls.Add(this.lblSep4);
+            this.pnlStatusBar.Controls.Add(this.lblStatusUser);
+            this.pnlStatusBar.Controls.Add(this.lblSep5);
+            this.pnlStatusBar.Controls.Add(this.lblStatusRole);
+            this.pnlStatusBar.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnlStatusBar.Location = new System.Drawing.Point(0, 690);
+            this.pnlStatusBar.Name = "pnlStatusBar";
+            this.pnlStatusBar.Size = new System.Drawing.Size(1302, 28);
+            this.pnlStatusBar.TabIndex = 47;
+            // 
+            // lblDevConnHdr
+            // 
+            this.lblDevConnHdr.AutoSize = true;
+            this.lblDevConnHdr.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblDevConnHdr.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(108)))), ((int)(((byte)(132)))));
+            this.lblDevConnHdr.Location = new System.Drawing.Point(10, 7);
+            this.lblDevConnHdr.Name = "lblDevConnHdr";
+            this.lblDevConnHdr.Size = new System.Drawing.Size(105, 15);
+            this.lblDevConnHdr.TabIndex = 0;
+            this.lblDevConnHdr.Text = "Device connection";
+            // 
+            // _pillsPanel
+            // 
+            this._pillsPanel.BackColor = System.Drawing.Color.Transparent;
+            this._pillsPanel.Location = new System.Drawing.Point(138, 6);
+            this._pillsPanel.Name = "_pillsPanel";
+            this._pillsPanel.Size = new System.Drawing.Size(160, 16);
+            this._pillsPanel.TabIndex = 1;
+            // 
+            // lblDevStatus
+            // 
+            this.lblDevStatus.AutoSize = true;
+            this.lblDevStatus.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblDevStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(34)))), ((int)(((byte)(139)))), ((int)(((byte)(34)))));
+            this.lblDevStatus.Location = new System.Drawing.Point(304, 7);
+            this.lblDevStatus.Name = "lblDevStatus";
+            this.lblDevStatus.Size = new System.Drawing.Size(83, 15);
+            this.lblDevStatus.TabIndex = 2;
+            this.lblDevStatus.Text = "All connected";
+            //
+            // lblSep0
+            //
+            this.lblSep0.AutoSize = true;
+            this.lblSep0.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSep0.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
+            this.lblSep0.Location = new System.Drawing.Point(410, 7);
+            this.lblSep0.Name = "lblSep0";
+            this.lblSep0.TabIndex = 13;
+            this.lblSep0.Text = "|";
+            //
+            // lblStatusLastSync
+            //
+            this.lblStatusLastSync.AutoSize = true;
+            this.lblStatusLastSync.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStatusLastSync.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
+            this.lblStatusLastSync.Location = new System.Drawing.Point(423, 7);
+            this.lblStatusLastSync.Name = "lblStatusLastSync";
+            this.lblStatusLastSync.TabIndex = 14;
+            this.lblStatusLastSync.Text = "Last sync: Never";
+            //
+            // lblSep1
+            //
+            this.lblSep1.AutoSize = true;
+            this.lblSep1.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSep1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
+            this.lblSep1.Location = new System.Drawing.Point(750, 7);
+            this.lblSep1.Name = "lblSep1";
+            this.lblSep1.Size = new System.Drawing.Size(10, 13);
+            this.lblSep1.TabIndex = 3;
+            this.lblSep1.Text = "|";
+            // 
+            // lblStatusAppMem
+            // 
+            this.lblStatusAppMem.AutoSize = true;
+            this.lblStatusAppMem.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStatusAppMem.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
+            this.lblStatusAppMem.Location = new System.Drawing.Point(763, 7);
+            this.lblStatusAppMem.Name = "lblStatusAppMem";
+            this.lblStatusAppMem.Size = new System.Drawing.Size(80, 15);
+            this.lblStatusAppMem.TabIndex = 4;
+            this.lblStatusAppMem.Text = "App memory ​";
+            // 
+            // lblSep2
+            // 
+            this.lblSep2.AutoSize = true;
+            this.lblSep2.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSep2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
+            this.lblSep2.Location = new System.Drawing.Point(860, 7);
+            this.lblSep2.Name = "lblSep2";
+            this.lblSep2.Size = new System.Drawing.Size(10, 13);
+            this.lblSep2.TabIndex = 5;
+            this.lblSep2.Text = "|";
+            // 
+            // lblStatusSqlMem
+            // 
+            this.lblStatusSqlMem.AutoSize = true;
+            this.lblStatusSqlMem.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStatusSqlMem.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
+            this.lblStatusSqlMem.Location = new System.Drawing.Point(873, 7);
+            this.lblStatusSqlMem.Name = "lblStatusSqlMem";
+            this.lblStatusSqlMem.Size = new System.Drawing.Size(66, 15);
+            this.lblStatusSqlMem.TabIndex = 6;
+            this.lblStatusSqlMem.Text = "SQL Server ​";
+            // 
+            // lblSep3
+            // 
+            this.lblSep3.AutoSize = true;
+            this.lblSep3.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSep3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
+            this.lblSep3.Location = new System.Drawing.Point(960, 7);
+            this.lblSep3.Name = "lblSep3";
+            this.lblSep3.Size = new System.Drawing.Size(10, 13);
+            this.lblSep3.TabIndex = 7;
+            this.lblSep3.Text = "|";
+            // 
+            // lblStatusUptime
+            // 
+            this.lblStatusUptime.AutoSize = true;
+            this.lblStatusUptime.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStatusUptime.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
+            this.lblStatusUptime.Location = new System.Drawing.Point(973, 7);
+            this.lblStatusUptime.Name = "lblStatusUptime";
+            this.lblStatusUptime.Size = new System.Drawing.Size(49, 15);
+            this.lblStatusUptime.TabIndex = 8;
+            this.lblStatusUptime.Text = "Uptime ​";
+            // 
+            // lblSep4
+            // 
+            this.lblSep4.AutoSize = true;
+            this.lblSep4.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSep4.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
+            this.lblSep4.Location = new System.Drawing.Point(1038, 7);
+            this.lblSep4.Name = "lblSep4";
+            this.lblSep4.Size = new System.Drawing.Size(10, 13);
+            this.lblSep4.TabIndex = 9;
+            this.lblSep4.Text = "|";
+            // 
+            // lblStatusUser
+            // 
+            this.lblStatusUser.AutoSize = true;
+            this.lblStatusUser.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStatusUser.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
+            this.lblStatusUser.Location = new System.Drawing.Point(1051, 7);
+            this.lblStatusUser.Name = "lblStatusUser";
+            this.lblStatusUser.Size = new System.Drawing.Size(68, 15);
+            this.lblStatusUser.TabIndex = 10;
+            this.lblStatusUser.Text = "Signed in: –";
+            // 
+            // lblSep5
+            // 
+            this.lblSep5.AutoSize = true;
+            this.lblSep5.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSep5.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
+            this.lblSep5.Location = new System.Drawing.Point(1155, 7);
+            this.lblSep5.Name = "lblSep5";
+            this.lblSep5.Size = new System.Drawing.Size(10, 13);
+            this.lblSep5.TabIndex = 11;
+            this.lblSep5.Text = "|";
+            // 
+            // lblStatusRole
+            // 
+            this.lblStatusRole.AutoSize = true;
+            this.lblStatusRole.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStatusRole.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
+            this.lblStatusRole.Location = new System.Drawing.Point(1168, 7);
+            this.lblStatusRole.Name = "lblStatusRole";
+            this.lblStatusRole.Size = new System.Drawing.Size(42, 15);
+            this.lblStatusRole.TabIndex = 12;
+            this.lblStatusRole.Text = "Role: –";
+            // 
             // Dashboard
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(1296, 686);
+            this.ClientSize = new System.Drawing.Size(1302, 718);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.button2);
             this.Controls.Add(this.panel2);
             this.Controls.Add(this.panel4);
+            this.Controls.Add(this.pnlStatusBar);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
@@ -1042,11 +1233,6 @@
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Dashboard";
             this.Load += new System.EventHandler(this.Dashboard_Load);
-            this.panel1.ResumeLayout(false);
-            this.panel1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pic_cloud_status)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pic_net_status)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pic_device_status)).EndInit();
             this.panel4.ResumeLayout(false);
             this.panel4.PerformLayout();
             this.cuiPanel2.ResumeLayout(false);
@@ -1063,27 +1249,49 @@
             this.pnl_check_out.ResumeLayout(false);
             this.pnl_check_out.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
+            this.pnlAlertBar.ResumeLayout(false);
+            this.cuiPanelTelemetry.ResumeLayout(false);
+            this.pnlActivityChart.ResumeLayout(false);
+            this.pnlActivityChart.PerformLayout();
+            this.pnlPendingJobsList.ResumeLayout(false);
+            this.pnlPendingJobsList.PerformLayout();
+            this.pnlSystemHealth.ResumeLayout(false);
+            this.pnlSystemHealth.PerformLayout();
+            this.pnlMemberOverview.ResumeLayout(false);
+            this.pnlMemberOverview.PerformLayout();
             this.pnlTelemetryHeader.ResumeLayout(false);
             this.pnlTelemetryHeader.PerformLayout();
-            this.cuiPanelTelemetry.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
+            this.pnlStatusBar.ResumeLayout(false);
+            this.pnlStatusBar.PerformLayout();
             this.ResumeLayout(false);
 
         }
 
         #endregion
-        private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.PictureBox pic_cloud_status;
-        private System.Windows.Forms.PictureBox pic_net_status;
-        private System.Windows.Forms.PictureBox pic_device_status;
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Panel panel4;
         private System.Diagnostics.Process process1;
         private System.Windows.Forms.Panel panel2;
         private Controls.RectangularLoader rectangularLoader1;
-        private System.Windows.Forms.ProgressBar prg_server;
+        private System.Windows.Forms.Panel pnlStatusBar;
+        private System.Windows.Forms.Label lblDevConnHdr;
+        private smart_attendance_middleware.Controls.PillsPanel _pillsPanel;
+        private System.Windows.Forms.Label lblDevStatus;
+        private System.Windows.Forms.Label lblSep0;
+        private System.Windows.Forms.Label lblStatusLastSync;
+        private System.Windows.Forms.Label lblSep1;
+        private System.Windows.Forms.Label lblStatusAppMem;
+        private System.Windows.Forms.Label lblSep2;
+        private System.Windows.Forms.Label lblStatusSqlMem;
+        private System.Windows.Forms.Label lblSep3;
+        private System.Windows.Forms.Label lblStatusUptime;
+        private System.Windows.Forms.Label lblSep4;
+        private System.Windows.Forms.Label lblStatusUser;
+        private System.Windows.Forms.Label lblSep5;
+        private System.Windows.Forms.Label lblStatusRole;
         private System.Windows.Forms.PictureBox pictureBox1;
         private System.Windows.Forms.Panel pnlAlertBar;
         private CuoreUI.Controls.cuiPanel cuiPanelTelemetry;
@@ -1142,6 +1350,9 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label lbl_connecteddevice;
         private System.Windows.Forms.Label lbl_version;
+        private smart_attendance_middleware.Controls.HeaderStatusCard _hdrInternetCard;
+        private smart_attendance_middleware.Controls.HeaderStatusCard _hdrCloudCard;
+        private smart_attendance_middleware.Controls.HeaderStatusCard _hdrLastSyncCard;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Button button2;
     }

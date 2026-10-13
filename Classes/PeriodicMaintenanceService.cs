@@ -61,7 +61,6 @@ namespace smart_attendance_middleware.Classes
 
         private readonly Dashboard _dashboard;
         private readonly DatabaseHelper _dbHelper;
-        private WebSocketManager _wsManager;
 
         private bool _disposed = false;
         private readonly object _lockObject = new object();
