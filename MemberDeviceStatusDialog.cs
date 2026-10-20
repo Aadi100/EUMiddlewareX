@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -8,7 +8,7 @@ using Newtonsoft.Json.Linq;
 
 namespace smart_attendance_middleware
 {
-    public class DeviceStatusDialog : Form
+    public partial class DeviceStatusDialog : Form
     {
         private object _entity;  // Can be Member or Staff
         private List<(Device Device, JObject Details, string Error)> _data;
@@ -23,15 +23,17 @@ namespace smart_attendance_middleware
             _isMember = entity is Member;
             _onEnroll = onEnroll;
             _onDelete = onDelete;
-            this.Font = new Font("Segoe UI", 9F);
+            this.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
+            BuildUi();
         }
 
         // Keep old constructor name for backward compatibility
         public DeviceStatusDialog(Member member, List<(Device Device, JObject Details, string Error)> data)
             : this((object)member, data) { }
 
-        private void InitializeComponent()
+        private void BuildUi()
         {
             // Get properties dynamically from entity (Member or Staff)
             string entityName = GetPropertyValue("Name")?.ToString() ?? "Unknown";
@@ -43,204 +45,123 @@ namespace smart_attendance_middleware
 
             int deviceCount = _data?.Count ?? 1;
             int estimatedHeight = 80 + (deviceCount * 310) + 70;
-            int formHeight = Math.Min(Math.Max(estimatedHeight, 550), 900);
+            this.Height = Math.Min(Math.Max(estimatedHeight, 550), 900);
 
-            this.Size = new Size(700, formHeight);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.Sizable;
-            this.MaximizeBox = true;
-            this.MinimizeBox = true;
-            this.MinimumSize = new Size(650, 500);
-            this.BackColor = Color.FromArgb(245, 246, 247);
+            // ── Fill designer-declared header labels ─────────────────────────────
+            lblEntityName.Text = entityName;
+            lblEntityInfo.Text = $"Enrollment ID: {enrollmentId} | {entityTypeLabel}: {entityId}";
 
-            // ── Header ──────────────────────────────────────────────────────────
-            Panel headerPanel = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 80,
-                BackColor = Color.FromArgb(18, 23, 49),
-                Padding = new Padding(15, 0, 0, 0)
-            };
-
-            // Resolve local face image for both members and staff
+            // Resolve local face image
             string localFacePath = null;
             if (int.TryParse(entityId, out int id) && id > 0)
-            {
                 localFacePath = ResolveLocalFacePath(id);
-            }
 
-            headerPanel.Controls.Add(new Label
-            {
-                Text = entityName,
-                Font = new Font("Segoe UI Semibold", 14F),
-                ForeColor = Color.White,
-                AutoSize = true,
-                Location = new Point(15, 14)
-            });
-            headerPanel.Controls.Add(new Label
-            {
-                Text = $"Enrollment ID: {enrollmentId} | {entityTypeLabel}: {entityId}",
-                Font = new Font("Segoe UI", 9F),
-                ForeColor = Color.FromArgb(200, 200, 200),
-                AutoSize = true,
-                Location = new Point(17, 44)
-            });
-
-            // ── Footer ──────────────────────────────────────────────────────────
-            Panel footer = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 70,
-                BackColor = Color.White
-            };
-
-            Button btnClose = new Button
-            {
-                Text = "Close",
-                DialogResult = DialogResult.OK,
-                Width = 100,
-                Height = 36,
-                Location = new Point(560, 17),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.White,
-                ForeColor = Color.FromArgb(18, 23, 49),
-                Cursor = Cursors.Hand
-            };
-            btnClose.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200);
-            footer.Controls.Add(btnClose);
-
-            // For staff: show Enroll/Delete; for members: show Sync Status
+            // ── Extra footer buttons (dynamic) ───────────────────────────────────
             if (!_isMember)
             {
                 Button btnEnroll = new Button
                 {
                     Text = "Enroll",
-                    Width = 100,
-                    Height = 36,
+                    Width = 100, Height = 36,
                     Location = new Point(270, 17),
                     BackColor = Color.FromArgb(0, 120, 212),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
-                    Font = new Font("Segoe UI Semibold", 9F),
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                     Cursor = Cursors.Hand
                 };
-                btnEnroll.FlatAppearance.BorderSize = 0;
                 btnEnroll.Click += (s, e) => { this.Close(); _onEnroll?.Invoke(); };
-                footer.Controls.Add(btnEnroll);
+                pnlFooter.Controls.Add(btnEnroll);
 
                 Button btnDelete = new Button
                 {
                     Text = "Delete",
-                    Width = 100,
-                    Height = 36,
+                    Width = 100, Height = 36,
                     Location = new Point(380, 17),
                     BackColor = Color.FromArgb(220, 53, 69),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
-                    Font = new Font("Segoe UI Semibold", 9F),
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                     Cursor = Cursors.Hand
                 };
-                btnDelete.FlatAppearance.BorderSize = 0;
                 btnDelete.Click += (s, e) => { this.Close(); _onDelete?.Invoke(); };
-                footer.Controls.Add(btnDelete);
+                pnlFooter.Controls.Add(btnDelete);
             }
             else
             {
-                // For members, show Sync Status button
                 Button btnSync = new Button
                 {
                     Text = "Sync Status",
-                    Width = 150,
-                    Height = 36,
+                    Width = 150, Height = 36,
                     Location = new Point(395, 17),
                     BackColor = Color.FromArgb(0, 120, 212),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
-                    Font = new Font("Segoe UI Semibold", 9F),
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                     Cursor = Cursors.Hand
                 };
-                btnSync.FlatAppearance.BorderSize = 0;
                 btnSync.Click += async (s, ev) =>
-            {
-                // Check expiry for members only
-                if (_isMember)
                 {
-                    string packageExpiry = GetPropertyValue("PackageExpiry")?.ToString();
-                    if (!string.IsNullOrWhiteSpace(packageExpiry) &&
-                        DateTime.TryParse(packageExpiry, out DateTime expiryDate) &&
-                        expiryDate.Date < DateTime.Today)
+                    if (_isMember)
                     {
-                        MessageBox.Show("Member membership has expired. Sync cancelled.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        string packageExpiry = GetPropertyValue("PackageExpiry")?.ToString();
+                        if (!string.IsNullOrWhiteSpace(packageExpiry) &&
+                            DateTime.TryParse(packageExpiry, out DateTime expiryDate) &&
+                            expiryDate.Date < DateTime.Today)
+                        {
+                            MessageBox.Show("Member membership has expired. Sync cancelled.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                    }
+
+                    this.Enabled = false;
+                    Dashboard.GlobalStartLoader("Syncing status via Cloud WebSocket...");
+
+                    string enrollIdStr = GetPropertyValue("EnrollmentID")?.ToString();
+                    if (!int.TryParse(enrollIdStr, out int enrollId))
+                    {
+                        MessageBox.Show("Invalid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        this.Enabled = true;
                         return;
                     }
-                }
 
-                this.Enabled = false;
-                Dashboard.GlobalStartLoader("Syncing status via Cloud WebSocket...");
-
-                string enrollIdStr = GetPropertyValue("EnrollmentID")?.ToString();
-                if (!int.TryParse(enrollIdStr, out int enrollId))
-                {
-                    MessageBox.Show("Invalid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    this.Enabled = true;
-                    return;
-                }
-
-                int success = 0, attempted = 0;
-
-                foreach (var item in _data)
-                {
-                    var enabled = item.Details?["enable"]?.Value<int>();
-                    if (enabled.HasValue && enabled.Value == 0)
+                    int success = 0, attempted = 0;
+                    foreach (var item in _data)
                     {
-                        attempted++;
-                        string sn = CommonUtils.GetDeviceSnByIp(item.Device.DeviceIP);
-                        if (!string.IsNullOrEmpty(sn))
+                        var enabled = item.Details?["enable"]?.Value<int>();
+                        if (enabled.HasValue && enabled.Value == 0)
                         {
-                            try
+                            attempted++;
+                            string sn = CommonUtils.GetDeviceSnByIp(item.Device.DeviceIP);
+                            if (!string.IsNullOrEmpty(sn))
                             {
-                                Dashboard.GlobalUpdateLoaderMessage($"Contacting {item.Device.Location ?? item.Device.DeviceIP}...");
-                                bool ok = await WebsocketServer.ExecuteServiceCommand(sn, "enableuser",
-                                    Newtonsoft.Json.JsonConvert.SerializeObject(new { enrollid = enrollId, enflag = 1 }));
-                                if (ok) success++;
-                            }
-                            catch (Exception ex)
-                            {
-                                LogHelper.Log($"[Sync-Error] {item.Device.DeviceIP}: {ex.Message}");
+                                try
+                                {
+                                    Dashboard.GlobalUpdateLoaderMessage($"Contacting {item.Device.Location ?? item.Device.DeviceIP}...");
+                                    bool ok = await WebsocketServer.ExecuteServiceCommand(sn, "enableuser",
+                                        Newtonsoft.Json.JsonConvert.SerializeObject(new { enrollid = enrollId, enflag = 1 }));
+                                    if (ok) success++;
+                                }
+                                catch (Exception ex)
+                                {
+                                    LogHelper.Log($"[Sync-Error] {item.Device.DeviceIP}: {ex.Message}");
+                                }
                             }
                         }
                     }
-                }
 
-                Dashboard.GlobalStopLoader();
-                this.Enabled = true;
+                    Dashboard.GlobalStopLoader();
+                    this.Enabled = true;
 
-                string entityType = _isMember ? "Member" : "Staff";
-                MessageBox.Show(attempted > 0
-                    ? $"Sync commands dispatched to {success} of {attempted} devices."
-                    : $"{entityType} already enabled on all devices.",
-                    "Sync Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                this.Close();
+                    string entityType = _isMember ? "Member" : "Staff";
+                    MessageBox.Show(attempted > 0
+                        ? $"Sync commands dispatched to {success} of {attempted} devices."
+                        : $"{entityType} already enabled on all devices.",
+                        "Sync Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    this.Close();
                 };
-                footer.Controls.Add(btnSync);
+                pnlFooter.Controls.Add(btnSync);
             }
-
-            // ── Content ─────────────────────────────────────────────────────────
-            FlowLayoutPanel mainPanel = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                AutoScroll = true,
-                Padding = new Padding(15, 15, 15, 15),
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoSize = false,
-                Margin = new Padding(0)
-            };
-
-            this.Controls.Add(headerPanel);
-            this.Controls.Add(footer);
-            this.Controls.Add(mainPanel);
-            mainPanel.BringToFront();
 
             // ── Device Cards ────────────────────────────────────────────────────
             const int targetWidth = 640;
@@ -301,7 +222,7 @@ namespace smart_attendance_middleware
                     int x = 0;
                     if (localFaceImg != null)
                     {
-                        photoPanel.Controls.Add(new Label { Text = "Local", AutoSize = true, Location = new Point(x, 0), ForeColor = Color.Gray, Font = new Font("Segoe UI", 7.5F) });
+                        photoPanel.Controls.Add(new Label { Text = "Local", AutoSize = true, Location = new Point(x, 0), ForeColor = Color.Gray, Font = new Font("Segoe UI", 8f, FontStyle.Regular) });
                         var pb = new PictureBox { Image = localFaceImg, Size = new Size(imgSize, imgSize), Location = new Point(x, 16), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand };
                         pb.Click += (s, ev) => ShowImagePreview(localFaceImg, "Local Photo — " + entityName);
                         photoPanel.Controls.Add(pb);
@@ -309,7 +230,7 @@ namespace smart_attendance_middleware
                     }
                     if (deviceFaceImg != null)
                     {
-                        photoPanel.Controls.Add(new Label { Text = "Device", AutoSize = true, Location = new Point(x, 0), ForeColor = Color.Gray, Font = new Font("Segoe UI", 7.5F) });
+                        photoPanel.Controls.Add(new Label { Text = "Device", AutoSize = true, Location = new Point(x, 0), ForeColor = Color.Gray, Font = new Font("Segoe UI", 8f, FontStyle.Regular) });
                         var pb = new PictureBox { Image = deviceFaceImg, Size = new Size(imgSize, imgSize), Location = new Point(x, 16), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand };
                         pb.Click += (s, ev) => ShowImagePreview(deviceFaceImg, "Device Photo — " + entityName);
                         photoPanel.Controls.Add(pb);
@@ -323,7 +244,7 @@ namespace smart_attendance_middleware
                 card.Controls.Add(new Label
                 {
                     Text = item.Device.Location ?? "Unnamed Device",
-                    Font = new Font("Segoe UI Semibold", 11F),
+                    Font = new Font("Segoe UI", 10f, FontStyle.Bold),
                     ForeColor = Color.FromArgb(18, 23, 49),
                     AutoSize = true,
                     Location = new Point(infoLeft, 12)
@@ -331,7 +252,7 @@ namespace smart_attendance_middleware
                 card.Controls.Add(new Label
                 {
                     Text = $"IP: {item.Device.DeviceIP}",
-                    Font = new Font("Segoe UI", 8F),
+                    Font = new Font("Segoe UI", 8f, FontStyle.Regular),
                     ForeColor = Color.Gray,
                     AutoSize = true,
                     Location = new Point(infoLeft + 1, 32)
@@ -381,7 +302,7 @@ namespace smart_attendance_middleware
             {
                 Text = value,
                 ForeColor = valueColor ?? Color.FromArgb(64, 64, 64),
-                Font = new Font("Segoe UI Semibold", 9F),
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 AutoSize = true,
                 MaximumSize = new Size(300, 60),
                 Anchor = AnchorStyles.Left
@@ -428,3 +349,4 @@ namespace smart_attendance_middleware
         }
     }
 }
+

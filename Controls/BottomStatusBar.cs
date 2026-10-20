@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using smart_attendance_middleware;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Windows.Forms;
@@ -98,12 +99,11 @@ namespace smart_attendance_middleware.Controls
             // ── LEFT: Device connection ────────────────────────────────────
             int lx = 12;
 
-            using (var labelFont = new Font("Segoe UI", 8.5f))
             using (var labelBrush = new SolidBrush(TextGray))
             {
                 string hdr = "Device connection";
-                var sz = g.MeasureString(hdr, labelFont);
-                g.DrawString(hdr, labelFont, labelBrush, lx, cy - sz.Height / 2);
+                var sz = g.MeasureString(hdr, new Font("Segoe UI", 8.5f, FontStyle.Regular));
+                g.DrawString(hdr, new Font("Segoe UI", 8.5f, FontStyle.Regular), labelBrush, lx, cy - sz.Height / 2);
                 lx += (int)sz.Width + 8;
             }
 
@@ -154,11 +154,10 @@ namespace smart_attendance_middleware.Controls
                 statusColor = OrangeText;
             }
 
-            using (var sf = new Font("Segoe UI", 8.5f, FontStyle.Bold))
             using (var sb = new SolidBrush(statusColor))
             {
-                var sz = g.MeasureString(statusText, sf);
-                g.DrawString(statusText, sf, sb, lx, cy - sz.Height / 2);
+                var sz = g.MeasureString(statusText, new Font("Segoe UI", 8.5f, FontStyle.Bold));
+                g.DrawString(statusText, new Font("Segoe UI", 8.5f, FontStyle.Bold), sb, lx, cy - sz.Height / 2);
             }
 
             // ── RIGHT: Stats ───────────────────────────────────────────────
@@ -170,12 +169,11 @@ namespace smart_attendance_middleware.Controls
                 // Separator "|"
                 if (i < stats.Count - 1)
                 {
-                    using (var sf = new Font("Segoe UI", 8f))
                     using (var sb = new SolidBrush(SepColor))
                     {
-                        var sz = g.MeasureString("|", sf);
+                        var sz = g.MeasureString("|", new Font("Segoe UI", 8f, FontStyle.Regular));
                         rx -= (int)sz.Width;
-                        g.DrawString("|", sf, sb, rx, cy - sz.Height / 2);
+                        g.DrawString("|", new Font("Segoe UI", 8f, FontStyle.Regular), sb, rx, cy - sz.Height / 2);
                         rx -= 6;
                     }
                 }
@@ -203,19 +201,17 @@ namespace smart_attendance_middleware.Controls
         private void DrawStat(Graphics g, ref int rightX, int cy, string label, string value)
         {
             // Draw value (bold) then label to the left
-            using (var boldFont  = new Font("Segoe UI", 8.5f, FontStyle.Bold))
-            using (var plainFont = new Font("Segoe UI", 8.5f))
             using (var darkBrush = new SolidBrush(TextDark))
             using (var grayBrush = new SolidBrush(TextGray))
             {
-                var valSz = g.MeasureString(value, boldFont);
+                var valSz = g.MeasureString(value, new Font("Segoe UI", 8.5f, FontStyle.Bold));
                 rightX -= (int)valSz.Width;
-                g.DrawString(value, boldFont, darkBrush, rightX, cy - valSz.Height / 2);
+                g.DrawString(value, new Font("Segoe UI", 8.5f, FontStyle.Bold), darkBrush, rightX, cy - valSz.Height / 2);
 
                 rightX -= 3;
-                var lblSz = g.MeasureString(label, plainFont);
+                var lblSz = g.MeasureString(label, new Font("Segoe UI", 8.5f, FontStyle.Regular));
                 rightX -= (int)lblSz.Width;
-                g.DrawString(label, plainFont, grayBrush, rightX, cy - lblSz.Height / 2);
+                g.DrawString(label, new Font("Segoe UI", 8.5f, FontStyle.Regular), grayBrush, rightX, cy - lblSz.Height / 2);
             }
         }
 

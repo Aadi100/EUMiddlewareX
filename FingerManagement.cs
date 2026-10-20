@@ -1,84 +1,67 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using smart_attendance_middleware.Classes;
+using smart_attendance_middleware.Controls;
 
 namespace smart_attendance_middleware
 {
     public partial class FingerManagement : Form
     {
         private DatabaseHelper _dbHelper;
-        private ListViewPagination _pagination;
+        private List<FingerprintItem> _allItems = new List<FingerprintItem>();
+
+        private struct FingerprintItem
+        {
+            public string MemberId;
+            public string Name;
+            public string EnrollId;
+            public string Status;
+        }
 
         public FingerManagement()
         {
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             _dbHelper = new DatabaseHelper();
         }
 
         private async void FingerManagement_Load(object sender, EventArgs e)
         {
-            InitializeListView();
-            _pagination = new ListViewPagination(lst_fingerprints, this);
+            cmb_deviceFilter.Items.Clear();
+            cmb_deviceFilter.Items.Add("Enroll on: All Devices");
+            var devices = AppSession.DeviceList;
+            if (devices != null)
+                foreach (var d in devices)
+                    cmb_deviceFilter.Items.Add($"Enroll on: {d.Location ?? d.Department ?? "Device " + d.MachineNo}");
+            cmb_deviceFilter.SelectedIndex = 0;
+
+            cardListViewFingerprints.SetColumns(
+                new[] { "MEMBER", "ENROLLMENT", "STATUS", "" },
+                new[] { 52, 300, 400, 512 });
+
             await LoadAllFingerprintStatusAsync();
-        }
-
-        private void InitializeListView()
-        {
-            lst_fingerprints.View = View.Details;
-            lst_fingerprints.FullRowSelect = true;
-            lst_fingerprints.GridLines = true;
-            lst_fingerprints.Columns.Clear();
-
-            lst_fingerprints.Columns.Add("Member ID", 80);
-            lst_fingerprints.Columns.Add("Name", 150);
-            lst_fingerprints.Columns.Add("Enrollment ID", 100);
-            lst_fingerprints.Columns.Add("Status", 100);
-            lst_fingerprints.Columns.Add("Action (Enroll)", 90);
-            lst_fingerprints.Columns.Add("Action (Delete)", 90);
         }
 
         private async Task LoadAllFingerprintStatusAsync()
         {
             try
             {
-                // Get members who are supposed to have fingerprints (Fingerprint = 1)
-                // and their actual status from the Fingerprints table.
                 List<dynamic> membersStatus = await _dbHelper.GetMembersFingerprintStatusAsync();
-                List<ListViewItem> items = new List<ListViewItem>();
+                _allItems = membersStatus.Select(m => new FingerprintItem {
+                    MemberId = m.MemberID.ToString(),
+                    Name     = (string)(m.Name ?? "N/A"),
+                    EnrollId = m.EnrollmentID?.ToString() ?? "NULL",
+                    Status   = (string)(m.Status ?? "")
+                }).ToList();
 
-                foreach (var member in membersStatus)
-                {
-                    ListViewItem item = new ListViewItem(member.MemberID.ToString());
-                    item.SubItems.Add(member.Name ?? "N/A");
-                    item.SubItems.Add(member.EnrollmentID?.ToString() ?? "NULL");
+                int missingCount = _allItems.Count(i => i.Status == "Missing");
+                lbl_missingCount.Text = $"● {missingCount} missing";
 
-                    string status = member.Status;
-                    item.SubItems.Add(status);
-
-                    // Add "buttons" as subitems
-                    item.SubItems.Add("Enroll");
-                    item.SubItems.Add("Delete");
-
-                    if (status == "Missing")
-                    {
-                        item.ForeColor = Color.Red;
-                    }
-                    else
-                    {
-                        item.ForeColor = Color.Green;
-                    }
-
-                    items.Add(item);
-                }
-
-                _pagination.SetItems(items);
+                ApplyRowFactory(_allItems);
                 LogHelper.Log($"Listed {membersStatus.Count} members with fingerprint requirements.");
             }
             catch (Exception ex)
@@ -88,62 +71,92 @@ namespace smart_attendance_middleware
             }
         }
 
-        private async void lst_fingerprints_MouseClick(object sender, MouseEventArgs e)
+        private void txt_search_TextChanged(object sender, EventArgs e)
         {
-            ListViewHitTestInfo info = lst_fingerprints.HitTest(e.X, e.Y);
-            if (info.Item == null || info.SubItem == null) return;
+            FilterList();
+        }
 
-            int subItemIndex = info.Item.SubItems.IndexOf(info.SubItem);
-            string enrollmentId = info.Item.SubItems[2].Text;
+        private void cmb_deviceFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            // Device filter is visual only
+        }
 
-            if (string.IsNullOrEmpty(enrollmentId) || enrollmentId == "NULL")
+        private void FilterList()
+        {
+            string term = txt_search.Text.Trim();
+            List<FingerprintItem> filtered = string.IsNullOrEmpty(term)
+                ? _allItems
+                : _allItems.Where(i =>
+                    i.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    i.EnrollId.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    i.MemberId.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                  ).ToList();
+            ApplyRowFactory(filtered);
+        }
+
+        private void ApplyRowFactory(List<FingerprintItem> items)
+        {
+            var accent = Color.FromArgb(59, 130, 246);
+            var red    = Color.FromArgb(239, 68, 68);
+            var navy   = Color.FromArgb(30, 38, 90);
+            var muted  = Color.FromArgb(130, 138, 165);
+            var green  = Color.FromArgb(16, 185, 129);
+
+            cardListViewFingerprints.SetRowFactory(items.Count, idx =>
             {
-                if (subItemIndex >= 4)
-                {
-                    MessageBox.Show("This member does not have a valid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-                return;
-            }
+                var item = items[idx];
+                var card = CardListView.MakeCard(900, 52);
 
-            try
-            {
-                // Action Enroll (subItemIndex 4)
-                if (subItemIndex == 4)
-                {
-                    Fingerprint fingerprintForm = new Fingerprint();
-                    fingerprintForm.EnrollmentID = enrollmentId;
-                    fingerprintForm.StartPosition = FormStartPosition.CenterParent;
-                    fingerprintForm.ShowDialog();
+                string initial = (!string.IsNullOrWhiteSpace(item.Name) && item.Name != "N/A")
+                    ? item.Name.Substring(0, 1) : "?";
+                card.Controls.Add(CardListView.MakeAvatarLabel(initial, accent, 8, 8, 36));
+                card.Controls.Add(new Label { Text = item.Name,            Location = new Point(52,  6), Width = 240, Height = 18, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = navy,  BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = $"ID {item.MemberId}",Location = new Point(52, 26), Width = 240, Height = 16, Font = new Font("Segoe UI", 8f, FontStyle.Regular),  ForeColor = muted, BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = item.EnrollId,        Location = new Point(300,17), Width = 90,  Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular),    ForeColor = navy,  BackColor = Color.Transparent });
+
+                bool isMissing = item.Status == "Missing";
+                card.Controls.Add(CardListView.MakePill(
+                    isMissing ? "Missing" : "● Enrolled",
+                    isMissing ? Color.FromArgb(254, 226, 226) : Color.FromArgb(209, 250, 229),
+                    isMissing ? red : green, 400, 15, 90, 22));
+
+                string capturedEnrollId = item.EnrollId;
+                var btnEnroll = CardListView.MakeActionButton("Enroll fingerprint", accent, Color.White, 512, 13, 160, 26);
+                btnEnroll.Click += async (s, ev) => {
+                    if (string.IsNullOrEmpty(capturedEnrollId) || capturedEnrollId == "NULL") {
+                        MessageBox.Show("This member does not have a valid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    var form = new Fingerprint();
+                    form.EnrollmentID = capturedEnrollId;
+                    form.StartPosition = FormStartPosition.CenterParent;
+                    form.ShowDialog();
                     await LoadAllFingerprintStatusAsync();
-                }
-                // Action Delete (subItemIndex 5)
-                else if (subItemIndex == 5)
-                {
-                    var confirmResult = MessageBox.Show(
-                        $"Are you sure you want to delete the fingerprint for Enrollment ID: {enrollmentId}?",
-                        "Confirm Delete",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Warning);
+                };
+                card.Controls.Add(btnEnroll);
 
-                    if (confirmResult == DialogResult.Yes)
-                    {
-                        if (_dbHelper.DeleteFingerprint(int.Parse(enrollmentId)))
-                        {
+                var btnDelete = CardListView.MakeActionButton("Delete", Color.White, red, 682, 13, 80, 26);
+                btnDelete.Click += async (s, ev) => {
+                    if (string.IsNullOrEmpty(capturedEnrollId) || capturedEnrollId == "NULL") {
+                        MessageBox.Show("This member does not have a valid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    var confirm = MessageBox.Show(
+                        $"Delete fingerprint for Enrollment ID: {capturedEnrollId}?",
+                        "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (confirm == DialogResult.Yes) {
+                        if (_dbHelper.DeleteFingerprint(int.Parse(capturedEnrollId))) {
                             MessageBox.Show("Fingerprint deleted successfully. You can now re-enroll.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                             await LoadAllFingerprintStatusAsync();
-                        }
-                        else
-                        {
+                        } else {
                             MessageBox.Show("Failed to delete fingerprint or fingerprint not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         }
                     }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error processing action: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                LogHelper.Log($"Error in lst_fingerprints_MouseClick: {ex.Message}");
-            }
+                };
+                card.Controls.Add(btnDelete);
+
+                return card;
+            });
         }
     }
 }

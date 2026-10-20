@@ -2,467 +2,706 @@
 {
     partial class AddNewDevice
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
-            {
                 components.Dispose();
-            }
             base.Dispose(disposing);
         }
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(AddNewDevice));
-            this.pnl_device = new System.Windows.Forms.Panel();
-            this.chk_isstaff = new System.Windows.Forms.CheckBox();
-            this.btn_load = new System.Windows.Forms.Button();
-            this.txt_password = new System.Windows.Forms.TextBox();
-            this.lbl_password = new System.Windows.Forms.Label();
-            this.label4 = new System.Windows.Forms.Label();
-            this.cmb_machine_no = new System.Windows.Forms.ComboBox();
-            this.btnCancle = new System.Windows.Forms.Button();
-            this.cmb_connectionType = new System.Windows.Forms.ComboBox();
-            this.cmb_device_type = new System.Windows.Forms.ComboBox();
-            this.btnSave = new System.Windows.Forms.Button();
-            this.txt_finger_capacity = new System.Windows.Forms.TextBox();
-            this.txt_RFID_capacity = new System.Windows.Forms.TextBox();
-            this.txt_face_capacity = new System.Windows.Forms.TextBox();
-            this.txt_location = new System.Windows.Forms.TextBox();
-            this.txt_timeZone = new System.Windows.Forms.TextBox();
-            this.txt_port = new System.Windows.Forms.TextBox();
-            this.txt_ip = new System.Windows.Forms.TextBox();
-            this.txt_Serial = new System.Windows.Forms.TextBox();
-            this.txt_department = new System.Windows.Forms.TextBox();
-            this.label17 = new System.Windows.Forms.Label();
-            this.label18 = new System.Windows.Forms.Label();
-            this.label19 = new System.Windows.Forms.Label();
-            this.label22 = new System.Windows.Forms.Label();
-            this.label23 = new System.Windows.Forms.Label();
-            this.label16 = new System.Windows.Forms.Label();
-            this.label15 = new System.Windows.Forms.Label();
-            this.label14 = new System.Windows.Forms.Label();
-            this.label13 = new System.Windows.Forms.Label();
-            this.label12 = new System.Windows.Forms.Label();
-            this.label11 = new System.Windows.Forms.Label();
-            this.label9 = new System.Windows.Forms.Label();
+            this.pnlHeader = new System.Windows.Forms.Panel();
+            this.lblTitle = new System.Windows.Forms.Label();
+            this.lblSubtitle = new System.Windows.Forms.Label();
+            this.pnlContent = new System.Windows.Forms.Panel();
+            this.lblSectionDevice = new System.Windows.Forms.Label();
+            this.pnlSepDevice = new System.Windows.Forms.Panel();
+            this.lblLDeviceType = new System.Windows.Forms.Label();
+            this.cmb_device_type = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.lblLConnectionType = new System.Windows.Forms.Label();
+            this.cmb_connectionType = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.lblLSerial = new System.Windows.Forms.Label();
+            this.txt_Serial = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLMachineNo = new System.Windows.Forms.Label();
+            this.cmb_machine_no = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.lblLDepartment = new System.Windows.Forms.Label();
+            this.txt_department = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLLocation = new System.Windows.Forms.Label();
+            this.txt_location = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.chk_isstaff = new smart_attendance_middleware.Controls.ToggleSwitch();
+            this.lblStaffTitle = new System.Windows.Forms.Label();
+            this.lblStaffDesc = new System.Windows.Forms.Label();
+            this.lblSectionConnection = new System.Windows.Forms.Label();
+            this.pnlSepConnection = new System.Windows.Forms.Panel();
+            this.lblLDeviceIP = new System.Windows.Forms.Label();
+            this.txt_ip = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLPort = new System.Windows.Forms.Label();
+            this.txt_port = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLPassword = new System.Windows.Forms.Label();
+            this.txt_password = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLTimeZone = new System.Windows.Forms.Label();
+            this.cmb_timeZone = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.lblSectionCapacity = new System.Windows.Forms.Label();
+            this.pnlSepCapacity = new System.Windows.Forms.Panel();
+            this.lblLFaceCapacity = new System.Windows.Forms.Label();
+            this.txt_face_capacity = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLRFIDCapacity = new System.Windows.Forms.Label();
+            this.txt_RFID_capacity = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLFingerCapacity = new System.Windows.Forms.Label();
+            this.txt_finger_capacity = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.pnlFooter = new System.Windows.Forms.Panel();
+            this.btn_testConnection = new smart_attendance_middleware.Controls.RoundedButton();
             this.lbl_saving_status = new System.Windows.Forms.Label();
-            this.label1 = new System.Windows.Forms.Label();
-            this.pnl_device.SuspendLayout();
+            this.btnCancle = new smart_attendance_middleware.Controls.RoundedButton();
+            this.btnSave = new smart_attendance_middleware.Controls.RoundedButton();
+            this.pnlHeader.SuspendLayout();
+            this.pnlContent.SuspendLayout();
+            this.pnlFooter.SuspendLayout();
             this.SuspendLayout();
             // 
-            // pnl_device
+            // pnlHeader
             // 
-            this.pnl_device.BackColor = System.Drawing.Color.White;
-            this.pnl_device.Controls.Add(this.chk_isstaff);
-            this.pnl_device.Controls.Add(this.txt_password);
-            this.pnl_device.Controls.Add(this.lbl_password);
-            this.pnl_device.Controls.Add(this.label4);
-            this.pnl_device.Controls.Add(this.cmb_machine_no);
-            this.pnl_device.Controls.Add(this.btnCancle);
-            this.pnl_device.Controls.Add(this.cmb_connectionType);
-            this.pnl_device.Controls.Add(this.cmb_device_type);
-            this.pnl_device.Controls.Add(this.btnSave);
-            this.pnl_device.Controls.Add(this.txt_finger_capacity);
-            this.pnl_device.Controls.Add(this.txt_RFID_capacity);
-            this.pnl_device.Controls.Add(this.txt_face_capacity);
-            this.pnl_device.Controls.Add(this.txt_location);
-            this.pnl_device.Controls.Add(this.txt_timeZone);
-            this.pnl_device.Controls.Add(this.txt_port);
-            this.pnl_device.Controls.Add(this.txt_ip);
-            this.pnl_device.Controls.Add(this.txt_Serial);
-            this.pnl_device.Controls.Add(this.txt_department);
-            this.pnl_device.Controls.Add(this.label17);
-            this.pnl_device.Controls.Add(this.label18);
-            this.pnl_device.Controls.Add(this.label19);
-            this.pnl_device.Controls.Add(this.label22);
-            this.pnl_device.Controls.Add(this.label23);
-            this.pnl_device.Controls.Add(this.label16);
-            this.pnl_device.Controls.Add(this.label15);
-            this.pnl_device.Controls.Add(this.label14);
-            this.pnl_device.Controls.Add(this.label13);
-            this.pnl_device.Controls.Add(this.label12);
-            this.pnl_device.Controls.Add(this.label11);
-            this.pnl_device.Controls.Add(this.label9);
-            this.pnl_device.Location = new System.Drawing.Point(0, 73);
-            this.pnl_device.Name = "pnl_device";
-            this.pnl_device.Size = new System.Drawing.Size(767, 462);
-            this.pnl_device.TabIndex = 3;
-            this.pnl_device.Paint += new System.Windows.Forms.PaintEventHandler(this.pnl_device_Paint);
+            this.pnlHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(32)))), ((int)(((byte)(64)))));
+            this.pnlHeader.Controls.Add(this.lblTitle);
+            this.pnlHeader.Controls.Add(this.lblSubtitle);
+            this.pnlHeader.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnlHeader.Location = new System.Drawing.Point(0, 0);
+            this.pnlHeader.Name = "pnlHeader";
+            this.pnlHeader.Size = new System.Drawing.Size(960, 68);
+            this.pnlHeader.TabIndex = 0;
             // 
-            // chk_isstaff
+            // lblTitle
             // 
-            this.chk_isstaff.AutoSize = true;
-            this.chk_isstaff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.chk_isstaff.Location = new System.Drawing.Point(17, 329);
-            this.chk_isstaff.Name = "chk_isstaff";
-            this.chk_isstaff.Size = new System.Drawing.Size(56, 21);
-            this.chk_isstaff.TabIndex = 48;
-            this.chk_isstaff.Text = "Staff";
-            this.chk_isstaff.UseVisualStyleBackColor = true;
+            this.lblTitle.AutoSize = true;
+            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.ForeColor = System.Drawing.Color.White;
+            this.lblTitle.Location = new System.Drawing.Point(24, 14);
+            this.lblTitle.Name = "lblTitle";
+            this.lblTitle.Size = new System.Drawing.Size(157, 25);
+            this.lblTitle.TabIndex = 0;
+            this.lblTitle.Text = "Add New Device";
             // 
-            // btn_load
+            // lblSubtitle
             // 
-            this.btn_load.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_load.Location = new System.Drawing.Point(827, 117);
-            this.btn_load.Name = "btn_load";
-            this.btn_load.Size = new System.Drawing.Size(94, 27);
-            this.btn_load.TabIndex = 5;
-            this.btn_load.Text = "Load Preset";
-            this.btn_load.UseVisualStyleBackColor = true;
-            this.btn_load.Click += new System.EventHandler(this.btn_load_Click);
+            this.lblSubtitle.AutoSize = true;
+            this.lblSubtitle.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblSubtitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(165)))), ((int)(((byte)(215)))));
+            this.lblSubtitle.Location = new System.Drawing.Point(24, 42);
+            this.lblSubtitle.Name = "lblSubtitle";
+            this.lblSubtitle.Size = new System.Drawing.Size(319, 15);
+            this.lblSubtitle.TabIndex = 1;
+            this.lblSubtitle.Text = "Register a biometric device so members can be synced to it";
             // 
-            // txt_password
+            // pnlContent
             // 
-            this.txt_password.BackColor = System.Drawing.Color.White;
-            this.txt_password.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_password.Location = new System.Drawing.Point(567, 200);
-            this.txt_password.Name = "txt_password";
-            this.txt_password.PasswordChar = '*';
-            this.txt_password.Size = new System.Drawing.Size(168, 26);
-            this.txt_password.TabIndex = 10;
+            this.pnlContent.AutoScroll = true;
+            this.pnlContent.BackColor = System.Drawing.Color.White;
+            this.pnlContent.Controls.Add(this.lblSectionDevice);
+            this.pnlContent.Controls.Add(this.pnlSepDevice);
+            this.pnlContent.Controls.Add(this.lblLDeviceType);
+            this.pnlContent.Controls.Add(this.cmb_device_type);
+            this.pnlContent.Controls.Add(this.lblLConnectionType);
+            this.pnlContent.Controls.Add(this.cmb_connectionType);
+            this.pnlContent.Controls.Add(this.lblLSerial);
+            this.pnlContent.Controls.Add(this.txt_Serial);
+            this.pnlContent.Controls.Add(this.lblLMachineNo);
+            this.pnlContent.Controls.Add(this.cmb_machine_no);
+            this.pnlContent.Controls.Add(this.lblLDepartment);
+            this.pnlContent.Controls.Add(this.txt_department);
+            this.pnlContent.Controls.Add(this.lblLLocation);
+            this.pnlContent.Controls.Add(this.txt_location);
+            this.pnlContent.Controls.Add(this.chk_isstaff);
+            this.pnlContent.Controls.Add(this.lblStaffTitle);
+            this.pnlContent.Controls.Add(this.lblStaffDesc);
+            this.pnlContent.Controls.Add(this.lblSectionConnection);
+            this.pnlContent.Controls.Add(this.pnlSepConnection);
+            this.pnlContent.Controls.Add(this.lblLDeviceIP);
+            this.pnlContent.Controls.Add(this.txt_ip);
+            this.pnlContent.Controls.Add(this.lblLPort);
+            this.pnlContent.Controls.Add(this.txt_port);
+            this.pnlContent.Controls.Add(this.lblLPassword);
+            this.pnlContent.Controls.Add(this.txt_password);
+            this.pnlContent.Controls.Add(this.lblLTimeZone);
+            this.pnlContent.Controls.Add(this.cmb_timeZone);
+            this.pnlContent.Controls.Add(this.lblSectionCapacity);
+            this.pnlContent.Controls.Add(this.pnlSepCapacity);
+            this.pnlContent.Controls.Add(this.lblLFaceCapacity);
+            this.pnlContent.Controls.Add(this.txt_face_capacity);
+            this.pnlContent.Controls.Add(this.lblLRFIDCapacity);
+            this.pnlContent.Controls.Add(this.txt_RFID_capacity);
+            this.pnlContent.Controls.Add(this.lblLFingerCapacity);
+            this.pnlContent.Controls.Add(this.txt_finger_capacity);
+            this.pnlContent.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlContent.Location = new System.Drawing.Point(0, 68);
+            this.pnlContent.Name = "pnlContent";
+            this.pnlContent.Size = new System.Drawing.Size(960, 412);
+            this.pnlContent.TabIndex = 1;
             // 
-            // lbl_password
+            // lblSectionDevice
             // 
-            this.lbl_password.AutoSize = true;
-            this.lbl_password.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbl_password.Location = new System.Drawing.Point(422, 207);
-            this.lbl_password.Name = "lbl_password";
-            this.lbl_password.Size = new System.Drawing.Size(69, 17);
-            this.lbl_password.TabIndex = 47;
-            this.lbl_password.Text = "Password";
+            this.lblSectionDevice.AutoSize = true;
+            this.lblSectionDevice.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblSectionDevice.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblSectionDevice.Location = new System.Drawing.Point(24, 18);
+            this.lblSectionDevice.Name = "lblSectionDevice";
+            this.lblSectionDevice.Size = new System.Drawing.Size(55, 20);
+            this.lblSectionDevice.TabIndex = 0;
+            this.lblSectionDevice.Text = "Device";
             // 
-            // label4
+            // pnlSepDevice
             // 
-            this.label4.AutoSize = true;
-            this.label4.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label4.Location = new System.Drawing.Point(422, 161);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(83, 17);
-            this.label4.TabIndex = 45;
-            this.label4.Text = "Machine No";
+            this.pnlSepDevice.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(238)))));
+            this.pnlSepDevice.Location = new System.Drawing.Point(24, 36);
+            this.pnlSepDevice.Name = "pnlSepDevice";
+            this.pnlSepDevice.Size = new System.Drawing.Size(912, 1);
+            this.pnlSepDevice.TabIndex = 1;
             // 
-            // cmb_machine_no
+            // lblLDeviceType
             // 
-            this.cmb_machine_no.BackColor = System.Drawing.Color.White;
-            this.cmb_machine_no.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.cmb_machine_no.FormattingEnabled = true;
-            this.cmb_machine_no.Items.AddRange(new object[] {
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "10"});
-            this.cmb_machine_no.Location = new System.Drawing.Point(566, 155);
-            this.cmb_machine_no.Name = "cmb_machine_no";
-            this.cmb_machine_no.Size = new System.Drawing.Size(169, 28);
-            this.cmb_machine_no.TabIndex = 9;
-            // 
-            // btnCancle
-            // 
-            this.btnCancle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnCancle.Location = new System.Drawing.Point(400, 396);
-            this.btnCancle.Name = "btnCancle";
-            this.btnCancle.Size = new System.Drawing.Size(157, 46);
-            this.btnCancle.TabIndex = 40;
-            this.btnCancle.Text = "Cancel";
-            this.btnCancle.UseVisualStyleBackColor = true;
-            this.btnCancle.Click += new System.EventHandler(this.btnCancle_Click);
-            // 
-            // cmb_connectionType
-            // 
-            this.cmb_connectionType.BackColor = System.Drawing.Color.White;
-            this.cmb_connectionType.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.cmb_connectionType.FormattingEnabled = true;
-            this.cmb_connectionType.Items.AddRange(new object[] {
-            "NET",
-            "LAN",
-            "USB"});
-            this.cmb_connectionType.Location = new System.Drawing.Point(568, 110);
-            this.cmb_connectionType.Name = "cmb_connectionType";
-            this.cmb_connectionType.Size = new System.Drawing.Size(167, 28);
-            this.cmb_connectionType.TabIndex = 8;
+            this.lblLDeviceType.AutoSize = true;
+            this.lblLDeviceType.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLDeviceType.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLDeviceType.Location = new System.Drawing.Point(24, 40);
+            this.lblLDeviceType.Name = "lblLDeviceType";
+            this.lblLDeviceType.Size = new System.Drawing.Size(76, 15);
+            this.lblLDeviceType.TabIndex = 2;
+            this.lblLDeviceType.Text = "Device type *";
             // 
             // cmb_device_type
             // 
-            this.cmb_device_type.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.cmb_device_type.FormattingEnabled = true;
-            this.cmb_device_type.Items.AddRange(new object[] {
-            "Check-in",
-            "Check-out",
-            "Check-in/Check-out"});
-            this.cmb_device_type.Location = new System.Drawing.Point(124, 110);
+            this.cmb_device_type.BackColor = System.Drawing.Color.Transparent;
+            this.cmb_device_type.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmb_device_type.DataSource = null;
+            this.cmb_device_type.DisplayMember = "";
+            this.cmb_device_type.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmb_device_type.Location = new System.Drawing.Point(24, 56);
             this.cmb_device_type.Name = "cmb_device_type";
-            this.cmb_device_type.Size = new System.Drawing.Size(166, 28);
-            this.cmb_device_type.TabIndex = 2;
+            this.cmb_device_type.Radius = 10;
+            this.cmb_device_type.SelectedIndex = -1;
+            this.cmb_device_type.SelectedItem = null;
+            this.cmb_device_type.Size = new System.Drawing.Size(218, 36);
+            this.cmb_device_type.TabIndex = 3;
+            this.cmb_device_type.ValueMember = "";
             // 
-            // btnSave
+            // lblLConnectionType
             // 
-            this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(3)))), ((int)(((byte)(70)))), ((int)(((byte)(214)))));
-            this.btnSave.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Location = new System.Drawing.Point(577, 396);
-            this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(158, 46);
-            this.btnSave.TabIndex = 39;
-            this.btnSave.Text = "Save";
-            this.btnSave.UseVisualStyleBackColor = false;
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            this.lblLConnectionType.AutoSize = true;
+            this.lblLConnectionType.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLConnectionType.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLConnectionType.Location = new System.Drawing.Point(495, 40);
+            this.lblLConnectionType.Name = "lblLConnectionType";
+            this.lblLConnectionType.Size = new System.Drawing.Size(103, 15);
+            this.lblLConnectionType.TabIndex = 4;
+            this.lblLConnectionType.Text = "Connection type *";
             // 
-            // txt_finger_capacity
+            // cmb_connectionType
             // 
-            this.txt_finger_capacity.BackColor = System.Drawing.Color.White;
-            this.txt_finger_capacity.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_finger_capacity.Location = new System.Drawing.Point(566, 329);
-            this.txt_finger_capacity.Name = "txt_finger_capacity";
-            this.txt_finger_capacity.Size = new System.Drawing.Size(168, 26);
-            this.txt_finger_capacity.TabIndex = 35;
+            this.cmb_connectionType.BackColor = System.Drawing.Color.Transparent;
+            this.cmb_connectionType.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmb_connectionType.DataSource = null;
+            this.cmb_connectionType.DisplayMember = "";
+            this.cmb_connectionType.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmb_connectionType.Location = new System.Drawing.Point(497, 58);
+            this.cmb_connectionType.Name = "cmb_connectionType";
+            this.cmb_connectionType.Radius = 10;
+            this.cmb_connectionType.SelectedIndex = -1;
+            this.cmb_connectionType.SelectedItem = null;
+            this.cmb_connectionType.Size = new System.Drawing.Size(218, 36);
+            this.cmb_connectionType.TabIndex = 5;
+            this.cmb_connectionType.ValueMember = "";
             // 
-            // txt_RFID_capacity
+            // lblLSerial
             // 
-            this.txt_RFID_capacity.BackColor = System.Drawing.Color.White;
-            this.txt_RFID_capacity.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_RFID_capacity.Location = new System.Drawing.Point(566, 286);
-            this.txt_RFID_capacity.Name = "txt_RFID_capacity";
-            this.txt_RFID_capacity.Size = new System.Drawing.Size(168, 26);
-            this.txt_RFID_capacity.TabIndex = 34;
-            // 
-            // txt_face_capacity
-            // 
-            this.txt_face_capacity.BackColor = System.Drawing.Color.White;
-            this.txt_face_capacity.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_face_capacity.Location = new System.Drawing.Point(566, 243);
-            this.txt_face_capacity.Name = "txt_face_capacity";
-            this.txt_face_capacity.Size = new System.Drawing.Size(168, 26);
-            this.txt_face_capacity.TabIndex = 33;
-            // 
-            // txt_location
-            // 
-            this.txt_location.BackColor = System.Drawing.Color.White;
-            this.txt_location.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_location.Location = new System.Drawing.Point(566, 67);
-            this.txt_location.Name = "txt_location";
-            this.txt_location.Size = new System.Drawing.Size(168, 26);
-            this.txt_location.TabIndex = 7;
-            // 
-            // txt_timeZone
-            // 
-            this.txt_timeZone.BackColor = System.Drawing.Color.White;
-            this.txt_timeZone.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_timeZone.Location = new System.Drawing.Point(124, 284);
-            this.txt_timeZone.Name = "txt_timeZone";
-            this.txt_timeZone.Size = new System.Drawing.Size(167, 26);
-            this.txt_timeZone.TabIndex = 6;
-            // 
-            // txt_port
-            // 
-            this.txt_port.BackColor = System.Drawing.Color.White;
-            this.txt_port.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_port.Location = new System.Drawing.Point(123, 241);
-            this.txt_port.Name = "txt_port";
-            this.txt_port.Size = new System.Drawing.Size(167, 26);
-            this.txt_port.TabIndex = 5;
-            // 
-            // txt_ip
-            // 
-            this.txt_ip.BackColor = System.Drawing.Color.White;
-            this.txt_ip.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_ip.Location = new System.Drawing.Point(123, 198);
-            this.txt_ip.Name = "txt_ip";
-            this.txt_ip.Size = new System.Drawing.Size(167, 26);
-            this.txt_ip.TabIndex = 4;
+            this.lblLSerial.AutoSize = true;
+            this.lblLSerial.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLSerial.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLSerial.Location = new System.Drawing.Point(24, 108);
+            this.lblLSerial.Name = "lblLSerial";
+            this.lblLSerial.Size = new System.Drawing.Size(80, 15);
+            this.lblLSerial.TabIndex = 6;
+            this.lblLSerial.Text = "Device serial *";
             // 
             // txt_Serial
             // 
-            this.txt_Serial.BackColor = System.Drawing.Color.White;
-            this.txt_Serial.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_Serial.Location = new System.Drawing.Point(123, 155);
+            this.txt_Serial.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_Serial.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_Serial.BackColor = System.Drawing.Color.Transparent;
+            this.txt_Serial.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_Serial.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_Serial.Location = new System.Drawing.Point(24, 124);
+            this.txt_Serial.MaxLength = 32767;
             this.txt_Serial.Name = "txt_Serial";
-            this.txt_Serial.ReadOnly = true;
-            this.txt_Serial.Size = new System.Drawing.Size(167, 26);
-            this.txt_Serial.TabIndex = 3;
+            this.txt_Serial.PasswordChar = '\0';
+            this.txt_Serial.Placeholder = "";
+            this.txt_Serial.Radius = 10;
+            this.txt_Serial.ReadOnly = false;
+            this.txt_Serial.Size = new System.Drawing.Size(218, 36);
+            this.txt_Serial.TabIndex = 7;
+            this.txt_Serial.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_Serial.UseSystemPasswordChar = false;
+            // 
+            // lblLMachineNo
+            // 
+            this.lblLMachineNo.AutoSize = true;
+            this.lblLMachineNo.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLMachineNo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLMachineNo.Location = new System.Drawing.Point(259, 108);
+            this.lblLMachineNo.Name = "lblLMachineNo";
+            this.lblLMachineNo.Size = new System.Drawing.Size(78, 15);
+            this.lblLMachineNo.TabIndex = 8;
+            this.lblLMachineNo.Text = "Machine no *";
+            // 
+            // cmb_machine_no
+            // 
+            this.cmb_machine_no.BackColor = System.Drawing.Color.Transparent;
+            this.cmb_machine_no.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmb_machine_no.DataSource = null;
+            this.cmb_machine_no.DisplayMember = "";
+            this.cmb_machine_no.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmb_machine_no.Location = new System.Drawing.Point(259, 124);
+            this.cmb_machine_no.Name = "cmb_machine_no";
+            this.cmb_machine_no.Radius = 10;
+            this.cmb_machine_no.SelectedIndex = -1;
+            this.cmb_machine_no.SelectedItem = null;
+            this.cmb_machine_no.Size = new System.Drawing.Size(218, 36);
+            this.cmb_machine_no.TabIndex = 9;
+            this.cmb_machine_no.ValueMember = "";
+            // 
+            // lblLDepartment
+            // 
+            this.lblLDepartment.AutoSize = true;
+            this.lblLDepartment.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLDepartment.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLDepartment.Location = new System.Drawing.Point(259, 40);
+            this.lblLDepartment.Name = "lblLDepartment";
+            this.lblLDepartment.Size = new System.Drawing.Size(70, 15);
+            this.lblLDepartment.TabIndex = 10;
+            this.lblLDepartment.Text = "Department";
             // 
             // txt_department
             // 
-            this.txt_department.BackColor = System.Drawing.Color.White;
-            this.txt_department.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_department.Location = new System.Drawing.Point(124, 67);
+            this.txt_department.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_department.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_department.BackColor = System.Drawing.Color.Transparent;
+            this.txt_department.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_department.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_department.Location = new System.Drawing.Point(259, 58);
+            this.txt_department.MaxLength = 32767;
             this.txt_department.Name = "txt_department";
-            this.txt_department.Size = new System.Drawing.Size(167, 26);
-            this.txt_department.TabIndex = 1;
+            this.txt_department.PasswordChar = '\0';
+            this.txt_department.Placeholder = "";
+            this.txt_department.Radius = 10;
+            this.txt_department.ReadOnly = false;
+            this.txt_department.Size = new System.Drawing.Size(218, 36);
+            this.txt_department.TabIndex = 11;
+            this.txt_department.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_department.UseSystemPasswordChar = false;
             // 
-            // label17
+            // lblLLocation
             // 
-            this.label17.AutoSize = true;
-            this.label17.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label17.Location = new System.Drawing.Point(422, 336);
-            this.label17.Name = "label17";
-            this.label17.Size = new System.Drawing.Size(106, 17);
-            this.label17.TabIndex = 21;
-            this.label17.Text = "Finger Capacity";
+            this.lblLLocation.AutoSize = true;
+            this.lblLLocation.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLLocation.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLLocation.Location = new System.Drawing.Point(728, 40);
+            this.lblLLocation.Name = "lblLLocation";
+            this.lblLLocation.Size = new System.Drawing.Size(53, 15);
+            this.lblLLocation.TabIndex = 12;
+            this.lblLLocation.Text = "Location";
             // 
-            // label18
+            // txt_location
             // 
-            this.label18.AutoSize = true;
-            this.label18.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label18.Location = new System.Drawing.Point(422, 293);
-            this.label18.Name = "label18";
-            this.label18.Size = new System.Drawing.Size(97, 17);
-            this.label18.TabIndex = 20;
-            this.label18.Text = "RFID Capacity";
+            this.txt_location.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_location.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_location.BackColor = System.Drawing.Color.Transparent;
+            this.txt_location.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_location.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_location.Location = new System.Drawing.Point(725, 58);
+            this.txt_location.MaxLength = 32767;
+            this.txt_location.Name = "txt_location";
+            this.txt_location.PasswordChar = '\0';
+            this.txt_location.Placeholder = "";
+            this.txt_location.Radius = 10;
+            this.txt_location.ReadOnly = false;
+            this.txt_location.Size = new System.Drawing.Size(218, 36);
+            this.txt_location.TabIndex = 13;
+            this.txt_location.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_location.UseSystemPasswordChar = false;
             // 
-            // label19
+            // chk_isstaff
             // 
-            this.label19.AutoSize = true;
-            this.label19.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label19.Location = new System.Drawing.Point(422, 250);
-            this.label19.Name = "label19";
-            this.label19.Size = new System.Drawing.Size(97, 17);
-            this.label19.TabIndex = 19;
-            this.label19.Text = "Face Capacity";
+            this.chk_isstaff.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.chk_isstaff.Location = new System.Drawing.Point(24, 171);
+            this.chk_isstaff.Name = "chk_isstaff";
+            this.chk_isstaff.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(204)))), ((int)(((byte)(216)))));
+            this.chk_isstaff.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.chk_isstaff.Size = new System.Drawing.Size(44, 24);
+            this.chk_isstaff.TabIndex = 14;
             // 
-            // label22
+            // lblStaffTitle
             // 
-            this.label22.AutoSize = true;
-            this.label22.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label22.Location = new System.Drawing.Point(422, 116);
-            this.label22.Name = "label22";
-            this.label22.Size = new System.Drawing.Size(115, 17);
-            this.label22.TabIndex = 16;
-            this.label22.Text = "Connection Type";
+            this.lblStaffTitle.AutoSize = true;
+            this.lblStaffTitle.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblStaffTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblStaffTitle.Location = new System.Drawing.Point(76, 171);
+            this.lblStaffTitle.Name = "lblStaffTitle";
+            this.lblStaffTitle.Size = new System.Drawing.Size(80, 17);
+            this.lblStaffTitle.TabIndex = 15;
+            this.lblStaffTitle.Text = "Staff device";
             // 
-            // label23
+            // lblStaffDesc
             // 
-            this.label23.AutoSize = true;
-            this.label23.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label23.Location = new System.Drawing.Point(422, 76);
-            this.label23.Name = "label23";
-            this.label23.Size = new System.Drawing.Size(62, 17);
-            this.label23.TabIndex = 15;
-            this.label23.Text = "Location";
+            this.lblStaffDesc.AutoSize = true;
+            this.lblStaffDesc.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStaffDesc.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.lblStaffDesc.Location = new System.Drawing.Point(76, 189);
+            this.lblStaffDesc.Name = "lblStaffDesc";
+            this.lblStaffDesc.Size = new System.Drawing.Size(242, 15);
+            this.lblStaffDesc.TabIndex = 16;
+            this.lblStaffDesc.Text = "Opens doors for staff only, not for members.";
             // 
-            // label16
+            // lblSectionConnection
             // 
-            this.label16.AutoSize = true;
-            this.label16.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label16.Location = new System.Drawing.Point(15, 290);
-            this.label16.Name = "label16";
-            this.label16.Size = new System.Drawing.Size(76, 17);
-            this.label16.TabIndex = 14;
-            this.label16.Text = "Time Zone";
+            this.lblSectionConnection.AutoSize = true;
+            this.lblSectionConnection.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblSectionConnection.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblSectionConnection.Location = new System.Drawing.Point(24, 220);
+            this.lblSectionConnection.Name = "lblSectionConnection";
+            this.lblSectionConnection.Size = new System.Drawing.Size(88, 20);
+            this.lblSectionConnection.TabIndex = 17;
+            this.lblSectionConnection.Text = "Connection";
             // 
-            // label15
+            // pnlSepConnection
             // 
-            this.label15.AutoSize = true;
-            this.label15.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label15.Location = new System.Drawing.Point(15, 247);
-            this.label15.Name = "label15";
-            this.label15.Size = new System.Drawing.Size(34, 17);
-            this.label15.TabIndex = 13;
-            this.label15.Text = "Port";
+            this.pnlSepConnection.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(238)))));
+            this.pnlSepConnection.Location = new System.Drawing.Point(24, 238);
+            this.pnlSepConnection.Name = "pnlSepConnection";
+            this.pnlSepConnection.Size = new System.Drawing.Size(912, 1);
+            this.pnlSepConnection.TabIndex = 18;
             // 
-            // label14
+            // lblLDeviceIP
             // 
-            this.label14.AutoSize = true;
-            this.label14.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label14.Location = new System.Drawing.Point(14, 205);
-            this.label14.Name = "label14";
-            this.label14.Size = new System.Drawing.Size(67, 17);
-            this.label14.TabIndex = 12;
-            this.label14.Text = "Device IP";
+            this.lblLDeviceIP.AutoSize = true;
+            this.lblLDeviceIP.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLDeviceIP.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLDeviceIP.Location = new System.Drawing.Point(24, 245);
+            this.lblLDeviceIP.Name = "lblLDeviceIP";
+            this.lblLDeviceIP.Size = new System.Drawing.Size(63, 15);
+            this.lblLDeviceIP.TabIndex = 19;
+            this.lblLDeviceIP.Text = "Device IP *";
             // 
-            // label13
+            // txt_ip
             // 
-            this.label13.AutoSize = true;
-            this.label13.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label13.Location = new System.Drawing.Point(14, 161);
-            this.label13.Name = "label13";
-            this.label13.Size = new System.Drawing.Size(91, 17);
-            this.label13.TabIndex = 11;
-            this.label13.Text = "Device Serial";
+            this.txt_ip.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_ip.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_ip.BackColor = System.Drawing.Color.Transparent;
+            this.txt_ip.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_ip.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_ip.Location = new System.Drawing.Point(24, 261);
+            this.txt_ip.MaxLength = 32767;
+            this.txt_ip.Name = "txt_ip";
+            this.txt_ip.PasswordChar = '\0';
+            this.txt_ip.Placeholder = "";
+            this.txt_ip.Radius = 10;
+            this.txt_ip.ReadOnly = false;
+            this.txt_ip.Size = new System.Drawing.Size(218, 36);
+            this.txt_ip.TabIndex = 20;
+            this.txt_ip.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_ip.UseSystemPasswordChar = false;
             // 
-            // label12
+            // lblLPort
             // 
-            this.label12.AutoSize = true;
-            this.label12.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label12.Location = new System.Drawing.Point(14, 116);
-            this.label12.Name = "label12";
-            this.label12.Size = new System.Drawing.Size(87, 17);
-            this.label12.TabIndex = 10;
-            this.label12.Text = "Device Type";
+            this.lblLPort.AutoSize = true;
+            this.lblLPort.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLPort.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLPort.Location = new System.Drawing.Point(256, 245);
+            this.lblLPort.Name = "lblLPort";
+            this.lblLPort.Size = new System.Drawing.Size(37, 15);
+            this.lblLPort.TabIndex = 21;
+            this.lblLPort.Text = "Port *";
             // 
-            // label11
+            // txt_port
             // 
-            this.label11.AutoSize = true;
-            this.label11.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label11.Location = new System.Drawing.Point(15, 73);
-            this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(82, 17);
-            this.label11.TabIndex = 9;
-            this.label11.Text = "Department";
+            this.txt_port.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_port.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_port.BackColor = System.Drawing.Color.Transparent;
+            this.txt_port.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_port.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_port.Location = new System.Drawing.Point(259, 263);
+            this.txt_port.MaxLength = 32767;
+            this.txt_port.Name = "txt_port";
+            this.txt_port.PasswordChar = '\0';
+            this.txt_port.Placeholder = "";
+            this.txt_port.Radius = 10;
+            this.txt_port.ReadOnly = false;
+            this.txt_port.Size = new System.Drawing.Size(218, 36);
+            this.txt_port.TabIndex = 22;
+            this.txt_port.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_port.UseSystemPasswordChar = false;
             // 
-            // label9
+            // lblLPassword
             // 
-            this.label9.AutoSize = true;
-            this.label9.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label9.Location = new System.Drawing.Point(11, 20);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(128, 24);
-            this.label9.TabIndex = 7;
-            this.label9.Text = "Device Details";
+            this.lblLPassword.AutoSize = true;
+            this.lblLPassword.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLPassword.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLPassword.Location = new System.Drawing.Point(500, 245);
+            this.lblLPassword.Name = "lblLPassword";
+            this.lblLPassword.Size = new System.Drawing.Size(57, 15);
+            this.lblLPassword.TabIndex = 23;
+            this.lblLPassword.Text = "Password";
+            // 
+            // txt_password
+            // 
+            this.txt_password.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_password.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_password.BackColor = System.Drawing.Color.Transparent;
+            this.txt_password.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_password.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_password.Location = new System.Drawing.Point(497, 263);
+            this.txt_password.MaxLength = 32767;
+            this.txt_password.Name = "txt_password";
+            this.txt_password.PasswordChar = '\0';
+            this.txt_password.Placeholder = "";
+            this.txt_password.Radius = 10;
+            this.txt_password.ReadOnly = false;
+            this.txt_password.Size = new System.Drawing.Size(218, 36);
+            this.txt_password.TabIndex = 24;
+            this.txt_password.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_password.UseSystemPasswordChar = false;
+            // 
+            // lblLTimeZone
+            // 
+            this.lblLTimeZone.AutoSize = true;
+            this.lblLTimeZone.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLTimeZone.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLTimeZone.Location = new System.Drawing.Point(730, 245);
+            this.lblLTimeZone.Name = "lblLTimeZone";
+            this.lblLTimeZone.Size = new System.Drawing.Size(62, 15);
+            this.lblLTimeZone.TabIndex = 25;
+            this.lblLTimeZone.Text = "Time zone";
+            // 
+            // cmb_timeZone
+            // 
+            this.cmb_timeZone.BackColor = System.Drawing.Color.Transparent;
+            this.cmb_timeZone.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmb_timeZone.DataSource = null;
+            this.cmb_timeZone.DisplayMember = "";
+            this.cmb_timeZone.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmb_timeZone.Location = new System.Drawing.Point(730, 263);
+            this.cmb_timeZone.Name = "cmb_timeZone";
+            this.cmb_timeZone.Radius = 10;
+            this.cmb_timeZone.SelectedIndex = -1;
+            this.cmb_timeZone.SelectedItem = null;
+            this.cmb_timeZone.Size = new System.Drawing.Size(218, 36);
+            this.cmb_timeZone.TabIndex = 26;
+            this.cmb_timeZone.ValueMember = "";
+            // 
+            // lblSectionCapacity
+            // 
+            this.lblSectionCapacity.AutoSize = true;
+            this.lblSectionCapacity.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblSectionCapacity.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblSectionCapacity.Location = new System.Drawing.Point(24, 316);
+            this.lblSectionCapacity.Name = "lblSectionCapacity";
+            this.lblSectionCapacity.Size = new System.Drawing.Size(68, 20);
+            this.lblSectionCapacity.TabIndex = 27;
+            this.lblSectionCapacity.Text = "Capacity";
+            // 
+            // pnlSepCapacity
+            // 
+            this.pnlSepCapacity.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(238)))));
+            this.pnlSepCapacity.Location = new System.Drawing.Point(24, 334);
+            this.pnlSepCapacity.Name = "pnlSepCapacity";
+            this.pnlSepCapacity.Size = new System.Drawing.Size(912, 1);
+            this.pnlSepCapacity.TabIndex = 28;
+            // 
+            // lblLFaceCapacity
+            // 
+            this.lblLFaceCapacity.AutoSize = true;
+            this.lblLFaceCapacity.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLFaceCapacity.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLFaceCapacity.Location = new System.Drawing.Point(24, 338);
+            this.lblLFaceCapacity.Name = "lblLFaceCapacity";
+            this.lblLFaceCapacity.Size = new System.Drawing.Size(78, 15);
+            this.lblLFaceCapacity.TabIndex = 29;
+            this.lblLFaceCapacity.Text = "Face capacity";
+            // 
+            // txt_face_capacity
+            // 
+            this.txt_face_capacity.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_face_capacity.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_face_capacity.BackColor = System.Drawing.Color.Transparent;
+            this.txt_face_capacity.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_face_capacity.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_face_capacity.Location = new System.Drawing.Point(24, 354);
+            this.txt_face_capacity.MaxLength = 32767;
+            this.txt_face_capacity.Name = "txt_face_capacity";
+            this.txt_face_capacity.PasswordChar = '\0';
+            this.txt_face_capacity.Placeholder = "";
+            this.txt_face_capacity.Radius = 10;
+            this.txt_face_capacity.ReadOnly = false;
+            this.txt_face_capacity.Size = new System.Drawing.Size(280, 36);
+            this.txt_face_capacity.TabIndex = 30;
+            this.txt_face_capacity.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_face_capacity.UseSystemPasswordChar = false;
+            // 
+            // lblLRFIDCapacity
+            // 
+            this.lblLRFIDCapacity.AutoSize = true;
+            this.lblLRFIDCapacity.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLRFIDCapacity.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLRFIDCapacity.Location = new System.Drawing.Point(328, 338);
+            this.lblLRFIDCapacity.Name = "lblLRFIDCapacity";
+            this.lblLRFIDCapacity.Size = new System.Drawing.Size(78, 15);
+            this.lblLRFIDCapacity.TabIndex = 31;
+            this.lblLRFIDCapacity.Text = "RFID capacity";
+            // 
+            // txt_RFID_capacity
+            // 
+            this.txt_RFID_capacity.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_RFID_capacity.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_RFID_capacity.BackColor = System.Drawing.Color.Transparent;
+            this.txt_RFID_capacity.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_RFID_capacity.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_RFID_capacity.Location = new System.Drawing.Point(328, 354);
+            this.txt_RFID_capacity.MaxLength = 32767;
+            this.txt_RFID_capacity.Name = "txt_RFID_capacity";
+            this.txt_RFID_capacity.PasswordChar = '\0';
+            this.txt_RFID_capacity.Placeholder = "";
+            this.txt_RFID_capacity.Radius = 10;
+            this.txt_RFID_capacity.ReadOnly = false;
+            this.txt_RFID_capacity.Size = new System.Drawing.Size(280, 36);
+            this.txt_RFID_capacity.TabIndex = 32;
+            this.txt_RFID_capacity.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_RFID_capacity.UseSystemPasswordChar = false;
+            // 
+            // lblLFingerCapacity
+            // 
+            this.lblLFingerCapacity.AutoSize = true;
+            this.lblLFingerCapacity.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLFingerCapacity.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblLFingerCapacity.Location = new System.Drawing.Point(632, 338);
+            this.lblLFingerCapacity.Name = "lblLFingerCapacity";
+            this.lblLFingerCapacity.Size = new System.Drawing.Size(87, 15);
+            this.lblLFingerCapacity.TabIndex = 33;
+            this.lblLFingerCapacity.Text = "Finger capacity";
+            // 
+            // txt_finger_capacity
+            // 
+            this.txt_finger_capacity.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txt_finger_capacity.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txt_finger_capacity.BackColor = System.Drawing.Color.Transparent;
+            this.txt_finger_capacity.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txt_finger_capacity.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txt_finger_capacity.Location = new System.Drawing.Point(632, 354);
+            this.txt_finger_capacity.MaxLength = 32767;
+            this.txt_finger_capacity.Name = "txt_finger_capacity";
+            this.txt_finger_capacity.PasswordChar = '\0';
+            this.txt_finger_capacity.Placeholder = "";
+            this.txt_finger_capacity.Radius = 10;
+            this.txt_finger_capacity.ReadOnly = false;
+            this.txt_finger_capacity.Size = new System.Drawing.Size(280, 36);
+            this.txt_finger_capacity.TabIndex = 34;
+            this.txt_finger_capacity.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txt_finger_capacity.UseSystemPasswordChar = false;
+            // 
+            // pnlFooter
+            // 
+            this.pnlFooter.BackColor = System.Drawing.Color.White;
+            this.pnlFooter.Controls.Add(this.btn_testConnection);
+            this.pnlFooter.Controls.Add(this.lbl_saving_status);
+            this.pnlFooter.Controls.Add(this.btnCancle);
+            this.pnlFooter.Controls.Add(this.btnSave);
+            this.pnlFooter.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnlFooter.Location = new System.Drawing.Point(0, 480);
+            this.pnlFooter.Name = "pnlFooter";
+            this.pnlFooter.Size = new System.Drawing.Size(960, 65);
+            this.pnlFooter.TabIndex = 2;
+            this.pnlFooter.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlFooter_Paint);
+            // 
+            // btn_testConnection
+            // 
+            this.btn_testConnection.BackColor = System.Drawing.Color.Transparent;
+            this.btn_testConnection.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.btn_testConnection.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_testConnection.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_testConnection.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_testConnection.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.btn_testConnection.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
+            this.btn_testConnection.Location = new System.Drawing.Point(24, 16);
+            this.btn_testConnection.Name = "btn_testConnection";
+            this.btn_testConnection.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
+            this.btn_testConnection.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btn_testConnection.Radius = 10;
+            this.btn_testConnection.Size = new System.Drawing.Size(160, 32);
+            this.btn_testConnection.TabIndex = 0;
+            this.btn_testConnection.Text = "Test connection";
+            this.btn_testConnection.Click += new System.EventHandler(this.btn_testConnection_Click);
             // 
             // lbl_saving_status
             // 
             this.lbl_saving_status.AutoSize = true;
-            this.lbl_saving_status.Location = new System.Drawing.Point(15, 45);
+            this.lbl_saving_status.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lbl_saving_status.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.lbl_saving_status.Location = new System.Drawing.Point(196, 24);
             this.lbl_saving_status.Name = "lbl_saving_status";
-            this.lbl_saving_status.Size = new System.Drawing.Size(25, 13);
-            this.lbl_saving_status.TabIndex = 46;
-            this.lbl_saving_status.Text = "___";
-            this.lbl_saving_status.Visible = false;
+            this.lbl_saving_status.Size = new System.Drawing.Size(81, 15);
+            this.lbl_saving_status.TabIndex = 1;
+            this.lbl_saving_status.Text = "Not tested yet";
             // 
-            // label1
+            // btnCancle
             // 
-            this.label1.AutoSize = true;
-            this.label1.BackColor = System.Drawing.Color.Transparent;
-            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.ForeColor = System.Drawing.Color.White;
-            this.label1.Location = new System.Drawing.Point(13, 19);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(174, 26);
-            this.label1.TabIndex = 4;
-            this.label1.Text = "Add New Device";
+            this.btnCancle.BackColor = System.Drawing.Color.Transparent;
+            this.btnCancle.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.btnCancle.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCancle.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btnCancle.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnCancle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.btnCancle.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
+            this.btnCancle.Location = new System.Drawing.Point(690, 16);
+            this.btnCancle.Name = "btnCancle";
+            this.btnCancle.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
+            this.btnCancle.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btnCancle.Radius = 10;
+            this.btnCancle.Size = new System.Drawing.Size(110, 32);
+            this.btnCancle.TabIndex = 2;
+            this.btnCancle.Text = "Cancel";
+            this.btnCancle.Click += new System.EventHandler(this.btnCancle_Click);
+            // 
+            // btnSave
+            // 
+            this.btnSave.BackColor = System.Drawing.Color.Transparent;
+            this.btnSave.BorderColor = System.Drawing.Color.Transparent;
+            this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSave.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btnSave.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnSave.ForeColor = System.Drawing.Color.White;
+            this.btnSave.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.btnSave.Location = new System.Drawing.Point(812, 16);
+            this.btnSave.Name = "btnSave";
+            this.btnSave.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.btnSave.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btnSave.Radius = 10;
+            this.btnSave.Size = new System.Drawing.Size(120, 32);
+            this.btnSave.TabIndex = 3;
+            this.btnSave.Text = "Save";
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // AddNewDevice
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.ClientSize = new System.Drawing.Size(766, 536);
-            this.Controls.Add(this.label1);
-            this.Controls.Add(this.btn_load);
-            this.Controls.Add(this.pnl_device);
-            this.Controls.Add(this.lbl_saving_status);
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.ClientSize = new System.Drawing.Size(960, 545);
+            this.Controls.Add(this.pnlContent);
+            this.Controls.Add(this.pnlFooter);
+            this.Controls.Add(this.pnlHeader);
+            this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
@@ -470,48 +709,65 @@
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Add New Device";
             this.Load += new System.EventHandler(this.AddNewDevice_Load);
-            this.pnl_device.ResumeLayout(false);
-            this.pnl_device.PerformLayout();
+            this.pnlHeader.ResumeLayout(false);
+            this.pnlHeader.PerformLayout();
+            this.pnlContent.ResumeLayout(false);
+            this.pnlContent.PerformLayout();
+            this.pnlFooter.ResumeLayout(false);
+            this.pnlFooter.PerformLayout();
             this.ResumeLayout(false);
-            this.PerformLayout();
 
         }
 
         #endregion
 
-        private System.Windows.Forms.Panel pnl_device;
-        private System.Windows.Forms.Button btnCancle;
-        private System.Windows.Forms.ComboBox cmb_connectionType;
-        private System.Windows.Forms.ComboBox cmb_device_type;
-        private System.Windows.Forms.Button btnSave;
-        private System.Windows.Forms.TextBox txt_finger_capacity;
-        private System.Windows.Forms.TextBox txt_RFID_capacity;
-        private System.Windows.Forms.TextBox txt_face_capacity;
-        private System.Windows.Forms.TextBox txt_location;
-        private System.Windows.Forms.TextBox txt_timeZone;
-        private System.Windows.Forms.TextBox txt_port;
-        private System.Windows.Forms.TextBox txt_ip;
-        private System.Windows.Forms.TextBox txt_Serial;
-        private System.Windows.Forms.TextBox txt_department;
-        private System.Windows.Forms.Label label17;
-        private System.Windows.Forms.Label label18;
-        private System.Windows.Forms.Label label19;
-        private System.Windows.Forms.Label label22;
-        private System.Windows.Forms.Label label23;
-        private System.Windows.Forms.Label label16;
-        private System.Windows.Forms.Label label15;
-        private System.Windows.Forms.Label label14;
-        private System.Windows.Forms.Label label13;
-        private System.Windows.Forms.Label label12;
-        private System.Windows.Forms.Label label11;
-        private System.Windows.Forms.Label label9;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.ComboBox cmb_machine_no;
+        private System.Windows.Forms.Panel pnlHeader;
+        private System.Windows.Forms.Label lblTitle;
+        private System.Windows.Forms.Label lblSubtitle;
+        private System.Windows.Forms.Panel pnlContent;
+        private System.Windows.Forms.Label lblSectionDevice;
+        private System.Windows.Forms.Panel pnlSepDevice;
+        private System.Windows.Forms.Label lblLDeviceType;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmb_device_type;
+        private System.Windows.Forms.Label lblLConnectionType;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmb_connectionType;
+        private System.Windows.Forms.Label lblLSerial;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_Serial;
+        private System.Windows.Forms.Label lblLMachineNo;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmb_machine_no;
+        private System.Windows.Forms.Label lblLDepartment;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_department;
+        private System.Windows.Forms.Label lblLLocation;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_location;
+        private smart_attendance_middleware.Controls.ToggleSwitch chk_isstaff;
+        private System.Windows.Forms.Label lblStaffTitle;
+        private System.Windows.Forms.Label lblStaffDesc;
+        private System.Windows.Forms.Label lblSectionConnection;
+        private System.Windows.Forms.Panel pnlSepConnection;
+        private System.Windows.Forms.Label lblLDeviceIP;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_ip;
+        private System.Windows.Forms.Label lblLPort;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_port;
+        private System.Windows.Forms.Label lblLPassword;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_password;
+        private System.Windows.Forms.Label lblLTimeZone;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmb_timeZone;
+        private System.Windows.Forms.Label lblSectionCapacity;
+        private System.Windows.Forms.Panel pnlSepCapacity;
+        private System.Windows.Forms.Label lblLFaceCapacity;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_face_capacity;
+        private System.Windows.Forms.Label lblLRFIDCapacity;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_RFID_capacity;
+        private System.Windows.Forms.Label lblLFingerCapacity;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_finger_capacity;
+        private System.Windows.Forms.Panel pnlFooter;
+        private smart_attendance_middleware.Controls.RoundedButton btn_testConnection;
         private System.Windows.Forms.Label lbl_saving_status;
-        private System.Windows.Forms.TextBox txt_password;
-        private System.Windows.Forms.Label lbl_password;
-        private System.Windows.Forms.Button btn_load;
-        private System.Windows.Forms.CheckBox chk_isstaff;
+        private smart_attendance_middleware.Controls.RoundedButton btnCancle;
+        private smart_attendance_middleware.Controls.RoundedButton btnSave;
     }
 }
+
+
+
+

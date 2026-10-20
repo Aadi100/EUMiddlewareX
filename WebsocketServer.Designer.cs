@@ -1,4 +1,4 @@
-namespace smart_attendance_middleware
+﻿namespace smart_attendance_middleware
 {
     partial class WebsocketServer
     {
@@ -35,12 +35,12 @@ namespace smart_attendance_middleware
             this.txtLogsAttendance = new System.Windows.Forms.TextBox();
             this.pnlCommand = new System.Windows.Forms.Panel();
             this.lbl_sn = new System.Windows.Forms.Label();
-            this.cmb_deviceSn = new System.Windows.Forms.ComboBox();
+            this.cmb_deviceSn = new smart_attendance_middleware.Controls.RoundedComboBox();
             this.lbl_cmd = new System.Windows.Forms.Label();
-            this.txt_cmd = new System.Windows.Forms.TextBox();
+            this.txt_cmd = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.lbl_params = new System.Windows.Forms.Label();
-            this.txt_params = new System.Windows.Forms.TextBox();
-            this.btn_sendCommand = new System.Windows.Forms.Button();
+            this.txt_params = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.btn_sendCommand = new smart_attendance_middleware.Controls.RoundedButton();
             this.tabControlLogs.SuspendLayout();
             this.tabConnected.SuspendLayout();
             this.tabAll.SuspendLayout();
@@ -84,7 +84,6 @@ namespace smart_attendance_middleware
             this.tabConnected.Size = new System.Drawing.Size(635, 580);
             this.tabConnected.TabIndex = 4;
             this.tabConnected.Text = "Connected Devices";
-            this.tabConnected.UseVisualStyleBackColor = true;
             //
             // lvConnectedDevices
             //
@@ -133,7 +132,6 @@ namespace smart_attendance_middleware
             this.tabAll.Size = new System.Drawing.Size(635, 580);
             this.tabAll.TabIndex = 0;
             this.tabAll.Text = "All Logs";
-            this.tabAll.UseVisualStyleBackColor = true;
             // 
             // txtLogsAll
             // 
@@ -156,7 +154,6 @@ namespace smart_attendance_middleware
             this.tabIncoming.Size = new System.Drawing.Size(840, 617);
             this.tabIncoming.TabIndex = 1;
             this.tabIncoming.Text = "Incoming (Devices)";
-            this.tabIncoming.UseVisualStyleBackColor = true;
             // 
             // txtLogsIncoming
             // 
@@ -179,7 +176,6 @@ namespace smart_attendance_middleware
             this.tabOutgoing.Size = new System.Drawing.Size(840, 617);
             this.tabOutgoing.TabIndex = 2;
             this.tabOutgoing.Text = "Outgoing (Commands)";
-            this.tabOutgoing.UseVisualStyleBackColor = true;
             // 
             // txtLogsOutgoing
             // 
@@ -202,7 +198,6 @@ namespace smart_attendance_middleware
             this.tabAttendance.Size = new System.Drawing.Size(840, 617);
             this.tabAttendance.TabIndex = 3;
             this.tabAttendance.Text = "Attendance (Raw Data)";
-            this.tabAttendance.UseVisualStyleBackColor = true;
             // 
             // txtLogsAttendance
             // 
@@ -243,12 +238,10 @@ namespace smart_attendance_middleware
             this.lbl_sn.Text = "Device SN:";
             // 
             // cmb_deviceSn
-            // 
-            this.cmb_deviceSn.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmb_deviceSn.FormattingEnabled = true;
+            //
             this.cmb_deviceSn.Location = new System.Drawing.Point(80, 42);
             this.cmb_deviceSn.Name = "cmb_deviceSn";
-            this.cmb_deviceSn.Size = new System.Drawing.Size(180, 21);
+            this.cmb_deviceSn.Size = new System.Drawing.Size(180, 42);
             this.cmb_deviceSn.TabIndex = 1;
             // 
             // lbl_cmd
@@ -264,7 +257,7 @@ namespace smart_attendance_middleware
             // 
             this.txt_cmd.Location = new System.Drawing.Point(316, 42);
             this.txt_cmd.Name = "txt_cmd";
-            this.txt_cmd.Size = new System.Drawing.Size(140, 20);
+            this.txt_cmd.Size = new System.Drawing.Size(140, 42);
             this.txt_cmd.TabIndex = 3;
             // 
             // lbl_params
@@ -282,18 +275,21 @@ namespace smart_attendance_middleware
             | System.Windows.Forms.AnchorStyles.Right)));
             this.txt_params.Location = new System.Drawing.Point(80, 72);
             this.txt_params.Name = "txt_params";
-            this.txt_params.Size = new System.Drawing.Size(370, 20);
+            this.txt_params.Size = new System.Drawing.Size(370, 42);
             this.txt_params.TabIndex = 5;
             // 
             // btn_sendCommand
             // 
             this.btn_sendCommand.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btn_sendCommand.NormalColor = System.Drawing.Color.FromArgb(59, 130, 246);
+            this.btn_sendCommand.HoverColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btn_sendCommand.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_sendCommand.ForeColor = System.Drawing.Color.White;
             this.btn_sendCommand.Location = new System.Drawing.Point(545, 56);
             this.btn_sendCommand.Name = "btn_sendCommand";
             this.btn_sendCommand.Size = new System.Drawing.Size(90, 50);
             this.btn_sendCommand.TabIndex = 6;
             this.btn_sendCommand.Text = "Send Command";
-            this.btn_sendCommand.UseVisualStyleBackColor = true;
             this.btn_sendCommand.Click += new System.EventHandler(this.btn_sendCommand_Click);
             // 
             // WebsocketServer
@@ -343,11 +339,15 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.TextBox txtLogsAttendance;
         private System.Windows.Forms.Panel pnlCommand;
         private System.Windows.Forms.Label lbl_sn;
-        private System.Windows.Forms.ComboBox cmb_deviceSn;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmb_deviceSn;
         private System.Windows.Forms.Label lbl_cmd;
-        private System.Windows.Forms.TextBox txt_cmd;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_cmd;
         private System.Windows.Forms.Label lbl_params;
-        private System.Windows.Forms.TextBox txt_params;
-        private System.Windows.Forms.Button btn_sendCommand;
+        private smart_attendance_middleware.Controls.RoundedTextBox txt_params;
+        private smart_attendance_middleware.Controls.RoundedButton btn_sendCommand;
     }
 }
+
+
+
+

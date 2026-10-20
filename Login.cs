@@ -37,6 +37,7 @@ namespace smart_attendance_middleware
         public Login()
         {
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
         }
@@ -44,16 +45,6 @@ namespace smart_attendance_middleware
         private void btn_close_window_Click(object sender, EventArgs e)
         {
             this.Close();
-        }
-
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void pictureBox2_Click(object sender, EventArgs e)
-        {
-
         }
 
         //Abdul Hadi Code

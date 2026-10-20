@@ -41,16 +41,16 @@ namespace smart_attendance_middleware
 
         private void btnCancle_Click(object sender, EventArgs e)
         {
-            txt_department.Clear();
-            txt_Serial.Clear();
-            txt_ip.Clear();
-            txt_port.Clear();
-            txt_timeZone.Clear();
-            txt_location.Clear();
-            txt_face_capacity.Clear();
-            txt_RFID_capacity.Clear();
-            txt_finger_capacity.Clear();
-            txt_password.Clear();
+            txt_department.Text = "";
+            txt_Serial.Text = "";
+            txt_ip.Text = "";
+            txt_port.Text = "";
+            cmb_timeZone.SelectedIndex = -1;
+            txt_location.Text = "";
+            txt_face_capacity.Text = "";
+            txt_RFID_capacity.Text = "";
+            txt_finger_capacity.Text = "";
+            txt_password.Text = "";
 
             cmb_connectionType.SelectedIndex = -1;
             cmb_machine_no.SelectedIndex = -1;
@@ -223,7 +223,7 @@ namespace smart_attendance_middleware
                 if (string.IsNullOrWhiteSpace(txt_department.Text) ||
                     string.IsNullOrWhiteSpace(txt_ip.Text) ||
                     string.IsNullOrWhiteSpace(txt_port.Text) ||
-                    string.IsNullOrWhiteSpace(txt_timeZone.Text) ||
+                    cmb_timeZone.SelectedItem == null ||
                     string.IsNullOrWhiteSpace(txt_location.Text) ||
                     (string.IsNullOrWhiteSpace(txt_face_capacity.Text) &&
                      string.IsNullOrWhiteSpace(txt_RFID_capacity.Text) &&
@@ -296,7 +296,7 @@ namespace smart_attendance_middleware
                     DeviceSerial = serial,
                     DeviceIP = ip,
                     Port = port,
-                    TimeZone = txt_timeZone.Text.Trim(),
+                    TimeZone = cmb_timeZone.SelectedItem != null ? cmb_timeZone.SelectedItem.ToString() : "",
                     Location = txt_location.Text.Trim(),
                     ConnectionType = cmb_connectionType.SelectedItem.ToString(),
                     IsActive = isActive,
@@ -415,12 +415,32 @@ namespace smart_attendance_middleware
 
 
 
+        private async void btn_testConnection_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(txt_ip.Text))
+            {
+                lbl_saving_status.Text = "Enter device IP first.";
+                return;
+            }
+            btn_testConnection.Enabled = false;
+            lbl_saving_status.Text = "Testing...";
+            bool ok = await PingDeviceWithRetries(txt_ip.Text.Trim(), maxAttempts: 2, delayBetweenAttempts: 1000);
+            lbl_saving_status.Text = ok ? "Connection successful" : "Connection failed";
+            btn_testConnection.Enabled = true;
+        }
+
+        private void pnlFooter_Paint(object sender, PaintEventArgs e)
+        {
+            using (var pen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(220, 224, 238)))
+                e.Graphics.DrawLine(pen, 0, 0, pnlFooter.Width, 0);
+        }
+
         private void btn_load_Click(object sender, EventArgs e)
         {
             txt_password.Text = "0"; 
             txt_port.Text = "5005";
             txt_location.Text = "Gate";
-            txt_timeZone.Text = "+5";
+            cmb_timeZone.SelectedIndex = 0;
             txt_face_capacity.Text = "100";
             txt_department.Text = "HR";
             cmb_connectionType.SelectedItem = "LAN";

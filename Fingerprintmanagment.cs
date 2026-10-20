@@ -12,6 +12,7 @@ namespace smart_attendance_middleware
         public Fingerprintmanagment()
         {
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             _dbHelper = new DatabaseHelper();
         }
 
@@ -110,3 +111,4 @@ namespace smart_attendance_middleware
         }
     }
 }
+

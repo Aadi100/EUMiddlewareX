@@ -1129,7 +1129,7 @@ namespace smart_attendance_middleware.Classes
                         {
                             LogHelper.Log($"Failed to reach device {sn} via WebSocket - enqueuing for retry");
                             failureCount++;
-                            EnqueuePendingJob(new PendingJob
+                            await EnqueuePendingJob(new PendingJob
                             {
                                 Action = "disable",
                                 MemberId = memberId,
@@ -1148,7 +1148,7 @@ namespace smart_attendance_middleware.Classes
                     {
                         LogHelper.Log($"Error disabling member {memberId} on device {device.machineNo}: {ex.Message} - enqueuing for retry");
                         failureCount++;
-                        EnqueuePendingJob(new PendingJob
+                        await EnqueuePendingJob(new PendingJob
                         {
                             Action = "disable",
                             MemberId = memberId,

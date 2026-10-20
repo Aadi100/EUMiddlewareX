@@ -31,22 +31,22 @@ namespace smart_attendance_middleware
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Fingerprint));
-            this.txtsecond = new System.Windows.Forms.TextBox();
-            this.btn_setmonitor = new System.Windows.Forms.Button();
-            this.Message = new System.Windows.Forms.TextBox();
-            this.TB_Privilege = new System.Windows.Forms.TextBox();
+            this.txtsecond = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.btn_setmonitor = new smart_attendance_middleware.Controls.RoundedButton();
+            this.Message = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.TB_Privilege = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.label3 = new System.Windows.Forms.Label();
-            this.TB_FP_NUM = new System.Windows.Forms.TextBox();
+            this.TB_FP_NUM = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.label2 = new System.Windows.Forms.Label();
-            this.TB_ID = new System.Windows.Forms.TextBox();
+            this.TB_ID = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.pictureBox = new System.Windows.Forms.PictureBox();
-            this.button3 = new System.Windows.Forms.Button();
-            this.EnrollFPWithStr = new System.Windows.Forms.Button();
-            this.button1 = new System.Windows.Forms.Button();
+            this.button3 = new smart_attendance_middleware.Controls.RoundedButton();
+            this.EnrollFPWithStr = new smart_attendance_middleware.Controls.RoundedButton();
+            this.button1 = new smart_attendance_middleware.Controls.RoundedButton();
             this.axFpreader1 = new AxFPREADERLib.AxFpreader();
-            this.btn_retry = new System.Windows.Forms.Button();
-            this.btn_release = new System.Windows.Forms.Button();
+            this.btn_retry = new smart_attendance_middleware.Controls.RoundedButton();
+            this.btn_release = new smart_attendance_middleware.Controls.RoundedButton();
             ((System.ComponentModel.ISupportInitialize)(this.axFpreader1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox)).BeginInit();
             this.SuspendLayout();
@@ -56,19 +56,22 @@ namespace smart_attendance_middleware
             this.txtsecond.Location = new System.Drawing.Point(964, 146);
             this.txtsecond.Margin = new System.Windows.Forms.Padding(4);
             this.txtsecond.Name = "txtsecond";
-            this.txtsecond.Size = new System.Drawing.Size(64, 20);
+            this.txtsecond.Size = new System.Drawing.Size(64, 42);
             this.txtsecond.TabIndex = 33;
             this.txtsecond.Text = "0";
             // 
             // btn_setmonitor
             // 
+            this.btn_setmonitor.NormalColor = System.Drawing.Color.FromArgb(59, 130, 246);
+            this.btn_setmonitor.HoverColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btn_setmonitor.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_setmonitor.ForeColor = System.Drawing.Color.White;
             this.btn_setmonitor.Location = new System.Drawing.Point(864, 110);
             this.btn_setmonitor.Margin = new System.Windows.Forms.Padding(4);
             this.btn_setmonitor.Name = "btn_setmonitor";
             this.btn_setmonitor.Size = new System.Drawing.Size(164, 28);
             this.btn_setmonitor.TabIndex = 32;
             this.btn_setmonitor.Text = "setmonitorsecond";
-            this.btn_setmonitor.UseVisualStyleBackColor = true;
             this.btn_setmonitor.Click += new System.EventHandler(this.btn_setmonitor_Click);
             // 
             // Message
@@ -76,8 +79,7 @@ namespace smart_attendance_middleware
             this.Message.Location = new System.Drawing.Point(13, 452);
             this.Message.Margin = new System.Windows.Forms.Padding(4);
             this.Message.Name = "Message";
-            this.Message.ReadOnly = true;
-            this.Message.Size = new System.Drawing.Size(283, 20);
+            this.Message.Size = new System.Drawing.Size(283, 42);
             this.Message.TabIndex = 31;
             this.Message.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             // 
@@ -86,7 +88,7 @@ namespace smart_attendance_middleware
             this.TB_Privilege.Location = new System.Drawing.Point(896, 188);
             this.TB_Privilege.Margin = new System.Windows.Forms.Padding(4);
             this.TB_Privilege.Name = "TB_Privilege";
-            this.TB_Privilege.Size = new System.Drawing.Size(132, 20);
+            this.TB_Privilege.Size = new System.Drawing.Size(132, 42);
             this.TB_Privilege.TabIndex = 28;
             // 
             // label3
@@ -104,7 +106,7 @@ namespace smart_attendance_middleware
             this.TB_FP_NUM.Location = new System.Drawing.Point(141, 381);
             this.TB_FP_NUM.Margin = new System.Windows.Forms.Padding(4);
             this.TB_FP_NUM.Name = "TB_FP_NUM";
-            this.TB_FP_NUM.Size = new System.Drawing.Size(132, 20);
+            this.TB_FP_NUM.Size = new System.Drawing.Size(132, 42);
             this.TB_FP_NUM.TabIndex = 29;
             // 
             // label2
@@ -123,8 +125,7 @@ namespace smart_attendance_middleware
             this.TB_ID.Location = new System.Drawing.Point(141, 348);
             this.TB_ID.Margin = new System.Windows.Forms.Padding(4);
             this.TB_ID.Name = "TB_ID";
-            this.TB_ID.ReadOnly = true;
-            this.TB_ID.Size = new System.Drawing.Size(132, 20);
+            this.TB_ID.Size = new System.Drawing.Size(132, 42);
             this.TB_ID.TabIndex = 30;
             // 
             // label1
@@ -153,35 +154,41 @@ namespace smart_attendance_middleware
             // 
             // button3
             // 
+            this.button3.BackColor = System.Drawing.Color.FromArgb(59, 130, 246);
+            this.button3.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.button3.ForeColor = System.Drawing.Color.White;
             this.button3.Location = new System.Drawing.Point(864, 74);
             this.button3.Margin = new System.Windows.Forms.Padding(4);
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(164, 28);
             this.button3.TabIndex = 21;
             this.button3.Text = "DeleteAll";
-            this.button3.UseVisualStyleBackColor = true;
             this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
             // EnrollFPWithStr
             // 
+            this.EnrollFPWithStr.BackColor = System.Drawing.Color.FromArgb(59, 130, 246);
+            this.EnrollFPWithStr.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.EnrollFPWithStr.ForeColor = System.Drawing.Color.White;
             this.EnrollFPWithStr.Location = new System.Drawing.Point(864, 38);
             this.EnrollFPWithStr.Margin = new System.Windows.Forms.Padding(4);
             this.EnrollFPWithStr.Name = "EnrollFPWithStr";
             this.EnrollFPWithStr.Size = new System.Drawing.Size(164, 28);
             this.EnrollFPWithStr.TabIndex = 22;
             this.EnrollFPWithStr.Text = "EnrollFPWithCloud ";
-            this.EnrollFPWithStr.UseVisualStyleBackColor = true;
             this.EnrollFPWithStr.Click += new System.EventHandler(this.EnrollFPWithStr_Click);
             // 
             // button1
             // 
+            this.button1.BackColor = System.Drawing.Color.FromArgb(59, 130, 246);
+            this.button1.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.button1.ForeColor = System.Drawing.Color.White;
             this.button1.Location = new System.Drawing.Point(13, 416);
             this.button1.Margin = new System.Windows.Forms.Padding(4);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(283, 28);
             this.button1.TabIndex = 23;
             this.button1.Text = "EnrollFP";
-            this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
             //
             // axFpreader1
@@ -196,24 +203,30 @@ namespace smart_attendance_middleware
             // 
             // btn_retry
             // 
+            this.btn_retry.NormalColor = System.Drawing.Color.FromArgb(59, 130, 246);
+            this.btn_retry.HoverColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btn_retry.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_retry.ForeColor = System.Drawing.Color.White;
             this.btn_retry.Location = new System.Drawing.Point(864, 146);
             this.btn_retry.Margin = new System.Windows.Forms.Padding(4);
             this.btn_retry.Name = "btn_retry";
             this.btn_retry.Size = new System.Drawing.Size(164, 28);
             this.btn_retry.TabIndex = 34;
             this.btn_retry.Text = "Cancel & Retry";
-            this.btn_retry.UseVisualStyleBackColor = true;
             this.btn_retry.Click += new System.EventHandler(this.btn_retry_Click);
             // 
             // btn_release
             // 
+            this.btn_release.NormalColor = System.Drawing.Color.FromArgb(59, 130, 246);
+            this.btn_release.HoverColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btn_release.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_release.ForeColor = System.Drawing.Color.White;
             this.btn_release.Location = new System.Drawing.Point(864, 180);
             this.btn_release.Margin = new System.Windows.Forms.Padding(4);
             this.btn_release.Name = "btn_release";
             this.btn_release.Size = new System.Drawing.Size(164, 28);
             this.btn_release.TabIndex = 35;
             this.btn_release.Text = "Release Device";
-            this.btn_release.UseVisualStyleBackColor = true;
             this.btn_release.Click += new System.EventHandler(this.btn_release_Click);
             // 
             // 
@@ -251,22 +264,24 @@ namespace smart_attendance_middleware
 
         #endregion
 
-        private System.Windows.Forms.TextBox txtsecond;
-        private System.Windows.Forms.Button btn_setmonitor;
-        private System.Windows.Forms.TextBox Message;
-        private System.Windows.Forms.TextBox TB_Privilege;
+        private smart_attendance_middleware.Controls.RoundedTextBox txtsecond;
+        private smart_attendance_middleware.Controls.RoundedButton btn_setmonitor;
+        private smart_attendance_middleware.Controls.RoundedTextBox Message;
+        private smart_attendance_middleware.Controls.RoundedTextBox TB_Privilege;
         private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.TextBox TB_FP_NUM;
+        private smart_attendance_middleware.Controls.RoundedTextBox TB_FP_NUM;
         private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.TextBox TB_ID;
+        private smart_attendance_middleware.Controls.RoundedTextBox TB_ID;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.PictureBox pictureBox;
-        private System.Windows.Forms.Button button3;
-        private System.Windows.Forms.Button EnrollFPWithStr;
-        private System.Windows.Forms.Button button1;
+        private smart_attendance_middleware.Controls.RoundedButton button3;
+        private smart_attendance_middleware.Controls.RoundedButton EnrollFPWithStr;
+        private smart_attendance_middleware.Controls.RoundedButton button1;
         private AxFPREADERLib.AxFpreader axFpreader1;
-        private System.Windows.Forms.Button btn_retry;
-        private System.Windows.Forms.Button btn_release;
+        private smart_attendance_middleware.Controls.RoundedButton btn_retry;
+        private smart_attendance_middleware.Controls.RoundedButton btn_release;
 
     }
 }
+
+

@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using smart_attendance_middleware;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
@@ -229,20 +230,18 @@ namespace smart_attendance_middleware.Controls
 
                 // "No devices added yet"
                 string title = "No devices added yet";
-                using (var titleFont = new Font("Segoe UI", 11f, FontStyle.Bold))
                 {
-                    var sz = g.MeasureString(title, titleFont);
-                    g.DrawString(title, titleFont, new SolidBrush(Color.FromArgb(30, 30, 30)),
+                    var sz = g.MeasureString(title, new Font("Segoe UI", 10f, FontStyle.Bold));
+                    g.DrawString(title, new Font("Segoe UI", 10f, FontStyle.Bold), new SolidBrush(Color.FromArgb(30, 30, 30)),
                         cx - sz.Width / 2, cy + outerR + 16);
                 }
 
                 // Sub-text (two lines)
                 string sub = "Add a biometric device to start\nsyncing members and check-ins.";
-                using (var subFont = new Font("Segoe UI", 8.5f))
                 using (var subBrush = new SolidBrush(Color.FromArgb(130, 130, 130)))
                 {
                     var sf = new StringFormat { Alignment = StringAlignment.Center };
-                    g.DrawString(sub, subFont, subBrush,
+                    g.DrawString(sub, new Font("Segoe UI", 8.5f, FontStyle.Regular), subBrush,
                         new RectangleF(cx - 130, cy + outerR + 44, 260, 50), sf);
                 }
             };
@@ -332,7 +331,7 @@ namespace smart_attendance_middleware.Controls
                     Left      = lp + 16,
                     Top       = tp + 20,
                     AutoSize  = true,
-                    Font      = new Font("Segoe UI", 8.5f),
+                    Font      = new Font("Segoe UI", 8.5f, FontStyle.Regular),
                     ForeColor = Color.FromArgb(130, 130, 130)
                 };
                 card.Controls.Add(ipLabel);
@@ -350,7 +349,7 @@ namespace smart_attendance_middleware.Controls
                 {
                     Text      = chipText,
                     AutoSize  = true,
-                    Font      = new Font("Segoe UI", 8f),
+                    Font      = new Font("Segoe UI", 8f, FontStyle.Regular),
                     ForeColor = Color.FromArgb(90, 90, 90),
                     BackColor = Color.Transparent,
                     Left      = lp + 14,
@@ -394,7 +393,7 @@ namespace smart_attendance_middleware.Controls
                     {
                         Text      = typeText,
                         AutoSize  = true,
-                        Font      = new Font("Segoe UI", 8f, FontStyle.Bold),
+                        Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                         ForeColor = Color.FromArgb(99, 60, 180),
                         BackColor = Color.Transparent,
                         Left      = chip.Left + chip.Width + 6,
@@ -439,7 +438,7 @@ namespace smart_attendance_middleware.Controls
                     Left      = rightLeft,
                     Top       = (cardH - 30) / 2,
                     FlatStyle = FlatStyle.Flat,
-                    Font      = new Font("Segoe UI", 8.5f),
+                    Font      = new Font("Segoe UI", 8.5f, FontStyle.Regular),
                     ForeColor = Color.FromArgb(0, 102, 204),
                     BackColor = Color.White,
                     Cursor    = Cursors.Hand,
@@ -527,7 +526,7 @@ namespace smart_attendance_middleware.Controls
                     Left      = rightLeft,
                     Top       = badgeTop + 28,
                     TextAlign = ContentAlignment.MiddleRight,
-                    Font      = new Font("Segoe UI", 8f),
+                    Font      = new Font("Segoe UI", 8f, FontStyle.Regular),
                     ForeColor = Color.FromArgb(140, 70, 0),
                     Anchor    = AnchorStyles.Top | AnchorStyles.Right
                 };
@@ -578,7 +577,7 @@ namespace smart_attendance_middleware.Controls
                     Left      = rightLeft,
                     Top       = badgeTop + 28,
                     TextAlign = ContentAlignment.MiddleRight,
-                    Font      = new Font("Segoe UI", 8f),
+                    Font      = new Font("Segoe UI", 8f, FontStyle.Regular),
                     ForeColor = Color.FromArgb(185, 40, 40),
                     Anchor    = AnchorStyles.Top | AnchorStyles.Right
                 };
@@ -626,3 +625,4 @@ namespace smart_attendance_middleware.Controls
         }
     }
 }
+

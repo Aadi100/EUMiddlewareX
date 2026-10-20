@@ -38,6 +38,7 @@ namespace smart_attendance_middleware
         {
             _isPermanent = isPermanent;
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             DoubleBuffered = true;
 
             this.ShowInTaskbar = false;
@@ -178,11 +179,10 @@ namespace smart_attendance_middleware
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 g.Clear(Color.FromArgb(30, 30, 90));
                 string txt = "NO IMAGE";
-                using (Font f = new Font("Segoe UI", 16, FontStyle.Bold))
                 using (var b = new SolidBrush(Color.FromArgb(110, 110, 160)))
                 {
-                    SizeF sz = g.MeasureString(txt, f);
-                    g.DrawString(txt, f, b,
+                    SizeF sz = g.MeasureString(txt, new Font("Segoe UI", 14f, FontStyle.Bold));
+                    g.DrawString(txt, new Font("Segoe UI", 14f, FontStyle.Bold), b,
                         (bmp.Width - sz.Width) / 2f,
                         (bmp.Height - sz.Height) / 2f);
                 }

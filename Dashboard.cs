@@ -23,6 +23,17 @@ namespace smart_attendance_middleware
 {
     public partial class Dashboard : Form
     {
+        // Composite the entire form through a single OS-level back-buffer — eliminates all
+        // per-control repaint flicker without needing per-panel double-buffer hacks.
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
+                return cp;
+            }
+        }
 
         //*******************************************************************************************
         // This is used to make the form draggable by clicking and dragging anywhere on the form.
@@ -56,11 +67,11 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Timer countdownTimer;
         private int countdownSeconds;
         private string originalButtonText;
+        private Panel _syncOverlay;
         private System.Windows.Forms.Timer attendancePanelTimer;
         private CancellationTokenSource _deviceMonitorCts;
         private DateTime _lastPanelRefresh = DateTime.MinValue;
         private DateTime _dashboardStartTime = DateTime.Now;
-        private int[] _hourlyCheckInCounts = new int[24];
         private readonly ToolTip _buttonTooltip = new ToolTip();
         public HttpHandler _httpHandler;
 
@@ -123,8 +134,12 @@ namespace smart_attendance_middleware
             aiChatLogger.OnAddMessage += AiChatLogger_OnAddMessage;
             aiChatLogger.OnClearMessages += AiChatLogger_OnClearMessages;
 
-            // Dashboard widgets (alert bar / activity chart / system health / member overview)
-            pnlActivityChart.Paint += PnlActivityChart_Paint;
+            pnlLastEvent.Paint += (s, e) =>
+            {
+                using (var pen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(220, 222, 235)))
+                    e.Graphics.DrawLine(pen, 0, 0, pnlLastEvent.Width, 0);
+            };
+
             InitializePendingJobsMiniList();
             _dashboardStartTime = DateTime.Now;
             RefreshDashboardWidgets();
@@ -234,29 +249,23 @@ namespace smart_attendance_middleware
 
         private void AiChatLogger_OnAddMessage(string icon, string message)
         {
-            // Handle cross-thread invocation
-            if (lblLastEvent.InvokeRequired)
+            if (lblLastEventText.InvokeRequired)
             {
-                lblLastEvent.Invoke(new Action<string, string>(AiChatLogger_OnAddMessage), icon, message);
+                lblLastEventText.Invoke(new Action<string, string>(AiChatLogger_OnAddMessage), icon, message);
                 return;
             }
-
-            // Only the latest message is shown — no history. Folded into the System
-            // Health tile's "Last event" line rather than its own dedicated space.
             string text = string.IsNullOrEmpty(icon) ? message : $"{icon} {message}";
-            lblLastEvent.Text = "Last event: " + text;
+            lblLastEventText.Text = text;
         }
 
         private void AiChatLogger_OnClearMessages()
         {
-            // Handle cross-thread invocation
-            if (lblLastEvent.InvokeRequired)
+            if (lblLastEventText.InvokeRequired)
             {
-                lblLastEvent.Invoke(new Action(AiChatLogger_OnClearMessages));
+                lblLastEventText.Invoke(new Action(AiChatLogger_OnClearMessages));
                 return;
             }
-
-            lblLastEvent.Text = "Last event: Idle — no recent activity.";
+            lblLastEventText.Text = "Idle — waiting for activity";
         }
 
         // aiChatLogger Code Ended *************************
@@ -269,11 +278,19 @@ namespace smart_attendance_middleware
         {
             try
             {
-                RefreshAlertBar();
-                RefreshSystemHealth();
-                RefreshMemberOverview();
-                RefreshActivityChartData();
-                RefreshPendingJobsMiniList();
+                panel2.SuspendLayout();
+                try
+                {
+                    RefreshAlertBar();
+                    RefreshSystemHealth();
+                    RefreshMemberOverview();
+                    RefreshPendingJobsMiniList();
+                }
+                finally
+                {
+                    panel2.ResumeLayout(false);
+                    panel2.Invalidate(true);
+                }
             }
             catch (Exception ex)
             {
@@ -304,12 +321,8 @@ namespace smart_attendance_middleware
         private void RefreshSystemHealth()
         {
             double memoryMb = Process.GetCurrentProcess().WorkingSet64 / 1024.0 / 1024.0;
-            lblMemoryUsage.Text = $"💾 App Memory: {memoryMb:F0} MB";
 
             var uptime = DateTime.Now - _dashboardStartTime;
-            lblUptime.Text = uptime.TotalHours >= 1
-                ? $"⏱ Uptime: {(int)uptime.TotalHours}h {uptime.Minutes}m"
-                : $"⏱ Uptime: {uptime.Minutes}m {uptime.Seconds}s";
 
             lblStatusAppMem.Text  = $"App memory {(int)memoryMb} MB";
             lblStatusUptime.Text  = uptime.TotalHours >= 1
@@ -317,6 +330,8 @@ namespace smart_attendance_middleware
                 : $"Uptime {uptime.Minutes}m {uptime.Seconds}s";
             lblStatusUser.Text    = $"Signed in: {AppSession.LoggedInUser ?? "–"}";
             lblStatusRole.Text    = $"Role: {AppSession.UserRole ?? "–"}";
+
+            ReflowStatusBar();
 
             // SQL Server memory is checked far less often than everything else here (every 30s,
             // not every 5s) and off the UI thread, since it's a live DB query rather than
@@ -338,9 +353,6 @@ namespace smart_attendance_middleware
                     {
                         BeginInvoke(new Action(() =>
                         {
-                            lblSqlMemoryUsage.Text = sqlMemoryMb.HasValue
-                                ? $"🗄 SQL Server: {sqlMemoryMb.Value} MB"
-                                : "🗄 SQL Server: N/A";
                             lblStatusSqlMem.Text = $"SQL Server {(sqlMemoryMb.HasValue ? sqlMemoryMb.Value + " MB" : "N/A")}";
                         }));
                         applied = true;
@@ -359,6 +371,51 @@ namespace smart_attendance_middleware
             });
         }
 
+        private void ApplyAlertBarRegion()
+        {
+            int w = pnlAlertBar.Width, h = pnlAlertBar.Height;
+            if (w <= 0 || h <= 0) return;
+            const int r = 8;
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            path.AddArc(0,       0,       r * 2, r * 2, 180, 90);
+            path.AddArc(w-r*2,   0,       r * 2, r * 2, 270, 90);
+            path.AddArc(w-r*2,   h-r*2,   r * 2, r * 2,   0, 90);
+            path.AddArc(0,       h-r*2,   r * 2, r * 2,  90, 90);
+            path.CloseFigure();
+            pnlAlertBar.Region = new System.Drawing.Region(path);
+        }
+
+        private void ReflowStatusBar()
+        {
+            const int gap = 8;
+            // Chain the right-side labels starting after lblSep1 which follows lblStatusLastSync.
+            // lblSep0/lblStatusLastSync are already reflowed in OnDeviceConnectionChanged;
+            // we pick up from lblSep1 onward which contains the metrics that change every tick.
+            int x = lblSep1.Right + gap;
+
+            lblStatusAppMem.Left = x;
+            x = lblStatusAppMem.Right + gap;
+            lblSep2.Left = x;
+            x = lblSep2.Right + gap;
+
+            lblStatusSqlMem.Left = x;
+            x = lblStatusSqlMem.Right + gap;
+            lblSep3.Left = x;
+            x = lblSep3.Right + gap;
+
+            lblStatusUptime.Left = x;
+            x = lblStatusUptime.Right + gap;
+            lblSep4.Left = x;
+            x = lblSep4.Right + gap;
+
+            lblStatusUser.Left = x;
+            x = lblStatusUser.Right + gap;
+            lblSep5.Left = x;
+            x = lblSep5.Right + gap;
+
+            lblStatusRole.Left = x;
+        }
+
         private void RefreshMemberOverview()
         {
             var members = AppSession.AllMembers ?? new List<Member>();
@@ -370,18 +427,20 @@ namespace smart_attendance_middleware
                 && DateTime.TryParse(m.PackageExpiry, out var expiry)
                 && expiry >= now && expiry <= now.AddDays(7));
 
-            lblActiveMembers.Text = $"👤 Active: {activeCount}";
-            lblExpiringSoon.Text = $"📅 Expiring this week: {expiringSoon}";
-            lblTotalStaff.Text = $"👥 Staff: {(AppSession.AllStaff?.Count ?? 0)}";
-            lblPendingJobsOverview.Text = $"⏳ Pending Jobs: {(AppSession.SyncStatus?.PendingBiometricJobs ?? 0)}";
+            _statActive?.SetValue(activeCount);
+            _statExpiring?.SetValue(expiringSoon);
+            _statStaff?.SetValue(AppSession.AllStaff?.Count ?? 0);
         }
 
         private void InitializePendingJobsMiniList()
         {
             lstPendingJobsMini.Columns.Clear();
-            lstPendingJobsMini.Columns.Add("Name", 160);
-            lstPendingJobsMini.Columns.Add("Device", 110);
-            lstPendingJobsMini.Columns.Add("Pending For", 110);
+            lstPendingJobsMini.Columns.Add("Name", 180);
+            lstPendingJobsMini.Columns.Add("Device", 140);
+            lstPendingJobsMini.Columns.Add("Pending For", 150);
+            lstPendingJobsMini.Columns.Add("Since", 100);
+
+            lstPendingJobsMini.PillColumnIndex = 2;
         }
 
         // Same underlying list shown in Device Manager's pending jobs grid — sourced from
@@ -422,6 +481,10 @@ namespace smart_attendance_middleware
                     var item = new ListViewItem(name);
                     item.SubItems.Add(deviceName);
                     item.SubItems.Add(pendingFor);
+                    string since = "--";
+                    if (!string.IsNullOrEmpty(entry.CreatedAt) && DateTime.TryParse(entry.CreatedAt, out var createdAt))
+                        since = createdAt.ToString("HH:mm");
+                    item.SubItems.Add(since);
                     displayItems.Add(item);
                 }
 
@@ -429,6 +492,10 @@ namespace smart_attendance_middleware
                 lstPendingJobsMini.Items.Clear();
                 lstPendingJobsMini.Items.AddRange(displayItems.Take(5).ToArray());
                 lstPendingJobsMini.EndUpdate();
+
+                bool isEmpty = lstPendingJobsMini.Items.Count == 0;
+                lstPendingJobsMini.Visible = !isEmpty;
+                pnlEmptyState.Visible = isEmpty;
             }
             catch (Exception ex)
             {
@@ -436,64 +503,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void RefreshActivityChartData()
-        {
-            var counts = new int[24];
-            var today = DateTime.Now.Date;
-
-            foreach (var log in AppSession.AllAttendanceLogs ?? new List<dynamic>())
-            {
-                try
-                {
-                    string checkInStr = log.CheckInTime;
-                    if (string.IsNullOrEmpty(checkInStr)) continue;
-                    if (!DateTime.TryParse(checkInStr, out var checkIn)) continue;
-                    if (checkIn.Date != today) continue;
-                    counts[checkIn.Hour]++;
-                }
-                catch { /* skip malformed/unexpected entries */ }
-            }
-
-            _hourlyCheckInCounts = counts;
-            pnlActivityChart.Invalidate();
-        }
-
-        private void PnlActivityChart_Paint(object sender, PaintEventArgs e)
-        {
-            var g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-            const int top = 34;      // leave room for the title label
-            const int bottomMargin = 20; // room for hour labels
-            int chartHeight = pnlActivityChart.Height - top - bottomMargin;
-            int chartWidth = pnlActivityChart.Width - 20;
-            int barAreaX = 10;
-
-            int max = Math.Max(1, _hourlyCheckInCounts.Max());
-            float barWidth = chartWidth / 24f;
-
-            using (var barBrush = new SolidBrush(Color.FromArgb(37, 99, 234)))
-            using (var axisPen = new Pen(Color.LightGray))
-            using (var font = new Font("Segoe UI", 7f))
-            using (var textBrush = new SolidBrush(Color.DimGray))
-            {
-                g.DrawLine(axisPen, barAreaX, top + chartHeight, barAreaX + chartWidth, top + chartHeight);
-
-                for (int hour = 0; hour < 24; hour++)
-                {
-                    int count = _hourlyCheckInCounts[hour];
-                    float barHeight = count == 0 ? 0 : Math.Max(2, (float)count / max * chartHeight);
-                    float x = barAreaX + hour * barWidth;
-                    float y = top + chartHeight - barHeight;
-
-                    if (barHeight > 0)
-                        g.FillRectangle(barBrush, x + 1, y, Math.Max(1, barWidth - 2), barHeight);
-
-                    if (hour % 3 == 0)
-                        g.DrawString(hour.ToString(), font, textBrush, x, top + chartHeight + 2);
-                }
-            }
-        }
 
 
 
@@ -513,7 +522,43 @@ namespace smart_attendance_middleware
         private async void Dashboard_Load(object sender, EventArgs e)
         {
             PositionHeaderCards(); // panel4.Width is now correct
+
+            ApplyAlertBarRegion();
+            pnlAlertBar.Resize += (s, _) => ApplyAlertBarRegion();
+
+            pictureBox2.Paint += (s, ev) => DrawAvatarIfNoImage((PictureBox)s, Color.FromArgb(59, 130, 246), ev.Graphics);
+            pictureBox3.Paint += (s, ev) => DrawAvatarIfNoImage((PictureBox)s, Color.FromArgb(124, 58, 237), ev.Graphics);
+
+            ReflowStatusBar();
+
             await UpdateAttendancePanelsAsync();
+
+            this.KeyDown += Dashboard_KeyDown;
+
+            // Sync button progress overlay
+            _syncOverlay = new Panel
+            {
+                Bounds   = btn_sync.Bounds,
+                Visible  = false,
+                Cursor   = Cursors.Default,
+            };
+            _syncOverlay.Paint += SyncOverlay_Paint;
+            cuiPanel5.Controls.Add(_syncOverlay);
+            _syncOverlay.BringToFront();
+        }
+
+        private void Dashboard_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (!e.Shift) return;
+            switch (e.KeyCode)
+            {
+                case Keys.D1: case Keys.NumPad1: cuiButton4_Click(null, EventArgs.Empty); break;
+                case Keys.D2: case Keys.NumPad2: cuiButton5_Click(null, EventArgs.Empty); break;
+                case Keys.D3: case Keys.NumPad3: btn_fingerprint_qa_Click(null, EventArgs.Empty); break;
+                case Keys.D4: case Keys.NumPad4: btn_backup_qa_Click(null, EventArgs.Empty); break;
+                case Keys.D5: case Keys.NumPad5: btn_device_mgr_qa_Click(null, EventArgs.Empty); break;
+            }
+            e.Handled = true;
         }
 
         
@@ -678,17 +723,9 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                // Update Member Synced label
-                if (lbl_memberssynced != null)
-                {
-                    lbl_memberssynced.Text = membersSynced.ToString();
-                }
-
-                // Update Pending Jobs label
-                if (lbl_pendingjobs != null)
-                {
-                    lbl_pendingjobs.Text = pendingJobs.ToString();
-                }
+                _statMembersSynced?.SetValue(membersSynced);
+                _statPendingJobs?.SetValue(pendingJobs);
+                _statMissingFp?.SetValue(missingFingerprints);
 
                 // Enable/disable retry button based on pending jobs count and attempt count threshold
                 if (btn_retry != null)
@@ -714,10 +751,9 @@ namespace smart_attendance_middleware
                     {
                         // Red color for blocked state
                         btn_retry.Enabled = false;
-                        btn_retry.NormalBackground = System.Drawing.Color.FromArgb(220, 53, 69);  // Red
-                        btn_retry.HoverBackground = System.Drawing.Color.FromArgb(200, 35, 51);
-                        btn_retry.NormalForeColor = System.Drawing.Color.White;
-                        btn_retry.HoverForeColor = System.Drawing.Color.White;
+                        btn_retry.NormalColor = System.Drawing.Color.FromArgb(220, 53, 69);  // Red
+                        btn_retry.HoverColor = System.Drawing.Color.FromArgb(200, 35, 51);
+                        btn_retry.ForeColor = System.Drawing.Color.White;
                         _buttonTooltip.SetToolTip(btn_retry, "⚠️ All pending members/staff have reached 5+ failed attempts. Nothing left to retry right now.");
                         LogHelper.Log($"🔴 Retry button disabled - members/staff with high attempt counts detected");
                     }
@@ -725,10 +761,9 @@ namespace smart_attendance_middleware
                     {
                         // Orange color for normal retry
                         btn_retry.Enabled = true;
-                        btn_retry.NormalBackground = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
-                        btn_retry.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(35)))));
-                        btn_retry.NormalForeColor = System.Drawing.Color.White;
-                        btn_retry.HoverForeColor = System.Drawing.Color.White;
+                        btn_retry.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
+                        btn_retry.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(35)))));
+                        btn_retry.ForeColor = System.Drawing.Color.White;
                         string tip = hasJobs ? $"Retry {pendingJobs} pending sync job(s)" : "Retry pending offline member/renewal sync";
                         if (hasJobs && hasOfflineRetries) tip += " + offline items";
                         if (hasHighAttempts) tip += " (members/staff at 5+ attempts stay paused)";
@@ -739,10 +774,9 @@ namespace smart_attendance_middleware
                     {
                         // Gray color for no jobs
                         btn_retry.Enabled = false;
-                        btn_retry.NormalBackground = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-                        btn_retry.HoverBackground = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-                        btn_retry.NormalForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-                        btn_retry.HoverForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+                        btn_retry.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+                        btn_retry.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+                        btn_retry.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
                         _buttonTooltip.SetToolTip(btn_retry, "No pending jobs to retry");
                         LogHelper.Log($"⚪ Retry button disabled - no pending jobs");
                     }
@@ -1100,10 +1134,6 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void label2_Click(object sender, EventArgs e)
-        {
-
-        }
 
         private static string ShowPasswordDialog(IWin32Window owner, string title, string prompt)
         {
@@ -1248,17 +1278,6 @@ namespace smart_attendance_middleware
 
 
 
-        private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            var devicemanager = new DeviceManager();
-            devicemanager.ShowDialog();
-        }
-
-        private void lbl_fingerprintmanagement_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            var fingerManagement = new FingerManagement();
-            fingerManagement.ShowDialog();
-        }
 
         private void btn_adddevice_Click(object sender, EventArgs e)
         {
@@ -1284,7 +1303,7 @@ namespace smart_attendance_middleware
         private async void cuiButton4_Click(object sender, EventArgs e)
         {
             // Store original button text and start countdown
-            originalButtonText = btn_sync.Content?.ToString() ?? "Connect";
+            originalButtonText = btn_sync.Text?.ToString() ?? "Connect";
             StartButtonCountdown();
 
             try
@@ -1421,46 +1440,91 @@ namespace smart_attendance_middleware
         // Add these methods to handle the countdown timer
         private void StartButtonCountdown()
         {
-            // Initialize countdown
             countdownSeconds = 60;
-
-            // Disable the button
             btn_sync.Enabled = false;
+            btn_sync.Text = originalButtonText; // keep underlying text unchanged
 
-            // Update button text with initial countdown
-            btn_sync.Content = $"{countdownSeconds}";
+            if (_syncOverlay != null)
+            {
+                _syncOverlay.Visible = true;
+                _syncOverlay.BringToFront();
+                _syncOverlay.Invalidate();
+            }
 
-            // Initialize timer if not already created
             if (countdownTimer == null)
             {
                 countdownTimer = new System.Windows.Forms.Timer();
-                countdownTimer.Interval = 1000; // 1 second
+                countdownTimer.Interval = 1000;
                 countdownTimer.Tick += CountdownTimer_Tick;
             }
-
-            // Start the timer
             countdownTimer.Start();
+        }
+
+        private void SyncOverlay_Paint(object sender, PaintEventArgs e)
+        {
+            var g   = e.Graphics;
+            var rc  = (sender as Panel).ClientRectangle;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            var green    = Color.FromArgb(34, 197, 94);
+            var greenDk  = Color.FromArgb(22, 163, 74);
+            int radius   = rc.Height / 2;
+
+            // Pill background
+            using (var path = RoundedRect(rc, radius))
+            using (var br = new System.Drawing.SolidBrush(green))
+                g.FillPath(br, path);
+
+            // Progress bar (white, semi-transparent) at bottom 5px
+            float progress = countdownSeconds > 0 ? (60f - countdownSeconds) / 60f : 1f;
+            int   barH     = 5;
+            int   barW     = (int)(rc.Width * progress);
+            var   barRc    = new Rectangle(0, rc.Height - barH, barW, barH);
+            using (var br = new System.Drawing.SolidBrush(Color.FromArgb(80, 255, 255, 255)))
+                g.FillRectangle(br, barRc);
+
+            // Clip pill shape so bar corners are rounded too
+            using (var path = RoundedRect(rc, radius))
+                g.SetClip(path);
+
+            using (var br2 = new System.Drawing.SolidBrush(Color.FromArgb(100, 255, 255, 255)))
+                g.FillRectangle(br2, barRc);
+
+            g.ResetClip();
+
+            // Text
+            string txt = $"Sync again in {countdownSeconds} s";
+            using (var f = new Font("Segoe UI", 9.5f, FontStyle.Bold))
+            using (var br = new System.Drawing.SolidBrush(Color.White))
+            {
+                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                g.DrawString(txt, f, br, rc, sf);
+            }
+        }
+
+        private System.Drawing.Drawing2D.GraphicsPath RoundedRect(Rectangle r, int rad)
+        {
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            path.AddArc(r.X, r.Y, rad * 2, rad * 2, 180, 90);
+            path.AddArc(r.Right - rad * 2, r.Y, rad * 2, rad * 2, 270, 90);
+            path.AddArc(r.Right - rad * 2, r.Bottom - rad * 2, rad * 2, rad * 2, 0, 90);
+            path.AddArc(r.X, r.Bottom - rad * 2, rad * 2, rad * 2, 90, 90);
+            path.CloseFigure();
+            return path;
         }
 
         private void CountdownTimer_Tick(object sender, EventArgs e)
         {
-            // Decrement countdown
             countdownSeconds--;
 
-            // Update button text with remaining seconds
-            btn_sync.Content = $"{countdownSeconds}";
+            _syncOverlay?.Invalidate();
 
-            // Check if countdown is complete
             if (countdownSeconds <= 0)
             {
-                // Stop the timer
                 countdownTimer.Stop();
-
-                // Re-enable the button
                 btn_sync.Enabled = true;
-
-                // Restore original button text
-                btn_sync.Content = originalButtonText;
+                if (_syncOverlay != null) _syncOverlay.Visible = false;
+                btn_sync.Text = originalButtonText;
             }
         }
 
@@ -1588,36 +1652,36 @@ namespace smart_attendance_middleware
                 {
                     var checkIn = AppSession.LastCheckIn;
                     lbl_name_in.Text       = checkIn.MemberName;
-                    lbl_action_in.Text     = $"Action: {checkIn.Action.ToUpper()}";
-                    lbl_time_in.Text       = $"Time: {checkIn.Time:HH:mm:ss}";
-                    lbl_enroll_no_in.Text  = $"Enroll ID: {checkIn.EnrollmentId}";
+                    lbl_time_in.Text       = $"{checkIn.Time:HH:mm:ss}";
+                    lbl_enroll_no_in.Text  = $"Enroll ID {checkIn.EnrollmentId}";
                     await LoadMemberImageAsync(pictureBox2, checkIn.ImagePath, checkIn.MemberId);
+                    pictureBox2.Invalidate();
                 }
                 else
                 {
                     lbl_name_in.Text      = "No recent check-ins";
-                    lbl_action_in.Text    = "Action: --";
-                    lbl_time_in.Text      = "Time: --";
+                    lbl_time_in.Text      = "--";
                     lbl_enroll_no_in.Text = "Enroll ID: --";
                     pictureBox2.Image     = null;
+                    pictureBox2.Invalidate();
                 }
 
                 if (AppSession.LastCheckOut != null)
                 {
                     var checkOut = AppSession.LastCheckOut;
                     lbl_name_out.Text      = checkOut.MemberName;
-                    lbl_action_out.Text    = $"Action: {checkOut.Action.ToUpper()}";
-                    lbl_time_out.Text      = $"Time: {checkOut.Time:HH:mm:ss}";
-                    lbl_enroll_no_out.Text = $"Enroll ID: {checkOut.EnrollmentId}";
+                    lbl_time_out.Text      = $"{checkOut.Time:HH:mm:ss}";
+                    lbl_enroll_no_out.Text = $"Enroll ID {checkOut.EnrollmentId}";
                     await LoadMemberImageAsync(pictureBox3, checkOut.ImagePath, checkOut.MemberId);
+                    pictureBox3.Invalidate();
                 }
                 else
                 {
                     lbl_name_out.Text      = "No recent check-outs";
-                    lbl_action_out.Text    = "Action: --";
-                    lbl_time_out.Text      = "Time: --";
+                    lbl_time_out.Text      = "--";
                     lbl_enroll_no_out.Text = "Enroll ID: --";
                     pictureBox3.Image      = null;
+                    pictureBox3.Invalidate();
                 }
             }
             catch (Exception ex)
@@ -1721,11 +1785,10 @@ namespace smart_attendance_middleware
 
                     // Draw member ID text
                     string idText = $"ID: {memberId}";
-                    using (Font font = new Font("Segoe UI", 8, FontStyle.Bold))
                     using (var textBrush = new SolidBrush(Color.FromArgb(100, 100, 100)))
                     {
-                        SizeF textSize = g.MeasureString(idText, font);
-                        g.DrawString(idText, font, textBrush,
+                        SizeF textSize = g.MeasureString(idText, new Font("Segoe UI", 8.5f, FontStyle.Bold));
+                        g.DrawString(idText, new Font("Segoe UI", 8.5f, FontStyle.Bold), textBrush,
                             (defaultImage.Width - textSize.Width) / 2f,
                             (defaultImage.Height - textSize.Height) / 2f);
                     }
@@ -1751,6 +1814,95 @@ namespace smart_attendance_middleware
         private void panel4_Paint(object sender, PaintEventArgs e)
         {
             // Reserved for future panel header painting
+        }
+
+        private void DrawAvatarIfNoImage(PictureBox pb, Color avatarColor, System.Drawing.Graphics g)
+        {
+            if (pb.Image != null) return;
+            var rc = pb.ClientRectangle;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using (var bg = new System.Drawing.SolidBrush(avatarColor))
+            using (var path = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                const int r = 10;
+                path.AddArc(rc.X,              rc.Y,               r * 2, r * 2, 180, 90);
+                path.AddArc(rc.Right - r * 2,  rc.Y,               r * 2, r * 2, 270, 90);
+                path.AddArc(rc.Right - r * 2,  rc.Bottom - r * 2,  r * 2, r * 2,   0, 90);
+                path.AddArc(rc.X,              rc.Bottom - r * 2,  r * 2, r * 2,  90, 90);
+                path.CloseFigure();
+                g.FillPath(bg, path);
+            }
+            string nameText = "";
+            var card = pb.Parent;
+            if (card != null)
+            {
+                foreach (Control c in card.Controls)
+                {
+                    if (c.Name == "lbl_name_in" || c.Name == "lbl_name_out")
+                    { nameText = c.Text ?? ""; break; }
+                }
+            }
+            string initials = GetInitials(nameText);
+            if (!string.IsNullOrEmpty(initials))
+            {
+                using (var f = new System.Drawing.Font("Segoe UI", 12f, System.Drawing.FontStyle.Bold))
+                using (var b = new System.Drawing.SolidBrush(System.Drawing.Color.White))
+                {
+                    var sf = new System.Drawing.StringFormat
+                    {
+                        Alignment = System.Drawing.StringAlignment.Center,
+                        LineAlignment = System.Drawing.StringAlignment.Center
+                    };
+                    g.DrawString(initials, f, b, rc, sf);
+                }
+            }
+        }
+
+        private static string GetInitials(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "?";
+            var parts = name.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return "?";
+            if (parts.Length == 1) return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+            return (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+        }
+
+        private void btn_fingerprint_qa_Click(object sender, EventArgs e)
+        {
+            var fingerManagement = new FingerManagement();
+            fingerManagement.ShowDialog();
+        }
+
+        private void btn_backup_qa_Click(object sender, EventArgs e)
+        {
+            var membershipManagement = new MembershipManagement();
+            membershipManagement.ShowDialog();
+        }
+
+        private void btn_controls_test_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                new ControlsTestForm().ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Controls Test Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btn_device_mgr_qa_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var devicemanager = new DeviceManager();
+                devicemanager.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to open Device Manager:\n\n" + ex.Message + "\n\n" + (ex.InnerException?.Message ?? ""),
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         // ── Header status cards ──────────────────────────────────────────────────
@@ -1985,11 +2137,20 @@ namespace smart_attendance_middleware
 
             dash.BeginInvoke(new Action(() =>
             {
-                // Usage of toastNotificationControl2 which is the primary dashboard notification area
                 if (dash.toastNotificationControl2 != null && !dash.toastNotificationControl2.IsDisposed)
-                {
                     dash.toastNotificationControl2.UpdateToast(title, message, icon, displayMs);
-                }
+            }));
+        }
+
+        public static void GlobalShowToastTyped(string title, string message, UI.ToastType type, int displayMs = 5000)
+        {
+            var dash = Application.OpenForms.Cast<Form>().OfType<Dashboard>().FirstOrDefault();
+            if (dash == null || dash.IsDisposed) return;
+
+            dash.BeginInvoke(new Action(() =>
+            {
+                if (dash.toastNotificationControl2 != null && !dash.toastNotificationControl2.IsDisposed)
+                    dash.toastNotificationControl2.UpdateToastTyped(title, message, type, displayMs);
             }));
         }
 
@@ -2029,12 +2190,6 @@ namespace smart_attendance_middleware
                 var allDevices = new List<Device>();
                 allDevices.AddRange(devices);
                 allDevices.AddRange(staffDevices);
-
-                // Update the connected devices label text (Initial count of active devices)
-                if (lbl_connecteddevice != null)
-                {
-                    lbl_connecteddevice.Text = allDevices.Count(d => d.IsActive).ToString();
-                }
 
                 if (allDevices.Count == 0)
                 {
@@ -2135,9 +2290,7 @@ namespace smart_attendance_middleware
                                     {
                                         dataPairPanel1.BeginInvoke(new Action(() =>
                                         {
-                                            if (lbl_connecteddevice != null)
-                                                lbl_connecteddevice.Text = onlineCount.ToString();
-
+                                            OnDeviceConnectionChanged(onlineCount, allDevices.Count);
                                         }));
                                     }
                                 }
@@ -2251,14 +2404,9 @@ namespace smart_attendance_middleware
                     string[] results = await Task.WhenAll(pingTasks);
                     int onlineCount = results.Count(s => s == "ONLINE");
 
-                    // Update Counts and Icons
                     this.BeginInvoke(new Action(() =>
                     {
-                        if (lbl_connecteddevice != null)
-                        {
-                            lbl_connecteddevice.Text = onlineCount.ToString();
-                        }
-
+                        OnDeviceConnectionChanged(onlineCount, allDevices.Count);
                     }));
                 }
 
@@ -2270,73 +2418,40 @@ namespace smart_attendance_middleware
             }
         }
 
-        private async void button1_Click(object sender, EventArgs e)
+
+        private void panel2_Paint(object sender, PaintEventArgs e)
         {
-            if (_dbHelper == null)
-            {
-                MessageBox.Show("Services not ready.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
 
-            // Pick up to 10 active members with a valid EnrollmentID
-            var members = _dbHelper.GetMembers()
-                .Where(m => m.EnrollmentID.HasValue && m.EnrollmentID > 0
-                         && string.Equals(m.Status, "active", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(_ => Guid.NewGuid())
-                .Take(10)
-                .ToList();
-
-            if (members.Count == 0)
-            {
-                MessageBox.Show("No active members with EnrollmentID found.", "Test Bulk", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var rng = new Random();
-
-            // Step 1: Insert check-in + check-out into AttendanceLogs with SyncStatus false
-            foreach (var m in members)
-            {
-                DateTime checkIn  = DateTime.Now.AddHours(-rng.Next(1, 24)).AddMinutes(-rng.Next(0, 60));
-                DateTime checkOut = checkIn.AddMinutes(rng.Next(30, 180));
-
-                string checkInStr  = checkIn.ToString("yyyy-MM-dd HH:mm:ss");
-                string checkOutStr = checkOut.ToString("yyyy-MM-dd HH:mm:ss");
-
-                var (logId, attendanceId) = _dbHelper.InsertAttendanceLog(m.MemberID, checkInStr);
-                if (logId > 0)
-                {
-                    _dbHelper.UpdateAttendanceLogForCheckOut(m.MemberID, checkOutStr);
-                    LogHelper.Log($"[TestBulk] Inserted Member={m.MemberID} Enroll={m.EnrollmentID} LogID={logId} CheckIn={checkInStr} CheckOut={checkOutStr} (unsynced)");
-                }
-                else
-                {
-                    LogHelper.Log($"[TestBulk] Skipped Member={m.MemberID} — InsertAttendanceLog returned 0 (possible duplicate or validation failure)");
-                }
-            }
-
-            LogHelper.Log($"[TestBulk] Done inserting {members.Count} records locally with SyncStatus=false.");
-            MessageBox.Show($"Inserted {members.Count} records locally (unsynced).\nClick 'Send Bulk' to sync them to the server.",
-                "Test Bulk — Step 1 Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        private async void button2_Click(object sender, EventArgs e)
+        private void pnlStatusBar_Paint(object sender, PaintEventArgs e)
         {
-            var syncService = ServiceManager.AttendanceLogSyncService;
-            if (syncService == null)
-            {
-                LogHelper.Log("[TestBulk] AttendanceLogSyncService not running — cannot trigger sync.");
-                MessageBox.Show("Sync service not running.", "Test Bulk", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
 
-            LogHelper.Log("[TestBulk] Checking unsynced attendance logs and sending bulk...");
-            int synced = await syncService.SyncUnsyncedAttendanceLogsAsync(CancellationToken.None).ConfigureAwait(false);
-            LogHelper.Log($"[TestBulk] Bulk sync complete. {synced} records processed.");
+        }
 
-            this.BeginInvoke(new Action(() =>
-                MessageBox.Show($"Bulk sync done. {synced} records sent to server.\nCheck logs for full payload details.",
-                    "Test Bulk — Step 2 Done", MessageBoxButtons.OK, MessageBoxIcon.Information)));
+        private void lblStatusUser_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblSep4_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblStatusRole_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblSep5_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblStatusUptime_Click(object sender, EventArgs e)
+        {
+
         }
 
 
@@ -2345,3 +2460,5 @@ namespace smart_attendance_middleware
         /////////////////////////////////////////////////////////////////////////////////
     }
 }
+
+

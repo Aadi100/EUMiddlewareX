@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using smart_attendance_middleware;
 using smart_attendance_middleware.Controls;
 
 namespace smart_attendance_middleware.UI
@@ -36,7 +37,7 @@ namespace smart_attendance_middleware.UI
             _status = new Label
             {
                 Text = "Initializing...",
-                Font = new Font("Segoe UI", 11F, FontStyle.Regular),
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(55, 65, 75),
                 TextAlign = ContentAlignment.TopCenter,
                 AutoSize = false,

@@ -1,115 +1,158 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
+using smart_attendance_middleware;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Windows.Forms;
 
 namespace smart_attendance_middleware.UI
 {
+    public enum ToastType { Info, Success, Warning, Error }
+
     [ToolboxItem(true)]
-    // Lightweight toast component that can be placed on a form.
     public class ToastNotificationControl : UserControl
     {
         private readonly Timer _lifeTimer;
         private int _displayMilliseconds;
         private Label _titleLabel;
         private Label _messageLabel;
-        private PictureBox _iconBox;
         private bool _disposed;
 
-        // Theme taken from loader / face popup style
-        private static readonly Color ThemePanel = Color.FromArgb(18, 18, 66);
-        private static readonly Color ThemePanelGradient = Color.FromArgb(10, 10, 54);
-        private static readonly Color BorderColor = Color.FromArgb(40, 40, 100);
+        private ToastType _toastType = ToastType.Info;
+
+        private static readonly Color BgColor      = Color.FromArgb(26, 32, 64);
+        private static readonly Color BorderColor  = Color.FromArgb(45, 52, 90);
+
+        private static readonly Color AccentInfo    = Color.FromArgb(59,  130, 246);
+        private static readonly Color AccentSuccess = Color.FromArgb(16,  185, 129);
+        private static readonly Color AccentWarning = Color.FromArgb(245, 158,  11);
+        private static readonly Color AccentError   = Color.FromArgb(239,  68,  68);
+
+        private const int CardW = 320;
+        private const int CardH = 76;
+        private const int AccentW = 5;
+        private const int IconDiam = 30;
+        private const int IconLeft = 18;
+        private const int TextLeft = 62;
 
         public ToastNotificationControl()
         {
             _displayMilliseconds = 5000;
             InitializeComponents();
-
             _lifeTimer = new Timer();
             _lifeTimer.Tick += LifeTimer_Tick;
+        }
+
+        private Color AccentColor
+        {
+            get
+            {
+                switch (_toastType)
+                {
+                    case ToastType.Success: return AccentSuccess;
+                    case ToastType.Warning: return AccentWarning;
+                    case ToastType.Error:   return AccentError;
+                    default:                return AccentInfo;
+                }
+            }
         }
 
         private void LifeTimer_Tick(object sender, EventArgs e)
         {
             _lifeTimer.Stop();
-            this.Visible = false;   
+            Visible = false;
         }
 
         private void InitializeComponents()
         {
-            // forcing hard size constraints to override designer defaults
-            this.Size = new Size(260, 70);
-            this.MinimumSize = new Size(260, 70);
-            this.MaximumSize = new Size(260, 70);
-            
-            BackColor = ThemePanel;
-            Padding = new Padding(6);
+            Size          = new Size(CardW, CardH);
+            BackColor     = BgColor;
             DoubleBuffered = true;
-            Visible = true; // Show in designer by default
-
-            _iconBox = new PictureBox
-            {
-                Width = 28,
-                Height = 28,
-                Left = 10,
-                Top = 10,
-                SizeMode = PictureBoxSizeMode.StretchImage,
-                Image = SystemIcons.Information.ToBitmap()
-            };
+            Visible       = true;
 
             _titleLabel = new Label
             {
-                AutoSize = false,
-                Left = 46, 
-                Top = 10,
-                Width = Width - 56,
-                Height = 18,
-                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
+                AutoSize  = false,
+                Left      = TextLeft,
+                Top       = 16,
+                Width     = Width - TextLeft - 10,
+                Height    = 20,
+                Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 ForeColor = Color.White,
-                Text = "Notification Title"
+                BackColor = Color.Transparent,
+                Text      = "Notification Title"
             };
 
             _messageLabel = new Label
             {
-                AutoSize = false,
-                Left = 46,
-                Top = 28,
-                Width = Width - 56,
-                Height = 32,
-                Font = new Font("Segoe UI", 8.25f),
-                ForeColor = Color.Gainsboro,
-                Text = "Notification message appears here."
+                AutoSize  = false,
+                Left      = TextLeft,
+                Top       = 38,
+                Width     = Width - TextLeft - 10,
+                Height    = 22,
+                Font      = new Font("Segoe UI", 8f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(160, 170, 200),
+                BackColor = Color.Transparent,
+                Text      = "Notification message appears here."
             };
 
-            Controls.Add(_iconBox);
             Controls.Add(_titleLabel);
             Controls.Add(_messageLabel);
 
             ApplyRoundedRegion(10);
         }
 
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_titleLabel != null)   _titleLabel.Width   = Width - TextLeft - 10;
+            if (_messageLabel != null) _messageLabel.Width = Width - TextLeft - 10;
+            ApplyRoundedRegion(10);
+            Invalidate();
+        }
+
         public void UpdateToast(string title, string message, Icon icon = null, int displayMs = 5000)
         {
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action(() => UpdateToast(title, message, icon, displayMs)));
-                return;
-            }
+            if (InvokeRequired) { BeginInvoke(new Action(() => UpdateToast(title, message, icon, displayMs))); return; }
 
             _displayMilliseconds = displayMs;
-            _titleLabel.Text = title;
+            _titleLabel.Text   = title;
             _messageLabel.Text = message;
-            _iconBox.Image = (icon ?? SystemIcons.Information).ToBitmap();
 
-            this.Visible = true;
+            // Map icon to ToastType for accent colour + drawn icon
+            if (icon == null || icon == SystemIcons.Information || icon == SystemIcons.Application)
+                _toastType = ToastType.Info;
+            else if (icon == SystemIcons.Warning)
+                _toastType = ToastType.Warning;
+            else if (icon == SystemIcons.Error || icon == SystemIcons.Hand)
+                _toastType = ToastType.Error;
+            else
+                _toastType = ToastType.Info;
 
-            // Use SetChildIndex instead of BringToFront to avoid window activation
-            if (this.Parent != null)
-            {
-                this.Parent.Controls.SetChildIndex(this, 0);
-            }
+            Visible = true;
+            Invalidate();
+
+            if (Parent != null) Parent.Controls.SetChildIndex(this, 0);
+
+            _lifeTimer.Stop();
+            _lifeTimer.Interval = _displayMilliseconds;
+            _lifeTimer.Start();
+        }
+
+        public void UpdateToastTyped(string title, string message, ToastType type, int displayMs = 5000)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action(() => UpdateToastTyped(title, message, type, displayMs))); return; }
+
+            _displayMilliseconds = displayMs;
+            _titleLabel.Text   = title;
+            _messageLabel.Text = message;
+            _toastType         = type;
+
+            Visible = true;
+            Invalidate();
+
+            if (Parent != null) Parent.Controls.SetChildIndex(this, 0);
 
             _lifeTimer.Stop();
             _lifeTimer.Interval = _displayMilliseconds;
@@ -130,49 +173,84 @@ namespace smart_attendance_middleware.UI
 
                 if (string.IsNullOrEmpty(name)) name = $"Member #{memberId}";
 
-                string message = $"{name}\n{defaultMsg}";
-
-                Icon icon = SystemIcons.Information;
-                if (title.IndexOf("Created", StringComparison.OrdinalIgnoreCase) >= 0) icon = SystemIcons.Information;
-                else if (title.IndexOf("Updated", StringComparison.OrdinalIgnoreCase) >= 0) icon = SystemIcons.Application;
-                else if (title.IndexOf("Deleted", StringComparison.OrdinalIgnoreCase) >= 0) icon = SystemIcons.Warning;
-
-                UpdateToast(title, message, icon);
+                UpdateToastTyped(title, $"{name}\n{defaultMsg}", ResolveType(title));
             }
             catch { }
+        }
+
+        private static ToastType ResolveType(string title)
+        {
+            if (string.IsNullOrEmpty(title)) return ToastType.Info;
+            if (title.IndexOf("Deleted",      StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Disconnect",   StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Failed",       StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Error",        StringComparison.OrdinalIgnoreCase) >= 0)
+                return ToastType.Error;
+            if (title.IndexOf("Warning",      StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Expired",      StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Pending",      StringComparison.OrdinalIgnoreCase) >= 0)
+                return ToastType.Warning;
+            if (title.IndexOf("Created",      StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Response",     StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Connected",    StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Success",      StringComparison.OrdinalIgnoreCase) >= 0 ||
+                title.IndexOf("Complete",     StringComparison.OrdinalIgnoreCase) >= 0)
+                return ToastType.Success;
+            return ToastType.Info;
         }
 
         private void ApplyRoundedRegion(int radius)
         {
             var path = new GraphicsPath();
             int r2 = radius * 2;
-            path.AddArc(0, 0, r2, r2, 180, 90);
-            path.AddArc(Width - r2 - 1, 0, r2, r2, 270, 90);
-            path.AddArc(Width - r2 - 1, Height - r2 - 1, r2, r2, 0, 90);
-            path.AddArc(0, Height - r2 - 1, r2, r2, 90, 90);
+            path.AddArc(0,            0,             r2, r2, 180, 90);
+            path.AddArc(Width-r2-1,   0,             r2, r2, 270, 90);
+            path.AddArc(Width-r2-1,   Height-r2-1,   r2, r2,   0, 90);
+            path.AddArc(0,            Height-r2-1,   r2, r2,  90, 90);
             path.CloseFigure();
             Region = new Region(path);
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
-            Rectangle r = ClientRectangle;
+            var g = e.Graphics;
+            g.SmoothingMode      = SmoothingMode.AntiAlias;
+            g.TextRenderingHint  = TextRenderingHint.ClearTypeGridFit;
 
-            using (var lg = new LinearGradientBrush(r, ThemePanel, ThemePanelGradient, 90f))
+            var rc = ClientRectangle;
+
+            // Background
+            using (var bg = new SolidBrush(BgColor))
+                g.FillRectangle(bg, rc);
+
+            // Left accent stripe — Region already clips the card corners, plain rect is enough
+            using (var ab = new SolidBrush(AccentColor))
+                g.FillRectangle(ab, new Rectangle(0, 0, AccentW, rc.Height));
+
+            // Icon circle
+            int iconTop = (rc.Height - IconDiam) / 2;
+            var iconRect = new Rectangle(IconLeft, iconTop, IconDiam, IconDiam);
+            using (var circleBrush = new SolidBrush(Color.FromArgb(40, AccentColor)))
+                g.FillEllipse(circleBrush, iconRect);
+
+            // Icon glyph
+            string glyph;
+            switch (_toastType)
             {
-                e.Graphics.FillRectangle(lg, r);
+                case ToastType.Warning: glyph = "!"; break;
+                case ToastType.Error:   glyph = "×"; break;
+                case ToastType.Success: glyph = "✓"; break;
+                default:                glyph = "i"; break;
+            }
+            using (var gb = new SolidBrush(AccentColor))
+            {
+                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                g.DrawString(glyph, new Font("Segoe UI", 9.5f, FontStyle.Bold), gb, iconRect, sf);
             }
 
-            using (var accentBrush = new SolidBrush(Color.FromArgb(0, 168, 84)))
-            {
-                e.Graphics.FillRectangle(accentBrush, new Rectangle(0, 0, 4, r.Height));
-            }
-
+            // Border
             using (var pen = new Pen(BorderColor, 1))
-            {
-                e.Graphics.DrawRectangle(pen, 0, 0, r.Width - 1, r.Height - 1);
-            }
+                g.DrawRectangle(pen, 0, 0, rc.Width - 1, rc.Height - 1);
         }
 
         protected override void Dispose(bool disposing)
@@ -181,19 +259,7 @@ namespace smart_attendance_middleware.UI
             {
                 if (disposing)
                 {
-                    if (_lifeTimer != null)
-                    {
-                        _lifeTimer.Tick -= LifeTimer_Tick;
-                        _lifeTimer.Stop();
-                        _lifeTimer.Dispose();
-                    }
-                    if (_iconBox != null)
-                    {
-                        var img = _iconBox.Image;
-                        _iconBox.Image = null;
-                        if (img != null) img.Dispose();
-                        _iconBox.Dispose();
-                    }
+                    if (_lifeTimer != null) { _lifeTimer.Tick -= LifeTimer_Tick; _lifeTimer.Stop(); _lifeTimer.Dispose(); }
                     if (_titleLabel != null) _titleLabel.Dispose();
                     if (_messageLabel != null) _messageLabel.Dispose();
                 }
@@ -203,3 +269,4 @@ namespace smart_attendance_middleware.UI
         }
     }
 }
+

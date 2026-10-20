@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
@@ -14,7 +14,7 @@ namespace smart_attendance_middleware
     /// the reason is a face duplicate. Images resolved from FACE/ folder first,
     /// then from the Picture URL in the DB.
     /// </summary>
-    public class FailureReasonDetailForm : Form
+    public partial class FailureReasonDetailForm : Form
     {
         // ── theme ──────────────────────────────────────────────────────────────
         private static readonly Color NavyDark   = Color.FromArgb(18, 23, 49);
@@ -127,43 +127,30 @@ namespace smart_attendance_middleware
         private void BuildUi()
         {
             const int W = 640;
-            int H = _isFaceConflict ? 560 : 300;
 
-            Text            = "Sync Failure Detail";
-            StartPosition   = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox     = false;
-            MinimizeBox     = false;
-            BackColor       = BgLight;
-            Font            = new Font("Segoe UI", 9.5f);
-            Size            = new Size(W, H);
+            InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
 
-            // ── header ─────────────────────────────────────────────────────────
-            var header = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = NavyDark };
+            // Set dynamic header text
             string icon  = _isFaceConflict ? "⚠" : "✕";
             string title = _isFaceConflict ? "Face Duplicate Detected" : "Sync Failure Detail";
-            header.Controls.Add(new Label
-            {
-                Text      = $"  {icon}   {title}",
-                ForeColor = Color.White,
-                Font      = new Font("Segoe UI", 12f, FontStyle.Bold),
-                Dock      = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding   = new Padding(12, 0, 0, 0)
-            });
-            Controls.Add(header);
+            lblHeaderTitle.Text = $"  {icon}   {title}";
 
-            int y = 70;
+            // Populate reason text box
+            rtbReason.Text = _failureReason;
 
-            // ── photo panels ───────────────────────────────────────────────────
             if (_isFaceConflict)
             {
+                // Expand form for photo panels
+                ClientSize = new Size(W, 560);
+
                 const int picSize = 180;
                 const int panW    = 270;
-                const int gap     = (W - panW * 2) / 3; // ~33px
+                const int gap     = (W - panW * 2) / 3;
+                int y = 70;
 
-                // VS symbol between panels
-                var vsLabel = new Label
+                // VS label
+                Controls.Add(new Label
                 {
                     Text      = "VS",
                     Font      = new Font("Segoe UI", 14f, FontStyle.Bold),
@@ -171,8 +158,7 @@ namespace smart_attendance_middleware
                     Size      = new Size(36, 36),
                     TextAlign = ContentAlignment.MiddleCenter,
                     Location  = new Point((W - 36) / 2, y + (picSize + 60) / 2 - 18)
-                };
-                Controls.Add(vsLabel);
+                });
 
                 Controls.Add(MakePhotoPanel(
                     x: gap, y: y, w: panW, picSize: picSize,
@@ -181,18 +167,15 @@ namespace smart_attendance_middleware
                     enroll: _currentEnrollmentId.HasValue ? $"Enrollment  #{_currentEnrollmentId}" : "—",
                     out _picCurrent));
 
-                string cName   = string.IsNullOrWhiteSpace(_conflictingName) ? "Unknown" : _conflictingName;
-                string cEnroll = _conflictingEnrollId > 0 ? $"Enrollment  #{_conflictingEnrollId}" : "—";
-
                 Controls.Add(MakePhotoPanel(
                     x: gap * 2 + panW, y: y, w: panW, picSize: picSize,
                     badge: "Conflicts With", badgeColor: AccentRed,
-                    name: cName, enroll: cEnroll,
+                    name: string.IsNullOrWhiteSpace(_conflictingName) ? "Unknown" : _conflictingName,
+                    enroll: _conflictingEnrollId > 0 ? $"Enrollment  #{_conflictingEnrollId}" : "—",
                     out _picConflict));
 
                 y += picSize + 72;
 
-                // thin divider
                 Controls.Add(new Panel
                 {
                     Location  = new Point(24, y),
@@ -200,66 +183,25 @@ namespace smart_attendance_middleware
                     BackColor = BorderClr
                 });
                 y += 10;
+
+                // Reposition static controls for face-conflict layout
+                lblReasonTitle.Location  = new Point(24, y);
+                pnlReasonBorder.Location = new Point(24, y + 22);
+                btnClose.Location        = new Point((W - 110) / 2, y + 22 + 82);
             }
-
-            // ── reason section ─────────────────────────────────────────────────
-            Controls.Add(new Label
+            else
             {
-                Text      = "Failure Reason",
-                Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(80, 85, 110),
-                Location  = new Point(24, y),
-                AutoSize  = true
-            });
-            y += 22;
-
-            var reasonBox = new RichTextBox
-            {
-                Location    = new Point(24, y),
-                Size        = new Size(W - 48, 72),
-                ReadOnly    = true,
-                BackColor   = Color.White,
-                BorderStyle = BorderStyle.None,
-                Text        = _failureReason,
-                Font        = new Font("Segoe UI", 9f),
-                WordWrap    = true,
-                ScrollBars  = RichTextBoxScrollBars.Vertical
-            };
-            // wrap in a bordered panel
-            var reasonPanel = new Panel
-            {
-                Location    = new Point(24, y),
-                Size        = new Size(W - 48, 74),
-                BackColor   = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
-            };
-            reasonBox.Location = new Point(6, 4);
-            reasonBox.Size     = new Size(W - 62, 66);
-            reasonPanel.Controls.Add(reasonBox);
-            Controls.Add(reasonPanel);
-            y += 82;
-
-            // ── close button ───────────────────────────────────────────────────
-            var btnClose = new Button
-            {
-                Text      = "Close",
-                Location  = new Point((W - 110) / 2, y),
-                Size      = new Size(110, 34),
-                BackColor = NavyDark,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                Cursor    = Cursors.Hand
-            };
-            btnClose.FlatAppearance.BorderSize = 0;
-            btnClose.Click += (s, ev) => Close();
-            Controls.Add(btnClose);
+                ClientSize = new Size(W, 300);
+                btnClose.Location = new Point((W - 110) / 2, 180);
+            }
 
             Load += async (s, ev) =>
             {
                 if (_isFaceConflict) await LoadImagesAsync();
             };
         }
+
+        private void BtnClose_Click(object sender, System.EventArgs e) => Close();
 
         private Panel MakePhotoPanel(int x, int y, int w, int picSize,
                                      string badge, Color badgeColor,
@@ -283,7 +225,7 @@ namespace smart_attendance_middleware
             var badgeLbl = new Label
             {
                 Text      = badge,
-                Font      = new Font("Segoe UI", 8f, FontStyle.Bold),
+                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 ForeColor = Color.White,
                 BackColor = badgeColor,
                 AutoSize  = false,
@@ -319,7 +261,7 @@ namespace smart_attendance_middleware
             panel.Controls.Add(new Label
             {
                 Text      = enroll,
-                Font      = new Font("Segoe UI", 8f),
+                Font      = new Font("Segoe UI", 8f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(110, 115, 140),
                 Location  = new Point(6, 38 + picSize + 26),
                 AutoSize  = false,
@@ -420,11 +362,10 @@ namespace smart_attendance_middleware
                 if (Image == null)
                 {
                     e.Graphics.FillPath(new SolidBrush(Color.FromArgb(220, 223, 235)), path);
-                    using (var f = new Font("Segoe UI", 28f))
                     using (var b = new SolidBrush(Color.FromArgb(160, 165, 190)))
                     {
-                        var sz = e.Graphics.MeasureString("👤", f);
-                        e.Graphics.DrawString("👤", f, b,
+                        var sz = e.Graphics.MeasureString("👤", new Font("Segoe UI", 22f, FontStyle.Bold));
+                        e.Graphics.DrawString("👤", new Font("Segoe UI", 22f, FontStyle.Bold), b,
                             (Width - sz.Width) / 2, (Height - sz.Height) / 2);
                     }
                 }
@@ -447,3 +388,4 @@ namespace smart_attendance_middleware
         }
     }
 }
+

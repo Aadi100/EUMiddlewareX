@@ -799,9 +799,10 @@ namespace smart_attendance_middleware.Classes
                 {
                     foreach (var file in response.Files)
                     {
-                        if (file.CreatedTime.HasValue && file.CreatedTime.Value < threshold)
+                        var createdTime = file.CreatedTimeDateTimeOffset?.UtcDateTime;
+                        if (createdTime.HasValue && createdTime.Value < threshold)
                         {
-                            LogHelper.Log($"[Drive] Deleting old backup: {file.Name} (Created: {file.CreatedTime})");
+                            LogHelper.Log($"[Drive] Deleting old backup: {file.Name} (Created: {createdTime})");
                             await service.Files.Delete(file.Id).ExecuteAsync();
                             deletedCount++;
                         }
@@ -1046,7 +1047,7 @@ namespace smart_attendance_middleware.Classes
                 if (requireForm)
                 {
                     string loggedInUser = AppSession.LoggedInUser;
-                    using (var gateAccessForm = new GateAccessForm(ip, dbHelper, loggedInUser))
+                    using (var gateAccessForm = new VisitorForm(ip, dbHelper, loggedInUser))
                     {
                         if (gateAccessForm.ShowDialog() != System.Windows.Forms.DialogResult.OK)
                         {

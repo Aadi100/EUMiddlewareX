@@ -189,7 +189,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Classes\AttendanceSimulator.cs" />
     <Compile Include="Classes\CacheManager.cs" />
     <Compile Include="Classes\CommonUtils.cs" />
     <Compile Include="Classes\DatabaseHelper.Incremental.cs" />
@@ -219,7 +218,6 @@
     <Compile Include="Classes\ServerThreadInvoker.cs" />
     <Compile Include="Classes\ServiceManager.cs" />
     <Compile Include="Classes\WebsocketServerThreadManager.cs" />
-    <Compile Include="Classes\SimulationEvents.cs" />
     <Compile Include="Classes\StaffAttendanceLogSyncService.cs" />
     <Compile Include="Classes\StaffAttendenceServerFunctions.cs" />
     <Compile Include="Classes\WebServerServices.cs" />
@@ -228,6 +226,33 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Controls\HeaderStatusCard.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\ModernListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\RoundedButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\RoundedTextBox.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\RoundedComboBox.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ControlsTestForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Controls\CardListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\ModernTabPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\ToggleSwitch.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\StatCard.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Controls\RectangularLoader.cs">
@@ -242,11 +267,8 @@
     <Compile Include="MemberDeviceStatusDialog.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SimulatorForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="SimulatorForm.Designer.cs">
-      <DependentUpon>SimulatorForm.cs</DependentUpon>
+    <Compile Include="MemberDeviceStatusDialog.Designer.cs">
+      <DependentUpon>MemberDeviceStatusDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\LogForm.cs">
       <SubType>Form</SubType>
@@ -294,17 +316,35 @@
     <Compile Include="DeviceManager.Designer.cs">
       <DependentUpon>DeviceManager.cs</DependentUpon>
     </Compile>
+    <Compile Include="MembershipManagement.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MembershipManagement.Designer.cs">
+      <DependentUpon>MembershipManagement.cs</DependentUpon>
+    </Compile>
     <Compile Include="AddOfflineMemberForm.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AddOfflineMemberForm.Designer.cs">
+      <DependentUpon>AddOfflineMemberForm.cs</DependentUpon>
     </Compile>
     <Compile Include="FailureReasonDetailForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="FailureReasonDetailForm.Designer.cs">
+      <DependentUpon>FailureReasonDetailForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="CropForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="CropForm.Designer.cs">
+      <DependentUpon>CropForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="RenewMembershipForm.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="RenewMembershipForm.Designer.cs">
+      <DependentUpon>RenewMembershipForm.cs</DependentUpon>
     </Compile>
     <Compile Include="AddNewDevice.cs">
       <SubType>Form</SubType>
@@ -324,11 +364,11 @@
     <Compile Include="EditUser.Designer.cs">
       <DependentUpon>EditUser.cs</DependentUpon>
     </Compile>
-    <Compile Include="GateAccessForm.cs">
+    <Compile Include="VisitorForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="GateAccessForm.Designer.cs">
-      <DependentUpon>GateAccessForm.cs</DependentUpon>
+    <Compile Include="VisitorForm.Designer.cs">
+      <DependentUpon>VisitorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Login.cs">
       <SubType>Form</SubType>
@@ -355,6 +395,9 @@
     <EmbeddedResource Include="AddNewUser.resx">
       <DependentUpon>AddNewUser.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="AddOfflineMemberForm.resx">
+      <DependentUpon>AddOfflineMemberForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Dashboard.resx">
       <DependentUpon>Dashboard.cs</DependentUpon>
     </EmbeddedResource>
@@ -367,17 +410,23 @@
     <EmbeddedResource Include="FacePopupForm.resx">
       <DependentUpon>FacePopupForm.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="FingerManagement.resx">
+      <DependentUpon>FingerManagement.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Fingerprint.resx">
       <DependentUpon>Fingerprint.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SimulatorForm.resx">
-      <DependentUpon>SimulatorForm.cs</DependentUpon>
+    <EmbeddedResource Include="MembershipManagement.resx">
+      <DependentUpon>MembershipManagement.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="RenewMembershipForm.resx">
+      <DependentUpon>RenewMembershipForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="UserSetup.resx">
       <DependentUpon>UserSetup.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="GateAccessForm.resx">
-      <DependentUpon>GateAccessForm.cs</DependentUpon>
+    <EmbeddedResource Include="VisitorForm.resx">
+      <DependentUpon>VisitorForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Login.resx">
       <DependentUpon>Login.cs</DependentUpon>

@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
+using smart_attendance_middleware;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Windows.Forms;
@@ -121,19 +122,17 @@ namespace smart_attendance_middleware.Controls
             // Top small label (skipped when empty)
             if (!string.IsNullOrEmpty(_topLabel))
             {
-                using (var f = new Font("Segoe UI", 7.5f))
                 using (var b = new SolidBrush(Color.FromArgb(140, 155, 195)))
-                    g.DrawString(_topLabel, f, b, cx, 11);
+                    g.DrawString(_topLabel, new Font("Segoe UI", 8f, FontStyle.Regular), b, cx, 11);
             }
 
             // Bottom bold text — centred vertically when there is no top label
-            using (var f = new Font("Segoe UI", 9.5f, FontStyle.Bold))
             using (var b = new SolidBrush(Color.White))
             {
                 float textY = string.IsNullOrEmpty(_topLabel)
-                    ? (Height - f.GetHeight(g)) / 2f
+                    ? (Height - new Font("Segoe UI", 9.5f, FontStyle.Bold).GetHeight(g)) / 2f
                     : 28f;
-                g.DrawString(_bottomText, f, b, cx, textY);
+                g.DrawString(_bottomText, new Font("Segoe UI", 9.5f, FontStyle.Bold), b, cx, textY);
             }
         }
 
@@ -162,3 +161,4 @@ namespace smart_attendance_middleware.Controls
         }
     }
 }
+

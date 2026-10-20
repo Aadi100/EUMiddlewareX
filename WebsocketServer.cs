@@ -1,4 +1,4 @@
-using Eagle._Components.Public;
+﻿using Eagle._Components.Public;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -90,6 +90,7 @@ namespace smart_attendance_middleware
         public WebsocketServer()
         {
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             Instance = this;
 
             if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime)

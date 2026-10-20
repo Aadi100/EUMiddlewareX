@@ -2,137 +2,374 @@
 {
     partial class EditUser
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
-            {
                 components.Dispose();
-            }
             base.Dispose(disposing);
         }
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
-            this.btn_Cancel = new System.Windows.Forms.Button();
-            this.txt_Role = new System.Windows.Forms.TextBox();
-            this.label4 = new System.Windows.Forms.Label();
-            this.txt_UserName = new System.Windows.Forms.TextBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.btn_update = new System.Windows.Forms.Button();
-            this.label2 = new System.Windows.Forms.Label();
-            this.label1 = new System.Windows.Forms.Label();
+            this.pnlHeader = new System.Windows.Forms.Panel();
+            this.lblTitle = new System.Windows.Forms.Label();
+            this.lblSubtitle = new System.Windows.Forms.Label();
+            this.lblUserNameField = new System.Windows.Forms.Label();
+            this.rtxtUserName = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblLocked = new System.Windows.Forms.Label();
+            this.lblUserNameHint = new System.Windows.Forms.Label();
+            this.lblRole = new System.Windows.Forms.Label();
+            this.lblRoleStar = new System.Windows.Forms.Label();
+            this.cmbRole = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.pnlSectionSep = new System.Windows.Forms.Panel();
+            this.lblChangePwTitle = new System.Windows.Forms.Label();
+            this.lblOptional = new System.Windows.Forms.Label();
+            this.lblNewPassword = new System.Windows.Forms.Label();
+            this.rtxtNewPassword = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.btnToggleNew = new smart_attendance_middleware.Controls.RoundedButton();
+            this.lblConfirmNewPw = new System.Windows.Forms.Label();
+            this.rtxtConfirmNewPw = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.btnToggleConfirmNew = new smart_attendance_middleware.Controls.RoundedButton();
+            this.pnlSeparator = new System.Windows.Forms.Panel();
+            this.btn_Cancel = new smart_attendance_middleware.Controls.RoundedButton();
+            this.btn_update = new smart_attendance_middleware.Controls.RoundedButton();
+            this.pnlHeader.SuspendLayout();
             this.SuspendLayout();
+            // 
+            // pnlHeader
+            // 
+            this.pnlHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(32)))), ((int)(((byte)(64)))));
+            this.pnlHeader.Controls.Add(this.lblTitle);
+            this.pnlHeader.Controls.Add(this.lblSubtitle);
+            this.pnlHeader.Location = new System.Drawing.Point(0, 0);
+            this.pnlHeader.Name = "pnlHeader";
+            this.pnlHeader.Size = new System.Drawing.Size(500, 90);
+            this.pnlHeader.TabIndex = 0;
+            // 
+            // lblTitle
+            // 
+            this.lblTitle.AutoSize = true;
+            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.ForeColor = System.Drawing.Color.White;
+            this.lblTitle.Location = new System.Drawing.Point(22, 16);
+            this.lblTitle.Name = "lblTitle";
+            this.lblTitle.Size = new System.Drawing.Size(91, 25);
+            this.lblTitle.TabIndex = 0;
+            this.lblTitle.Text = "Edit User";
+            // 
+            // lblSubtitle
+            // 
+            this.lblSubtitle.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblSubtitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(170)))), ((int)(((byte)(178)))), ((int)(((byte)(210)))));
+            this.lblSubtitle.Location = new System.Drawing.Point(24, 54);
+            this.lblSubtitle.Name = "lblSubtitle";
+            this.lblSubtitle.Size = new System.Drawing.Size(450, 22);
+            this.lblSubtitle.TabIndex = 1;
+            this.lblSubtitle.Text = "Change a user\'s role or reset their password.";
+            // 
+            // lblUserNameField
+            // 
+            this.lblUserNameField.AutoSize = true;
+            this.lblUserNameField.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblUserNameField.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblUserNameField.Location = new System.Drawing.Point(36, 110);
+            this.lblUserNameField.Name = "lblUserNameField";
+            this.lblUserNameField.Size = new System.Drawing.Size(63, 15);
+            this.lblUserNameField.TabIndex = 10;
+            this.lblUserNameField.Text = "User name";
+            // 
+            // rtxtUserName
+            // 
+            this.rtxtUserName.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.rtxtUserName.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.rtxtUserName.BackColor = System.Drawing.Color.Transparent;
+            this.rtxtUserName.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtxtUserName.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtxtUserName.Location = new System.Drawing.Point(36, 130);
+            this.rtxtUserName.MaxLength = 32767;
+            this.rtxtUserName.Name = "rtxtUserName";
+            this.rtxtUserName.PasswordChar = '\0';
+            this.rtxtUserName.Placeholder = "";
+            this.rtxtUserName.Radius = 10;
+            this.rtxtUserName.ReadOnly = false;
+            this.rtxtUserName.Size = new System.Drawing.Size(428, 38);
+            this.rtxtUserName.TabIndex = 11;
+            this.rtxtUserName.TabStop = false;
+            this.rtxtUserName.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.rtxtUserName.UseSystemPasswordChar = false;
+            // 
+            // lblLocked
+            // 
+            this.lblLocked.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblLocked.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(85)))), ((int)(((byte)(99)))));
+            this.lblLocked.Location = new System.Drawing.Point(388, 142);
+            this.lblLocked.Name = "lblLocked";
+            this.lblLocked.Size = new System.Drawing.Size(62, 22);
+            this.lblLocked.TabIndex = 12;
+            this.lblLocked.Text = "Locked";
+            this.lblLocked.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblUserNameHint
+            // 
+            this.lblUserNameHint.AutoSize = true;
+            this.lblUserNameHint.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblUserNameHint.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.lblUserNameHint.Location = new System.Drawing.Point(38, 174);
+            this.lblUserNameHint.Name = "lblUserNameHint";
+            this.lblUserNameHint.Size = new System.Drawing.Size(171, 15);
+            this.lblUserNameHint.TabIndex = 13;
+            this.lblUserNameHint.Text = "User name cannot be changed.";
+            // 
+            // lblRole
+            // 
+            this.lblRole.AutoSize = true;
+            this.lblRole.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblRole.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblRole.Location = new System.Drawing.Point(36, 202);
+            this.lblRole.Name = "lblRole";
+            this.lblRole.Size = new System.Drawing.Size(32, 15);
+            this.lblRole.TabIndex = 20;
+            this.lblRole.Text = "Role";
+            // 
+            // lblRoleStar
+            // 
+            this.lblRoleStar.AutoSize = true;
+            this.lblRoleStar.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblRoleStar.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
+            this.lblRoleStar.Location = new System.Drawing.Point(63, 202);
+            this.lblRoleStar.Name = "lblRoleStar";
+            this.lblRoleStar.Size = new System.Drawing.Size(12, 15);
+            this.lblRoleStar.TabIndex = 21;
+            this.lblRoleStar.Text = "*";
+            // 
+            // cmbRole
+            // 
+            this.cmbRole.BackColor = System.Drawing.Color.Transparent;
+            this.cmbRole.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbRole.DataSource = null;
+            this.cmbRole.DisplayMember = "";
+            this.cmbRole.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbRole.Location = new System.Drawing.Point(36, 222);
+            this.cmbRole.Name = "cmbRole";
+            this.cmbRole.Radius = 10;
+            this.cmbRole.SelectedIndex = -1;
+            this.cmbRole.SelectedItem = null;
+            this.cmbRole.Size = new System.Drawing.Size(428, 42);
+            this.cmbRole.TabIndex = 1;
+            this.cmbRole.ValueMember = "";
+            // 
+            // pnlSectionSep
+            // 
+            this.pnlSectionSep.Location = new System.Drawing.Point(36, 280);
+            this.pnlSectionSep.Name = "pnlSectionSep";
+            this.pnlSectionSep.Size = new System.Drawing.Size(428, 1);
+            this.pnlSectionSep.TabIndex = 30;
+            // 
+            // lblChangePwTitle
+            // 
+            this.lblChangePwTitle.AutoSize = true;
+            this.lblChangePwTitle.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblChangePwTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblChangePwTitle.Location = new System.Drawing.Point(36, 296);
+            this.lblChangePwTitle.Name = "lblChangePwTitle";
+            this.lblChangePwTitle.Size = new System.Drawing.Size(132, 20);
+            this.lblChangePwTitle.TabIndex = 31;
+            this.lblChangePwTitle.Text = "Change password";
+            // 
+            // lblOptional
+            // 
+            this.lblOptional.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblOptional.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(85)))), ((int)(((byte)(99)))));
+            this.lblOptional.Location = new System.Drawing.Point(362, 298);
+            this.lblOptional.Name = "lblOptional";
+            this.lblOptional.Size = new System.Drawing.Size(66, 22);
+            this.lblOptional.TabIndex = 32;
+            this.lblOptional.Text = "Optional";
+            this.lblOptional.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblNewPassword
+            // 
+            this.lblNewPassword.AutoSize = true;
+            this.lblNewPassword.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblNewPassword.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblNewPassword.Location = new System.Drawing.Point(36, 334);
+            this.lblNewPassword.Name = "lblNewPassword";
+            this.lblNewPassword.Size = new System.Drawing.Size(84, 15);
+            this.lblNewPassword.TabIndex = 40;
+            this.lblNewPassword.Text = "New password";
+            // 
+            // rtxtNewPassword
+            // 
+            this.rtxtNewPassword.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.rtxtNewPassword.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.rtxtNewPassword.BackColor = System.Drawing.Color.Transparent;
+            this.rtxtNewPassword.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtxtNewPassword.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtxtNewPassword.Location = new System.Drawing.Point(36, 354);
+            this.rtxtNewPassword.MaxLength = 32767;
+            this.rtxtNewPassword.Name = "rtxtNewPassword";
+            this.rtxtNewPassword.PasswordChar = '*';
+            this.rtxtNewPassword.Placeholder = "";
+            this.rtxtNewPassword.Radius = 10;
+            this.rtxtNewPassword.ReadOnly = false;
+            this.rtxtNewPassword.Size = new System.Drawing.Size(428, 38);
+            this.rtxtNewPassword.TabIndex = 2;
+            this.rtxtNewPassword.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.rtxtNewPassword.UseSystemPasswordChar = false;
+            // 
+            // btnToggleNew
+            // 
+            this.btnToggleNew.BackColor = System.Drawing.Color.Transparent;
+            this.btnToggleNew.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.btnToggleNew.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnToggleNew.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btnToggleNew.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.btnToggleNew.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.btnToggleNew.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
+            this.btnToggleNew.Location = new System.Drawing.Point(430, 362);
+            this.btnToggleNew.Name = "btnToggleNew";
+            this.btnToggleNew.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
+            this.btnToggleNew.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btnToggleNew.Radius = 10;
+            this.btnToggleNew.Size = new System.Drawing.Size(30, 22);
+            this.btnToggleNew.TabIndex = 41;
+            this.btnToggleNew.TabStop = false;
+            this.btnToggleNew.Text = "●";
+            this.btnToggleNew.Click += new System.EventHandler(this.btnToggleNew_Click);
+            // 
+            // lblConfirmNewPw
+            // 
+            this.lblConfirmNewPw.AutoSize = true;
+            this.lblConfirmNewPw.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblConfirmNewPw.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblConfirmNewPw.Location = new System.Drawing.Point(36, 406);
+            this.lblConfirmNewPw.Name = "lblConfirmNewPw";
+            this.lblConfirmNewPw.Size = new System.Drawing.Size(129, 15);
+            this.lblConfirmNewPw.TabIndex = 50;
+            this.lblConfirmNewPw.Text = "Confirm new password";
+            // 
+            // rtxtConfirmNewPw
+            // 
+            this.rtxtConfirmNewPw.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.rtxtConfirmNewPw.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.rtxtConfirmNewPw.BackColor = System.Drawing.Color.Transparent;
+            this.rtxtConfirmNewPw.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtxtConfirmNewPw.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtxtConfirmNewPw.Location = new System.Drawing.Point(36, 426);
+            this.rtxtConfirmNewPw.MaxLength = 32767;
+            this.rtxtConfirmNewPw.Name = "rtxtConfirmNewPw";
+            this.rtxtConfirmNewPw.PasswordChar = '*';
+            this.rtxtConfirmNewPw.Placeholder = "";
+            this.rtxtConfirmNewPw.Radius = 10;
+            this.rtxtConfirmNewPw.ReadOnly = false;
+            this.rtxtConfirmNewPw.Size = new System.Drawing.Size(428, 38);
+            this.rtxtConfirmNewPw.TabIndex = 3;
+            this.rtxtConfirmNewPw.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.rtxtConfirmNewPw.UseSystemPasswordChar = false;
+            // 
+            // btnToggleConfirmNew
+            // 
+            this.btnToggleConfirmNew.BackColor = System.Drawing.Color.Transparent;
+            this.btnToggleConfirmNew.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.btnToggleConfirmNew.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnToggleConfirmNew.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btnToggleConfirmNew.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.btnToggleConfirmNew.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.btnToggleConfirmNew.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
+            this.btnToggleConfirmNew.Location = new System.Drawing.Point(430, 434);
+            this.btnToggleConfirmNew.Name = "btnToggleConfirmNew";
+            this.btnToggleConfirmNew.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
+            this.btnToggleConfirmNew.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btnToggleConfirmNew.Radius = 10;
+            this.btnToggleConfirmNew.Size = new System.Drawing.Size(30, 22);
+            this.btnToggleConfirmNew.TabIndex = 51;
+            this.btnToggleConfirmNew.TabStop = false;
+            this.btnToggleConfirmNew.Text = "●";
+            this.btnToggleConfirmNew.Click += new System.EventHandler(this.btnToggleConfirmNew_Click);
+            // 
+            // pnlSeparator
+            // 
+            this.pnlSeparator.Location = new System.Drawing.Point(0, 484);
+            this.pnlSeparator.Name = "pnlSeparator";
+            this.pnlSeparator.Size = new System.Drawing.Size(500, 1);
+            this.pnlSeparator.TabIndex = 60;
             // 
             // btn_Cancel
             // 
-            this.btn_Cancel.Location = new System.Drawing.Point(125, 313);
+            this.btn_Cancel.BackColor = System.Drawing.Color.Transparent;
+            this.btn_Cancel.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.btn_Cancel.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_Cancel.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_Cancel.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_Cancel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.btn_Cancel.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
+            this.btn_Cancel.Location = new System.Drawing.Point(240, 496);
             this.btn_Cancel.Name = "btn_Cancel";
-            this.btn_Cancel.Size = new System.Drawing.Size(72, 32);
-            this.btn_Cancel.TabIndex = 27;
+            this.btn_Cancel.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
+            this.btn_Cancel.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btn_Cancel.Radius = 10;
+            this.btn_Cancel.Size = new System.Drawing.Size(110, 42);
+            this.btn_Cancel.TabIndex = 6;
             this.btn_Cancel.Text = "Cancel";
-            this.btn_Cancel.UseVisualStyleBackColor = true;
             this.btn_Cancel.Click += new System.EventHandler(this.btn_Cancel_Click);
-            // 
-            // txt_Role
-            // 
-            this.txt_Role.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_Role.Location = new System.Drawing.Point(125, 157);
-            this.txt_Role.Name = "txt_Role";
-            this.txt_Role.Size = new System.Drawing.Size(183, 24);
-            this.txt_Role.TabIndex = 22;
-            this.txt_Role.TextChanged += new System.EventHandler(this.txt_Role_TextChanged);
-            // 
-            // label4
-            // 
-            this.label4.AutoSize = true;
-            this.label4.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label4.Location = new System.Drawing.Point(20, 157);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(39, 18);
-            this.label4.TabIndex = 21;
-            this.label4.Text = "Role";
-            // 
-            // txt_UserName
-            // 
-            this.txt_UserName.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_UserName.Location = new System.Drawing.Point(125, 107);
-            this.txt_UserName.Name = "txt_UserName";
-            this.txt_UserName.ReadOnly = true;
-            this.txt_UserName.Size = new System.Drawing.Size(183, 24);
-            this.txt_UserName.TabIndex = 20;
-            this.txt_UserName.TextChanged += new System.EventHandler(this.txt_UserName_TextChanged);
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label3.Location = new System.Drawing.Point(20, 106);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(84, 18);
-            this.label3.TabIndex = 19;
-            this.label3.Text = "User Name";
             // 
             // btn_update
             // 
-            this.btn_update.Location = new System.Drawing.Point(203, 313);
+            this.btn_update.BackColor = System.Drawing.Color.Transparent;
+            this.btn_update.BorderColor = System.Drawing.Color.Transparent;
+            this.btn_update.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_update.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_update.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_update.ForeColor = System.Drawing.Color.White;
+            this.btn_update.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.btn_update.Location = new System.Drawing.Point(358, 496);
             this.btn_update.Name = "btn_update";
-            this.btn_update.Size = new System.Drawing.Size(105, 32);
-            this.btn_update.TabIndex = 18;
-            this.btn_update.Text = "Update User";
-            this.btn_update.UseVisualStyleBackColor = true;
+            this.btn_update.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.btn_update.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btn_update.Radius = 10;
+            this.btn_update.Size = new System.Drawing.Size(130, 42);
+            this.btn_update.TabIndex = 5;
+            this.btn_update.Text = "Update user";
             this.btn_update.Click += new System.EventHandler(this.btn_update_Click);
-            // 
-            // label2
-            // 
-            this.label2.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label2.ForeColor = System.Drawing.Color.DimGray;
-            this.label2.Location = new System.Drawing.Point(12, 42);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(306, 43);
-            this.label2.TabIndex = 17;
-            this.label2.Text = "You can change user role and password.";
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label1.Location = new System.Drawing.Point(8, 14);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(102, 26);
-            this.label1.TabIndex = 16;
-            this.label1.Text = "Edit User";
             // 
             // EditUser
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(329, 366);
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.ClientSize = new System.Drawing.Size(500, 550);
+            this.Controls.Add(this.pnlHeader);
+            this.Controls.Add(this.lblUserNameField);
+            this.Controls.Add(this.rtxtUserName);
+            this.Controls.Add(this.lblLocked);
+            this.Controls.Add(this.lblUserNameHint);
+            this.Controls.Add(this.lblRole);
+            this.Controls.Add(this.lblRoleStar);
+            this.Controls.Add(this.cmbRole);
+            this.Controls.Add(this.pnlSectionSep);
+            this.Controls.Add(this.lblChangePwTitle);
+            this.Controls.Add(this.lblOptional);
+            this.Controls.Add(this.lblNewPassword);
+            this.Controls.Add(this.rtxtNewPassword);
+            this.Controls.Add(this.btnToggleNew);
+            this.Controls.Add(this.lblConfirmNewPw);
+            this.Controls.Add(this.rtxtConfirmNewPw);
+            this.Controls.Add(this.btnToggleConfirmNew);
+            this.Controls.Add(this.pnlSeparator);
             this.Controls.Add(this.btn_Cancel);
-            this.Controls.Add(this.txt_Role);
-            this.Controls.Add(this.label4);
-            this.Controls.Add(this.txt_UserName);
-            this.Controls.Add(this.label3);
             this.Controls.Add(this.btn_update);
-            this.Controls.Add(this.label2);
-            this.Controls.Add(this.label1);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
             this.Name = "EditUser";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Edit User";
+            this.pnlHeader.ResumeLayout(false);
+            this.pnlHeader.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -140,13 +377,32 @@
 
         #endregion
 
-        private System.Windows.Forms.Button btn_Cancel;
-        private System.Windows.Forms.TextBox txt_Role;
-        private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.TextBox txt_UserName;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.Button btn_update;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Panel pnlHeader;
+        private System.Windows.Forms.Label lblTitle;
+        private System.Windows.Forms.Label lblSubtitle;
+        private System.Windows.Forms.Label lblUserNameField;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtxtUserName;
+        private System.Windows.Forms.Label lblLocked;
+        private System.Windows.Forms.Label lblUserNameHint;
+        private System.Windows.Forms.Label lblRole;
+        private System.Windows.Forms.Label lblRoleStar;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbRole;
+        private System.Windows.Forms.Panel pnlSectionSep;
+        private System.Windows.Forms.Label lblChangePwTitle;
+        private System.Windows.Forms.Label lblOptional;
+        private System.Windows.Forms.Label lblNewPassword;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtxtNewPassword;
+        private smart_attendance_middleware.Controls.RoundedButton btnToggleNew;
+        private System.Windows.Forms.Label lblConfirmNewPw;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtxtConfirmNewPw;
+        private smart_attendance_middleware.Controls.RoundedButton btnToggleConfirmNew;
+        private System.Windows.Forms.Panel pnlSeparator;
+        private smart_attendance_middleware.Controls.RoundedButton btn_Cancel;
+        private smart_attendance_middleware.Controls.RoundedButton btn_update;
     }
 }
+
+
+
+
+

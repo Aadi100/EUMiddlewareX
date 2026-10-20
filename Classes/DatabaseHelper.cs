@@ -256,6 +256,8 @@ namespace smart_attendance_middleware
         public string VisitorName { get; set; }
         public string VisitorPhone { get; set; }
         public string Reason { get; set; }
+        public string TrainerId { get; set; }
+        public bool Synced { get; set; }
         public DateTime AccessedTime { get; set; }
         public string Username { get; set; }
     }
@@ -722,6 +724,12 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_DeviceId' 
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_PendingJobs_CreatedAt' AND object_id = OBJECT_ID('dbo.PendingJobs'))
     CREATE INDEX IX_PendingJobs_CreatedAt ON dbo.PendingJobs(CreatedAt);
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.GateAccessed') AND name = 'TrainerId')
+    ALTER TABLE dbo.GateAccessed ADD TrainerId NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.GateAccessed') AND name = 'Synced')
+    ALTER TABLE dbo.GateAccessed ADD Synced BIT NOT NULL DEFAULT 0;
 
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.AttendanceLogs') AND name = 'DeviceInfo')
     ALTER TABLE dbo.AttendanceLogs ADD DeviceInfo NVARCHAR(100);
@@ -6965,7 +6973,8 @@ SELECT SCOPE_IDENTITY();", connection))
                 {
                     connection.Open();
                     using (var command = new SqlCommand(
-                        "SELECT TOP 10000 GateId, DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, CreatedAt, UpdatedAt " +
+                        "SELECT TOP 10000 GateId, DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, " +
+                        "ISNULL(Synced, 0) AS Synced " +
                         "FROM GateAccessed ORDER BY AccessedTime DESC", connection))
                     using (var reader = command.ExecuteReader())
                     {
@@ -6973,15 +6982,16 @@ SELECT SCOPE_IDENTITY();", connection))
                         {
                             gateAccesseds.Add(new GateAccessed
                             {
-                                GateId = reader.GetInt32(0),
-                                DeviceIP = reader.GetString(1),
-                                MemberId = reader.GetInt32(2),
-                                IsVisitor = reader.GetBoolean(3),
-                                VisitorName = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                GateId       = reader.GetInt32(0),
+                                DeviceIP     = reader.GetString(1),
+                                MemberId     = reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
+                                IsVisitor    = reader.GetBoolean(3),
+                                VisitorName  = reader.IsDBNull(4) ? null : reader.GetString(4),
                                 VisitorPhone = reader.IsDBNull(5) ? null : reader.GetString(5),
-                                Reason = reader.IsDBNull(6) ? null : reader.GetString(6),
+                                Reason       = reader.IsDBNull(6) ? null : reader.GetString(6),
                                 AccessedTime = reader.IsDBNull(7) ? DateTime.MinValue : Convert.ToDateTime(reader.GetValue(7)),
-                                Username = reader.IsDBNull(8) ? null : reader.GetString(8)
+                                Username     = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                Synced       = reader.GetBoolean(9)
                             });
                         }
                     }
@@ -7008,10 +7018,10 @@ SELECT SCOPE_IDENTITY();", connection))
                             : timestamp;
 
                         using (var command = new SqlCommand(@"
-            INSERT INTO GateAccessed 
-            (DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, AccessedTime, Username, CreatedAt, UpdatedAt) 
-            VALUES 
-            (@DeviceIP, @MemberId, @IsVisitor, @VisitorName, @VisitorPhone, @Reason, @AccessedTime, @Username, @CreatedAt, @UpdatedAt)", connection, transaction))
+            INSERT INTO GateAccessed
+            (DeviceIP, MemberId, IsVisitor, VisitorName, VisitorPhone, Reason, TrainerId, Synced, AccessedTime, Username, CreatedAt, UpdatedAt)
+            VALUES
+            (@DeviceIP, @MemberId, @IsVisitor, @VisitorName, @VisitorPhone, @Reason, @TrainerId, 0, @AccessedTime, @Username, @CreatedAt, @UpdatedAt)", connection, transaction))
                         {
                             command.Parameters.AddWithValue("@DeviceIP", gateAccessed.DeviceIP);
                             command.Parameters.AddWithValue("@MemberId", gateAccessed.MemberId > 0 ? (object)gateAccessed.MemberId : DBNull.Value);
@@ -7019,6 +7029,7 @@ SELECT SCOPE_IDENTITY();", connection))
                             command.Parameters.AddWithValue("@VisitorName", (object)gateAccessed.VisitorName ?? DBNull.Value);
                             command.Parameters.AddWithValue("@VisitorPhone", (object)gateAccessed.VisitorPhone ?? DBNull.Value);
                             command.Parameters.AddWithValue("@Reason", (object)gateAccessed.Reason ?? DBNull.Value);
+                            command.Parameters.AddWithValue("@TrainerId", (object)gateAccessed.TrainerId ?? DBNull.Value);
                             command.Parameters.AddWithValue("@AccessedTime", accessedTime);
                             command.Parameters.AddWithValue("@Username", (object)gateAccessed.Username ?? DBNull.Value);
                             command.Parameters.AddWithValue("@CreatedAt", timestamp);
@@ -9955,6 +9966,75 @@ public bool UpdateStaffAttendanceLogFromCloud(
             }
             catch { }
             return null;
+        }
+
+        // Returns latest FailureReason per EnrollmentID from Log table in one query.
+        // Key = EnrollmentID, Value = FailureReason (null if none).
+        public Dictionary<int, string> GetLatestFailureReasonsBatch()
+        {
+            var result = new Dictionary<int, string>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        @"SELECT EnrollmentID, FailureReason
+                          FROM (
+                              SELECT EnrollmentID, FailureReason,
+                                     ROW_NUMBER() OVER (PARTITION BY EnrollmentID ORDER BY CreatedAt DESC) AS rn
+                              FROM Log
+                              WHERE FailureReason IS NOT NULL AND EnrollmentID IS NOT NULL
+                          ) t
+                          WHERE rn = 1",
+                        connection))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            int eid = reader.GetInt32(0);
+                            string reason = reader.IsDBNull(1) ? null : reader.GetString(1);
+                            result[eid] = reason;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return result;
+        }
+
+        // Returns latest FailureReason per EnrollmentID from StaffLog table in one query.
+        public Dictionary<int, string> GetLatestStaffFailureReasonsBatch()
+        {
+            var result = new Dictionary<int, string>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        @"SELECT EnrollmentID, FailureReason
+                          FROM (
+                              SELECT EnrollmentID, FailureReason,
+                                     ROW_NUMBER() OVER (PARTITION BY EnrollmentID ORDER BY CreatedAt DESC) AS rn
+                              FROM StaffLog
+                              WHERE FailureReason IS NOT NULL AND EnrollmentID IS NOT NULL
+                          ) t
+                          WHERE rn = 1",
+                        connection))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            int eid = reader.GetInt32(0);
+                            string reason = reader.IsDBNull(1) ? null : reader.GetString(1);
+                            result[eid] = reason;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return result;
         }
 
         /// <summary>

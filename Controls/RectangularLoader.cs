@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Drawing;
+using smart_attendance_middleware;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
@@ -241,7 +242,6 @@ namespace smart_attendance_middleware.Controls
         {
             if (string.IsNullOrEmpty(text)) return;
 
-            using (var font  = new Font("Segoe UI", 8.5f, FontStyle.Regular, GraphicsUnit.Point))
             using (var brush = new SolidBrush(color))
             {
                 var sf = new StringFormat
@@ -257,7 +257,7 @@ namespace smart_attendance_middleware.Controls
                     bounds.Height - barBottom - 8);
 
                 if (labelRect.Height > 0)
-                    g.DrawString(text, font, brush, labelRect, sf);
+                    g.DrawString(text, new Font("Segoe UI", 8.5f, FontStyle.Regular), brush, labelRect, sf);
             }
         }
 

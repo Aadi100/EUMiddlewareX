@@ -49,6 +49,7 @@ namespace smart_attendance_middleware
         public UserSetup()
         {
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             //LogHelper.UIAppender = AppendConsole;
 
 
@@ -136,7 +137,7 @@ namespace smart_attendance_middleware
                 AutoSize = false,
                 Dock = DockStyle.Top,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Arial", 12, FontStyle.Bold),
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                 ForeColor = Color.White,
                 Padding = new Padding(20),
                 Height = messageHeight 
@@ -274,4 +275,5 @@ namespace smart_attendance_middleware
         }
     }
 }
+
 

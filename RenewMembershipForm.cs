@@ -1,8 +1,9 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using smart_attendance_middleware.Classes;
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -16,219 +17,175 @@ namespace smart_attendance_middleware
     /// /api/sync/enrollments later by OfflineEnrollmentSubscriptionService's timer, which then
     /// writes the real package_expiry back once the server confirms it.
     /// </summary>
-    public class RenewMembershipForm : Form
+    public partial class RenewMembershipForm : Form
     {
-        private static readonly Color BrandNavy = Color.FromArgb(18, 23, 49);
-
         private readonly DatabaseHelper _dbHelper;
         private readonly Member _member;
-
-        private ComboBox cmbPackage;
-        private ComboBox cmbPeriodicity;
-        private ComboBox cmbTrainer;
-        private DateTimePicker dtpStartDate;
-        private DateTimePicker dtpPaymentCollectedAt;
-        private ComboBox cmbPaymentMethod;
-        private TextBox txtTransactionRef;
-        private Button btnSave;
-        private Button btnCancel;
-        private Label lblStatus;
 
         public RenewMembershipForm(Member member)
         {
             _member = member ?? throw new ArgumentNullException(nameof(member));
             _dbHelper = new DatabaseHelper();
 
-            BuildUi();
+            InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
+
+            // Populate header with member data
+            lblHeaderName.Text = _member.Name ?? "";
+            lblStatusBadge.Text = BuildStatusText();
+
+            // Select Cash by default
+            cmbPaymentMethod.SelectedIndex = 0;
+            UpdateTxnRefVisibility();
+
             LoadPackages();
             LoadTrainers();
         }
 
-        private void BuildUi()
+        private string BuildStatusText()
         {
-            Text = "Renew Membership";
-            Width = 560;
-            Height = 620;
-            StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            BackColor = Color.FromArgb(245, 246, 250);
-
-            // ── Header ──────────────────────────────────────────────────────
-            var header = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = BrandNavy };
-            header.Controls.Add(new Label
-            {
-                Text = "Renew Membership",
-                ForeColor = Color.FromArgb(160, 170, 200),
-                Font = new Font("Segoe UI", 8.5F),
-                AutoSize = true,
-                Location = new Point(58, 18)
-            });
-            header.Controls.Add(new Label
-            {
-                Text = _member.Name,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(58, 36)
-            });
-            // Avatar circle placeholder
-            var avatar = new Panel
-            {
-                Location = new Point(16, 16),
-                Size = new Size(36, 36),
-                BackColor = Color.FromArgb(41, 98, 255)
-            };
-            avatar.Paint += (s, e) =>
-            {
-                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(41, 98, 255)), 0, 0, 35, 35);
-                string initials = _member.Name?.Length > 0
-                    ? _member.Name.Substring(0, Math.Min(2, _member.Name.Length)).ToUpper()
-                    : "?";
-                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                e.Graphics.DrawString(initials, new Font("Segoe UI", 11F, FontStyle.Bold), Brushes.White,
-                    new RectangleF(0, 0, 35, 35), sf);
-            };
-            header.Controls.Add(avatar);
-            Controls.Add(header);
-
-            // ── Helper: section card ─────────────────────────────────────────
-            Panel MakeCard(int top, int height, string title, Color accent)
-            {
-                var card = new Panel
-                {
-                    Location = new Point(20, top),
-                    Size = new Size(Width - 56, height),
-                    BackColor = Color.White
-                };
-                card.Paint += (s, e) =>
-                {
-                    var r = new System.Drawing.Rectangle(0, 0, card.Width - 1, card.Height - 1);
-                    e.Graphics.DrawRectangle(new Pen(Color.FromArgb(220, 222, 230)), r);
-                    e.Graphics.FillRectangle(new SolidBrush(accent), 0, 0, 4, card.Height);
-                };
-                card.Controls.Add(new Label
-                {
-                    Text = title,
-                    ForeColor = Color.FromArgb(50, 55, 80),
-                    Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                    AutoSize = true,
-                    Location = new Point(16, 12)
-                });
-                Controls.Add(card);
-                return card;
-            }
-
-            void AddRow(Panel card, ref int y, string labelText, Control ctrl)
-            {
-                card.Controls.Add(new Label
-                {
-                    Text = labelText,
-                    ForeColor = Color.FromArgb(90, 96, 120),
-                    Font = new Font("Segoe UI", 8.5F),
-                    AutoSize = false,
-                    Size = new Size(148, 22),
-                    Location = new Point(16, y + 4)
-                });
-                ctrl.Location = new Point(168, y);
-                ctrl.Size = new Size(card.Width - 184, 26);
-                ctrl.Font = new Font("Segoe UI", 9F);
-                card.Controls.Add(ctrl);
-                y += 36;
-            }
-
-            // ── Section 1: Subscription ──────────────────────────────────────
-            var subCard = MakeCard(96, 174, "Subscription Details", Color.FromArgb(41, 98, 255));
-            int y1 = 38;
-
-            cmbPackage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbPackage.SelectedIndexChanged += CmbPackage_SelectedIndexChanged;
-            AddRow(subCard, ref y1, "Package *", cmbPackage);
-
-            cmbPeriodicity = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            AddRow(subCard, ref y1, "Periodicity *", cmbPeriodicity);
-
-            cmbTrainer = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            AddRow(subCard, ref y1, "Trainer", cmbTrainer);
-
-            dtpStartDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            AddRow(subCard, ref y1, "Start Date", dtpStartDate);
-
-            // ── Section 2: Payment ───────────────────────────────────────────
-            var payCard = MakeCard(282, 174, "Payment Details", Color.FromArgb(0, 180, 140));
-            int y2 = 38;
-
-            dtpPaymentCollectedAt = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
-            AddRow(payCard, ref y2, "Payment Collected At", dtpPaymentCollectedAt);
-
-            cmbPaymentMethod = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbPaymentMethod.Items.AddRange(new object[] { "cash", "card", "pos_card", "bank_transfer", "online" });
-            cmbPaymentMethod.SelectedIndex = 0;
-            AddRow(payCard, ref y2, "Payment Method", cmbPaymentMethod);
-
-            txtTransactionRef = new TextBox();
-            AddRow(payCard, ref y2, "Transaction Ref No", txtTransactionRef);
-
-            // ── Status label ─────────────────────────────────────────────────
-            lblStatus = new Label
-            {
-                AutoSize = false,
-                Location = new Point(20, 468),
-                Size = new Size(Width - 56, 22),
-                ForeColor = Color.Firebrick,
-                Font = new Font("Segoe UI", 8.5F),
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            Controls.Add(lblStatus);
-
-            // ── Bottom button bar ─────────────────────────────────────────────
-            var buttonPanel = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 58,
-                BackColor = Color.White
-            };
-            buttonPanel.Paint += (s, e) =>
-                e.Graphics.DrawLine(new Pen(Color.FromArgb(220, 222, 230)), 0, 0, buttonPanel.Width, 0);
-
-            btnCancel = new Button
-            {
-                Text = "Cancel",
-                Width = 100,
-                Height = 34,
-                Location = new Point(buttonPanel.Width - 216, 12),
-                Anchor = AnchorStyles.Right | AnchorStyles.Top,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.White,
-                ForeColor = Color.FromArgb(80, 86, 110),
-                Font = new Font("Segoe UI", 9F),
-                Cursor = Cursors.Hand
-            };
-            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(200, 202, 215);
-            btnCancel.Click += (s, e) => Close();
-
-            btnSave = new Button
-            {
-                Text = "Renew Membership",
-                Width = 140,
-                Height = 34,
-                Location = new Point(buttonPanel.Width - 160, 12),
-                Anchor = AnchorStyles.Right | AnchorStyles.Top,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = BrandNavy,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            btnSave.FlatAppearance.BorderSize = 0;
-            btnSave.Click += BtnSave_Click;
-
-            buttonPanel.Controls.Add(btnCancel);
-            buttonPanel.Controls.Add(btnSave);
-            Controls.Add(buttonPanel);
+            string status = _member.Status ?? "";
+            if (status.Equals("active", StringComparison.OrdinalIgnoreCase)) return "Active";
+            return "Inactive · no package";
         }
+
+        // ── Paint handlers ────────────────────────────────────────────────────
+
+        private void pnlAvatar_Paint(object sender, PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var br = new SolidBrush(Color.FromArgb(41, 98, 255)))
+                e.Graphics.FillEllipse(br, 0, 0, pnlAvatar.Width - 1, pnlAvatar.Height - 1);
+
+            string name = _member?.Name ?? "?";
+            string initials = name.Length >= 2
+                ? name.Substring(0, 2).ToUpper()
+                : name.ToUpper();
+
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                e.Graphics.DrawString(initials, new Font("Segoe UI", 14f, FontStyle.Bold), Brushes.White,
+                    new RectangleF(0, 0, pnlAvatar.Width, pnlAvatar.Height), sf);
+        }
+
+        private void pnlStatusBadge_Paint(object sender, PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var br = new SolidBrush(Color.FromArgb(40, 45, 75)))
+            using (var path = RoundedRect(new Rectangle(0, 0, pnlStatusBadge.Width - 1, pnlStatusBadge.Height - 1), 16))
+                e.Graphics.FillPath(br, path);
+        }
+
+        private void pnlSubCard_Paint(object sender, PaintEventArgs e)
+        {
+            using (var pen = new Pen(Color.FromArgb(220, 224, 238)))
+                e.Graphics.DrawRectangle(pen, new Rectangle(0, 0, pnlSubCard.Width - 1, pnlSubCard.Height - 1));
+            using (var br = new SolidBrush(Color.FromArgb(59, 130, 246)))
+                e.Graphics.FillRectangle(br, 0, 0, 4, pnlSubCard.Height);
+        }
+
+        private void pnlPayCard_Paint(object sender, PaintEventArgs e)
+        {
+            using (var pen = new Pen(Color.FromArgb(220, 224, 238)))
+                e.Graphics.DrawRectangle(pen, new Rectangle(0, 0, pnlPayCard.Width - 1, pnlPayCard.Height - 1));
+            using (var br = new SolidBrush(Color.FromArgb(0, 180, 140)))
+                e.Graphics.FillRectangle(br, 0, 0, 4, pnlPayCard.Height);
+        }
+
+        private void pnlSummary_Paint(object sender, PaintEventArgs e)
+        {
+            using (var pen = new Pen(Color.FromArgb(220, 224, 238)))
+            {
+                e.Graphics.DrawLine(pen, 0, 0, pnlSummary.Width, 0);
+                e.Graphics.DrawLine(pen, 0, pnlSummary.Height - 1, pnlSummary.Width, pnlSummary.Height - 1);
+            }
+        }
+
+        private static GraphicsPath RoundedRect(Rectangle r, int radius)
+        {
+            var path = new GraphicsPath();
+            path.AddArc(r.X, r.Y, radius * 2, radius * 2, 180, 90);
+            path.AddArc(r.Right - radius * 2, r.Y, radius * 2, radius * 2, 270, 90);
+            path.AddArc(r.Right - radius * 2, r.Bottom - radius * 2, radius * 2, radius * 2, 0, 90);
+            path.AddArc(r.X, r.Bottom - radius * 2, radius * 2, radius * 2, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        // ── Summary bar ───────────────────────────────────────────────────────
+
+        private void cmbPeriodicity_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateSummary();
+        }
+
+        private void dtpStartDate_ValueChanged(object sender, EventArgs e)
+        {
+            UpdateSummary();
+        }
+
+        private void UpdateSummary()
+        {
+            try
+            {
+                var pkg = cmbPackage.SelectedItem as Package;
+                string periodicity = cmbPeriodicity.SelectedItem?.ToString();
+
+                if (pkg == null || string.IsNullOrWhiteSpace(periodicity))
+                {
+                    lblAmountDue.Text  = "—";
+                    lblNewEndDate.Text = "—";
+                    return;
+                }
+
+                string amountText = "—";
+                if (!string.IsNullOrWhiteSpace(pkg.PricingTierJson))
+                {
+                    try
+                    {
+                        var tiers = JObject.Parse(pkg.PricingTierJson);
+                        if (tiers[periodicity] != null)
+                            amountText = "Rs " + string.Format("{0:N0}", (double)tiers[periodicity]);
+                    }
+                    catch { }
+                }
+                lblAmountDue.Text = amountText;
+
+                DateTime end = ComputeEndDate(dtpStartDate.Value.Date, periodicity);
+                lblNewEndDate.Text = end.ToString("dd MMM yyyy");
+            }
+            catch { }
+        }
+
+        private static DateTime ComputeEndDate(DateTime start, string periodicity)
+        {
+            if (string.IsNullOrWhiteSpace(periodicity)) return start;
+            string[] parts = periodicity.Split('-');
+            if (parts.Length < 2 || !int.TryParse(parts[0], out int n)) return start;
+            string unit = parts[1].ToLowerInvariant();
+            if (unit.StartsWith("day"))   return start.AddDays(n);
+            if (unit.StartsWith("month")) return start.AddMonths(n);
+            if (unit.StartsWith("year"))  return start.AddYears(n);
+            if (unit.StartsWith("week"))  return start.AddDays(n * 7);
+            return start;
+        }
+
+        // ── Transaction ref visibility ────────────────────────────────────────
+
+        private void cmbPaymentMethod_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateTxnRefVisibility();
+        }
+
+        private void UpdateTxnRefVisibility()
+        {
+            string method = cmbPaymentMethod.SelectedItem?.ToString() ?? "";
+            bool isCash = method.Equals("Cash", StringComparison.OrdinalIgnoreCase);
+            lblTxnRefLabel.Visible    = !isCash;
+            txtTransactionRef.Visible = !isCash;
+            lblTxnHint.Visible        = !isCash;
+        }
+
+        // ── Data loading ──────────────────────────────────────────────────────
 
         private void LoadPackages()
         {
@@ -236,8 +193,8 @@ namespace smart_attendance_middleware
             {
                 var packages = _dbHelper.GetPackages(activeOnly: true);
                 cmbPackage.DisplayMember = "Title";
-                cmbPackage.ValueMember = "PackageId";
-                cmbPackage.DataSource = packages;
+                cmbPackage.ValueMember   = "PackageId";
+                cmbPackage.DataSource    = packages;
             }
             catch (Exception ex)
             {
@@ -252,9 +209,9 @@ namespace smart_attendance_middleware
             {
                 var trainers = _dbHelper.GetTrainers();
                 cmbTrainer.DisplayMember = "Name";
-                cmbTrainer.ValueMember = "TrainerId";
-                cmbTrainer.DataSource = trainers;
-                cmbTrainer.SelectedIndex = -1; // trainer is optional — nothing selected by default
+                cmbTrainer.ValueMember   = "TrainerId";
+                cmbTrainer.DataSource    = trainers;
+                cmbTrainer.SelectedIndex = -1;
             }
             catch (Exception ex)
             {
@@ -268,7 +225,10 @@ namespace smart_attendance_middleware
 
             var selected = cmbPackage.SelectedItem as Package;
             if (selected == null || string.IsNullOrWhiteSpace(selected.PricingTierJson))
+            {
+                UpdateSummary();
                 return;
+            }
 
             try
             {
@@ -278,11 +238,21 @@ namespace smart_attendance_middleware
 
                 if (cmbPeriodicity.Items.Count > 0)
                     cmbPeriodicity.SelectedIndex = 0;
+                else
+                    UpdateSummary();
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[RenewMembershipForm] Failed to parse pricing tier: {ex.Message}");
+                UpdateSummary();
             }
+        }
+
+        // ── Buttons ───────────────────────────────────────────────────────────
+
+        private void btnCancel_Click(object sender, EventArgs e)
+        {
+            Close();
         }
 
         private void BtnSave_Click(object sender, EventArgs e)
@@ -302,37 +272,38 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            btnSave.Enabled = false;
+            btnSave.Enabled   = false;
             btnCancel.Enabled = false;
 
             try
             {
                 var selectedTrainer = cmbTrainer.SelectedItem as Trainer;
 
+                string methodRaw = cmbPaymentMethod.SelectedItem?.ToString() ?? "cash";
+                string methodApi = methodRaw.ToLowerInvariant().Replace(" ", "_");
+
                 var subscription = new JObject
                 {
-                    ["package_id"] = selectedPackage.PackageId,
-                    ["periodicity"] = cmbPeriodicity.SelectedItem.ToString(),
-                    ["start_date"] = dtpStartDate.Value.ToString("yyyy-MM-dd"),
+                    ["package_id"]           = selectedPackage.PackageId,
+                    ["periodicity"]          = cmbPeriodicity.SelectedItem.ToString(),
+                    ["start_date"]           = dtpStartDate.Value.ToString("yyyy-MM-dd"),
                     ["payment_collected_at"] = dtpPaymentCollectedAt.Value.ToString("yyyy-MM-dd"),
-                    ["payment_method"] = cmbPaymentMethod.SelectedItem?.ToString() ?? "cash"
+                    ["payment_method"]       = methodApi
                 };
                 if (selectedTrainer != null)
                     subscription["trainer_id"] = selectedTrainer.TrainerId;
                 if (!string.IsNullOrWhiteSpace(txtTransactionRef.Text))
                     subscription["transaction_reference_no"] = txtTransactionRef.Text.Trim();
 
-                // 1. Enable the member on every device it's already synced to — fire in the
-                //    background so this dialog doesn't block on device I/O.
+                // Enable member on every device it's already synced to (background — don't block UI)
                 _ = Task.Run(() => EnableMemberOnSyncedDevicesAsync());
 
-                // 2. Local, immediate state: active + expiry cleared until the server confirms.
+                // Local, immediate state: active + expiry cleared until the server confirms
                 _dbHelper.RenewMemberLocally(_member.MemberID);
 
-                // 3. Queue the renewal for the background enrollment-sync timer to upload.
+                // Queue the renewal for the background enrollment-sync timer to upload
                 _dbHelper.InsertOfflineSubscription(_member.MemberID, _member.ClientId, subscription);
 
-                // Try uploading right away; retries once after 3s, then the 1-minute timer takes over.
                 var offlineService = ServiceManager.OfflineEnrollmentSubscriptionService;
                 if (offlineService != null)
                     _ = Task.Run(() => offlineService.SyncPendingRenewalsWithQuickRetryAsync());
@@ -347,7 +318,7 @@ namespace smart_attendance_middleware
             }
             finally
             {
-                btnSave.Enabled = true;
+                btnSave.Enabled   = true;
                 btnCancel.Enabled = true;
             }
         }
