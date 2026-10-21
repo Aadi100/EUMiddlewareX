@@ -68,15 +68,17 @@ namespace smart_attendance_middleware.Controls
             int h = Height;
             int r = h / 2;
 
+            bool checkedState = DesignMode ? false : _checked;
+
             // Track
             var trackRect = new Rectangle(0, 0, w - 1, h - 1);
             using (var path = RoundedRect(trackRect, r))
-            using (var brush = new SolidBrush(_checked ? _onColor : _offColor))
+            using (var brush = new SolidBrush(checkedState ? _onColor : _offColor))
                 e.Graphics.FillPath(brush, path);
 
             // Knob
             int knobSize = h - 6;
-            int knobX = _checked ? w - knobSize - 4 : 4;
+            int knobX = checkedState ? w - knobSize - 4 : 4;
             int knobY = (h - knobSize) / 2;
 
             var knobRect = new Rectangle(knobX, knobY, knobSize, knobSize);

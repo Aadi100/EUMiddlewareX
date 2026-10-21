@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using smart_attendance_middleware.Classes;
 using smart_attendance_middleware.Services;
+using CLV = smart_attendance_middleware.Controls.CardListView;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -30,15 +31,7 @@ namespace smart_attendance_middleware
         private bool _selectedIsStaff = false;
         private int _selectedDeviceId = 0;      // Devices.DeviceId
         private int _selectedStaffDeviceId = 0; // StaffDevices.StaffDeviceId
-
-        // Pagination helpers - for high-volume data lists
-        private ListViewPagination _membersPagination;
-        private ListViewPagination _staffsPagination;
-        private ListViewPagination _memberAttendancePagination;
-        private ListViewPagination _staffAttendancePagination;
-        private ListViewPagination _manualDoorPagination;
-        private ListViewPagination _pendingJobsPagination;
-        private ListViewPagination _staffPendingJobsPagination;
+        private Device _selectedDevice = null;  // Currently selected device card
 
         // Cached full member item list — rebuilt only when source data changes
         private List<ListViewItem> _cachedMemberItems;
@@ -46,32 +39,20 @@ namespace smart_attendance_middleware
         // Guard: prevents TextChanged handlers from firing during form initialization
         private bool _isInitialized = false;
 
-        // Filter controls — added programmatically in Initialize methods
-        private ComboBox cmbMemberStatus;
-        private ComboBox cmbMemberSync;
-        private CheckBox chkMemberFailure;
-        private ComboBox cmbAllMemberStatus;
-        private ComboBox cmbAllMemberBiometric;
-        private ComboBox cmbAllMemberExpiry;
-        private ComboBox cmbOfflineServerSync;
-        private ComboBox cmbOfflinePackage;
-        private CheckBox chkOfflineFailure;
-        private ComboBox cmbStaffStatus;
-        private ComboBox cmbStaffSync;
-        private CheckBox chkStaffFailure;
-        private ComboBox cmbPendingDevice;
-        private ComboBox cmbPendingFor;
-        private ComboBox cmbStaffPendingDevice;
-        private ComboBox cmbStaffPendingFor;
-        private ComboBox cmbDoorVisitor;
-        private ComboBox cmbDeviceStatus;
-        private CheckBox chkDeviceIsStaff;
-        private ComboBox cmbUserRole;
+        // Filter controls declared in Designer.cs
+        private Controls.RoundedComboBox cmbMemberStatus;
+        private Controls.RoundedComboBox cmbAllMemberStatus;
+        private Controls.RoundedComboBox cmbAllMemberBiometric;
+        private Controls.RoundedComboBox cmbAllMemberExpiry;
+
+        private bool _loadingUserData;
+
+        // rcmb_* and setup fields now declared in Designer.cs
 
         // Font hierarchy — Title / Body / Small
-        private static readonly Font FontTitle = new Font("Microsoft Sans Serif", 16F, FontStyle.Regular);
-        private static readonly Font FontBody   = new Font("Microsoft Sans Serif", 10F, FontStyle.Regular);
-        private static readonly Font FontSmall  = new Font("Microsoft Sans Serif",  8.25F, FontStyle.Regular);
+        private static readonly Font FontTitle = new Font("Segoe UI", 14F, FontStyle.Bold);
+        private static readonly Font FontBody   = new Font("Segoe UI",  9.5F, FontStyle.Bold);
+        private static readonly Font FontSmall  = new Font("Segoe UI",  8.5F, FontStyle.Regular);
 
         // Edit-mode colors
         private static readonly Color EditableColor  = Color.White;
@@ -90,750 +71,124 @@ namespace smart_attendance_middleware
             _cacheManager = new CacheManager(_dbHelper, refreshIntervalSeconds: 30);
             _cacheManager.CacheUpdated += OnCacheUpdated;
 
-            listViewDevices.SelectedIndexChanged += listViewDevices_SelectedIndexChanged;
             InitializeWebSocketManager();
-
+            SetupListViewColumns();
 
             _processor = new Processor(_dbHelper, _wsManager, _deviceFunctions, _cacheManager);
             _wsManager.LiveUpdate += WsManager_LiveUpdate;
             this.Shown += DeviceManager_Shown;
 
-            BuildOfflineMemberManagementUi();
-            AddGateEntryFormSetting();
+            LoadSetupPanelData();
         }
 
-        //////////////////////////////////GATE ACCESS SETTING///////////////////////////////
+        private void cmbPendingDevice_SelectedIndexChanged(object sender, EventArgs e) => RefreshMemberPendingJobsList();
+        private void cmbPendingFor_SelectedIndexChanged(object sender, EventArgs e) => RefreshMemberPendingJobsList();
+        private void cmbStaffPendingDevice_SelectedIndexChanged(object sender, EventArgs e) => RefreshStaffPendingJobsList();
+        private void cmbStaffPendingFor_SelectedIndexChanged(object sender, EventArgs e) => RefreshStaffPendingJobsList();
+        private void cmbDoorVisitor_SelectedIndexChanged(object sender, EventArgs e) => LoadFilteredManualDoorLogs();
+        private void cmbStaffStatus_SelectedIndexChanged(object sender, EventArgs e) => LoadStaffsIntoListView(rtb_staff?.Text?.Trim());
+        private void cmbStaffSync_SelectedIndexChanged(object sender, EventArgs e) => LoadStaffsIntoListView(rtb_staff?.Text?.Trim());
+        private void chkStaffFailure_CheckedChanged(object sender, EventArgs e) => LoadStaffsIntoListView(rtb_staff?.Text?.Trim());
+
+        private void tile_finger_Click(object sender, EventArgs e)
+        {
+            try { new FingerManagement().ShowDialog(this); } catch { }
+        }
+
+        // ── CardListView substitution helpers ────────────────────────────────────────────
+
+        private void SetupListViewColumns()
+        {
+            clv_devices.SetColumns(
+                new[] { "ID", "MACHINE NO", "ATT. TYPE", "DEVICE IP", "PORT", "CONN TYPE", "STATUS", "IS STAFF" },
+                new[] {  0,    50,           130,          250,         390,    460,          580,      670 });
+
+            clv_localUsers.SetColumns(
+                new[] { "USER ID", "USERNAME", "ROLE", "CREATED",  "ACTIONS" },
+                new[] {  0,         50,         200,    320,         500 });
+
+            clv_members.SetColumns(
+                new[] { "MEMBER ID", "NAME", "ENROLLMENT", "STATUS", "BIOMETRIC", "SYNC", "EXPIRY", "FAILURE", "ACTIONS" },
+                new[] {  0,           105,    220,           300,      372,         478,    543,       638,       712 });
+
+            clv_memberAttendance.SetColumns(
+                new[] { "MEMBER", "LOG ID", "CHECK-IN", "CHECK-OUT", "TIME ON SITE" },
+                new[] {  0,        295,       390,        520,          660 });
+
+            clv_manualDoor.SetColumns(
+                new[] { "GATE", "PERSON", "REASON", "OPENED AT" },
+                new[] {  0,      220,      540,       710 });
+
+            clv_pendingJobs.SetColumns(
+                new[] { "MEMBER ID", "NAME", "ENROLLMENT", "DEVICE", "PENDING FOR", "SINCE" },
+                new[] {  0,           90,     240,           330,      470,           655 });
+
+            clv_staffPendingJobs.SetColumns(
+                new[] { "STAFF ID", "NAME", "ENROLLMENT", "DEVICE", "PENDING FOR", "SINCE" },
+                new[] {  0,          90,     240,           330,      470,           655 });
+
+            clv_staffs.SetColumns(
+                new[] { "STAFF ID", "NAME", "STATUS", "BIOMETRIC", "ENROLLMENT", "SYNC", "FAILURE", "ACTIONS" },
+                new[] {  0,          70,     210,       290,         420,          520,    630,        715 });
+
+            clv_staffAttendance.SetColumns(
+                new[] { "STAFF", "LOG ID", "CHECK-IN", "CHECK-OUT", "TIME ON SITE" },
+                new[] {  0,       295,       390,        520,          660 });
+        }
+
+
+        // ── Setup panel helpers ──────────────────────────────────────────────────
 
         private const string RequireGateEntryFormSettingKey = "RequireGateEntryForm";
-        private const string RequireGatePasswordSettingKey = "RequireGatePassword";
-        private CheckBox chk_requireGateEntryForm;
-        private CheckBox chk_requireGatePassword;
+        private const string RequireGatePasswordSettingKey  = "RequireGatePassword";
 
-        // Adds two toggles to Setup Management, both defaulting to checked (existing behavior)
-        // when never saved:
-        // - RequireGateEntryForm: when unchecked, Open skips GateAccessForm entirely and opens
-        //   the gate directly with no visitor/member logging.
-        // - RequireGatePassword: applies identically whether or not the form is shown — when
-        //   unchecked, no password prompt on Open either way.
-        private void AddGateEntryFormSetting()
+        private void LoadSetupPanelData()
         {
-            var lblSection = new Label
-            {
-                Text = "Gate Access",
-                Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(16, 432)
-            };
-            subpnl_setup.Controls.Add(lblSection);
+            pnl_setup.BackColor  = Color.FromArgb(243, 244, 246);
+            subpnl_setup.Visible = false;
 
-            chk_requireGateEntryForm = new CheckBox
+            try { rtb_APIkey.Text = _dbHelper.GetSetting("APIKey") ?? ""; } catch { }
+            try { rtb_debounce.Text = _dbHelper.GetSetting("DebounceSetting") ?? ""; } catch { }
+
+            rcmb_retention.Items.Clear();
+            rcmb_retention.Items.AddRange(new object[] { "0", "7", "14", "30", "60", "90", "180", "365" });
+            try
             {
-                Name = "chk_requireGateEntryForm",
-                Text = "Require entry form (member/visitor + reason) before opening a gate",
-                AutoSize = true,
-                Location = new Point(16, 456)
-            };
-            chk_requireGatePassword = new CheckBox
+                string saved = _dbHelper.GetSetting("BackupRetentionDays");
+                int idx = saved != null ? rcmb_retention.Items.IndexOf(saved) : -1;
+                rcmb_retention.SelectedIndex = idx >= 0 ? idx : 3;
+            }
+            catch { rcmb_retention.SelectedIndex = 3; }
+
+            try
             {
-                Name = "chk_requireGatePassword",
-                Text = "Require password before opening a gate (with or without the entry form)",
-                AutoSize = true,
-                Location = new Point(16, 480)
-            };
+                chk_logs.Checked     = (_dbHelper.GetSetting("BackupIncludeLogs")     ?? "true").Equals("true",  StringComparison.OrdinalIgnoreCase);
+                chk_glogs.Checked    = (_dbHelper.GetSetting("BackupIncludeGLogs")    ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+                chk_database.Checked = (_dbHelper.GetSetting("BackupIncludeDatabase") ?? "true").Equals("true",  StringComparison.OrdinalIgnoreCase);
+            }
+            catch { chk_logs.Checked = true; chk_database.Checked = true; }
+
+            try { rtb_drivefolderid.Text = _dbHelper.GetSetting("GoogleDriveFolderId") ?? ""; } catch { }
+
+            bool isConnected = !string.IsNullOrWhiteSpace(rtb_drivefolderid.Text);
+            lbl_backupConnectionStatus.Text      = isConnected ? "● Connected" : "● Not connected";
+            lbl_backupConnectionStatus.ForeColor = isConnected ? Color.FromArgb(5, 150, 105) : Color.FromArgb(217, 119, 6);
+            lbl_backupConnectionStatus.BackColor = isConnected ? Color.FromArgb(209, 250, 229) : Color.FromArgb(254, 243, 199);
+
             try
             {
                 string formSetting = _dbHelper.GetSetting(RequireGateEntryFormSettingKey);
                 chk_requireGateEntryForm.Checked = string.IsNullOrWhiteSpace(formSetting) || formSetting.Equals("true", StringComparison.OrdinalIgnoreCase);
-
                 string passwordSetting = _dbHelper.GetSetting(RequireGatePasswordSettingKey);
                 chk_requireGatePassword.Checked = string.IsNullOrWhiteSpace(passwordSetting) || passwordSetting.Equals("true", StringComparison.OrdinalIgnoreCase);
             }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[Setup][GateEntryForm] Failed to load settings: {ex.Message}");
-                chk_requireGateEntryForm.Checked = true;
-                chk_requireGatePassword.Checked = true;
-            }
-            subpnl_setup.Controls.Add(chk_requireGateEntryForm);
-            subpnl_setup.Controls.Add(chk_requireGatePassword);
-
-            var btnSaveGateSetting = new Button
-            {
-                Text = "Save",
-                Location = new Point(16, 508),
-                Size = new Size(90, 26)
-            };
-            btnSaveGateSetting.Click += (s, e) =>
-            {
-                try
-                {
-                    _dbHelper.SaveSetting(RequireGateEntryFormSettingKey, chk_requireGateEntryForm.Checked ? "true" : "false");
-                    _dbHelper.SaveSetting(RequireGatePasswordSettingKey, chk_requireGatePassword.Checked ? "true" : "false");
-                    LogHelper.Log($"[Setup][GateEntryForm] Saved {RequireGateEntryFormSettingKey}={chk_requireGateEntryForm.Checked}, {RequireGatePasswordSettingKey}={chk_requireGatePassword.Checked}");
-                    MessageBox.Show("Gate access settings saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.Log($"[Setup][GateEntryForm][ERROR] {ex.Message}");
-                    MessageBox.Show("Failed to save gate access settings.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            };
-            subpnl_setup.Controls.Add(btnSaveGateSetting);
+            catch { chk_requireGateEntryForm.Checked = true; chk_requireGatePassword.Checked = true; }
         }
 
-        //////////////////////////////////OFFLINE MEMBER MANAGEMENT///////////////////////////////
-
-        private Panel pnl_offlineMembers;
-        private ListView lst_offlineMembers;
-        private TextBox txt_offlineMemberSearch;
-        private Label nav_offlineMembers;
-        private Label btn_offlineMembers;
-        private Panel tile_offlineMembers;
-        private List<OfflineMember> _offlineMembersCache = new List<OfflineMember>();
-
-        private ListView lst_allMembers;
-        private TextBox txt_allMembersSearch;
+        // rtb_* fields now declared in Designer.cs
         private List<Member> _allMembersCache = new List<Member>();
 
-        private void BuildOfflineMemberManagementUi()
-        {
-            AddOfflineMembersWelcomeTile();
-            AddOfflineMembersNavTab();
-            AddOfflineMembersSidebarButton();
-            BuildOfflineMembersPanel();
-        }
-
-        // Mirrors tile_member's exact style/size so it flows into the welcome-screen tile grid
-        // (pnl_welcome_tiles is a FlowLayoutPanel, so it lands right after Setup Management).
-        private void AddOfflineMembersWelcomeTile()
-        {
-            var iconLbl = new Label
-            {
-                Font = new Font("Segoe UI Emoji", 26F),
-                ForeColor = Color.FromArgb(18, 23, 49),
-                Location = new Point(0, 18),
-                Size = new Size(180, 52),
-                Text = "🗂️",
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-            var nameLbl = new Label
-            {
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 35, 60),
-                Location = new Point(10, 74),
-                Size = new Size(160, 22),
-                Text = "Offline Management",
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-            var descLbl = new Label
-            {
-                Font = new Font("Segoe UI", 7.5F),
-                ForeColor = Color.FromArgb(120, 125, 145),
-                Location = new Point(10, 98),
-                Size = new Size(160, 38),
-                Text = "Enroll and track\nlocally-created members",
-                TextAlign = ContentAlignment.TopCenter
-            };
-
-            tile_offlineMembers = new Panel
-            {
-                Name = "tile_offlineMembers",
-                BackColor = Color.White,
-                Cursor = Cursors.Hand,
-                Margin = new Padding(0, 0, 18, 18),
-                Size = new Size(180, 160)
-            };
-            tile_offlineMembers.Controls.Add(iconLbl);
-            tile_offlineMembers.Controls.Add(nameLbl);
-            tile_offlineMembers.Controls.Add(descLbl);
-
-            foreach (Control c in new Control[] { tile_offlineMembers, iconLbl, nameLbl, descLbl })
-                c.Click += btn_offlineMembers_Click;
-
-            pnl_welcome_tiles.Controls.Add(tile_offlineMembers);
-        }
-
-        // Resize the existing 5 top-nav tabs to make room for a 6th ("Offline Members") tab,
-        // keeping pnl_topnav's total width unchanged so nothing overflows the form.
-        private void AddOfflineMembersNavTab()
-        {
-            var navLabels = new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup };
-            int totalWidth = pnl_topnav.Width; // 881
-            int slots = navLabels.Length + 1;  // 6
-            int evenWidth = totalWidth / slots; // 146
-            int x = 0;
-            foreach (var lbl in navLabels)
-            {
-                lbl.Location = new Point(x, 0);
-                lbl.Width = evenWidth;
-                x += evenWidth;
-            }
-
-            nav_offlineMembers = new Label
-            {
-                Name = "nav_offlineMembers",
-                BackColor = Color.Transparent,
-                Cursor = Cursors.Hand,
-                Font = nav_setup.Font,
-                ForeColor = Color.White,
-                Location = new Point(x, 0),
-                Size = new Size(totalWidth - x, nav_setup.Height), // remainder fills the tab strip exactly
-                Text = "Offline Management",
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-            nav_offlineMembers.Click += btn_offlineMembers_Click;
-            nav_offlineMembers.MouseEnter += NavBtn_MouseEnter;
-            nav_offlineMembers.MouseLeave += NavBtn_MouseLeave;
-            pnl_topnav.Controls.Add(nav_offlineMembers);
-        }
-
-        // panel2 mirrors the same left-sidebar buttons as pnl_topnav's tabs (kept in sync via
-        // SetActiveButton); added here for parity even though panel2 itself is currently hidden.
-        private void AddOfflineMembersSidebarButton()
-        {
-            btn_offlineMembers = new Label
-            {
-                Name = "btn_offlineMembers",
-                BackColor = Color.Transparent,
-                Font = btn_setupmanage.Font,
-                ForeColor = Color.White,
-                Location = new Point(btn_setupmanage.Left, btn_setupmanage.Bottom),
-                Padding = new Padding(10, 0, 0, 0),
-                Size = btn_setupmanage.Size,
-                Text = "Offline Management",
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            btn_offlineMembers.Click += btn_offlineMembers_Click;
-            btn_offlineMembers.MouseHover += SidebarButton_MouseHover;
-            btn_offlineMembers.MouseLeave += SidebarButton_MouseLeave;
-            panel2.Controls.Add(btn_offlineMembers);
-        }
-
-        private void BuildOfflineMembersPanel()
-        {
-            pnl_offlineMembers = new Panel
-            {
-                Name = "pnl_offlineMembers",
-                BackColor = Color.WhiteSmoke,
-                Location = new Point(1114, 750), // off-canvas until shown, matches pnl_attendence's pattern
-                Size = pnl_attendence.Size,
-                Visible = false
-            };
-            Controls.Add(pnl_offlineMembers);
-            // Dynamically-added controls land on top of the z-order by default, which would
-            // permanently cover the navy header + top-nav tabs (added earlier by InitializeComponent).
-            // Send it to the back once, like every other section panel already sits behind them.
-            pnl_offlineMembers.SendToBack();
-
-            // Like tab_attendence (y=156) inside pnl_attendence, this panel's top ~156px sit
-            // behind the navy header + top-nav tabs (siblings on the Form, drawn in front of
-            // every section panel) — content must start below that, not at y=8.
-            const int contentTop = 164;
-
-            var tabs = new TabControl
-            {
-                Name = "tab_offlineMemberMgmt",
-                Location = new Point(8, contentTop),
-                Size = new Size(pnl_offlineMembers.Width - 16, pnl_offlineMembers.Height - contentTop - 10),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
-            };
-            pnl_offlineMembers.Controls.Add(tabs);
-
-            var tabOffline = new TabPage("Offline Members");
-            var tabAllMembers = new TabPage("Members");
-            tabs.TabPages.Add(tabOffline);
-            tabs.TabPages.Add(tabAllMembers);
-
-            BuildOfflineMembersTab(tabOffline);
-            BuildAllMembersTab(tabAllMembers);
-        }
-
-        private void BuildOfflineMembersTab(TabPage tab)
-        {
-            var btnAddOfflineMember = new Button
-            {
-                Name = "btn_addOfflineMember",
-                Text = "Add Offline Member",
-                Location = new Point(8, 8),
-                Size = new Size(160, 28)
-            };
-            btnAddOfflineMember.Click += (s, e) =>
-            {
-                using (var form = new AddOfflineMemberForm())
-                {
-                    form.ShowDialog(this);
-                }
-                LoadOfflineMembersList();
-            };
-            tab.Controls.Add(btnAddOfflineMember);
-
-
-            var lblSearch = new Label
-            {
-                Text = "Search:",
-                Location = new Point(btnAddOfflineMember.Right + 16, 14),
-                AutoSize = true
-            };
-            tab.Controls.Add(lblSearch);
-
-            txt_offlineMemberSearch = new TextBox
-            {
-                Name = "txt_offlineMemberSearch",
-                Location = new Point(lblSearch.Right + 6, 11),
-                Size = new Size(200, 23)
-            };
-            txt_offlineMemberSearch.TextChanged += (s, e) => FilterOfflineMembersList();
-            tab.Controls.Add(txt_offlineMemberSearch);
-
-            int ox = txt_offlineMemberSearch.Right + 10;
-            cmbOfflineServerSync = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ox, 11), Width = 110 };
-            cmbOfflineServerSync.Items.AddRange(new object[] { "All Sync", "Synced", "Pending" });
-            cmbOfflineServerSync.SelectedIndex = 0;
-            cmbOfflineServerSync.SelectedIndexChanged += (s, e) => FilterOfflineMembersList();
-            tab.Controls.Add(cmbOfflineServerSync);
-            ox += 118;
-
-            cmbOfflinePackage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ox, 11), Width = 130 };
-            cmbOfflinePackage.Items.Add("All Packages");
-            cmbOfflinePackage.SelectedIndex = 0;
-            cmbOfflinePackage.SelectedIndexChanged += (s, e) => FilterOfflineMembersList();
-            tab.Controls.Add(cmbOfflinePackage);
-            ox += 138;
-
-            chkOfflineFailure = new CheckBox { Text = "Has Failure Only", Location = new Point(ox, 13), AutoSize = true };
-            chkOfflineFailure.CheckedChanged += (s, e) => FilterOfflineMembersList();
-            tab.Controls.Add(chkOfflineFailure);
-
-            lst_offlineMembers = new ListView
-            {
-                Name = "lst_offlineMembers",
-                Location = new Point(8, 44),
-                Size = new Size(tab.ClientSize.Width - 16, tab.ClientSize.Height - 52),
-                View = View.Details,
-                FullRowSelect = true,
-                GridLines = true,
-                HideSelection = false,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
-            };
-            lst_offlineMembers.Columns.Add("Enrollment", 80);
-            lst_offlineMembers.Columns.Add("Name", 130);
-            lst_offlineMembers.Columns.Add("Gender", 60);
-            lst_offlineMembers.Columns.Add("Phone", 100);
-            lst_offlineMembers.Columns.Add("Package", 110);
-            lst_offlineMembers.Columns.Add("Periodicity", 80);
-            lst_offlineMembers.Columns.Add("Biometric", 130);
-            lst_offlineMembers.Columns.Add("Server Sync", 80);
-            lst_offlineMembers.Columns.Add("Device Cleanup", 100);
-            lst_offlineMembers.Columns.Add("Failure Reason", 85);
-            lst_offlineMembers.ItemActivate += LstOfflineMembers_ItemActivate;
-            tab.Controls.Add(lst_offlineMembers);
-        }
-
-        private void BuildAllMembersTab(TabPage tab)
-        {
-
-            var lblSearch = new Label
-            {
-                Text = "Search:",
-                Location = new Point(16, 14),
-                AutoSize = true
-            };
-            tab.Controls.Add(lblSearch);
-
-            txt_allMembersSearch = new TextBox
-            {
-                Name = "txt_allMembersSearch",
-                Location = new Point(lblSearch.Right + 6, 11),
-                Size = new Size(200, 23)
-            };
-            txt_allMembersSearch.TextChanged += (s, e) => FilterAllMembersList();
-            tab.Controls.Add(txt_allMembersSearch);
-
-            int ax = txt_allMembersSearch.Right + 10;
-            cmbAllMemberStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ax, 11), Width = 110 };
-            cmbAllMemberStatus.Items.AddRange(new object[] { "All Status", "active", "inactive", "expired" });
-            cmbAllMemberStatus.SelectedIndex = 0;
-            cmbAllMemberStatus.SelectedIndexChanged += (s, e) => FilterAllMembersList();
-            tab.Controls.Add(cmbAllMemberStatus);
-            ax += 118;
-
-            cmbAllMemberBiometric = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ax, 11), Width = 130 };
-            cmbAllMemberBiometric.Items.AddRange(new object[] { "All Biometric", "Has Face", "Has Fingerprint", "Has RFID", "Missing Any" });
-            cmbAllMemberBiometric.SelectedIndex = 0;
-            cmbAllMemberBiometric.SelectedIndexChanged += (s, e) => FilterAllMembersList();
-            tab.Controls.Add(cmbAllMemberBiometric);
-            ax += 138;
-
-            cmbAllMemberExpiry = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(ax, 11), Width = 140 };
-            cmbAllMemberExpiry.Items.AddRange(new object[] { "Any Expiry", "Expires in 7 days", "Expires in 30 days", "Expired" });
-            cmbAllMemberExpiry.SelectedIndex = 0;
-            cmbAllMemberExpiry.SelectedIndexChanged += (s, e) => FilterAllMembersList();
-            tab.Controls.Add(cmbAllMemberExpiry);
-
-            lst_allMembers = new ListView
-            {
-                Name = "lst_allMembers",
-                Location = new Point(8, 44),
-                Size = new Size(tab.ClientSize.Width - 16, tab.ClientSize.Height - 52),
-                View = View.Details,
-                FullRowSelect = true,
-                GridLines = true,
-                HideSelection = false,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
-            };
-            lst_allMembers.Columns.Add("Member ID", 80);
-            lst_allMembers.Columns.Add("Name", 160);
-            lst_allMembers.Columns.Add("Enrollment", 90);
-            lst_allMembers.Columns.Add("Status", 80);
-            lst_allMembers.Columns.Add("Biometric", 130);
-            lst_allMembers.Columns.Add("Sync Status", 120);
-            lst_allMembers.Columns.Add("Package Expiry", 110);
-            lst_allMembers.Columns.Add("Action", 80);
-            lst_allMembers.ItemActivate += LstAllMembers_ItemActivate;
-            tab.Controls.Add(lst_allMembers);
-        }
-
-        private void btn_offlineMembers_Click(object sender, EventArgs e)
-        {
-            if (pnl_offlineMembers.Visible && pnl_offlineMembers.Location == Point.Empty) return;
-            HideAllPanels();
-            SetHeader("Offline Management", "View members enrolled locally while offline.");
-            pnl_topnav.Visible = true;
-            pnl_topnav.BringToFront();
-            pnl_welcome_header.BringToFront();
-            SetActiveButton(btn_offlineMembers);
-            SetActiveNavButton(nav_offlineMembers);
-            pnl_offlineMembers.Location = new Point(0, 0);
-            pnl_offlineMembers.Visible = true;
-            LoadOfflineMembersList();
-            LoadAllMembersList();
-        }
-
-        private void LoadOfflineMembersList()
-        {
-            try
-            {
-                _offlineMembersCache = _dbHelper.GetOfflineMembers() ?? new List<OfflineMember>();
-                var packagesById = _dbHelper.GetPackages(activeOnly: false).ToDictionary(p => p.PackageId, p => p.Title);
-
-                // Populate package filter with distinct packages used by offline members
-                if (cmbOfflinePackage != null)
-                {
-                    string prevSel = cmbOfflinePackage.SelectedItem?.ToString() ?? "All Packages";
-                    cmbOfflinePackage.Items.Clear();
-                    cmbOfflinePackage.Items.Add("All Packages");
-                    var usedPackages = new System.Collections.Generic.HashSet<string>();
-                    foreach (var m in _offlineMembersCache)
-                    {
-                        if (string.IsNullOrWhiteSpace(m.SubscriptionJson)) continue;
-                        try
-                        {
-                            var sub = JObject.Parse(m.SubscriptionJson);
-                            int pkgId = sub["package_id"]?.ToObject<int>() ?? 0;
-                            if (packagesById.TryGetValue(pkgId, out var title) && !string.IsNullOrWhiteSpace(title))
-                                usedPackages.Add(title);
-                        }
-                        catch { }
-                    }
-                    foreach (var pkg in usedPackages.OrderBy(p => p))
-                        cmbOfflinePackage.Items.Add(pkg);
-                    cmbOfflinePackage.SelectedIndex = cmbOfflinePackage.Items.Contains(prevSel) ? cmbOfflinePackage.Items.IndexOf(prevSel) : 0;
-                }
-
-                RenderOfflineMembersList(_offlineMembersCache, packagesById);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[DeviceManager] Failed to load offline members: {ex.Message}");
-            }
-        }
-
-        private void FilterOfflineMembersList()
-        {
-            var packagesById = _dbHelper.GetPackages(activeOnly: false).ToDictionary(p => p.PackageId, p => p.Title);
-            string term = txt_offlineMemberSearch.Text.Trim();
-
-            var filtered = string.IsNullOrEmpty(term)
-                ? _offlineMembersCache.ToList()
-                : _offlineMembersCache.Where(m =>
-                    (m.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    (m.Phone ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    m.EnrollmentID.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
-                  ).ToList();
-
-            // Server sync filter
-            string syncSel = cmbOfflineServerSync?.SelectedItem?.ToString() ?? "All Sync";
-            if (syncSel == "Synced")
-                filtered = filtered.Where(m => m.ServerSync).ToList();
-            else if (syncSel == "Pending")
-                filtered = filtered.Where(m => !m.ServerSync).ToList();
-
-            // Package filter
-            string pkgSel = cmbOfflinePackage?.SelectedItem?.ToString() ?? "All Packages";
-            if (pkgSel != "All Packages")
-            {
-                filtered = filtered.Where(m =>
-                {
-                    if (string.IsNullOrWhiteSpace(m.SubscriptionJson)) return false;
-                    try
-                    {
-                        var sub = JObject.Parse(m.SubscriptionJson);
-                        int pkgId = sub["package_id"]?.ToObject<int>() ?? 0;
-                        string pkgTitle = packagesById.TryGetValue(pkgId, out var t) ? t : null;
-                        return string.Equals(pkgTitle, pkgSel, StringComparison.OrdinalIgnoreCase);
-                    }
-                    catch { return false; }
-                }).ToList();
-            }
-
-            // Has Failure filter
-            if (chkOfflineFailure?.Checked == true)
-            {
-                filtered = filtered.Where(m =>
-                {
-                    var log = _dbHelper.GetLatestOfflineLogForMember(m.ClientId);
-                    return log != null && !string.IsNullOrWhiteSpace(log.FailureReason) && log.FailureReason != "-";
-                }).ToList();
-            }
-
-            RenderOfflineMembersList(filtered, packagesById);
-        }
-
-        private void RenderOfflineMembersList(List<OfflineMember> members, Dictionary<int, string> packagesById)
-        {
-            lst_offlineMembers.Items.Clear();
-            foreach (var m in members)
-            {
-                string packageTitle = "-";
-                string periodicity = "-";
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(m.SubscriptionJson))
-                    {
-                        var sub = JObject.Parse(m.SubscriptionJson);
-                        int packageId = sub["package_id"]?.ToObject<int>() ?? 0;
-                        packageTitle = packagesById.TryGetValue(packageId, out var title) ? title : $"#{packageId}";
-                        periodicity = sub["periodicity"]?.ToString() ?? "-";
-                    }
-                }
-                catch { /* leave defaults on parse failure */ }
-
-                var offBioList = new System.Collections.Generic.List<string>();
-                if (!string.IsNullOrWhiteSpace(m.RFID)) offBioList.Add("RFID");
-                if (!string.IsNullOrWhiteSpace(m.Picture)) offBioList.Add("Face");
-                if (m.Fingerprint) offBioList.Add("Fingerprint");
-                string offBioText = offBioList.Count > 0 ? string.Join(", ", offBioList) : "-";
-
-                var item = new ListViewItem(m.EnrollmentID.ToString());
-                item.SubItems.Add(m.Name ?? "-");
-                item.SubItems.Add(m.Gender ?? "-");
-                item.SubItems.Add(m.Phone ?? "-");
-                item.SubItems.Add(packageTitle);
-                item.SubItems.Add(periodicity);
-                item.SubItems.Add(offBioText);
-                item.SubItems.Add(m.ServerSync ? "Synced" : "Pending");
-
-                string cleanupText = "-";
-                if (m.ServerSync)
-                {
-                    int total = m.DeviceCleanupStatus?.Count ?? 0;
-                    int done = m.DeviceCleanupStatus?.Count(kv => kv.Value) ?? 0;
-                    cleanupText = total == 0 ? "Done" : $"{done}/{total} devices";
-                }
-                item.SubItems.Add(cleanupText);
-
-                // Get failure reason from OfflineMemberLog table
-                string offlineFailureReason = "-";
-                try
-                {
-                    var logEntry = _dbHelper.GetLatestOfflineLogForMember(m.ClientId);
-                    if (logEntry != null)
-                    {
-                        offlineFailureReason = string.IsNullOrWhiteSpace(logEntry.FailureReason) ? "-" : logEntry.FailureReason;
-                    }
-                }
-                catch { }
-
-                item.SubItems.Add(offlineFailureReason != "-" ? "[View]" : "-");
-                item.Tag = m;
-                lst_offlineMembers.Items.Add(item);
-            }
-        }
-
-        private void LstOfflineMembers_ItemActivate(object sender, EventArgs e)
-        {
-            try
-            {
-                var listView = sender as ListView;
-                if (listView?.SelectedItems.Count != 1) return;
-
-                var item = listView.SelectedItems[0];
-                var clickedPoint = listView.PointToClient(Control.MousePosition);
-                var hitInfo = listView.HitTest(clickedPoint);
-                if (hitInfo.Item == null || hitInfo.SubItem == null) return;
-
-                int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
-                if (columnIndex != lst_offlineMembers.Columns.Count - 1) return; // Failure Reason is last column
-                if (item.SubItems[columnIndex].Text != "[View]") return;
-
-                if (!(item.Tag is OfflineMember om)) return;
-
-                string fullReason = "-";
-                try
-                {
-                    var log = _dbHelper.GetLatestOfflineLogForMember(om.ClientId);
-                    if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
-                        fullReason = (string)log.FailureReason;
-                }
-                catch { }
-
-                if (fullReason != "-")
-                {
-                    using (var dlg = new FailureReasonDetailForm(fullReason, null, om.EnrollmentID, om.Name, om.Picture, _dbHelper))
-                        dlg.ShowDialog(this);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[LstOfflineMembers_ItemActivate] Error: {ex.Message}");
-            }
-        }
-
-        private void LoadAllMembersList()
-        {
-            try
-            {
-                _allMembersCache = _dbHelper.GetMembers() ?? new List<Member>();
-                RenderAllMembersList(_allMembersCache);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[DeviceManager] Failed to load members: {ex.Message}");
-            }
-        }
-
-        private void FilterAllMembersList()
-        {
-            string term = txt_allMembersSearch.Text.Trim();
-
-            var filtered = string.IsNullOrEmpty(term)
-                ? _allMembersCache.ToList()
-                : _allMembersCache.Where(m =>
-                    (m.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    (m.ClientId ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    (m.EnrollmentID?.ToString() ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    m.MemberID.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
-                  ).ToList();
-
-            // Status filter
-            string statusSel = cmbAllMemberStatus?.SelectedItem?.ToString() ?? "All Status";
-            if (statusSel != "All Status")
-                filtered = filtered.Where(m => string.Equals(m.Status, statusSel, StringComparison.OrdinalIgnoreCase)).ToList();
-
-            // Biometric filter
-            string bioSel = cmbAllMemberBiometric?.SelectedItem?.ToString() ?? "All Biometric";
-            if (bioSel == "Has Face")
-                filtered = filtered.Where(m => !string.IsNullOrWhiteSpace(m.Picture)).ToList();
-            else if (bioSel == "Has Fingerprint")
-                filtered = filtered.Where(m => m.Fingerprint).ToList();
-            else if (bioSel == "Has RFID")
-                filtered = filtered.Where(m => !string.IsNullOrWhiteSpace(m.RFID)).ToList();
-            else if (bioSel == "Missing Any")
-                filtered = filtered.Where(m => string.IsNullOrWhiteSpace(m.Picture) || !m.Fingerprint || string.IsNullOrWhiteSpace(m.RFID)).ToList();
-
-            // Expiry filter
-            string expirySel = cmbAllMemberExpiry?.SelectedItem?.ToString() ?? "Any Expiry";
-            if (expirySel != "Any Expiry")
-            {
-                var now = DateTime.Today;
-                filtered = filtered.Where(m =>
-                {
-                    if (!DateTime.TryParse(m.PackageExpiry, out var expDate)) return false;
-                    if (expirySel == "Expired") return expDate < now;
-                    if (expirySel == "Expires in 7 days") return expDate >= now && expDate <= now.AddDays(7);
-                    if (expirySel == "Expires in 30 days") return expDate >= now && expDate <= now.AddDays(30);
-                    return true;
-                }).ToList();
-            }
-
-            RenderAllMembersList(filtered);
-        }
-
-        private void RenderAllMembersList(List<Member> members)
-        {
-            var allDevices = AppSession.DeviceList ?? new List<Device>();
-            int totalDevices = allDevices.Count;
-
-            lst_allMembers.Items.Clear();
-            foreach (var m in members)
-            {
-                string syncStatusText = "-";
-                if (totalDevices > 0)
-                {
-                    int syncedCount = 0;
-                    foreach (var d in allDevices)
-                    {
-                        if (m.SyncStatus != null && m.SyncStatus.TryGetValue(d.DeviceId, out bool isSynced) && isSynced)
-                            syncedCount++;
-                    }
-                    syncStatusText = $"{syncedCount}/{totalDevices} devices";
-                }
-
-                var allBioList = new System.Collections.Generic.List<string>();
-                if (!string.IsNullOrWhiteSpace(m.RFID)) allBioList.Add("RFID");
-                if (!string.IsNullOrWhiteSpace(m.Picture)) allBioList.Add("Face");
-                if (m.Fingerprint) allBioList.Add("Fingerprint");
-                string allBioText = allBioList.Count > 0 ? string.Join(", ", allBioList) : "-";
-
-                var item = new ListViewItem(m.MemberID.ToString());
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Name) ? "-" : m.Name);
-                item.SubItems.Add(m.EnrollmentID.HasValue && m.EnrollmentID.Value > 0 ? m.EnrollmentID.Value.ToString() : "-");
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.Status) ? "-" : m.Status);
-                item.SubItems.Add(allBioText);
-                item.SubItems.Add(syncStatusText);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(m.PackageExpiry) ? "-" : m.PackageExpiry);
-                item.SubItems.Add("Renew");
-                item.Tag = m;
-                lst_allMembers.Items.Add(item);
-            }
-        }
-
-        private void LstAllMembers_ItemActivate(object sender, EventArgs e)
-        {
-            try
-            {
-                var listView = sender as ListView;
-                if (listView?.SelectedItems.Count != 1) return;
-
-                var item = listView.SelectedItems[0];
-                var clickedPoint = listView.PointToClient(Control.MousePosition);
-                var hitInfo = listView.HitTest(clickedPoint);
-                if (hitInfo.Item == null || hitInfo.SubItem == null) return;
-
-                int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
-                if (columnIndex != listView.Columns.Count - 1) return; // only the Action column opens Renew
-
-                if (!(item.Tag is Member member)) return;
-
-                if (!member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0)
-                {
-                    MessageBox.Show("This member has no EnrollmentID and cannot be renewed.", "Renew Membership", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                using (var form = new RenewMembershipForm(member))
-                {
-                    if (form.ShowDialog(this) == DialogResult.OK)
-                    {
-                        LoadAllMembersList();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Log($"[LstAllMembers_ItemActivate] Error: {ex.Message}");
-            }
-        }
+        // clv_* fields now declared in Designer.cs
 
         private void InitializeWebSocketManager()
         {
@@ -850,95 +205,67 @@ namespace smart_attendance_middleware
         }
 
 
-        //*************************************Setup ListView************************************//
-        //*************************************Setup ListView************************************//
+        //*************************************Setup CardListView************************************//
+        //*************************************Setup CardListView************************************//
         private void SetupDeviceList()
         {
-            // Clear only items — columns are stable, no need to redraw them
-            listViewDevices.Items.Clear();
-
-            if (listViewDevices.Columns.Count == 0)
-            {
-                listViewDevices.View = View.Details;
-                listViewDevices.FullRowSelect = true;
-                listViewDevices.GridLines = true;
-                listViewDevices.MultiSelect = false;
-                listViewDevices.Columns.Add("ID", 50);
-                listViewDevices.Columns.Add("Machine No", 80);
-                listViewDevices.Columns.Add("Attendance Type", 120);
-                listViewDevices.Columns.Add("Device IP", 140);
-                listViewDevices.Columns.Add("Port", 70);
-                listViewDevices.Columns.Add("Connection Type", 120);
-                listViewDevices.Columns.Add("Status", 90);
-                listViewDevices.Columns.Add("Is Staff", 70);
-                listViewDevices.Columns[listViewDevices.Columns.Count - 1].Width = -2;
-            }
-
-            // Add filter controls on first call
-            if (cmbDeviceStatus == null && listViewDevices.Parent != null)
-            {
-                // Shift the ListView down to make room for the filter row above it
-                listViewDevices.Location = new Point(listViewDevices.Left, 36);
-                listViewDevices.Height = Math.Max(listViewDevices.Height - 36, 50);
-
-                var devPanel = listViewDevices.Parent;
-                cmbDeviceStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(9, 8), Width = 110 };
-                cmbDeviceStatus.Items.AddRange(new object[] { "All Status", "Active", "Inactive" });
-                cmbDeviceStatus.SelectedIndex = 0;
-                cmbDeviceStatus.SelectedIndexChanged += (s, e) => SetupDeviceList();
-                devPanel.Controls.Add(cmbDeviceStatus);
-
-                chkDeviceIsStaff = new CheckBox { Text = "Staff Devices Only", Location = new Point(127, 10), AutoSize = true };
-                chkDeviceIsStaff.CheckedChanged += (s, e) => SetupDeviceList();
-                devPanel.Controls.Add(chkDeviceIsStaff);
-            }
-
-            // Load devices from AppSession
-            var devices = AppSession.DeviceList ?? new List<Device>();
+            var devices      = AppSession.DeviceList      ?? new List<Device>();
             var staffDevices = AppSession.StaffDeviceList ?? new List<Device>();
 
-            var allDeviceItems = new List<ListViewItem>();
-
-            // Populate normal devices
+            // Build combined row list
+            var rows = new List<(string id, string machineNo, string attType, string ip, string port, string connType, string status, string isStaff, object tag)>();
             foreach (var d in devices)
-            {
-                var item = new ListViewItem(d.DeviceId.ToString());
-                item.SubItems.Add(d.MachineNo.ToString());
-                item.SubItems.Add(d.AttendanceType ? "Check-in" : "Check-out");
-                item.SubItems.Add(d.DeviceIP ?? "-");
-                item.SubItems.Add(d.Port.ToString());
-                item.SubItems.Add(d.ConnectionType ?? "-");
-                item.SubItems.Add(d.IsActive ? "Active" : "Inactive");
-                item.SubItems.Add("No"); // Is Staff
-                item.Tag = d;
-                allDeviceItems.Add(item);
-            }
-
-            // Populate staff devices
+                rows.Add((d.DeviceId.ToString(), d.MachineNo.ToString(), d.AttendanceType ? "Check-in" : "Check-out",
+                    d.DeviceIP ?? "-", d.Port.ToString(), d.ConnectionType ?? "-", d.IsActive ? "Active" : "Inactive", "No", d));
             foreach (var sd in staffDevices)
-            {
-                var item = new ListViewItem(sd.StaffDeviceId.ToString());
-                item.SubItems.Add(sd.MachineNo.ToString());
-                var attText = string.IsNullOrWhiteSpace(sd.StaffAttendanceType) ? "-" : sd.StaffAttendanceType;
-                item.SubItems.Add(attText);
-                item.SubItems.Add(sd.DeviceIP ?? "-");
-                item.SubItems.Add(sd.Port.ToString());
-                item.SubItems.Add(sd.ConnectionType ?? "-");
-                item.SubItems.Add(sd.IsActive ? "Active" : "Inactive");
-                item.SubItems.Add("Yes"); // Is Staff
-                item.Tag = sd;
-                allDeviceItems.Add(item);
-            }
+                rows.Add((sd.StaffDeviceId.ToString(), sd.MachineNo.ToString(),
+                    string.IsNullOrWhiteSpace(sd.StaffAttendanceType) ? "-" : sd.StaffAttendanceType,
+                    sd.DeviceIP ?? "-", sd.Port.ToString(), sd.ConnectionType ?? "-", sd.IsActive ? "Active" : "Inactive", "Yes", sd));
 
-            // Apply filters
             string devStatusSel = cmbDeviceStatus?.SelectedItem?.ToString() ?? "All Status";
             if (devStatusSel != "All Status")
-                allDeviceItems = allDeviceItems.Where(i => string.Equals(i.SubItems[6].Text, devStatusSel, StringComparison.OrdinalIgnoreCase)).ToList();
-
+                rows = rows.Where(r => string.Equals(r.status, devStatusSel, StringComparison.OrdinalIgnoreCase)).ToList();
             if (chkDeviceIsStaff?.Checked == true)
-                allDeviceItems = allDeviceItems.Where(i => i.SubItems[7].Text == "Yes").ToList();
+                rows = rows.Where(r => r.isStaff == "Yes").ToList();
 
-            listViewDevices.Items.AddRange(allDeviceItems.ToArray());
+            var accent = Color.FromArgb(59, 130, 246);
+            var navy   = Color.FromArgb(30, 38, 90);
+            var muted  = Color.FromArgb(130, 138, 165);
+            var green  = Color.FromArgb(16, 185, 129);
+            var red    = Color.FromArgb(239, 68, 68);
+
+            clv_devices.SetRowFactory(rows.Count, idx =>
+            {
+                var r = rows[idx];
+                bool isActive = string.Equals(r.status, "Active", StringComparison.OrdinalIgnoreCase);
+                Color sBg = isActive ? Color.FromArgb(209, 250, 229) : Color.FromArgb(254, 226, 226);
+                Color sFg = isActive ? green : red;
+                bool isStaff = r.isStaff == "Yes";
+                object capturedTag = r.tag;
+                return new CLV.CardBuilder()
+                    .Text(r.id,        0,   15, 50,  22, CLV.F9,     navy)
+                    .Text(r.machineNo, 50,  15, 80,  22, CLV.F9Bold, navy)
+                    .Text(r.attType,   130, 15, 120, 22, CLV.F9,     muted)
+                    .Text(r.ip,        250, 15, 140, 22, CLV.F9,     navy)
+                    .Text(r.port,      390, 15, 70,  22, CLV.F9,     muted)
+                    .Text(r.connType,  460, 15, 120, 22, CLV.F9,     muted)
+                    .Pill(r.status, sBg, sFg, 580, 13, 88, 22)
+                    .Pill(isStaff ? "Staff" : "Member",
+                          isStaff ? Color.FromArgb(237, 233, 254) : Color.FromArgb(219, 234, 254),
+                          isStaff ? Color.FromArgb(109, 40, 217) : accent,
+                          670, 13, 70, 22)
+                    .CardClick(() => {
+                        var dev = capturedTag as Device;
+                        if (dev == null) return;
+                        _selectedDevice        = dev;
+                        _selectedIsStaff       = dev.StaffDeviceId > 0;
+                        _selectedDeviceId      = dev.DeviceId;
+                        _selectedStaffDeviceId = dev.StaffDeviceId;
+                        if (_selectedIsStaff) LoadSelectedStaffDeviceDetails(_selectedStaffDeviceId);
+                        else                  LoadSelectedDeviceDetails(_selectedDeviceId);
+                    })
+                    .Build(900, 52);
+            });
         }
 
         //*************************************Event Listview Setup************************************//
@@ -950,41 +277,19 @@ namespace smart_attendance_middleware
         //Abdul Hadi Code
         public void LoadLocalUserData()
         {
-            list_LocalUser.Items.Clear();
+            if (_loadingUserData) return;
+            _loadingUserData = true;
+            try { LoadLocalUserDataCore(); } finally { _loadingUserData = false; }
+        }
 
-            if (list_LocalUser.Columns.Count == 0)
-            {
-                list_LocalUser.View = View.Details;
-                list_LocalUser.FullRowSelect = true;
-                list_LocalUser.GridLines = true;
-                list_LocalUser.Columns.Add("User ID", 100);
-                list_LocalUser.Columns.Add("User Name", 150);
-                list_LocalUser.Columns.Add("Role", 100);
-                list_LocalUser.Columns.Add("Created", 150);
-                list_LocalUser.Columns[list_LocalUser.Columns.Count - 1].Width = -2;
-            }
-
-
-            // Load users from AppSession cache
+        private void LoadLocalUserDataCore()
+        {
             List<LocalUser> users = AppSession.AllUsers ?? new List<LocalUser>();
-
             var visibleUsers = users.Where(u => !string.Equals(u.Role, "developer", StringComparison.OrdinalIgnoreCase)).ToList();
 
-            // Add role filter control on first call
-            if (cmbUserRole == null && list_LocalUser.Parent != null)
+            // Refresh role filter items
+            if (cmbUserRole != null)
             {
-                var userTab = list_LocalUser.Parent;
-                cmbUserRole = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(9, 21), Width = 130 };
-                cmbUserRole.Items.Add("All Roles");
-                foreach (var role in visibleUsers.Select(u => u.Role).Distinct().OrderBy(r => r))
-                    if (!string.IsNullOrWhiteSpace(role)) cmbUserRole.Items.Add(role);
-                cmbUserRole.SelectedIndex = 0;
-                cmbUserRole.SelectedIndexChanged += (s, e) => LoadLocalUserData();
-                userTab.Controls.Add(cmbUserRole);
-            }
-            else if (cmbUserRole != null)
-            {
-                // Refresh roles list without resetting selection
                 string prevRole = cmbUserRole.SelectedItem?.ToString() ?? "All Roles";
                 cmbUserRole.Items.Clear();
                 cmbUserRole.Items.Add("All Roles");
@@ -997,15 +302,63 @@ namespace smart_attendance_middleware
             if (roleSel != "All Roles")
                 visibleUsers = visibleUsers.Where(u => string.Equals(u.Role, roleSel, StringComparison.OrdinalIgnoreCase)).ToList();
 
-            foreach (var user in visibleUsers)
-            {
-                ListViewItem item = new ListViewItem(user.LocalUserID.ToString());
-                item.SubItems.Add(user.UserName);
-                item.SubItems.Add(user.Role);
-                item.SubItems.Add(user.CreatedAt ?? "-");
+            var navy   = Color.FromArgb(30, 38, 90);
+            var muted  = Color.FromArgb(130, 138, 165);
+            var accent = Color.FromArgb(59, 130, 246);
+            var red    = Color.FromArgb(239, 68, 68);
+            var green  = Color.FromArgb(16, 185, 129);
 
-                list_LocalUser.Items.Add(item);
-            }
+            // Hide standalone action buttons — actions are now inline per row
+            if (rb_deleteUser != null)       rb_deleteUser.Visible       = false;
+            if (rb_editUser != null)         rb_editUser.Visible         = false;
+            if (rb_change_password != null)  rb_change_password.Visible  = false;
+
+            clv_localUsers.SetRowFactory(visibleUsers.Count, idx =>
+            {
+                var user = visibleUsers[idx];
+                string initial = string.IsNullOrWhiteSpace(user.UserName) ? "?" : user.UserName.Substring(0, 1).ToUpperInvariant();
+                var card = CLV.MakeCard(900, 52);
+                card.Controls.Add(CLV.MakeAvatarLabel(initial, accent, 8, 8, 36));
+                card.Controls.Add(new Label { Text = user.LocalUserID.ToString(), Location = new Point(50,  17), Width = 145, Height = 18, Font = CLV.F9,     ForeColor = navy,  BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = user.UserName ?? "-",        Location = new Point(200, 17), Width = 115, Height = 18, Font = CLV.F9Bold, ForeColor = navy,  BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = user.Role ?? "-",            Location = new Point(320, 17), Width = 155, Height = 18, Font = CLV.F9,     ForeColor = muted, BackColor = Color.Transparent });
+
+                int capturedId   = user.LocalUserID;
+                string capturedName = user.UserName ?? "";
+                string capturedRole = user.Role ?? "";
+
+                var btnEdit = CLV.MakeActionButton("Edit", accent, Color.White, 500, 13, 60, 26);
+                btnEdit.Click += (s, ev) =>
+                {
+                    selectedUserId   = capturedId;
+                    selectedUsername = capturedName;
+                    selectedRole     = capturedRole;
+                    btn_editUser_Click_1(s, ev);
+                };
+                card.Controls.Add(btnEdit);
+
+                var btnPwd = CLV.MakeActionButton("Password", Color.FromArgb(245, 158, 11), Color.White, 566, 13, 72, 26);
+                btnPwd.Click += (s, ev) =>
+                {
+                    selectedUserId   = capturedId;
+                    selectedUsername = capturedName;
+                    selectedRole     = capturedRole;
+                    btn_change_password_Click(s, ev);
+                };
+                card.Controls.Add(btnPwd);
+
+                var btnDel = CLV.MakeActionButton("Delete", Color.White, red, 644, 13, 60, 26);
+                btnDel.Click += (s, ev) =>
+                {
+                    selectedUserId   = capturedId;
+                    selectedUsername = capturedName;
+                    selectedRole     = capturedRole;
+                    btn_deleteUser_Click(s, ev);
+                };
+                card.Controls.Add(btnDel);
+
+                return card;
+            });
         }
 
         private async void DeviceManager_Load(object sender, EventArgs e)
@@ -1016,6 +369,7 @@ namespace smart_attendance_middleware
                 Dashboard.GlobalStartLoader("Loading Device Manager...");
 
                 SetupDeviceList(); // creates columns and sample rows
+                LoadSetupPanelData();
 
                 // Show welcome screen — no panel selected on open
                 HideAllPanels();
@@ -1024,49 +378,34 @@ namespace smart_attendance_middleware
                 pnl_welcome_header.BringToFront();
                 pnl_welcome.Visible = true;
 
-                // Wire hover effects for welcome tiles
-                foreach (var tile in new[] { tile_device, tile_user, tile_staff, tile_member, tile_setup, tile_offlineMembers })
-                {
-                    var t = tile;
-                    foreach (Control c in new Control[] { t }.Concat<Control>(t.Controls.Cast<Control>()))
-                    {
-                        c.MouseEnter += (s, ev) => t.BackColor = Color.FromArgb(235, 238, 255);
-                        c.MouseLeave += (s, ev) => t.BackColor = Color.White;
-                    }
-                }
-
                 pnl_welcome.Visible = true;
                 pnl_welcome.BringToFront();
 
-                btn_deleteUser.Enabled = false;
-                btn_change_password.Enabled = false;
-                btn_editUser.Enabled = false;
-                listViewDevices.SelectedItems.Clear(); // Clear selection
+                rb_deleteUser.Enabled = false;
+                rb_change_password.Enabled = false;
+                rb_editUser.Enabled = false;
                 ClearDeviceFields(); // Clear device fields on load
                 await UpdateSessionAsync(); // Update session with device data
                 InvalidateMemberCache();  // force rebuild on next member list load
                 InitializeMemberList();
                 InitializeMemberListForStats();       // dynamic name suggestions
                 InitializeMembersListView();  // members list view setup
-                lst_members.ItemActivate += lst_members_ItemActivate;
 
                 InitializePendingJobsListView();
 
                 // Wire events
-                flt_members.Click += flt_members_Click;
-                txt_memb_name.TextChanged += txt_memb_name_TextChanged;
+                rb_flt_members.Click += flt_members_Click;
+                rtb_memb_name.TextChanged += rtb_memb_name_TextChanged;
 
                 InitializeStaffSuggestions();
                 InitializeStaffsListView();
-                btn_stafffilter.Click += btn_stafffilter_Click;
-                txt_staff.TextChanged += txt_staff_TextChanged;
-                lst_staffs.ItemActivate -= lst_staffs_ItemActivate;
-                lst_staffs.ItemActivate += lst_staffs_ItemActivate;
+                rb_stafffilter.Click += btn_stafffilter_Click;
+                rtb_staff.TextChanged += rtb_staff_TextChanged;
 
                 InitializeStaffAttendanceSuggestions();
                 InitializeStaffAttendanceListView();
-                btn_filterattendencestaff.Click += btn_filterattendencestaff_Click;
-                txt_staffname.TextChanged += txt_staffname_TextChanged;
+                rb_filterattendencestaff.Click += btn_filterattendencestaff_Click;
+                rtb_staffname.TextChanged += rtb_staffname_TextChanged;
                 date_staffattendence.ValueChanged += date_staffattendence_ValueChanged;
 
                 InitializeStaffPendingJobsListView();
@@ -1077,19 +416,72 @@ namespace smart_attendance_middleware
             }
             finally
             {
-                // Ensure selection stays visible on all ListViews when focus moves away
-                foreach (var lv in new ListView[] {
-                    listViewDevices, list_LocalUser, lst_members,
-                    lst_staffs, lst_member, lst_manualdoor, lst_staffattendence,
-                    lst_pendingjobs, lst_staffpendingjobs })
-                {
-                    lv.HideSelection = false;
-                }
-
                 _isInitialized = true;
 
                 // Stop the global loader
                 Dashboard.GlobalStopLoader();
+            }
+        }
+
+        // ── ModernTabPanel sync handlers ───────────────────────────────────────
+        private void mtp_attendence_TabChanged(object sender, int e)
+        {
+            if (tab_attendence.SelectedIndex != e) tab_attendence.SelectedIndex = e;
+        }
+        private void tab_attendence_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (mtp_attendence.ActiveTabIndex != tab_attendence.SelectedIndex)
+                mtp_attendence.SelectTab(tab_attendence.SelectedIndex);
+        }
+        private void mtp_staff_TabChanged(object sender, int e)
+        {
+            if (tab_staff.SelectedIndex != e) tab_staff.SelectedIndex = e;
+        }
+        private void tab_staff_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (mtp_staff.ActiveTabIndex != tab_staff.SelectedIndex)
+                mtp_staff.SelectTab(tab_staff.SelectedIndex);
+        }
+
+        // ── Filter event handlers ───────────────────────────────────────────
+        private void cmbDeviceStatus_SelectedIndexChanged(object sender, EventArgs e) { SetupDeviceList(); }
+        private void chkDeviceIsStaff_CheckedChanged(object sender, EventArgs e) { SetupDeviceList(); }
+        private void cmbUserRole_SelectedIndexChanged(object sender, EventArgs e) { LoadLocalUserData(); }
+        private void cmbMemberSync_SelectedIndexChanged(object sender, EventArgs e) { LoadMembersIntoListView(rtb_memb_name?.Text?.Trim()); }
+        private void chkMemberFailure_CheckedChanged(object sender, EventArgs e) { LoadMembersIntoListView(rtb_memb_name?.Text?.Trim()); }
+
+        // ── Setup save handlers ─────────────────────────────────────────────
+        private void btn_sync_save_Click(object sender, EventArgs e)
+        {
+            btn_savedebounce_Click(sender, e);
+            if (int.TryParse(rcmb_retention.SelectedItem?.ToString(), out int days))
+                num_retention.Value = Math.Max(num_retention.Minimum, Math.Min(num_retention.Maximum, days));
+            btn_save_retentiondays_Click(sender, e);
+        }
+        private void btn_savebackup_Click(object sender, EventArgs e)
+        {
+            btn_save_drivefolderid_Click(sender, e);
+            if (!string.IsNullOrWhiteSpace(rtb_drivecredentials.Text))
+                btn_save_drivecredentials_Click(sender, e);
+            btn_save_backuptype_Click(sender, e);
+            bool nowConn = !string.IsNullOrWhiteSpace(_dbHelper.GetSetting("GoogleDriveFolderId"));
+            lbl_backupConnectionStatus.Text      = nowConn ? "● Connected" : "● Not connected";
+            lbl_backupConnectionStatus.ForeColor = nowConn ? Color.FromArgb(5, 150, 105) : Color.FromArgb(217, 119, 6);
+            lbl_backupConnectionStatus.BackColor = nowConn ? Color.FromArgb(209, 250, 229) : Color.FromArgb(254, 243, 199);
+        }
+        private void btn_gate_save_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _dbHelper.SaveSetting(RequireGateEntryFormSettingKey, chk_requireGateEntryForm.Checked ? "true" : "false");
+                _dbHelper.SaveSetting(RequireGatePasswordSettingKey,  chk_requireGatePassword.Checked  ? "true" : "false");
+                LogHelper.Log($"[Setup][Gate] Saved: EntryForm={chk_requireGateEntryForm.Checked}, Password={chk_requireGatePassword.Checked}");
+                MessageBox.Show("Gate access settings saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[Setup][Gate][ERROR] {ex.Message}");
+                MessageBox.Show("Failed to save gate access settings.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -1098,14 +490,7 @@ namespace smart_attendance_middleware
             // Stop cache manager auto-refresh
             _cacheManager?.StopAutoRefresh();
 
-            // Dispose pagination controls - all attendance and management lists
-            _membersPagination?.Dispose();
-            _staffsPagination?.Dispose();
-            _memberAttendancePagination?.Dispose();
-            _staffAttendancePagination?.Dispose();
-            _manualDoorPagination?.Dispose();
-            _pendingJobsPagination?.Dispose();
-            _staffPendingJobsPagination?.Dispose();
+            // CardListViews are disposed automatically as form controls
         }
 
         /// <summary>
@@ -1174,18 +559,18 @@ namespace smart_attendance_middleware
         private void RefreshMembersList()
         {
             // Refresh members list if currently visible
-            if (pnl_staffsManagment.Visible && lst_members.Visible)
+            if (pnl_staffsManagment.Visible && clv_members.Visible)
             {
-                LoadMembersIntoListView(txt_memb_name.Text?.Trim());
+                LoadMembersIntoListView(rtb_memb_name.Text?.Trim());
             }
         }
 
         private void RefreshStaffList()
         {
             // Refresh staff list if currently visible
-            if (pnl_staffsManagment.Visible && lst_staffs.Visible)
+            if (pnl_staffsManagment.Visible && clv_staffs.Visible)
             {
-                LoadStaffsIntoListView(txt_staff.Text?.Trim());
+                LoadStaffsIntoListView(rtb_staff.Text?.Trim());
             }
         }
 
@@ -1230,13 +615,12 @@ namespace smart_attendance_middleware
             pnl_setup.Visible           = false;
             pnl_welcome.Visible         = false;
             pnl_topnav.Visible          = false;
-            if (pnl_offlineMembers != null) pnl_offlineMembers.Visible = false;
         }
 
         private void SetActiveButton(Label active)
         {
             foreach (var btn in new[] { btn_device_management, btn_userManagement,
-                                        btn_staffmanagment, btn_attendencemanagment, btn_setupmanage, btn_offlineMembers })
+                                        btn_staffmanagment, btn_attendencemanagment, btn_setupmanage })
             {
                 if (btn == null) continue;
                 btn.BackColor = SidebarBg;
@@ -1309,7 +693,7 @@ namespace smart_attendance_middleware
             pnl_deviceManager.Location = new Point(0, 0);
             pnl_deviceManager.Visible  = true;
             ClearDeviceFields();
-            listViewDevices.SelectedItems.Clear();
+            _selectedDevice = null;
         }
 
         private void btn_userManagement_Click(object sender, EventArgs e)
@@ -1394,7 +778,7 @@ namespace smart_attendance_middleware
 
         private void SetActiveNavButton(Label active)
         {
-            foreach (var btn in new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup, nav_offlineMembers })
+            foreach (var btn in new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup })
             {
                 if (btn == null) continue;
                 btn.BackColor = Color.Transparent;
@@ -1420,28 +804,12 @@ namespace smart_attendance_middleware
         }
 
 
-        // On selection of row send deviceId to LoadSelectedDeviceDetails
-        private void listViewDevices_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (listViewDevices.SelectedItems.Count == 0) return;
-
-            var selectedItem = listViewDevices.SelectedItems[0];
-            if (!(selectedItem.Tag is Device selectedDevice)) return;
-
-            // Determine type by available keys
-            _selectedIsStaff = selectedDevice.StaffDeviceId > 0;
-            _selectedDeviceId = selectedDevice.DeviceId;
-            _selectedStaffDeviceId = selectedDevice.StaffDeviceId;
-
-            if (_selectedIsStaff)
-                LoadSelectedStaffDeviceDetails(_selectedStaffDeviceId);
-            else
-                LoadSelectedDeviceDetails(_selectedDeviceId);
-        }
+        // Device selection is handled via per-row click handlers in SetupDeviceList()
+        private void listViewDevices_SelectedIndexChanged(object sender, EventArgs e) { }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            txt_Device_id.BorderStyle = BorderStyle.FixedSingle;
+            rtb_Device_id.BorderStyle = BorderStyle.FixedSingle;
         }
 
         //********************************* Toggle Device Details Fields EditMode ***************************************
@@ -1452,33 +820,33 @@ namespace smart_attendance_middleware
             var backColor = enable ? EditableColor : ReadOnlyColor;
 
             foreach (var txt in new[] {
-                txt_department, txt_Device_id, txt_finger_capacity, txt_RFID_capacity,
-                txt_face_capacity, txt_last_synced, txt_device_status, txt_location,
-                txt_timeZone, txt_port, txt_ip, txt_Serial, txt_password })
+                rtb_department, rtb_Device_id, rtb_finger_capacity, rtb_RFID_capacity,
+                rtb_face_capacity, rtb_last_synced, rtb_device_status, rtb_location,
+                rtb_timeZone, rtb_port, rtb_ip, rtb_Serial, rtb_password })
             {
                 txt.ReadOnly    = !enable;
                 txt.BorderStyle = border;
                 txt.BackColor   = backColor;
             }
 
-            cmb_device_type.Enabled    = enable;
-            cmb_connectionType.Enabled = enable;
-            cmb_machine_no.Enabled     = enable;
+            rcmb_device_type.Enabled    = enable;
+            rcmb_connectionType.Enabled = enable;
+            rcmb_machine_no.Enabled     = enable;
         }
 
 
         private void btnEdit_Click(object sender, EventArgs e)
         {
-            if (listViewDevices.SelectedItems.Count > 0)
+            if (_selectedDevice != null)
             {
                 ToggleDeviceFieldsEditMode(true); // Enable editing
-                btnEdit.Visible = false;
-                btnSave.Visible = true;
-                btnSave.Location = btnEdit.Location;
-                btn_remove_device.Visible = false;
-                btnCancle.Visible = true;
-                btnCancle.Location = btn_remove_device.Location;
-                btn_format.Visible = true;
+                rb_Edit.Visible = false;
+                rb_Save.Visible = true;
+                rb_Save.Location = rb_Edit.Location;
+                rb_remove_device.Visible = false;
+                rb_Cancle.Visible = true;
+                rb_Cancle.Location = rb_remove_device.Location;
+                rb_format.Visible = true;
 
             }
             else
@@ -1510,22 +878,22 @@ namespace smart_attendance_middleware
             var device = _dbHelper.LoadStaffDevices().FirstOrDefault(d => d.StaffDeviceId == staffDeviceId);
             if (device == null) return;
 
-            txt_Device_id.Text = device.StaffDeviceId.ToString();  // show StaffDeviceId
-            txt_Serial.Text = device.DeviceSerial;
-            txt_department.Text = device.Department;
-            txt_face_capacity.Text = device.FaceCapacity.ToString();
-            txt_finger_capacity.Text = device.FingerCapacity.ToString();
-            txt_RFID_capacity.Text = device.RFIDCapacity.ToString();
-            txt_ip.Text = device.DeviceIP;
-            txt_port.Text = device.Port.ToString();
-            txt_location.Text = device.Location;
-            txt_timeZone.Text = device.TimeZone;
-            txt_password.Text = device.Password;
-            txt_device_status.Text = device.IsActive ? "Active" : "Inactive";
-            txt_last_synced.Text = device.LastSyncTime ?? "Not Synced";
-            cmb_device_type.SelectedItem = string.IsNullOrWhiteSpace(device.StaffAttendanceType) ? null : device.StaffAttendanceType;
-            cmb_connectionType.SelectedItem = device.ConnectionType;
-            cmb_machine_no.SelectedItem = device.MachineNo.ToString();
+            rtb_Device_id.Text = device.StaffDeviceId.ToString();  // show StaffDeviceId
+            rtb_Serial.Text = device.DeviceSerial;
+            rtb_department.Text = device.Department;
+            rtb_face_capacity.Text = device.FaceCapacity.ToString();
+            rtb_finger_capacity.Text = device.FingerCapacity.ToString();
+            rtb_RFID_capacity.Text = device.RFIDCapacity.ToString();
+            rtb_ip.Text = device.DeviceIP;
+            rtb_port.Text = device.Port.ToString();
+            rtb_location.Text = device.Location;
+            rtb_timeZone.Text = device.TimeZone;
+            rtb_password.Text = device.Password;
+            rtb_device_status.Text = device.IsActive ? "Active" : "Inactive";
+            rtb_last_synced.Text = device.LastSyncTime ?? "Not Synced";
+            rcmb_device_type.SelectedItem = string.IsNullOrWhiteSpace(device.StaffAttendanceType) ? null : device.StaffAttendanceType;
+            rcmb_connectionType.SelectedItem = device.ConnectionType;
+            rcmb_machine_no.SelectedItem = device.MachineNo.ToString();
         }
 
         private async void btnSave_Click(object sender, EventArgs e)
@@ -1563,7 +931,7 @@ namespace smart_attendance_middleware
                 UseSystemPasswordChar = true
             };
 
-            Button okButton = new Button()
+            var okButton = new Controls.RoundedButton
             {
                 Text = "OK",
                 Left = 180,
@@ -1572,13 +940,14 @@ namespace smart_attendance_middleware
                 DialogResult = DialogResult.OK
             };
 
-            Button cancelButton = new Button()
+            var cancelButton = new Controls.RoundedButton
             {
                 Text = "Cancel",
                 Left = 260,
                 Width = 70,
                 Top = 85,
-                DialogResult = DialogResult.Cancel
+                DialogResult = DialogResult.Cancel,
+                NormalColor = Color.FromArgb(107, 114, 128)
             };
 
             prompt.Controls.Add(label);
@@ -1594,7 +963,7 @@ namespace smart_attendance_middleware
 
                 if (_dbHelper.VerifyLoginUser(currentUser, enteredPassword))
                 {
-                    string deviceIp = txt_ip.Text.Trim();
+                    string deviceIp = rtb_ip.Text.Trim();
 
                     if (!await IsValidIpAsync(deviceIp))
                     {
@@ -1602,7 +971,7 @@ namespace smart_attendance_middleware
                         return;
                     }
 
-                    int machineNoParsed = int.TryParse(cmb_machine_no.SelectedItem?.ToString(), out int machineParsed) ? machineParsed : 0;
+                    int machineNoParsed = int.TryParse(rcmb_machine_no.SelectedItem?.ToString(), out int machineParsed) ? machineParsed : 0;
 
                     // For normal devices, guard against IP/Machine conflicts (port uniqueness removed per helper doc)
                     if (!_selectedIsStaff)
@@ -1617,33 +986,33 @@ namespace smart_attendance_middleware
                     // Staff devices may have different constraints; skipping duplicate guard unless implemented
 
                     ToggleDeviceFieldsEditMode(false);
-                    btnEdit.Visible = true;
-                    btnSave.Visible = false;
-                    btnCancle.Visible = false;
-                    btn_remove_device.Visible = true;
-                    btn_format.Visible = false;
+                    rb_Edit.Visible = true;
+                    rb_Save.Visible = false;
+                    rb_Cancle.Visible = false;
+                    rb_remove_device.Visible = true;
+                    rb_format.Visible = false;
 
                     // Build common model from fields
                     var deviceModel = new Device
                     {
-                        Department = txt_department.Text,
-                        DeviceSerial = txt_Serial.Text,
+                        Department = rtb_department.Text,
+                        DeviceSerial = rtb_Serial.Text,
                         DeviceIP = deviceIp,
-                        Port = int.TryParse(txt_port.Text, out var p) ? p : 0,
-                        TimeZone = txt_timeZone.Text,
-                        Location = txt_location.Text,
-                        Password = txt_password.Text,
-                        ConnectionType = cmb_connectionType.SelectedItem?.ToString(),
+                        Port = int.TryParse(rtb_port.Text, out var p) ? p : 0,
+                        TimeZone = rtb_timeZone.Text,
+                        Location = rtb_location.Text,
+                        Password = rtb_password.Text,
+                        ConnectionType = rcmb_connectionType.SelectedItem?.ToString(),
                         MachineNo = machineNoParsed,
-                        IsActive = txt_device_status.Text == "Active",
-                        LastSyncTime = txt_last_synced.Text,
-                        FaceCapacity = int.TryParse(txt_face_capacity.Text, out var fc) ? fc : 0,
-                        RFIDCapacity = int.TryParse(txt_RFID_capacity.Text, out var rc) ? rc : 0,
-                        FingerCapacity = int.TryParse(txt_finger_capacity.Text, out var fpc) ? fpc : 0
+                        IsActive = rtb_device_status.Text == "Active",
+                        LastSyncTime = rtb_last_synced.Text,
+                        FaceCapacity = int.TryParse(rtb_face_capacity.Text, out var fc) ? fc : 0,
+                        RFIDCapacity = int.TryParse(rtb_RFID_capacity.Text, out var rc) ? rc : 0,
+                        FingerCapacity = int.TryParse(rtb_finger_capacity.Text, out var fpc) ? fpc : 0
                     };
 
                     // Attendance type mapping
-                    var attendanceText = cmb_device_type.SelectedItem?.ToString() ?? string.Empty;
+                    var attendanceText = rcmb_device_type.SelectedItem?.ToString() ?? string.Empty;
 
                     try
                     {
@@ -1670,7 +1039,7 @@ namespace smart_attendance_middleware
 
                         SetupDeviceList();
                         ClearDeviceFields();
-                        listViewDevices.SelectedItems.Clear();
+                        _selectedDevice = null;
                         await UpdateSessionAsync(); // Update session with device data
                 InvalidateMemberCache();
 
@@ -1697,7 +1066,7 @@ namespace smart_attendance_middleware
             else
             {
                 MessageBox.Show("Device update cancelled.");
-                listViewDevices.SelectedItems.Clear();
+                _selectedDevice = null;
                 ClearDeviceFields();
             }
         }
@@ -1707,17 +1076,17 @@ namespace smart_attendance_middleware
 
         private void btnCancle_Click(object sender, EventArgs e)
         {
-            listViewDevices.SelectedItems.Clear();
+            _selectedDevice = null;
             ClearDeviceFields(); // Clear the fields
             // Revert UI to non-editable mode
             ToggleDeviceFieldsEditMode(false);
 
             // Hide Save/Cancel, show Edit
-            btnEdit.Visible = true;
-            btn_remove_device.Visible = true;
-            btnSave.Visible = false;
-            btnCancle.Visible = false;
-            btn_format.Visible = true;
+            rb_Edit.Visible = true;
+            rb_remove_device.Visible = true;
+            rb_Save.Visible = false;
+            rb_Cancle.Visible = false;
+            rb_format.Visible = true;
 
 
 
@@ -1735,51 +1104,51 @@ namespace smart_attendance_middleware
 
             if (device != null)
             {
-                txt_Device_id.Text = device.DeviceId.ToString();
-                txt_Serial.Text = device.DeviceSerial;
-                txt_department.Text = device.Department;
-                txt_face_capacity.Text = device.FaceCapacity.ToString();
-                txt_finger_capacity.Text = device.FingerCapacity.ToString();
-                txt_RFID_capacity.Text = device.RFIDCapacity.ToString();
-                txt_ip.Text = device.DeviceIP;
-                txt_port.Text = device.Port.ToString();
-                txt_location.Text = device.Location;
-                txt_timeZone.Text = device.TimeZone;
-                txt_password.Text = device.Password;
-                txt_device_status.Text = device.IsActive ? "Active" : "Inactive";
-                txt_last_synced.Text = device.LastSyncTime ?? "Not Synced";
-                cmb_device_type.SelectedItem = device.AttendanceType ? "Check-in" : "Check-out";
-                cmb_connectionType.SelectedItem = device.ConnectionType;
-                cmb_machine_no.SelectedItem = device.MachineNo.ToString();
+                rtb_Device_id.Text = device.DeviceId.ToString();
+                rtb_Serial.Text = device.DeviceSerial;
+                rtb_department.Text = device.Department;
+                rtb_face_capacity.Text = device.FaceCapacity.ToString();
+                rtb_finger_capacity.Text = device.FingerCapacity.ToString();
+                rtb_RFID_capacity.Text = device.RFIDCapacity.ToString();
+                rtb_ip.Text = device.DeviceIP;
+                rtb_port.Text = device.Port.ToString();
+                rtb_location.Text = device.Location;
+                rtb_timeZone.Text = device.TimeZone;
+                rtb_password.Text = device.Password;
+                rtb_device_status.Text = device.IsActive ? "Active" : "Inactive";
+                rtb_last_synced.Text = device.LastSyncTime ?? "Not Synced";
+                rcmb_device_type.SelectedItem = device.AttendanceType ? "Check-in" : "Check-out";
+                rcmb_connectionType.SelectedItem = device.ConnectionType;
+                rcmb_machine_no.SelectedItem = device.MachineNo.ToString();
 
             }
         }
 
         public void ClearDeviceFields()
         {
-            txt_Device_id.Clear();
-            txt_Serial.Clear();
-            txt_department.Clear();
-            txt_face_capacity.Clear();
-            txt_finger_capacity.Clear();
-            txt_RFID_capacity.Clear();
-            txt_ip.Clear();
-            txt_port.Clear();
-            txt_location.Clear();
-            txt_timeZone.Clear();
-            txt_password.Clear();
-            txt_device_status.Clear();
-            txt_last_synced.Clear();
-            cmb_device_type.SelectedIndex = -1;
-            cmb_connectionType.SelectedIndex = -1;
-            cmb_machine_no.SelectedIndex = -1;
+            rtb_Device_id.Clear();
+            rtb_Serial.Clear();
+            rtb_department.Clear();
+            rtb_face_capacity.Clear();
+            rtb_finger_capacity.Clear();
+            rtb_RFID_capacity.Clear();
+            rtb_ip.Clear();
+            rtb_port.Clear();
+            rtb_location.Clear();
+            rtb_timeZone.Clear();
+            rtb_password.Clear();
+            rtb_device_status.Clear();
+            rtb_last_synced.Clear();
+            rcmb_device_type.SelectedIndex = -1;
+            rcmb_connectionType.SelectedIndex = -1;
+            rcmb_machine_no.SelectedIndex = -1;
         }
 
 
         private void btn_add_device_Click(object sender, EventArgs e)
         {
             ClearDeviceFields();
-            listViewDevices.SelectedItems.Clear();
+            _selectedDevice = null;
             AddNewDevice adddevice = new AddNewDevice();
             adddevice.ShowDialog();
             SetupDeviceList(); // Refresh the device list after adding a new device
@@ -1787,13 +1156,13 @@ namespace smart_attendance_middleware
 
         private async void btn_remove_device_Click(object sender, EventArgs e)
         {
-            if (listViewDevices.SelectedItems.Count == 0)
+            if (_selectedDevice == null)
             {
                 MessageBox.Show("Please select a device to remove.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (!int.TryParse(txt_Device_id.Text, out int deviceId))
+            if (!int.TryParse(rtb_Device_id.Text, out int deviceId))
             {
                 MessageBox.Show("Invalid Device ID. Please enter a valid number.");
                 return;
@@ -1832,7 +1201,7 @@ namespace smart_attendance_middleware
                 UseSystemPasswordChar = true // This ensures that the password is masked with asterisks (*)
             };
 
-            Button okButton = new Button()
+            var okButton = new Controls.RoundedButton
             {
                 Text = "OK",
                 Left = 180,
@@ -1841,13 +1210,14 @@ namespace smart_attendance_middleware
                 DialogResult = DialogResult.OK
             };
 
-            Button cancelButton = new Button()
+            var cancelButton = new Controls.RoundedButton
             {
                 Text = "Cancel",
                 Left = 260,
                 Width = 70,
                 Top = 85,
-                DialogResult = DialogResult.Cancel
+                DialogResult = DialogResult.Cancel,
+                NormalColor = Color.FromArgb(107, 114, 128)
             };
 
             prompt.Controls.Add(label);
@@ -1861,7 +1231,7 @@ namespace smart_attendance_middleware
             {
                 string enteredPassword = inputBox.Text;
 
-                if (!await IsValidIpAsync(txt_ip.Text.Trim()))
+                if (!await IsValidIpAsync(rtb_ip.Text.Trim()))
                 {
                     MessageBox.Show("The device is not reachable. Please check the IP address and try again.", "Ping Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
@@ -1871,7 +1241,7 @@ namespace smart_attendance_middleware
                 {
                     if (_selectedIsStaff)
                     {
-                        aiChatLogger.AddDeviceMessage($"Preparing to remove staff device from {txt_location.Text}...");
+                        aiChatLogger.AddDeviceMessage($"Preparing to remove staff device from {rtb_location.Text}...");
                         aiChatLogger.AddInfoMessage("Clearing all enrollment data from the staff device first...");
 
                         await _deviceFunctions.EmptyEnrollmentDataAndDeleteLogsByStaffDeviceId(_selectedStaffDeviceId);
@@ -1879,7 +1249,7 @@ namespace smart_attendance_middleware
                     }
                     else
                     {
-                        aiChatLogger.AddDeviceMessage($"Preparing to remove device from {txt_location.Text}...");
+                        aiChatLogger.AddDeviceMessage($"Preparing to remove device from {rtb_location.Text}...");
                         aiChatLogger.AddInfoMessage("Clearing all enrollment data from the device first...");
 
                         await _deviceFunctions.EmptyEnrollmentDataAndDeleteLogsByDeviceId(_selectedDeviceId);
@@ -1888,7 +1258,7 @@ namespace smart_attendance_middleware
 
                     SetupDeviceList(); // Refresh the device list after deletion
                     ClearDeviceFields(); // Clear the fields after deletion
-                    listViewDevices.SelectedItems.Clear();
+                    _selectedDevice = null;
                     await UpdateSessionAsync(); // Update session with device data
                 InvalidateMemberCache();
 
@@ -1896,7 +1266,7 @@ namespace smart_attendance_middleware
                     NotifyDashboardRefresh();
 
                     // Add AI messages after successful removal
-                    aiChatLogger.AddSuccessMessage($"Device from {txt_location.Text} has been successfully removed!");
+                    aiChatLogger.AddSuccessMessage($"Device from {rtb_location.Text} has been successfully removed!");
                     aiChatLogger.AddInfoMessage("Don't worry, I'm still here to help with your remaining devices.");
                     aiChatLogger.AddDeviceMessage("Device network updated. All enrollment data has been cleared.");
 
@@ -1910,7 +1280,7 @@ namespace smart_attendance_middleware
             else
             {
                 ClearDeviceFields(); // Clear the fields if the user cancels
-                listViewDevices.SelectedItems.Clear();
+                _selectedDevice = null;
                     MessageBox.Show("Device deletion cancelled.");
                     }
                 }
@@ -1918,7 +1288,7 @@ namespace smart_attendance_middleware
 
                 private async void btnSaveAPI_Click_1(object sender, EventArgs e)
         {
-            string apiKey = txtAPIkey.Text.Trim();
+            string apiKey = rtb_APIkey.Text.Trim();
 
             // Step 1: Basic validation
             if (string.IsNullOrWhiteSpace(apiKey))
@@ -2000,33 +1370,8 @@ namespace smart_attendance_middleware
 
         //Abdul Hadi Code
         //Event to select an item in the list and pass its id
-        private void list_LocalUser_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (list_LocalUser.SelectedItems.Count > 0)
-            {
-                var selectedItem = list_LocalUser.SelectedItems[0];
-
-                if (int.TryParse(selectedItem.Text, out int userId))
-                {
-                    selectedUserId = userId;
-                    selectedUsername = selectedItem.SubItems[1].Text;
-                    selectedRole = selectedItem.SubItems[2].Text;
-
-                    btn_deleteUser.Enabled = true;
-                    btn_change_password.Enabled = true;
-                    btn_editUser.Enabled = true;
-                }
-            }
-            else
-            {
-                selectedUserId = null;
-                selectedUsername = null;
-                selectedRole = null;
-                btn_deleteUser.Enabled = false;
-                btn_change_password.Enabled = false;
-                btn_editUser.Enabled = false;
-            }
-        }
+        // User selection is handled via per-row click handlers in LoadUsersIntoListView()
+        private void list_LocalUser_SelectedIndexChanged(object sender, EventArgs e) { }
 
 
         //Abdul Hadi Code
@@ -2117,7 +1462,7 @@ namespace smart_attendance_middleware
                     Label textLabel2 = new Label() { Left = 20, Top = 85, Text = "Confirm new password:", Width = 340 };
                     TextBox textBox2 = new TextBox() { Left = 20, Top = 110, Width = 340, PasswordChar = '*' };
 
-                    Button confirmation = new Button() { Text = "OK", Left = 270, Width = 90, Top = 145, DialogResult = DialogResult.OK };
+                    var confirmation = new Controls.RoundedButton { Text = "OK", Left = 270, Width = 90, Top = 145, DialogResult = DialogResult.OK };
                     confirmation.Click += (sender2, e2) => { prompt.Close(); };
 
                     prompt.Controls.Add(textLabel1);
@@ -2197,37 +1542,24 @@ namespace smart_attendance_middleware
 
         private async void CheckAllDeviceConnections()
         {
-            // Copy the items to a local list on the UI thread
-            var items = new List<ListViewItem>();
-            foreach (ListViewItem item in listViewDevices.Items)
-                items.Add(item);
+            var allDevices = (AppSession.DeviceList ?? new List<Device>())
+                .Concat(AppSession.StaffDeviceList ?? new List<Device>())
+                .ToList();
 
             await Task.Run(async () =>
             {
-                foreach (var item in items)
+                foreach (var d in allDevices)
                 {
                     try
                     {
-                        string ip = item.SubItems[3].Text;
-                        int port = int.Parse(item.SubItems[4].Text);
-                        int machineNo = int.Parse(item.SubItems[1].Text);
-                        string password = "0"; // Or fetch from DB/device
-
-                        string serial = await DeviceService.GetSerial(ip, port, machineNo, password);
-
-                        // Update UI on the UI thread
-                        this.Invoke(new Action(() =>
-                        {
-                            item.SubItems[6].Text = "Connected";
-                            item.SubItems[6].ForeColor = Color.Green;
-                        }));
+                        string serial = await DeviceService.GetSerial(d.DeviceIP, d.Port, d.MachineNo, "0");
                     }
-                    catch
-                    {
-                        // Handle error, optionally update UI
-                    }
+                    catch { /* Handle error, optionally update UI */ }
                 }
             });
+
+            // Refresh after all checks
+            this.Invoke(new Action(() => SetupDeviceList()));
         }
 
         private void NotifyDashboardRefresh()
@@ -2262,19 +1594,13 @@ namespace smart_attendance_middleware
         private async void btn_format_Click(object sender, EventArgs e)
         {
             // Require a selection
-            if (listViewDevices.SelectedItems.Count == 0)
+            if (_selectedDevice == null)
             {
                 MessageBox.Show("Please select a device to format.", "No Device Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Resolve the selected device object from Tag
-            var selectedItem = listViewDevices.SelectedItems[0];
-            if (!(selectedItem.Tag is Device selectedDevice))
-            {
-                MessageBox.Show("Selected row is invalid.", "Selection Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            var selectedDevice = _selectedDevice;
 
             // Auth
             string currentUser = AppSession.LoggedInUser;
@@ -2303,8 +1629,8 @@ namespace smart_attendance_middleware
             {
                 var label = new Label { Left = 10, Top = 20, Width = 320, Text = "Enter your password to format the device:" };
                 var inputBox = new TextBox { Left = 10, Top = 50, Width = 320, UseSystemPasswordChar = true };
-                var okButton = new Button { Text = "Format Device", Left = 150, Width = 100, Top = 85, DialogResult = DialogResult.OK };
-                var cancelButton = new Button { Text = "Cancel", Left = 260, Width = 70, Top = 85, DialogResult = DialogResult.Cancel };
+                var okButton = new Controls.RoundedButton { Text = "Format Device", Left = 150, Width = 100, Top = 85, DialogResult = DialogResult.OK };
+                var cancelButton = new Controls.RoundedButton { Text = "Cancel", Left = 260, Width = 70, Top = 85, DialogResult = DialogResult.Cancel, NormalColor = Color.FromArgb(107, 114, 128) };
 
                 prompt.Controls.Add(label); prompt.Controls.Add(inputBox); prompt.Controls.Add(okButton); prompt.Controls.Add(cancelButton);
                 prompt.AcceptButton = okButton; prompt.CancelButton = cancelButton;
@@ -2374,7 +1700,7 @@ namespace smart_attendance_middleware
                 Cursor = Cursors.Default;
                 SetupDeviceList();
                 ClearDeviceFields();
-                listViewDevices.SelectedItems.Clear();
+                _selectedDevice = null;
                 await UpdateSessionAsync();
                 NotifyDashboardRefresh();
             }
@@ -2385,52 +1711,11 @@ namespace smart_attendance_middleware
         // Call this in DeviceManager_Load after InitializeMemberList()
         private void InitializeMembersListView()
         {
-            lst_members.Items.Clear();
-
-            if (lst_members.Columns.Count == 0)
-            {
-                lst_members.View = View.Details;
-                lst_members.FullRowSelect = true;
-                lst_members.GridLines = true;
-                lst_members.Columns.Add("Member ID", 80);
-                lst_members.Columns.Add("Name", 140);
-                lst_members.Columns.Add("Enrollment No", 100);
-                lst_members.Columns.Add("Status", 70);
-                lst_members.Columns.Add("Biometric", 130);
-                lst_members.Columns.Add("Sync Status", 110);
-                lst_members.Columns.Add("Package Expiry", 110);
-                lst_members.Columns.Add("Failure Reason", 85);
-                lst_members.Columns.Add("Actions", 80);
-            }
-
-            // Add second filter row if not already added
-            if (cmbMemberStatus == null && tab_members != null)
-            {
-                int x = 290;
-                cmbMemberStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(x, 11), Width = 110 };
-                cmbMemberStatus.Items.AddRange(new object[] { "All Status", "active", "inactive", "expired" });
-                cmbMemberStatus.SelectedIndex = 0;
-                cmbMemberStatus.SelectedIndexChanged += (s, e) => LoadMembersIntoListView(txt_memb_name.Text?.Trim());
-                tab_members.Controls.Add(cmbMemberStatus);
-                x += 118;
-
-                cmbMemberSync = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(x, 11), Width = 130 };
-                cmbMemberSync.Items.AddRange(new object[] { "All Sync", "Fully Synced", "Partially Synced", "Not Synced" });
-                cmbMemberSync.SelectedIndex = 0;
-                cmbMemberSync.SelectedIndexChanged += (s, e) => LoadMembersIntoListView(txt_memb_name.Text?.Trim());
-                tab_members.Controls.Add(cmbMemberSync);
-                x += 138;
-
-                chkMemberFailure = new CheckBox { Text = "Has Failure Only", Location = new Point(x, 13), AutoSize = true };
-                chkMemberFailure.CheckedChanged += (s, e) => LoadMembersIntoListView(txt_memb_name.Text?.Trim());
-                tab_members.Controls.Add(chkMemberFailure);
-            }
-
             LoadMembersIntoListView(null);
         }
 
-        // Reuse your function as-is for txt_memb_name dynamic suggestions:
-        // Map txt_memb_name to txt_membername internally (if different control names exist)
+        // Reuse your function as-is for rtb_memb_name dynamic suggestions:
+        // Map rtb_memb_name to rtb_membername internally (if different control names exist)
         private void InitializeMemberListForStats()
         {
             // Load all members from AppSession
@@ -2438,8 +1723,8 @@ namespace smart_attendance_middleware
             LogHelper.Log($"Initialized statistics suggestions with {members.Count} members from session.");
 
             // Configure the AutoCompleteSource and AutoCompleteMode
-            txt_memb_name.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            txt_memb_name.AutoCompleteSource = AutoCompleteSource.CustomSource;
+            rtb_memb_name.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            rtb_memb_name.AutoCompleteSource = AutoCompleteSource.CustomSource;
 
             // Create a StringCollection to store member names
             AutoCompleteStringCollection memberCollection = new AutoCompleteStringCollection();
@@ -2454,13 +1739,13 @@ namespace smart_attendance_middleware
             }
 
             // Assign the collection to the AutoCompleteCustomSource
-            txt_memb_name.AutoCompleteCustomSource = memberCollection;
+            rtb_memb_name.AutoCompleteCustomSource = memberCollection;
         }
 
         // Button click handler for __flt_members__ to filter by name
         private void flt_members_Click(object sender, EventArgs e)
         {
-            string nameFilter = txt_memb_name.Text?.Trim();
+            string nameFilter = rtb_memb_name.Text?.Trim();
             LoadMembersIntoListView(string.IsNullOrEmpty(nameFilter) ? null : nameFilter);
         }
 
@@ -2535,25 +1820,19 @@ namespace smart_attendance_middleware
         {
             try
             {
-                // Build cache once; subsequent calls with a filter just query the cache
                 if (_cachedMemberItems == null)
                     _cachedMemberItems = BuildAllMemberItems();
 
                 List<ListViewItem> displayItems;
                 if (string.IsNullOrWhiteSpace(nameFilter))
-                {
                     displayItems = _cachedMemberItems.ToList();
-                }
                 else
-                {
                     displayItems = _cachedMemberItems
                         .Where(item => item.Tag is Member m &&
                                        !string.IsNullOrWhiteSpace(m.Name) &&
                                        m.Name.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) >= 0)
                         .ToList();
-                }
 
-                // Status filter
                 if (cmbMemberStatus != null && cmbMemberStatus.SelectedIndex > 0)
                 {
                     string statusFilter = cmbMemberStatus.SelectedItem.ToString();
@@ -2561,7 +1840,6 @@ namespace smart_attendance_middleware
                         (m.Status ?? "").Equals(statusFilter, StringComparison.OrdinalIgnoreCase)).ToList();
                 }
 
-                // Sync filter (SyncStatus is subitem index 5)
                 if (cmbMemberSync != null && cmbMemberSync.SelectedIndex > 0)
                 {
                     string syncFilter = cmbMemberSync.SelectedItem.ToString();
@@ -2585,27 +1863,69 @@ namespace smart_attendance_middleware
                     }).ToList();
                 }
 
-                // Has Failure filter (Failure Reason is subitem index 7)
                 if (chkMemberFailure != null && chkMemberFailure.Checked)
-                {
                     displayItems = displayItems.Where(item =>
                         item.SubItems.Count > 7 && item.SubItems[7].Text == "[View]").ToList();
-                }
 
-                if (_membersPagination == null && lst_members.Parent != null)
-                    _membersPagination = new ListViewPagination(lst_members, lst_members.Parent);
+                var navy   = Color.FromArgb(30, 38, 90);
+                var muted  = Color.FromArgb(130, 138, 165);
+                var accent = Color.FromArgb(59, 130, 246);
+                var amber  = Color.FromArgb(245, 158, 11);
+                var red    = Color.FromArgb(239, 68, 68);
+                var green  = Color.FromArgb(16, 185, 129);
 
-                if (_membersPagination != null)
+                clv_members.SetRowFactory(displayItems.Count, idx =>
                 {
-                    _membersPagination.SetItems(displayItems);
-                }
-                else
-                {
-                    lst_members.BeginUpdate();
-                    lst_members.Items.Clear();
-                    lst_members.Items.AddRange(displayItems.ToArray());
-                    lst_members.EndUpdate();
-                }
+                    var item = displayItems[idx];
+                    var m = item.Tag as Member;
+                    bool hasFailure = item.SubItems.Count > 7 && item.SubItems[7].Text == "[View]";
+                    Member capturedM = m;
+
+                    // Status pill color
+                    string statusTxt = item.SubItems.Count > 3 ? item.SubItems[3].Text : "-";
+                    bool isActive = string.Equals(statusTxt, "active", StringComparison.OrdinalIgnoreCase);
+                    Color sBg = isActive ? Color.FromArgb(209, 250, 229) : Color.FromArgb(254, 226, 226);
+                    Color sFg = isActive ? green : red;
+
+                    string initial = (m != null && !string.IsNullOrWhiteSpace(m.Name)) ? m.Name.Substring(0, 1).ToUpperInvariant() : "?";
+
+                    var builder = new CLV.CardBuilder()
+                        .Avatar(initial, accent, 8, 8, 36)
+                        .Text(item.SubItems[0].Text, 50,  6,  50,  18, CLV.F9,     navy)
+                        .Text(item.SubItems[1].Text, 105, 6,  110, 18, CLV.F9Bold, navy)
+                        .Text(item.SubItems[2].Text, 220, 6,  75,  18, CLV.F9,     muted)
+                        .Pill(statusTxt,            sBg, sFg, 300, 13, 68, 22)
+                        .Pill(item.SubItems.Count > 4 && !string.IsNullOrWhiteSpace(item.SubItems[4].Text) ? item.SubItems[4].Text : "-", Color.FromArgb(219, 234, 254), Color.FromArgb(37, 99, 235), 372, 13, 100, 22)
+                        .Text(item.SubItems.Count > 5 ? item.SubItems[5].Text : "-", 478, 6,  60,  18, CLV.F8, muted)
+                        .Text(item.SubItems.Count > 6 ? item.SubItems[6].Text : "-", 543, 6,  90,  18, CLV.F8, muted);
+
+                    if (hasFailure)
+                        builder.Button("Failure", Color.FromArgb(254, 226, 226), red, 638, 13, 68, 26, () =>
+                        {
+                            if (capturedM == null) return;
+                            string fullReason = "-";
+                            try
+                            {
+                                if (capturedM.EnrollmentID.HasValue)
+                                {
+                                    var log = _dbHelper.GetLatestLogForMember(capturedM.EnrollmentID.Value);
+                                    if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
+                                        fullReason = (string)log.FailureReason;
+                                }
+                            }
+                            catch { }
+                            if (fullReason != "-")
+                                using (var dlg = new FailureReasonDetailForm(fullReason, capturedM, _dbHelper))
+                                    dlg.ShowDialog(this);
+                        });
+
+                    builder.Button("View", accent, Color.White, 712, 13, 60, 26, () =>
+                    {
+                        if (capturedM != null) ShowMemberDeviceStatus(capturedM);
+                    });
+
+                    return builder.Build(900, 52);
+                });
             }
             catch (Exception ex)
             {
@@ -2613,10 +1933,10 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void txt_memb_name_TextChanged(object sender, EventArgs e)
+        private void rtb_memb_name_TextChanged(object sender, EventArgs e)
         {
             if (!_isInitialized) return;
-            var filter = txt_memb_name.Text?.Trim();
+            var filter = rtb_memb_name.Text?.Trim();
             LoadMembersIntoListView(string.IsNullOrEmpty(filter) ? null : filter);
         }
 
@@ -2628,40 +1948,17 @@ namespace smart_attendance_middleware
         // OnCacheUpdated repaints these lists whenever CacheManager's periodic refresh picks up a change.
         private void InitializePendingJobsListView()
         {
-            lst_pendingjobs.Items.Clear();
-
-            if (lst_pendingjobs.Columns.Count == 0)
+            if (cmbPendingFor.Items.Count == 0)
             {
-                lst_pendingjobs.View = View.Details;
-                lst_pendingjobs.FullRowSelect = true;
-                lst_pendingjobs.GridLines = true;
-                lst_pendingjobs.Columns.Add("Member ID", 90);
-                lst_pendingjobs.Columns.Add("Name", 170);
-                lst_pendingjobs.Columns.Add("Enrollment No", 110);
-                lst_pendingjobs.Columns.Add("Device", 170);
-                lst_pendingjobs.Columns.Add("Pending For", 190);
-                lst_pendingjobs.Columns.Add("Since", 130);
-                lst_pendingjobs.Columns[lst_pendingjobs.Columns.Count - 1].Width = -2;
-            }
-
-            // Add filter controls — anchored to the right so they don't overlap lbl_pendingjobs_info
-            var pendingTab = lst_pendingjobs.Parent;
-            if (pendingTab != null && cmbPendingDevice == null)
-            {
-                // Position from the right edge; tab inner width ~857
-                cmbPendingFor = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(727, 11), Width = 120, Anchor = AnchorStyles.Right | AnchorStyles.Top };
                 cmbPendingFor.Items.AddRange(new object[] { "All Types", "Fingerprint", "Face", "RFID" });
                 cmbPendingFor.SelectedIndex = 0;
-                cmbPendingFor.SelectedIndexChanged += (s, e) => RefreshMemberPendingJobsList();
-                pendingTab.Controls.Add(cmbPendingFor);
-
-                cmbPendingDevice = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(569, 11), Width = 150, Anchor = AnchorStyles.Right | AnchorStyles.Top };
+            }
+            if (cmbPendingDevice.Items.Count == 0)
+            {
                 cmbPendingDevice.Items.Add("All Devices");
                 foreach (var d in AppSession.DeviceList ?? new List<Device>())
                     cmbPendingDevice.Items.Add(!string.IsNullOrWhiteSpace(d.Location) ? d.Location : d.DeviceSerial ?? $"Device {d.DeviceId}");
                 cmbPendingDevice.SelectedIndex = 0;
-                cmbPendingDevice.SelectedIndexChanged += (s, e) => RefreshMemberPendingJobsList();
-                pendingTab.Controls.Add(cmbPendingDevice);
             }
 
             RefreshMemberPendingJobsList();
@@ -2681,7 +1978,7 @@ namespace smart_attendance_middleware
                     .GroupBy(d => d.DeviceId)
                     .ToDictionary(g => g.Key, g => g.First());
 
-                var displayItems = new List<ListViewItem>(unsyncedEntries.Count);
+                var rows = new List<(string MemberId, string Name, string Enrollment, string Device, string PendingFor, string Since)>();
 
                 foreach (var entry in unsyncedEntries)
                 {
@@ -2697,41 +1994,36 @@ namespace smart_attendance_middleware
                     string pendingFor = entry.SyncStatus == null
                         ? "-"
                         : string.Join(", ", entry.SyncStatus.Where(kv => !kv.Value).Select(kv => kv.Key));
-                    if (string.IsNullOrEmpty(pendingFor)) continue; // nothing actually pending on this row
+                    if (string.IsNullOrEmpty(pendingFor)) continue;
 
-                    var item = new ListViewItem(entry.MemberID.ToString());
-                    item.SubItems.Add(name);
-                    item.SubItems.Add(entry.EnrollmentID > 0 ? entry.EnrollmentID.ToString() : "-");
-                    item.SubItems.Add(deviceName);
-                    item.SubItems.Add(pendingFor);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt);
-                    item.Tag = entry;
-                    displayItems.Add(item);
+                    rows.Add((entry.MemberID.ToString(), name, entry.EnrollmentID > 0 ? entry.EnrollmentID.ToString() : "-", deviceName, pendingFor, string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt));
                 }
 
                 // Apply filters
                 string devSel = cmbPendingDevice?.SelectedItem?.ToString() ?? "All Devices";
                 if (devSel != "All Devices")
-                    displayItems = displayItems.Where(i => string.Equals(i.SubItems[3].Text, devSel, StringComparison.OrdinalIgnoreCase)).ToList();
+                    rows = rows.Where(r => string.Equals(r.Device, devSel, StringComparison.OrdinalIgnoreCase)).ToList();
 
                 string typeSel = cmbPendingFor?.SelectedItem?.ToString() ?? "All Types";
                 if (typeSel != "All Types")
-                    displayItems = displayItems.Where(i => i.SubItems[4].Text.IndexOf(typeSel, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                    rows = rows.Where(r => r.PendingFor.IndexOf(typeSel, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
 
-                if (_pendingJobsPagination == null && lst_pendingjobs.Parent != null)
-                    _pendingJobsPagination = new ListViewPagination(lst_pendingjobs, lst_pendingjobs.Parent);
+                var navy  = Color.FromArgb(30, 38, 90);
+                var muted = Color.FromArgb(130, 138, 165);
+                var amber = Color.FromArgb(245, 158, 11);
 
-                if (_pendingJobsPagination != null)
+                clv_pendingJobs.SetRowFactory(rows.Count, idx =>
                 {
-                    _pendingJobsPagination.SetItems(displayItems);
-                }
-                else
-                {
-                    lst_pendingjobs.BeginUpdate();
-                    lst_pendingjobs.Items.Clear();
-                    lst_pendingjobs.Items.AddRange(displayItems.ToArray());
-                    lst_pendingjobs.EndUpdate();
-                }
+                    var r = rows[idx];
+                    return new CLV.CardBuilder()
+                        .Text(r.MemberId,   0,   6, 90,  18, CLV.F9,     navy)
+                        .Text(r.Name,       90,  6, 145, 18, CLV.F9Bold, navy)
+                        .Text(r.Enrollment, 240, 6, 85,  18, CLV.F9,     muted)
+                        .Text(r.Device,     330, 6, 135, 18, CLV.F8,     muted)
+                        .Pill(r.PendingFor, Color.FromArgb(254, 243, 199), amber, 470, 13, 178, 22)
+                        .Text(r.Since,      655, 6, 160, 18, CLV.F8,     muted)
+                        .Build(820, 52);
+                });
             }
             catch (Exception ex)
             {
@@ -2741,39 +2033,17 @@ namespace smart_attendance_middleware
 
         private void InitializeStaffPendingJobsListView()
         {
-            lst_staffpendingjobs.Items.Clear();
-
-            if (lst_staffpendingjobs.Columns.Count == 0)
+            if (cmbStaffPendingFor.Items.Count == 0)
             {
-                lst_staffpendingjobs.View = View.Details;
-                lst_staffpendingjobs.FullRowSelect = true;
-                lst_staffpendingjobs.GridLines = true;
-                lst_staffpendingjobs.Columns.Add("Staff ID", 90);
-                lst_staffpendingjobs.Columns.Add("Name", 170);
-                lst_staffpendingjobs.Columns.Add("Enrollment No", 110);
-                lst_staffpendingjobs.Columns.Add("Device", 170);
-                lst_staffpendingjobs.Columns.Add("Pending For", 190);
-                lst_staffpendingjobs.Columns.Add("Since", 130);
-                lst_staffpendingjobs.Columns[lst_staffpendingjobs.Columns.Count - 1].Width = -2;
-            }
-
-            // Add filter controls — anchored to the right so they don't overlap lbl_staffpendingjobs_info
-            var staffPendingTab = lst_staffpendingjobs.Parent;
-            if (staffPendingTab != null && cmbStaffPendingDevice == null)
-            {
-                cmbStaffPendingFor = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(727, 11), Width = 120, Anchor = AnchorStyles.Right | AnchorStyles.Top };
                 cmbStaffPendingFor.Items.AddRange(new object[] { "All Types", "Fingerprint", "Face", "RFID" });
                 cmbStaffPendingFor.SelectedIndex = 0;
-                cmbStaffPendingFor.SelectedIndexChanged += (s, e) => RefreshStaffPendingJobsList();
-                staffPendingTab.Controls.Add(cmbStaffPendingFor);
-
-                cmbStaffPendingDevice = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(569, 11), Width = 150, Anchor = AnchorStyles.Right | AnchorStyles.Top };
+            }
+            if (cmbStaffPendingDevice.Items.Count == 0)
+            {
                 cmbStaffPendingDevice.Items.Add("All Devices");
                 foreach (var d in AppSession.StaffDeviceList ?? new List<Device>())
                     cmbStaffPendingDevice.Items.Add(!string.IsNullOrWhiteSpace(d.Location) ? d.Location : d.DeviceSerial ?? $"Device {d.DeviceId}");
                 cmbStaffPendingDevice.SelectedIndex = 0;
-                cmbStaffPendingDevice.SelectedIndexChanged += (s, e) => RefreshStaffPendingJobsList();
-                staffPendingTab.Controls.Add(cmbStaffPendingDevice);
             }
 
             RefreshStaffPendingJobsList();
@@ -2793,7 +2063,7 @@ namespace smart_attendance_middleware
                     .GroupBy(d => d.StaffDeviceId)
                     .ToDictionary(g => g.Key, g => g.First());
 
-                var displayItems = new List<ListViewItem>(unsyncedEntries.Count);
+                var rows = new List<(string StaffId, string Name, string Enrollment, string Device, string PendingFor, string Since)>();
 
                 foreach (var entry in unsyncedEntries)
                 {
@@ -2809,41 +2079,36 @@ namespace smart_attendance_middleware
                     string pendingFor = entry.SyncStatus == null
                         ? "-"
                         : string.Join(", ", entry.SyncStatus.Where(kv => !kv.Value).Select(kv => kv.Key));
-                    if (string.IsNullOrEmpty(pendingFor)) continue; // nothing actually pending on this row
+                    if (string.IsNullOrEmpty(pendingFor)) continue;
 
-                    var item = new ListViewItem(entry.StaffID ?? "-");
-                    item.SubItems.Add(name);
-                    item.SubItems.Add(entry.EnrollmentID.HasValue && entry.EnrollmentID.Value > 0 ? entry.EnrollmentID.ToString() : "-");
-                    item.SubItems.Add(deviceName);
-                    item.SubItems.Add(pendingFor);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt);
-                    item.Tag = entry;
-                    displayItems.Add(item);
+                    rows.Add((entry.StaffID ?? "-", name, entry.EnrollmentID.HasValue && entry.EnrollmentID.Value > 0 ? entry.EnrollmentID.ToString() : "-", deviceName, pendingFor, string.IsNullOrWhiteSpace(entry.UpdatedAt) ? "-" : entry.UpdatedAt));
                 }
 
                 // Apply filters
                 string sDevSel = cmbStaffPendingDevice?.SelectedItem?.ToString() ?? "All Devices";
                 if (sDevSel != "All Devices")
-                    displayItems = displayItems.Where(i => string.Equals(i.SubItems[3].Text, sDevSel, StringComparison.OrdinalIgnoreCase)).ToList();
+                    rows = rows.Where(r => string.Equals(r.Device, sDevSel, StringComparison.OrdinalIgnoreCase)).ToList();
 
                 string sTypeSel = cmbStaffPendingFor?.SelectedItem?.ToString() ?? "All Types";
                 if (sTypeSel != "All Types")
-                    displayItems = displayItems.Where(i => i.SubItems[4].Text.IndexOf(sTypeSel, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                    rows = rows.Where(r => r.PendingFor.IndexOf(sTypeSel, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
 
-                if (_staffPendingJobsPagination == null && lst_staffpendingjobs.Parent != null)
-                    _staffPendingJobsPagination = new ListViewPagination(lst_staffpendingjobs, lst_staffpendingjobs.Parent);
+                var sNavy  = Color.FromArgb(30, 38, 90);
+                var sMuted = Color.FromArgb(130, 138, 165);
+                var sAmber = Color.FromArgb(245, 158, 11);
 
-                if (_staffPendingJobsPagination != null)
+                clv_staffPendingJobs.SetRowFactory(rows.Count, idx =>
                 {
-                    _staffPendingJobsPagination.SetItems(displayItems);
-                }
-                else
-                {
-                    lst_staffpendingjobs.BeginUpdate();
-                    lst_staffpendingjobs.Items.Clear();
-                    lst_staffpendingjobs.Items.AddRange(displayItems.ToArray());
-                    lst_staffpendingjobs.EndUpdate();
-                }
+                    var r = rows[idx];
+                    return new CLV.CardBuilder()
+                        .Text(r.StaffId,    0,   6, 90,  18, CLV.F9,     sNavy)
+                        .Text(r.Name,       90,  6, 145, 18, CLV.F9Bold, sNavy)
+                        .Text(r.Enrollment, 240, 6, 85,  18, CLV.F9,     sMuted)
+                        .Text(r.Device,     330, 6, 135, 18, CLV.F8,     sMuted)
+                        .Pill(r.PendingFor, Color.FromArgb(254, 243, 199), sAmber, 470, 13, 178, 22)
+                        .Text(r.Since,      655, 6, 160, 18, CLV.F8,     sMuted)
+                        .Build(820, 52);
+                });
             }
             catch (Exception ex)
             {
@@ -2858,8 +2123,8 @@ namespace smart_attendance_middleware
             LogHelper.Log($"Initialized Member AutoComplete with {members.Count} members from session.");
 
             // Configure the AutoCompleteSource and AutoCompleteMode
-            txt_membername.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            txt_membername.AutoCompleteSource = AutoCompleteSource.CustomSource;
+            rtb_membername.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            rtb_membername.AutoCompleteSource = AutoCompleteSource.CustomSource;
 
             // Create a StringCollection to store member names
             AutoCompleteStringCollection memberCollection = new AutoCompleteStringCollection();
@@ -2874,7 +2139,7 @@ namespace smart_attendance_middleware
             }
 
             // Assign the collection to the AutoCompleteCustomSource
-            txt_membername.AutoCompleteCustomSource = memberCollection;
+            rtb_membername.AutoCompleteCustomSource = memberCollection;
         }
 
 
@@ -2895,91 +2160,32 @@ namespace smart_attendance_middleware
 
         private void LoadFilteredMemberAttendanceLogs()
         {
-            lst_member.Items.Clear();
-            lst_member.View = View.Details;
-            lst_member.FullRowSelect = true;
-            lst_member.GridLines = true;
-
-            lst_member.Columns.Clear();
-            lst_member.Columns.Add("Log ID", 70);
-            lst_member.Columns.Add("Member ID", 80);
-            lst_member.Columns.Add("Member Name", 120);
-            lst_member.Columns.Add("Check-In Time", 150);
-            lst_member.Columns.Add("Check-Out Time", 150);
-            lst_member.Columns[lst_member.Columns.Count - 1].Width = -2;
-
-            // Get filter criteria
-            string memberNameFilter = txt_membername.Text.Trim();
+            string memberNameFilter = rtb_membername.Text.Trim();
             DateTime? selectedDate = date_member.Checked ? date_member.Value.Date : (DateTime?)null;
 
             var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<dynamic>();
-            var members = AppSession.AllMembers ?? new List<Member>();
+            var members        = AppSession.AllMembers ?? new List<Member>();
 
-            // Apply filters
             var filteredLogs = attendanceLogs.Where(log =>
             {
-                // Filter by member name using AppSession cache
-                var member = members.FirstOrDefault(m => m.MemberID == log.MemberID);
-                string memberName = member?.Name ?? "-";
+                var mem = members.FirstOrDefault(m => m.MemberID == log.MemberID);
+                string memberName = mem?.Name ?? "-";
 
-                if (!string.IsNullOrEmpty(memberNameFilter))
-                {
-                    if (string.IsNullOrEmpty(memberName) || !memberName.Contains(memberNameFilter))
-                    {
-                        return false;
-                    }
-                }
+                if (!string.IsNullOrEmpty(memberNameFilter) && (string.IsNullOrEmpty(memberName) || !memberName.Contains(memberNameFilter)))
+                    return false;
 
-                // Filter by date
                 if (selectedDate.HasValue)
                 {
-                    DateTime? checkInTime = ParseDateTime(log.CheckInTime);
-                    DateTime? checkOutTime = ParseDateTime(log.CheckOutTime);
-
-                    if ((!checkInTime.HasValue || checkInTime.Value.Date != selectedDate.Value) &&
-                        (!checkOutTime.HasValue || checkOutTime.Value.Date != selectedDate.Value))
-                    {
+                    DateTime? inTime  = ParseDateTime(log.CheckInTime);
+                    DateTime? outTime = ParseDateTime(log.CheckOutTime);
+                    if ((!inTime.HasValue || inTime.Value.Date != selectedDate.Value) &&
+                        (!outTime.HasValue || outTime.Value.Date != selectedDate.Value))
                         return false;
-                    }
                 }
-
                 return true;
             }).ToList();
 
-            var allItems = new List<ListViewItem>();
-
-            foreach (var log in filteredLogs)
-            {
-                var item = new ListViewItem(log.LogID.ToString());
-                item.SubItems.Add(log.MemberID.ToString());
-
-                // Fetch member name from AppSession cache
-                var member = members.FirstOrDefault(m => m.MemberID == log.MemberID);
-                item.SubItems.Add(member?.Name ?? "-");
-
-                item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckInTime) ? "-" : log.CheckInTime);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckOutTime) ? "-" : log.CheckOutTime);
-                allItems.Add(item);
-            }
-
-            // Initialize pagination if not already done
-            if (_memberAttendancePagination == null && lst_member.Parent != null)
-            {
-                _memberAttendancePagination = new ListViewPagination(lst_member, lst_member.Parent);
-            }
-
-            // Use pagination to display items
-            if (_memberAttendancePagination != null)
-            {
-                _memberAttendancePagination.SetItems(allItems);
-            }
-            else
-            {
-                // Fallback: add items directly if pagination not available
-                lst_member.BeginUpdate();
-                lst_member.Items.AddRange(allItems.ToArray());
-                lst_member.EndUpdate();
-            }
+            RenderMemberAttendanceLogs(filteredLogs, members);
         }
 
         private DateTime? ParseDateTime(string dateTimeString)
@@ -3005,56 +2211,65 @@ namespace smart_attendance_middleware
 
         private void LoadMemberAttendanceLogs()
         {
-            lst_member.Items.Clear();
-            lst_member.View = View.Details;
-            lst_member.FullRowSelect = true;
-            lst_member.GridLines = true;
-
-            lst_member.Columns.Clear();
-            lst_member.Columns.Add("Log ID", 70);
-            lst_member.Columns.Add("Member ID", 80);
-            lst_member.Columns.Add("Member Name", 120);
-            lst_member.Columns.Add("Check-In Time", 150);
-            lst_member.Columns.Add("Check-Out Time", 150);
-            lst_member.Columns[lst_member.Columns.Count - 1].Width = -2;
-
             var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<dynamic>();
-            var members = AppSession.AllMembers ?? new List<Member>();
+            var members        = AppSession.AllMembers ?? new List<Member>();
+            RenderMemberAttendanceLogs(attendanceLogs, members);
+        }
 
-            var allItems = new List<ListViewItem>();
+        private void RenderMemberAttendanceLogs(IList<dynamic> logs, List<Member> members)
+        {
+            var navy   = Color.FromArgb(30, 38, 90);
+            var muted  = Color.FromArgb(130, 138, 165);
+            var green  = Color.FromArgb(16, 185, 129);
+            var amber  = Color.FromArgb(180, 120, 0);
+            var accent = Color.FromArgb(59, 130, 246);
 
-            foreach (var log in attendanceLogs)
+            clv_memberAttendance.SetRowFactory(logs.Count, idx =>
             {
-                var item = new ListViewItem(log.LogID.ToString());
-                item.SubItems.Add(log.MemberID.ToString());
+                var log = logs[idx];
+                var mem = members.FirstOrDefault(m => m.MemberID == log.MemberID);
+                string name    = mem?.Name ?? "-";
+                string initial = !string.IsNullOrWhiteSpace(name) && name != "-" ? name.Substring(0, 1).ToUpperInvariant() : "?";
+                string ciRaw   = log.CheckInTime  as string ?? "";
+                string coRaw   = log.CheckOutTime as string ?? "";
+                string ciFmt   = FormatAttendanceTime(ciRaw);
+                string coFmt   = FormatAttendanceTime(coRaw);
+                bool stillInside = string.IsNullOrWhiteSpace(coRaw);
+                string duration  = ComputeTimeOnSite(ciRaw, coRaw);
 
-                // Fetch member name from AppSession cache
-                var member = members.FirstOrDefault(m => m.MemberID == log.MemberID);
-                item.SubItems.Add(member?.Name ?? "-");
+                var builder = new CLV.CardBuilder()
+                    .Avatar(initial, accent, 8, 12, 36)
+                    .Text(name,                    50,  8,  240, 18, CLV.F9Bold, navy)
+                    .Text($"ID {log.MemberID}",   50,  28, 240, 16, CLV.F8,     muted)
+                    .Text(log.LogID.ToString(),   295, 20,  85, 18, CLV.F9,     muted)
+                    .Pill(ciFmt ?? "-", Color.FromArgb(209, 250, 229), green, 390, 17, 112, 24);
 
-                item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckInTime) ? "-" : log.CheckInTime);
-                item.SubItems.Add(string.IsNullOrWhiteSpace(log.CheckOutTime) ? "-" : log.CheckOutTime);
-                allItems.Add(item);
-            }
+                if (stillInside)
+                    builder.Pill("● Still inside", Color.FromArgb(254, 243, 199), amber, 520, 17, 120, 24);
+                else
+                    builder.Pill(coFmt ?? "-", Color.FromArgb(209, 250, 229), green, 520, 17, 112, 24);
 
-            // Initialize pagination if not already done
-            if (_memberAttendancePagination == null && lst_member.Parent != null)
-            {
-                _memberAttendancePagination = new ListViewPagination(lst_member, lst_member.Parent);
-            }
+                builder.Text(duration ?? "—", 660, 20, 140, 18, CLV.F9, navy);
 
-            // Use pagination to display items
-            if (_memberAttendancePagination != null)
-            {
-                _memberAttendancePagination.SetItems(allItems);
-            }
-            else
-            {
-                // Fallback: add items directly if pagination not available
-                lst_member.BeginUpdate();
-                lst_member.Items.AddRange(allItems.ToArray());
-                lst_member.EndUpdate();
-            }
+                return builder.Build(820, 60);
+            });
+        }
+
+        private static string FormatAttendanceTime(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            if (DateTime.TryParse(raw, out DateTime dt)) return dt.ToString("hh:mm tt");
+            return raw;
+        }
+
+        private static string ComputeTimeOnSite(string checkIn, string checkOut)
+        {
+            if (!DateTime.TryParse(checkIn, out DateTime ci) || !DateTime.TryParse(checkOut, out DateTime co)) return null;
+            var diff = co - ci;
+            if (diff.TotalSeconds < 0) return null;
+            if (diff.TotalMinutes < 1) return "<1m";
+            if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m";
+            return $"{(int)diff.TotalHours}h {diff.Minutes}m";
         }
 
         private void date_manualdoor_ValueChanged(object sender, EventArgs e)
@@ -3069,90 +2284,25 @@ namespace smart_attendance_middleware
 
         private void LoadFilteredManualDoorLogs()
         {
-            lst_manualdoor.Items.Clear();
-            lst_manualdoor.View = View.Details;
-            lst_manualdoor.FullRowSelect = true;
-            lst_manualdoor.GridLines = true;
-
-            lst_manualdoor.Columns.Clear();
-            lst_manualdoor.Columns.Add("Gate ID", 50);
-            lst_manualdoor.Columns.Add("Device IP", 100);
-            lst_manualdoor.Columns.Add("Member ID", 80);
-            lst_manualdoor.Columns.Add("Member Name", 120);
-            lst_manualdoor.Columns.Add("Is Visitor", 70);
-            lst_manualdoor.Columns.Add("Visitor Name", 120);
-            lst_manualdoor.Columns.Add("Visitor Phone", 100);
-            lst_manualdoor.Columns.Add("Reason", 150);
-            lst_manualdoor.Columns.Add("Accessed Time", 150);
-            lst_manualdoor.Columns.Add("Username", 80);
-            lst_manualdoor.Columns[lst_manualdoor.Columns.Count - 1].Width = -2;
-
-            // Add visitor filter control on first call
-            if (cmbDoorVisitor == null && lst_manualdoor.Parent != null)
+            if (cmbDoorVisitor.Items.Count == 0)
             {
-                var doorTab = lst_manualdoor.Parent;
-                int dvx = btn_filter_manualdoor != null ? btn_filter_manualdoor.Right + 10 : 300;
-                cmbDoorVisitor = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(dvx, 6), Width = 130 };
                 cmbDoorVisitor.Items.AddRange(new object[] { "All", "Members Only", "Visitors Only" });
                 cmbDoorVisitor.SelectedIndex = 0;
-                cmbDoorVisitor.SelectedIndexChanged += (s, e) => LoadFilteredManualDoorLogs();
-                doorTab.Controls.Add(cmbDoorVisitor);
             }
 
-            DateTime selectedDate = date_manualdoor.Value.Date; // Get the date part
+            DateTime selectedDate  = date_manualdoor.Value.Date;
+            var gateAccessLogs     = AppSession.AllGateLogs ?? new List<GateAccessed>();
+            var members            = AppSession.AllMembers ?? new List<Member>();
 
-            var gateAccessLogs = AppSession.AllGateLogs ?? new List<GateAccessed>();
-            var members = AppSession.AllMembers ?? new List<Member>();
-
-            // Apply date filter
             var filteredLogs = gateAccessLogs.Where(log => log.AccessedTime.Date == selectedDate).ToList();
 
-            // Apply visitor filter
             string visitorSel = cmbDoorVisitor?.SelectedItem?.ToString() ?? "All";
             if (visitorSel == "Members Only")
                 filteredLogs = filteredLogs.Where(log => !log.IsVisitor).ToList();
             else if (visitorSel == "Visitors Only")
                 filteredLogs = filteredLogs.Where(log => log.IsVisitor).ToList();
 
-            var allItems = new List<ListViewItem>();
-
-            foreach (var log in filteredLogs)
-            {
-                var item = new ListViewItem(log.GateId.ToString());
-                item.SubItems.Add(log.DeviceIP);
-                item.SubItems.Add(log.MemberId.ToString());
-
-                // Fetch member name from AppSession cache
-                var member = members.FirstOrDefault(m => m.MemberID == log.MemberId);
-                item.SubItems.Add(member?.Name ?? "-");
-
-                item.SubItems.Add(log.IsVisitor.ToString());
-                item.SubItems.Add(log.VisitorName);
-                item.SubItems.Add(log.VisitorPhone);
-                item.SubItems.Add(log.Reason);
-                item.SubItems.Add(log.AccessedTime.ToString());
-                item.SubItems.Add(log.Username);
-                allItems.Add(item);
-            }
-
-            // Initialize pagination if not already done
-            if (_manualDoorPagination == null && lst_manualdoor.Parent != null)
-            {
-                _manualDoorPagination = new ListViewPagination(lst_manualdoor, lst_manualdoor.Parent);
-            }
-
-            // Use pagination to display items
-            if (_manualDoorPagination != null)
-            {
-                _manualDoorPagination.SetItems(allItems);
-            }
-            else
-            {
-                // Fallback: add items directly if pagination not available
-                lst_manualdoor.BeginUpdate();
-                lst_manualdoor.Items.AddRange(allItems.ToArray());
-                lst_manualdoor.EndUpdate();
-            }
+            RenderManualDoorLogs(filteredLogs, members);
         }
 
         private void lst_manualdoor_SelectedIndexChanged(object sender, EventArgs e)
@@ -3162,66 +2312,64 @@ namespace smart_attendance_middleware
 
         private void LoadManualDoorLogs()
         {
-            lst_manualdoor.Items.Clear();
-            lst_manualdoor.View = View.Details;
-            lst_manualdoor.FullRowSelect = true;
-            lst_manualdoor.GridLines = true;
-
-            lst_manualdoor.Columns.Clear();
-            lst_manualdoor.Columns.Add("Gate ID", 50);
-            lst_manualdoor.Columns.Add("Device IP", 100);
-            lst_manualdoor.Columns.Add("Member ID", 80);
-            lst_manualdoor.Columns.Add("Member Name", 120);
-            lst_manualdoor.Columns.Add("Is Visitor", 70);
-            lst_manualdoor.Columns.Add("Visitor Name", 120);
-            lst_manualdoor.Columns.Add("Visitor Phone", 100);
-            lst_manualdoor.Columns.Add("Reason", 150);
-            lst_manualdoor.Columns.Add("Accessed Time", 150);
-            lst_manualdoor.Columns.Add("Username", 80);
-            lst_manualdoor.Columns[lst_manualdoor.Columns.Count - 1].Width = -2;
-
             var gateAccessLogs = AppSession.AllGateLogs ?? new List<GateAccessed>();
-            var members = AppSession.AllMembers ?? new List<Member>();
+            var members        = AppSession.AllMembers ?? new List<Member>();
+            RenderManualDoorLogs(gateAccessLogs, members);
+        }
 
-            var allItems = new List<ListViewItem>();
+        private void RenderManualDoorLogs(List<GateAccessed> logs, List<Member> members)
+        {
+            var navy   = Color.FromArgb(30, 38, 90);
+            var muted  = Color.FromArgb(130, 138, 165);
+            var violet = Color.FromArgb(109, 40, 217);
 
-            foreach (var log in gateAccessLogs)
+            var allDevices = (AppSession.DeviceList ?? new List<Device>())
+                .Concat(AppSession.StaffDeviceList ?? new List<Device>())
+                .ToList();
+
+            clv_manualDoor.SetRowFactory(logs.Count, idx =>
             {
-                var item = new ListViewItem(log.GateId.ToString());
-                item.SubItems.Add(log.DeviceIP);
-                item.SubItems.Add(log.MemberId.ToString());
+                var log = logs[idx];
+                var mem = members.FirstOrDefault(m => m.MemberID == log.MemberId);
 
-                // Fetch member name from AppSession cache
-                var member = members.FirstOrDefault(m => m.MemberID == log.MemberId);
-                item.SubItems.Add(member?.Name ?? "-");
+                // Gate display: look up device name by IP
+                var dev = allDevices.FirstOrDefault(d => d.DeviceIP == log.DeviceIP);
+                string gateName = !string.IsNullOrWhiteSpace(dev?.Location) ? dev.Location
+                    : (!string.IsNullOrWhiteSpace(dev?.Department) ? dev.Department : $"Gate {log.GateId}");
+                string gateIp   = log.DeviceIP ?? "-";
 
-                item.SubItems.Add(log.IsVisitor.ToString());
-                item.SubItems.Add(log.VisitorName);
-                item.SubItems.Add(log.VisitorPhone);
-                item.SubItems.Add(log.Reason);
-                item.SubItems.Add(log.AccessedTime.ToString());
-                item.SubItems.Add(log.Username);
-                allItems.Add(item);
-            }
+                // Person display
+                string personName, personSub;
+                bool isVisitor = log.IsVisitor;
+                if (isVisitor)
+                {
+                    personName = !string.IsNullOrWhiteSpace(log.VisitorName) ? log.VisitorName : "Visitor";
+                    personSub  = $"Visitor · {log.VisitorPhone ?? "-"}";
+                }
+                else
+                {
+                    personName = mem?.Name ?? $"Member {log.MemberId}";
+                    personSub  = $"Member · ID {log.MemberId}";
+                }
 
-            // Initialize pagination if not already done
-            if (_manualDoorPagination == null && lst_manualdoor.Parent != null)
-            {
-                _manualDoorPagination = new ListViewPagination(lst_manualdoor, lst_manualdoor.Parent);
-            }
+                string timeFmt = FormatAttendanceTime(log.AccessedTime.ToString()) ?? log.AccessedTime.ToString("hh:mm tt");
+                string reason  = !string.IsNullOrWhiteSpace(log.Reason) ? log.Reason : "-";
 
-            // Use pagination to display items
-            if (_manualDoorPagination != null)
-            {
-                _manualDoorPagination.SetItems(allItems);
-            }
-            else
-            {
-                // Fallback: add items directly if pagination not available
-                lst_manualdoor.BeginUpdate();
-                lst_manualdoor.Items.AddRange(allItems.ToArray());
-                lst_manualdoor.EndUpdate();
-            }
+                var builder = new CLV.CardBuilder()
+                    .Text(gateName, 0,   8,  215, 18, CLV.F9Bold, navy)
+                    .Text(gateIp,   0,   28, 215, 16, CLV.F8,     muted)
+                    .Text(personName, 220, 8, isVisitor ? 145 : 310, 18, CLV.F9Bold, navy);
+
+                if (isVisitor)
+                    builder.Pill("Visitor", Color.FromArgb(237, 233, 254), violet, 370, 11, 60, 22);
+
+                builder
+                    .Text(personSub,  220, 28, 310, 16, CLV.F8, muted)
+                    .Text(reason,     540, 20, 165, 18, CLV.F9, muted)
+                    .Text(timeFmt,    710, 20, 100, 18, CLV.F9, navy);
+
+                return builder.Build(820, 60);
+            });
         }
 
 
@@ -3230,7 +2378,7 @@ namespace smart_attendance_middleware
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(txt_debounce.Text) || !int.TryParse(txt_debounce.Text, out int seconds))
+                if (string.IsNullOrWhiteSpace(rtb_debounce.Text) || !int.TryParse(rtb_debounce.Text, out int seconds))
                 {
                     MessageBox.Show("Please enter a valid numeric value for debounce seconds.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
@@ -3258,7 +2406,7 @@ namespace smart_attendance_middleware
 
         private async void btn_getdb_Click(object sender, EventArgs e)
         {
-            btn_getdb.Enabled = false;
+            rb_getdb.Enabled = false;
             Cursor = Cursors.WaitCursor;
 
             try
@@ -3292,7 +2440,7 @@ namespace smart_attendance_middleware
             finally
             {
                 Cursor = Cursors.Default;
-                btn_getdb.Enabled = true;
+                rb_getdb.Enabled = true;
             }
         }
 
@@ -3332,7 +2480,7 @@ namespace smart_attendance_middleware
 
         ////////////////////////////////////STAFF MANAGEMENT HELPERS////////////////////////////////////
 
-        // initialize AutoComplete suggestions for txt_staff using DB: _dbHelper.GetStaffs()
+        // initialize AutoComplete suggestions for rtb_staff using DB: _dbHelper.GetStaffs()
         private void InitializeStaffSuggestions()
         {
             try
@@ -3346,13 +2494,13 @@ namespace smart_attendance_middleware
                         names.Add(s.Name.Trim());
                 }
 
-                txt_staff.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-                txt_staff.AutoCompleteSource = AutoCompleteSource.CustomSource;
+                rtb_staff.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+                rtb_staff.AutoCompleteSource = AutoCompleteSource.CustomSource;
 
                 var staffCollection = new AutoCompleteStringCollection();
                 staffCollection.AddRange(names.ToArray());
 
-                txt_staff.AutoCompleteCustomSource = staffCollection;
+                rtb_staff.AutoCompleteCustomSource = staffCollection;
             }
             catch (Exception ex)
             {
@@ -3523,25 +2671,64 @@ namespace smart_attendance_middleware
                 if (chkStaffFailure?.Checked == true)
                     allItems = allItems.Where(i => i.SubItems[6].Text == "[View]").ToList();
 
-                // Initialize pagination if not already done
-                if (_staffsPagination == null && lst_staffs.Parent != null)
-                {
-                    _staffsPagination = new ListViewPagination(lst_staffs, lst_staffs.Parent);
-                }
+                var sNavy   = Color.FromArgb(30, 38, 90);
+                var sMuted  = Color.FromArgb(130, 138, 165);
+                var sAccent = Color.FromArgb(59, 130, 246);
+                var sGreen  = Color.FromArgb(16, 185, 129);
+                var sRed    = Color.FromArgb(239, 68, 68);
 
-                // Use pagination to display items
-                if (_staffsPagination != null)
+                clv_staffs.SetRowFactory(allItems.Count, idx =>
                 {
-                    _staffsPagination.SetItems(allItems);
-                }
-                else
-                {
-                    // Fallback: add items directly if pagination not available
-                    lst_staffs.BeginUpdate();
-                    lst_staffs.Items.Clear();
-                    lst_staffs.Items.AddRange(allItems.ToArray());
-                    lst_staffs.EndUpdate();
-                }
+                    var item = allItems[idx];
+                    string staffId   = item.SubItems[0].Text;
+                    string name      = item.SubItems[1].Text;
+                    string status    = item.SubItems[2].Text;
+                    string bio       = item.SubItems[3].Text;
+                    string enrollId  = item.SubItems[4].Text;
+                    string sync      = item.SubItems[5].Text;
+                    bool hasFailure  = item.SubItems.Count > 6 && item.SubItems[6].Text == "[View]";
+
+                    bool isActive = string.Equals(status, "active", StringComparison.OrdinalIgnoreCase);
+                    Color stBg = isActive ? Color.FromArgb(209, 250, 229) : Color.FromArgb(254, 226, 226);
+                    Color stFg = isActive ? sGreen : sRed;
+
+                    string initial = !string.IsNullOrWhiteSpace(name) ? name.Substring(0, 1).ToUpperInvariant() : "?";
+                    dynamic capturedTag = item.Tag;
+
+                    var builder = new CLV.CardBuilder()
+                        .Avatar(initial, sAccent, 8, 8, 36)
+                        .Text(staffId,  0,   6, 70,  18, CLV.F9,     sNavy)
+                        .Text(name,     70,  6, 140, 18, CLV.F9Bold, sNavy)
+                        .Pill(status,   stBg, stFg, 210, 13, 80, 22)
+                        .Pill(string.IsNullOrWhiteSpace(bio) ? "-" : bio, Color.FromArgb(219, 234, 254), Color.FromArgb(37, 99, 235), 290, 13, 130, 22)
+                        .Text(enrollId, 420, 6, 100, 18, CLV.F8,     sMuted)
+                        .Text(sync,     520, 6, 110, 18, CLV.F8,     sMuted);
+
+                    if (hasFailure)
+                        builder.Button("Failure", Color.FromArgb(254, 226, 226), sRed, 630, 13, 72, 26, () =>
+                        {
+                            string staffName = capturedTag?.Name?.ToString() ?? "-";
+                            int.TryParse(capturedTag?.EnrollmentID?.ToString() ?? "", out int enrollIdInt);
+                            string fullReason = "-";
+                            try
+                            {
+                                var log = _dbHelper.GetLatestLogForMember(enrollIdInt);
+                                if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
+                                    fullReason = (string)log.FailureReason;
+                            }
+                            catch { }
+                            if (fullReason != "-")
+                                using (var dlg = new FailureReasonDetailForm(fullReason, null, _dbHelper))
+                                    dlg.ShowDialog(this);
+                        });
+
+                    builder.Button("View", sAccent, Color.White, 715, 13, 60, 26, () =>
+                    {
+                        ShowStaffDetailsForm(capturedTag?.StaffID?.ToString(), capturedTag?.Name?.ToString(), capturedTag?.EnrollmentID?.ToString());
+                    });
+
+                    return builder.Build(800, 52);
+                });
             }
             catch (Exception ex)
             {
@@ -3549,49 +2736,18 @@ namespace smart_attendance_middleware
             }
         }
 
-        // setup lst_staffs columns and initial load
+        // setup clv_staffs and initial load
         private void InitializeStaffsListView()
         {
-            lst_staffs.BeginUpdate();
-            lst_staffs.Clear();
-            lst_staffs.View = View.Details;
-            lst_staffs.FullRowSelect = true;
-            lst_staffs.GridLines = true;
-
-            // Columns matching Members pattern
-            lst_staffs.Columns.Add("Staff ID", 70);
-            lst_staffs.Columns.Add("Name", 140);
-            lst_staffs.Columns.Add("Status", 80);
-            lst_staffs.Columns.Add("Biometric", 130);
-            lst_staffs.Columns.Add("Enrollment ID", 100);
-            lst_staffs.Columns.Add("Sync Status", 110);
-            lst_staffs.Columns.Add("Failure Reason", 85);
-            lst_staffs.Columns.Add("Actions", 100);
-
-            lst_staffs.EndUpdate();
-
-            // Add filter controls to the tab
-            var staffTab = lst_staffs.Parent;
-            if (staffTab != null && cmbStaffStatus == null)
+            if (cmbStaffStatus.Items.Count == 0)
             {
-                int sx = btn_stafffilter != null ? btn_stafffilter.Right + 10 : 290;
-                cmbStaffStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(sx, 11), Width = 110 };
                 cmbStaffStatus.Items.AddRange(new object[] { "All Status", "active", "inactive" });
                 cmbStaffStatus.SelectedIndex = 0;
-                cmbStaffStatus.SelectedIndexChanged += (s, e) => LoadStaffsIntoListView(txt_staff?.Text?.Trim());
-                staffTab.Controls.Add(cmbStaffStatus);
-                sx += 118;
-
-                cmbStaffSync = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(sx, 11), Width = 120 };
+            }
+            if (cmbStaffSync.Items.Count == 0)
+            {
                 cmbStaffSync.Items.AddRange(new object[] { "All Sync", "Fully Synced", "Not Synced" });
                 cmbStaffSync.SelectedIndex = 0;
-                cmbStaffSync.SelectedIndexChanged += (s, e) => LoadStaffsIntoListView(txt_staff?.Text?.Trim());
-                staffTab.Controls.Add(cmbStaffSync);
-                sx += 128;
-
-                chkStaffFailure = new CheckBox { Text = "Has Failure Only", Location = new Point(sx, 13), AutoSize = true };
-                chkStaffFailure.CheckedChanged += (s, e) => LoadStaffsIntoListView(txt_staff?.Text?.Trim());
-                staffTab.Controls.Add(chkStaffFailure);
             }
 
             // Initial full load
@@ -3599,18 +2755,18 @@ namespace smart_attendance_middleware
         }
 
 
-        // button click handler to filter by txt_staff text (unchanged)
+        // button click handler to filter by rtb_staff text (unchanged)
         private void btn_stafffilter_Click(object sender, EventArgs e)
         {
-            string nameFilter = txt_staff.Text?.Trim();
+            string nameFilter = rtb_staff.Text?.Trim();
             LoadStaffsIntoListView(string.IsNullOrEmpty(nameFilter) ? null : nameFilter);
         }
 
         // optional live filtering as user types (unchanged)
-        private void txt_staff_TextChanged(object sender, EventArgs e)
+        private void rtb_staff_TextChanged(object sender, EventArgs e)
         {
             if (!_isInitialized) return;
-            var filter = txt_staff.Text?.Trim();
+            var filter = rtb_staff.Text?.Trim();
             LoadStaffsIntoListView(string.IsNullOrEmpty(filter) ? null : filter);
         }
 
@@ -3629,14 +2785,14 @@ namespace smart_attendance_middleware
                 {
                     int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
 
-                    if (columnIndex == lst_members.Columns.Count - 1) // Actions column [View]
+                    if (columnIndex == 9 - 1) // Actions column [View] (members has 9 columns)
                     {
                         if (item.Tag is Member member)
                         {
                             ShowMemberDeviceStatus(member);
                         }
                     }
-                    else if (columnIndex == lst_members.Columns.Count - 2) // Failure Reason [View] column
+                    else if (columnIndex == 9 - 2) // Failure Reason [View] column
                     {
                         if (item.Tag is Member m && item.SubItems[columnIndex].Text == "[View]")
                         {
@@ -3737,13 +2893,13 @@ namespace smart_attendance_middleware
         }
 
 
-        // AutoComplete for txt_staffname using known staff names from session
+        // AutoComplete for rtb_staffname using known staff names from session
         private void InitializeStaffAttendanceSuggestions()
         {
             try
             {
-                txt_staffname.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-                txt_staffname.AutoCompleteSource = AutoCompleteSource.CustomSource;
+                rtb_staffname.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+                rtb_staffname.AutoCompleteSource = AutoCompleteSource.CustomSource;
 
                 var staffList = AppSession.AllStaff ?? new List<Staff>();
                 var names = new AutoCompleteStringCollection();
@@ -3754,7 +2910,7 @@ namespace smart_attendance_middleware
                         names.Add(s.Name);
                 }
 
-                txt_staffname.AutoCompleteCustomSource = names;
+                rtb_staffname.AutoCompleteCustomSource = names;
             }
             catch (Exception ex)
             {
@@ -3762,26 +2918,9 @@ namespace smart_attendance_middleware
             }
         }
 
-        //  setup lst_staffattendence columns
+        //  setup clv_staffAttendance and initial load
         private void InitializeStaffAttendanceListView()
         {
-            lst_staffattendence.BeginUpdate();
-            lst_staffattendence.Clear();
-            lst_staffattendence.View = View.Details;
-            lst_staffattendence.FullRowSelect = true;
-            lst_staffattendence.GridLines = true;
-
-            lst_staffattendence.Columns.Add("Log ID", 80);
-            lst_staffattendence.Columns.Add("Enrollment ID", 110);
-            lst_staffattendence.Columns.Add("Attendee ID", 100);
-            lst_staffattendence.Columns.Add("Name", 160);
-            lst_staffattendence.Columns.Add("Check-In", 160);
-            lst_staffattendence.Columns.Add("Check-Out", 160);
-            lst_staffattendence.Columns[lst_staffattendence.Columns.Count - 1].Width = -2;
-
-            lst_staffattendence.EndUpdate();
-
-            // Initial load
             LoadFilteredStaffAttendanceLogs();
         }
 
@@ -3791,10 +2930,7 @@ namespace smart_attendance_middleware
         {
             try
             {
-                lst_staffattendence.BeginUpdate();
-                lst_staffattendence.Items.Clear();
-
-                string nameFilter = txt_staffname.Text?.Trim();
+                string nameFilter = rtb_staffname.Text?.Trim();
                 bool filterByDate = date_staffattendence.Checked;
                 DateTime selectedDate = date_staffattendence.Value.Date;
 
@@ -3811,71 +2947,61 @@ namespace smart_attendance_middleware
 
                     if (filterByDate)
                     {
-                        DateTime? inTime = ParseDateTime(SafeToString(log, "CheckInTime"));
+                        DateTime? inTime  = ParseDateTime(SafeToString(log, "CheckInTime"));
                         DateTime? outTime = ParseDateTime(SafeToString(log, "CheckOutTime"));
-
-                        bool matches =
-                            (inTime.HasValue && inTime.Value.Date == selectedDate) ||
-                            (outTime.HasValue && outTime.Value.Date == selectedDate);
-
-                        if (!matches) return false;
+                        if ((!inTime.HasValue || inTime.Value.Date != selectedDate) &&
+                            (!outTime.HasValue || outTime.Value.Date != selectedDate))
+                            return false;
                     }
-
                     return true;
                 }).ToList();
 
-                var allItems = new List<ListViewItem>();
+                var navy  = Color.FromArgb(30, 38, 90);
+                var muted = Color.FromArgb(130, 138, 165);
 
-                foreach (var log in filtered)
+                var amber  = Color.FromArgb(180, 120, 0);
+                var accent = Color.FromArgb(59, 130, 246);
+                var green  = Color.FromArgb(16, 185, 129);
+
+                clv_staffAttendance.SetRowFactory(filtered.Count, idx =>
                 {
-                    string logId = SafeToString(log, "LogID");
-                    string enrollmentId = SafeToString(log, "EnrollmentID");
-                    if (string.IsNullOrEmpty(enrollmentId))
-                        enrollmentId = SafeToString(log, "EnrollmentId");
-
+                    var log         = filtered[idx];
+                    string logId    = SafeToString(log, "LogID");
+                    string enrollId = SafeToString(log, "EnrollmentID");
+                    if (string.IsNullOrEmpty(enrollId)) enrollId = SafeToString(log, "EnrollmentId");
                     string attendeeId = SafeToString(log, "AttendeeID");
-                    if (string.IsNullOrEmpty(attendeeId))
-                        attendeeId = SafeToString(log, "StaffID");
-
-                    string name = SafeToString(log, "Name");
-                    string checkIn = SafeToString(log, "CheckInTime");
+                    if (string.IsNullOrEmpty(attendeeId)) attendeeId = SafeToString(log, "StaffID");
+                    string name     = SafeToString(log, "Name");
+                    string checkIn  = SafeToString(log, "CheckInTime");
                     string checkOut = SafeToString(log, "CheckOutTime");
 
-                    var item = new ListViewItem(string.IsNullOrWhiteSpace(logId) ? "-" : logId);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(enrollmentId) ? "-" : enrollmentId);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(attendeeId) ? "-" : attendeeId);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(name) ? "-" : name);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(checkIn) ? "-" : checkIn);
-                    item.SubItems.Add(string.IsNullOrWhiteSpace(checkOut) ? "-" : checkOut);
+                    string initial   = !string.IsNullOrWhiteSpace(name) ? name.Substring(0, 1).ToUpperInvariant() : "?";
+                    string ciFmt     = FormatAttendanceTime(checkIn);
+                    string coFmt     = FormatAttendanceTime(checkOut);
+                    bool stillInside = string.IsNullOrWhiteSpace(checkOut);
+                    string duration  = ComputeTimeOnSite(checkIn, checkOut);
+                    string subText   = !string.IsNullOrWhiteSpace(enrollId) ? $"Enroll {enrollId}" : (!string.IsNullOrWhiteSpace(attendeeId) ? $"ID {attendeeId}" : "-");
 
-                    item.Tag = new { EnrollmentId = enrollmentId, Name = name, AttendeeId = attendeeId };
-                    allItems.Add(item);
-                }
+                    var builder = new CLV.CardBuilder()
+                        .Avatar(initial, accent, 8, 12, 36)
+                        .Text(string.IsNullOrWhiteSpace(name) ? "-" : name, 50,  8,  240, 18, CLV.F9Bold, navy)
+                        .Text(subText,                                       50,  28, 240, 16, CLV.F8,     muted)
+                        .Text(string.IsNullOrWhiteSpace(logId) ? "-" : logId, 295, 20, 85, 18, CLV.F9,   muted)
+                        .Pill(ciFmt ?? "-", Color.FromArgb(209, 250, 229), green, 390, 17, 112, 24);
 
-                // Initialize pagination if not already done
-                if (_staffAttendancePagination == null && lst_staffattendence.Parent != null)
-                {
-                    _staffAttendancePagination = new ListViewPagination(lst_staffattendence, lst_staffattendence.Parent);
-                }
+                    if (stillInside)
+                        builder.Pill("● Still inside", Color.FromArgb(254, 243, 199), amber, 520, 17, 120, 24);
+                    else
+                        builder.Pill(coFmt ?? "-", Color.FromArgb(209, 250, 229), green, 520, 17, 112, 24);
 
-                // Use pagination to display items
-                if (_staffAttendancePagination != null)
-                {
-                    _staffAttendancePagination.SetItems(allItems);
-                }
-                else
-                {
-                    // Fallback: add items directly if pagination not available
-                    lst_staffattendence.Items.AddRange(allItems.ToArray());
-                }
+                    builder.Text(duration ?? "—", 660, 20, 140, 18, CLV.F9, navy);
+
+                    return builder.Build(820, 60);
+                });
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to load staff attendance logs: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                lst_staffattendence.EndUpdate();
             }
         }
 
@@ -3887,7 +3013,7 @@ namespace smart_attendance_middleware
         }
 
         // live filter on typing
-        private void txt_staffname_TextChanged(object sender, EventArgs e)
+        private void rtb_staffname_TextChanged(object sender, EventArgs e)
         {
             if (!_isInitialized) return;
             LoadFilteredStaffAttendanceLogs();
@@ -3938,7 +3064,7 @@ namespace smart_attendance_middleware
                 {
                     int columnIndex = item.SubItems.IndexOf(hitInfo.SubItem);
 
-                    if (columnIndex == lst_staffs.Columns.Count - 1) // Actions column [View]
+                    if (columnIndex == 8 - 1) // Actions column [View] (staffs has 8 columns)
                     {
                         dynamic staffTag = item.Tag;
                         string staffIdStr = staffTag.StaffID;
@@ -3948,7 +3074,7 @@ namespace smart_attendance_middleware
                         // Open staff details form with Enroll/Delete buttons
                         ShowStaffDetailsForm(staffIdStr, staffName, enrollmentStr);
                     }
-                    else if (columnIndex == lst_staffs.Columns.Count - 2 && item.SubItems[columnIndex].Text == "[View]") // Failure Reason [View]
+                    else if (columnIndex == 8 - 2 && item.SubItems[columnIndex].Text == "[View]") // Failure Reason [View]
                     {
                         dynamic staffTag = item.Tag;
                         string staffName = staffTag.Name?.ToString() ?? "-";
@@ -4152,7 +3278,7 @@ namespace smart_attendance_middleware
                     LogHelper.Log($"[DeleteStaffFromListView] ✓ Successfully deleted staff '{staffName}' (Enrollment ID: {enrollId})");
 
                     // Refresh the staff list view
-                    LoadStaffsIntoListView(txt_staff.Text?.Trim());
+                    LoadStaffsIntoListView(rtb_staff.Text?.Trim());
                 }
                 else
                 {
@@ -4379,7 +3505,7 @@ namespace smart_attendance_middleware
                     clb.Items.Add(label, true); // default: pre-check all
                 }
 
-                var btnOk = new Button
+                var btnOk = new Controls.RoundedButton
                 {
                     Text = "OK",
                     DialogResult = DialogResult.OK,
@@ -4389,14 +3515,15 @@ namespace smart_attendance_middleware
                     Anchor = AnchorStyles.Bottom | AnchorStyles.Right
                 };
 
-                var btnCancel = new Button
+                var btnCancel = new Controls.RoundedButton
                 {
                     Text = "Cancel",
                     DialogResult = DialogResult.Cancel,
                     Width = 100,
                     Left = dlg.ClientSize.Width - 110,
                     Top = clb.Bottom + 8,
-                    Anchor = AnchorStyles.Bottom | AnchorStyles.Right
+                    Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+                    NormalColor = Color.FromArgb(107, 114, 128)
                 };
 
                 dlg.Controls.Add(clb);
@@ -4558,7 +3685,7 @@ namespace smart_attendance_middleware
         {
             try
             {
-                string folderId = txt_drivefolderid.Text.Trim();
+                string folderId = rtb_drivefolderid.Text.Trim();
                 if (string.IsNullOrWhiteSpace(folderId))
                 {
                     MessageBox.Show("Please enter a valid Google Drive Folder ID.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -4579,7 +3706,7 @@ namespace smart_attendance_middleware
         {
             try
             {
-                string json = txt_drivecredentials.Text.Trim();
+                string json = rtb_drivecredentials.Text.Trim();
                 if (string.IsNullOrWhiteSpace(json))
                 {
                     MessageBox.Show("Please paste the credentials JSON content.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -4593,7 +3720,7 @@ namespace smart_attendance_middleware
                 _dbHelper.SaveEncryptedSetting("GoogleDriveCredentialsJson", json);
                 LogHelper.Log("[Backup] Saved and Encrypted Google Drive Credentials.");
                 MessageBox.Show("Google Drive credentials saved and encrypted successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                txt_drivecredentials.Clear(); // Clear for security
+                rtb_drivecredentials.Clear(); // Clear for security
 
             }
             catch (Exception ex)
@@ -4674,7 +3801,7 @@ namespace smart_attendance_middleware
                 if (confirm != DialogResult.Yes) return;
 
                 // 4. Execution
-                btn_backupcleanup.Enabled = false;
+                rb_backupcleanup.Enabled = false;
                 Cursor = Cursors.WaitCursor;
 
                 int deleted = await CommonUtils.CleanupOldDriveFilesAsync(folderId, days, _dbHelper);
@@ -4696,7 +3823,7 @@ namespace smart_attendance_middleware
             }
             finally
             {
-                btn_backupcleanup.Enabled = true;
+                rb_backupcleanup.Enabled = true;
                 Cursor = Cursors.Default;
             }
         }
@@ -4709,9 +3836,29 @@ namespace smart_attendance_middleware
 
         private void subpnl_setup_Paint(object sender, PaintEventArgs e)
         {
+        }
 
+        private void card_Paint(object sender, PaintEventArgs e)
+        {
+            var card = sender as System.Windows.Forms.Panel;
+            if (card == null) return;
+            if (this.DesignMode) return;
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var rc = new Rectangle(0, 0, card.Width - 1, card.Height - 1);
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            int r = 10, d = r * 2;
+            path.AddArc(rc.X, rc.Y, d, d, 180, 90);
+            path.AddArc(rc.Right - d, rc.Y, d, d, 270, 90);
+            path.AddArc(rc.Right - d, rc.Bottom - d, d, d, 0, 90);
+            path.AddArc(rc.X, rc.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            using (var br = new SolidBrush(Color.White)) g.FillPath(br, path);
+            using (var pen = new Pen(Color.FromArgb(229, 231, 235), 1f)) g.DrawPath(pen, path);
+            path.Dispose();
         }
 
         //////////////////////////////////////////////////////////////////////////////////////
     }
 }
+

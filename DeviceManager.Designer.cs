@@ -37,27 +37,13 @@ namespace smart_attendance_middleware
             this.lbl_drivecredentials = new System.Windows.Forms.Label();
             this.lbl_apikey = new System.Windows.Forms.Label();
             this.pnl_welcome = new System.Windows.Forms.Panel();
-            this.pnl_welcome_tiles = new System.Windows.Forms.FlowLayoutPanel();
-            this.tile_device = new System.Windows.Forms.Panel();
-            this.lbl_tile_device_icon = new System.Windows.Forms.Label();
-            this.lbl_tile_device_name = new System.Windows.Forms.Label();
-            this.lbl_tile_device_desc = new System.Windows.Forms.Label();
-            this.tile_user = new System.Windows.Forms.Panel();
-            this.lbl_tile_user_icon = new System.Windows.Forms.Label();
-            this.lbl_tile_user_name = new System.Windows.Forms.Label();
-            this.lbl_tile_user_desc = new System.Windows.Forms.Label();
-            this.tile_staff = new System.Windows.Forms.Panel();
-            this.lbl_tile_staff_icon = new System.Windows.Forms.Label();
-            this.lbl_tile_staff_name = new System.Windows.Forms.Label();
-            this.lbl_tile_staff_desc = new System.Windows.Forms.Label();
-            this.tile_member = new System.Windows.Forms.Panel();
-            this.lbl_tile_member_icon = new System.Windows.Forms.Label();
-            this.lbl_tile_member_name = new System.Windows.Forms.Label();
-            this.lbl_tile_member_desc = new System.Windows.Forms.Label();
-            this.tile_setup = new System.Windows.Forms.Panel();
-            this.lbl_tile_setup_icon = new System.Windows.Forms.Label();
-            this.lbl_tile_setup_name = new System.Windows.Forms.Label();
-            this.lbl_tile_setup_desc = new System.Windows.Forms.Label();
+            this.pnl_welcome_tiles = new System.Windows.Forms.Panel();
+            this.tile_device = new smart_attendance_middleware.Controls.TileCard();
+            this.tile_user = new smart_attendance_middleware.Controls.TileCard();
+            this.tile_staff = new smart_attendance_middleware.Controls.TileCard();
+            this.tile_member = new smart_attendance_middleware.Controls.TileCard();
+            this.tile_finger = new smart_attendance_middleware.Controls.TileCard();
+            this.tile_setup = new smart_attendance_middleware.Controls.TileCard();
             this.pnl_welcome_header = new System.Windows.Forms.Panel();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.lbl_welcome_title = new System.Windows.Forms.Label();
@@ -74,96 +60,141 @@ namespace smart_attendance_middleware
             this.btn_staffmanagment = new System.Windows.Forms.Label();
             this.btn_userManagement = new System.Windows.Forms.Label();
             this.btn_device_management = new System.Windows.Forms.Label();
-            this.txtAPIkey = new System.Windows.Forms.TextBox();
-            this.btnSaveAPI = new System.Windows.Forms.Button();
+            this.rtb_APIkey = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rb_SaveAPI = new smart_attendance_middleware.Controls.RoundedButton();
             this.pnl_UserManagement = new System.Windows.Forms.Panel();
             this.panel3 = new System.Windows.Forms.Panel();
-            this.btn_addUser = new System.Windows.Forms.Button();
-            this.btn_editUser = new System.Windows.Forms.Button();
-            this.list_LocalUser = new System.Windows.Forms.ListView();
-            this.btn_change_password = new System.Windows.Forms.Button();
-            this.btn_deleteUser = new System.Windows.Forms.Button();
+            this.rb_addUser = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_editUser = new smart_attendance_middleware.Controls.RoundedButton();
+            this.cmbUserRole = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.clv_localUsers = new smart_attendance_middleware.Controls.CardListView();
+            this.rb_change_password = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_deleteUser = new smart_attendance_middleware.Controls.RoundedButton();
             this.pnl_attendence = new System.Windows.Forms.Panel();
+            this.mtp_attendence = new smart_attendance_middleware.Controls.ModernTabPanel();
             this.tab_attendence = new System.Windows.Forms.TabControl();
             this.tab_members = new System.Windows.Forms.TabPage();
-            this.txt_memb_name = new System.Windows.Forms.TextBox();
-            this.flt_members = new System.Windows.Forms.Button();
-            this.lst_members = new System.Windows.Forms.ListView();
+            this.rtb_memb_name = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rb_flt_members = new smart_attendance_middleware.Controls.RoundedButton();
+            this.cmbMemberSync = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.chkMemberFailure = new smart_attendance_middleware.Controls.ToggleSwitch();
+            this.lbl_hasFailureOnly = new System.Windows.Forms.Label();
+            this.clv_members = new smart_attendance_middleware.Controls.CardListView();
             this.tab_memberAttendence = new System.Windows.Forms.TabPage();
             this.panel5 = new System.Windows.Forms.Panel();
-            this.txt_membername = new System.Windows.Forms.TextBox();
+            this.rtb_membername = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.date_member = new System.Windows.Forms.DateTimePicker();
-            this.btn_filter_member = new System.Windows.Forms.Button();
-            this.lst_member = new System.Windows.Forms.ListView();
+            this.rb_filter_member = new smart_attendance_middleware.Controls.RoundedButton();
+            this.clv_memberAttendance = new smart_attendance_middleware.Controls.CardListView();
             this.tab_manualdoor = new System.Windows.Forms.TabPage();
             this.panel6 = new System.Windows.Forms.Panel();
             this.date_manualdoor = new System.Windows.Forms.DateTimePicker();
-            this.btn_filter_manualdoor = new System.Windows.Forms.Button();
-            this.lst_manualdoor = new System.Windows.Forms.ListView();
+            this.rb_filter_manualdoor = new smart_attendance_middleware.Controls.RoundedButton();
+            this.cmbDoorVisitor = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.clv_manualDoor = new smart_attendance_middleware.Controls.CardListView();
             this.tab_pendingjobs = new System.Windows.Forms.TabPage();
+            this.clv_pendingJobs = new smart_attendance_middleware.Controls.CardListView();
             this.lbl_pendingjobs_info = new System.Windows.Forms.Label();
-            this.lst_pendingjobs = new System.Windows.Forms.ListView();
+            this.cmbPendingDevice = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.cmbPendingFor = new smart_attendance_middleware.Controls.RoundedComboBox();
             this.tab_staffpendingjobs = new System.Windows.Forms.TabPage();
+            this.clv_staffPendingJobs = new smart_attendance_middleware.Controls.CardListView();
             this.lbl_staffpendingjobs_info = new System.Windows.Forms.Label();
-            this.lst_staffpendingjobs = new System.Windows.Forms.ListView();
+            this.cmbStaffPendingDevice = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.cmbStaffPendingFor = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.cmbStaffStatus = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.cmbStaffSync = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.chkStaffFailure = new smart_attendance_middleware.Controls.ToggleSwitch();
+            this.lbl_chkStaffFailure = new System.Windows.Forms.Label();
             this.pnl_setup = new System.Windows.Forms.Panel();
             this.subpnl_setup = new System.Windows.Forms.Panel();
+            this.card_api = new System.Windows.Forms.Panel();
+            this.lbl_card_api_title = new System.Windows.Forms.Label();
+            this.lbl_card_api_sub = new System.Windows.Forms.Label();
+            this.card_sync = new System.Windows.Forms.Panel();
+            this.lbl_card_sync_title = new System.Windows.Forms.Label();
+            this.lbl_card_sync_sub = new System.Windows.Forms.Label();
+            this.rtb_debounce = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lbl_card_sync_retentionlabel = new System.Windows.Forms.Label();
+            this.rcmb_retention = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.lbl_card_sync_retentionfooter = new System.Windows.Forms.Label();
+            this.rb_btn_sync_save = new smart_attendance_middleware.Controls.RoundedButton();
+            this.card_backup = new System.Windows.Forms.Panel();
+            this.lbl_card_backup_title = new System.Windows.Forms.Label();
+            this.lbl_card_backup_sub = new System.Windows.Forms.Label();
+            this.lbl_backupConnectionStatus = new System.Windows.Forms.Label();
+            this.lbl_card_backup_type_label = new System.Windows.Forms.Label();
+            this.chk_logs = new System.Windows.Forms.CheckBox();
+            this.chk_glogs = new System.Windows.Forms.CheckBox();
+            this.chk_database = new System.Windows.Forms.CheckBox();
+            this.lbl_card_backup_drivefolder_label = new System.Windows.Forms.Label();
+            this.rtb_drivefolderid = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lbl_card_backup_creds_label = new System.Windows.Forms.Label();
+            this.rtb_drivecredentials = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rb_test_connection = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_btn_savebackup = new smart_attendance_middleware.Controls.RoundedButton();
+            this.card_maint = new System.Windows.Forms.Panel();
+            this.lbl_card_maint_title = new System.Windows.Forms.Label();
+            this.lbl_card_maint_sub = new System.Windows.Forms.Label();
+            this.rb_backupcleanup = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_settime = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_getdb = new smart_attendance_middleware.Controls.RoundedButton();
+            this.card_gate = new System.Windows.Forms.Panel();
+            this.lbl_card_gate_title = new System.Windows.Forms.Label();
+            this.lbl_card_gate_sub = new System.Windows.Forms.Label();
+            this.chk_requireGateEntryForm = new smart_attendance_middleware.Controls.ToggleSwitch();
+            this.chk_requireGatePassword = new smart_attendance_middleware.Controls.ToggleSwitch();
+            this.rb_btn_gate_save = new smart_attendance_middleware.Controls.RoundedButton();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.btn_backupcleanup = new System.Windows.Forms.Button();
-            this.btn_settime = new System.Windows.Forms.Button();
-            this.btn_getdb = new System.Windows.Forms.Button();
-            this.btn_savedebounce = new System.Windows.Forms.Button();
-            this.txt_debounce = new System.Windows.Forms.TextBox();
-            this.btn_save_retentiondays = new System.Windows.Forms.Button();
+            this.rb_savedebounce = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_save_retentiondays = new smart_attendance_middleware.Controls.RoundedButton();
             this.num_retention = new System.Windows.Forms.NumericUpDown();
             this.pnl_backup = new System.Windows.Forms.Panel();
             this.lbl_backuptype = new System.Windows.Forms.Label();
-            this.txt_drivefolderid = new System.Windows.Forms.TextBox();
-            this.txt_drivecredentials = new System.Windows.Forms.TextBox();
-            this.btn_save_drivefolderid = new System.Windows.Forms.Button();
-            this.btn_save_drivecredentials = new System.Windows.Forms.Button();
-            this.btn_test_connection = new System.Windows.Forms.Button();
-            this.chk_glogs = new System.Windows.Forms.CheckBox();
-            this.chk_database = new System.Windows.Forms.CheckBox();
-            this.chk_logs = new System.Windows.Forms.CheckBox();
-            this.btn_save_backuptype = new System.Windows.Forms.Button();
+            this.rb_save_drivefolderid = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_save_drivecredentials = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rb_save_backuptype = new smart_attendance_middleware.Controls.RoundedButton();
             this.pnl_staffsManagment = new System.Windows.Forms.Panel();
+            this.mtp_staff = new smart_attendance_middleware.Controls.ModernTabPanel();
             this.tab_staff = new System.Windows.Forms.TabControl();
             this.tab_staffmembers = new System.Windows.Forms.TabPage();
-            this.txt_staff = new System.Windows.Forms.TextBox();
-            this.btn_stafffilter = new System.Windows.Forms.Button();
-            this.lst_staffs = new System.Windows.Forms.ListView();
+            this.rtb_staff = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rb_stafffilter = new smart_attendance_middleware.Controls.RoundedButton();
+            this.clv_staffs = new smart_attendance_middleware.Controls.CardListView();
             this.tab_staffattendence = new System.Windows.Forms.TabPage();
             this.panel8 = new System.Windows.Forms.Panel();
-            this.txt_staffname = new System.Windows.Forms.TextBox();
+            this.rtb_staffname = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.date_staffattendence = new System.Windows.Forms.DateTimePicker();
-            this.btn_filterattendencestaff = new System.Windows.Forms.Button();
-            this.lst_staffattendence = new System.Windows.Forms.ListView();
+            this.rb_filterattendencestaff = new smart_attendance_middleware.Controls.RoundedButton();
+            this.clv_staffAttendance = new smart_attendance_middleware.Controls.CardListView();
             this.pnl_device = new System.Windows.Forms.Panel();
-            this.btn_format = new System.Windows.Forms.Button();
-            this.txt_password = new System.Windows.Forms.TextBox();
+            this.rb_format = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rtb_password = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.lbl_password = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
-            this.cmb_machine_no = new System.Windows.Forms.ComboBox();
-            this.listViewDevices = new System.Windows.Forms.ListView();
-            this.btnCancle = new System.Windows.Forms.Button();
-            this.cmb_connectionType = new System.Windows.Forms.ComboBox();
-            this.cmb_device_type = new System.Windows.Forms.ComboBox();
-            this.btnSave = new System.Windows.Forms.Button();
-            this.txt_finger_capacity = new System.Windows.Forms.TextBox();
-            this.txt_RFID_capacity = new System.Windows.Forms.TextBox();
-            this.btn_remove_device = new System.Windows.Forms.Button();
-            this.txt_face_capacity = new System.Windows.Forms.TextBox();
-            this.txt_last_synced = new System.Windows.Forms.TextBox();
-            this.txt_device_status = new System.Windows.Forms.TextBox();
-            this.btnEdit = new System.Windows.Forms.Button();
-            this.txt_location = new System.Windows.Forms.TextBox();
-            this.txt_timeZone = new System.Windows.Forms.TextBox();
-            this.txt_port = new System.Windows.Forms.TextBox();
-            this.txt_ip = new System.Windows.Forms.TextBox();
-            this.txt_Serial = new System.Windows.Forms.TextBox();
-            this.txt_department = new System.Windows.Forms.TextBox();
-            this.txt_Device_id = new System.Windows.Forms.TextBox();
+            this.rcmb_machine_no = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.cmbDeviceStatus = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.chkDeviceIsStaff = new smart_attendance_middleware.Controls.ToggleSwitch();
+            this.lbl_staffDevicesOnly = new System.Windows.Forms.Label();
+            this.clv_devices = new smart_attendance_middleware.Controls.CardListView();
+            this.rb_Cancle = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rcmb_connectionType = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.rcmb_device_type = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.rb_Save = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rtb_finger_capacity = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_RFID_capacity = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rb_remove_device = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rtb_face_capacity = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_last_synced = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_device_status = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rb_Edit = new smart_attendance_middleware.Controls.RoundedButton();
+            this.rtb_location = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_timeZone = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_port = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_ip = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_Serial = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_department = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.rtb_Device_id = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.label17 = new System.Windows.Forms.Label();
             this.label18 = new System.Windows.Forms.Label();
             this.label19 = new System.Windows.Forms.Label();
@@ -179,15 +210,14 @@ namespace smart_attendance_middleware
             this.label11 = new System.Windows.Forms.Label();
             this.label10 = new System.Windows.Forms.Label();
             this.label9 = new System.Windows.Forms.Label();
-            this.btn_add_device = new System.Windows.Forms.Button();
+            this.rb_add_device = new smart_attendance_middleware.Controls.RoundedButton();
             this.pnl_deviceManager = new System.Windows.Forms.Panel();
+            this.lbl_gate_entrylabel = new System.Windows.Forms.Label();
+            this.lbl_gate_entrydesc = new System.Windows.Forms.Label();
+            this.lbl_gate_passwordlabel = new System.Windows.Forms.Label();
+            this.lbl_gate_passworddesc = new System.Windows.Forms.Label();
             this.pnl_welcome.SuspendLayout();
             this.pnl_welcome_tiles.SuspendLayout();
-            this.tile_device.SuspendLayout();
-            this.tile_user.SuspendLayout();
-            this.tile_staff.SuspendLayout();
-            this.tile_member.SuspendLayout();
-            this.tile_setup.SuspendLayout();
             this.pnl_welcome_header.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.pnl_topnav.SuspendLayout();
@@ -204,10 +234,12 @@ namespace smart_attendance_middleware
             this.tab_pendingjobs.SuspendLayout();
             this.tab_staffpendingjobs.SuspendLayout();
             this.pnl_setup.SuspendLayout();
-            this.subpnl_setup.SuspendLayout();
-            this.panel1.SuspendLayout();
+            this.card_api.SuspendLayout();
+            this.card_sync.SuspendLayout();
+            this.card_backup.SuspendLayout();
+            this.card_maint.SuspendLayout();
+            this.card_gate.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.num_retention)).BeginInit();
-            this.pnl_backup.SuspendLayout();
             this.pnl_staffsManagment.SuspendLayout();
             this.tab_staff.SuspendLayout();
             this.tab_staffmembers.SuspendLayout();
@@ -270,7 +302,6 @@ namespace smart_attendance_middleware
             this.pnl_welcome.Name = "pnl_welcome";
             this.pnl_welcome.Size = new System.Drawing.Size(881, 614);
             this.pnl_welcome.TabIndex = 200;
-            this.pnl_welcome.Visible = false;
             // 
             // pnl_welcome_tiles
             // 
@@ -279,262 +310,108 @@ namespace smart_attendance_middleware
             this.pnl_welcome_tiles.Controls.Add(this.tile_user);
             this.pnl_welcome_tiles.Controls.Add(this.tile_staff);
             this.pnl_welcome_tiles.Controls.Add(this.tile_member);
+            this.pnl_welcome_tiles.Controls.Add(this.tile_finger);
             this.pnl_welcome_tiles.Controls.Add(this.tile_setup);
             this.pnl_welcome_tiles.Location = new System.Drawing.Point(0, 0);
             this.pnl_welcome_tiles.Name = "pnl_welcome_tiles";
-            this.pnl_welcome_tiles.Padding = new System.Windows.Forms.Padding(30, 20, 10, 10);
             this.pnl_welcome_tiles.Size = new System.Drawing.Size(881, 614);
             this.pnl_welcome_tiles.TabIndex = 1;
             // 
             // tile_device
             // 
-            this.tile_device.BackColor = System.Drawing.Color.White;
-            this.tile_device.Controls.Add(this.lbl_tile_device_icon);
-            this.tile_device.Controls.Add(this.lbl_tile_device_name);
-            this.tile_device.Controls.Add(this.lbl_tile_device_desc);
+            this.tile_device.BackColor = System.Drawing.Color.Transparent;
+            this.tile_device.Badge = "";
+            this.tile_device.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
             this.tile_device.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.tile_device.Location = new System.Drawing.Point(30, 20);
-            this.tile_device.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_device.Description = "Add, edit and monitor biometric devices.";
+            this.tile_device.Highlighted = true;
+            this.tile_device.Icon = "🖥";
+            this.tile_device.Location = new System.Drawing.Point(24, 24);
             this.tile_device.Name = "tile_device";
-            this.tile_device.Size = new System.Drawing.Size(180, 160);
+            this.tile_device.Size = new System.Drawing.Size(256, 175);
             this.tile_device.TabIndex = 0;
+            this.tile_device.Title = "Device Management";
             this.tile_device.Click += new System.EventHandler(this.btn_device_management_Click);
-            // 
-            // lbl_tile_device_icon
-            // 
-            this.lbl_tile_device_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
-            this.lbl_tile_device_icon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(23)))), ((int)(((byte)(49)))));
-            this.lbl_tile_device_icon.Location = new System.Drawing.Point(0, 18);
-            this.lbl_tile_device_icon.Name = "lbl_tile_device_icon";
-            this.lbl_tile_device_icon.Size = new System.Drawing.Size(180, 52);
-            this.lbl_tile_device_icon.TabIndex = 0;
-            this.lbl_tile_device_icon.Text = "🖥";
-            this.lbl_tile_device_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_device_icon.Click += new System.EventHandler(this.btn_device_management_Click);
-            // 
-            // lbl_tile_device_name
-            // 
-            this.lbl_tile_device_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lbl_tile_device_name.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(35)))), ((int)(((byte)(60)))));
-            this.lbl_tile_device_name.Location = new System.Drawing.Point(10, 74);
-            this.lbl_tile_device_name.Name = "lbl_tile_device_name";
-            this.lbl_tile_device_name.Size = new System.Drawing.Size(160, 22);
-            this.lbl_tile_device_name.TabIndex = 1;
-            this.lbl_tile_device_name.Text = "Device Management";
-            this.lbl_tile_device_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_device_name.Click += new System.EventHandler(this.btn_device_management_Click);
-            // 
-            // lbl_tile_device_desc
-            // 
-            this.lbl_tile_device_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
-            this.lbl_tile_device_desc.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(125)))), ((int)(((byte)(145)))));
-            this.lbl_tile_device_desc.Location = new System.Drawing.Point(10, 98);
-            this.lbl_tile_device_desc.Name = "lbl_tile_device_desc";
-            this.lbl_tile_device_desc.Size = new System.Drawing.Size(160, 38);
-            this.lbl_tile_device_desc.TabIndex = 2;
-            this.lbl_tile_device_desc.Text = "Add, edit and monitor\nbiometric devices";
-            this.lbl_tile_device_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.lbl_tile_device_desc.Click += new System.EventHandler(this.btn_device_management_Click);
             // 
             // tile_user
             // 
-            this.tile_user.BackColor = System.Drawing.Color.White;
-            this.tile_user.Controls.Add(this.lbl_tile_user_icon);
-            this.tile_user.Controls.Add(this.lbl_tile_user_name);
-            this.tile_user.Controls.Add(this.lbl_tile_user_desc);
+            this.tile_user.BackColor = System.Drawing.Color.Transparent;
+            this.tile_user.Badge = "";
+            this.tile_user.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
             this.tile_user.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.tile_user.Location = new System.Drawing.Point(228, 20);
-            this.tile_user.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_user.Description = "System users and their permissions.";
+            this.tile_user.Highlighted = false;
+            this.tile_user.Icon = "👤";
+            this.tile_user.Location = new System.Drawing.Point(298, 24);
             this.tile_user.Name = "tile_user";
-            this.tile_user.Size = new System.Drawing.Size(180, 160);
+            this.tile_user.Size = new System.Drawing.Size(256, 175);
             this.tile_user.TabIndex = 1;
+            this.tile_user.Title = "User Management";
             this.tile_user.Click += new System.EventHandler(this.btn_userManagement_Click);
-            // 
-            // lbl_tile_user_icon
-            // 
-            this.lbl_tile_user_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
-            this.lbl_tile_user_icon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(23)))), ((int)(((byte)(49)))));
-            this.lbl_tile_user_icon.Location = new System.Drawing.Point(0, 18);
-            this.lbl_tile_user_icon.Name = "lbl_tile_user_icon";
-            this.lbl_tile_user_icon.Size = new System.Drawing.Size(180, 52);
-            this.lbl_tile_user_icon.TabIndex = 0;
-            this.lbl_tile_user_icon.Text = "👤";
-            this.lbl_tile_user_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_user_icon.Click += new System.EventHandler(this.btn_userManagement_Click);
-            // 
-            // lbl_tile_user_name
-            // 
-            this.lbl_tile_user_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lbl_tile_user_name.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(35)))), ((int)(((byte)(60)))));
-            this.lbl_tile_user_name.Location = new System.Drawing.Point(10, 74);
-            this.lbl_tile_user_name.Name = "lbl_tile_user_name";
-            this.lbl_tile_user_name.Size = new System.Drawing.Size(160, 22);
-            this.lbl_tile_user_name.TabIndex = 1;
-            this.lbl_tile_user_name.Text = "User Management";
-            this.lbl_tile_user_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_user_name.Click += new System.EventHandler(this.btn_userManagement_Click);
-            // 
-            // lbl_tile_user_desc
-            // 
-            this.lbl_tile_user_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
-            this.lbl_tile_user_desc.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(125)))), ((int)(((byte)(145)))));
-            this.lbl_tile_user_desc.Location = new System.Drawing.Point(10, 98);
-            this.lbl_tile_user_desc.Name = "lbl_tile_user_desc";
-            this.lbl_tile_user_desc.Size = new System.Drawing.Size(160, 38);
-            this.lbl_tile_user_desc.TabIndex = 2;
-            this.lbl_tile_user_desc.Text = "Manage system users\nand their permissions";
-            this.lbl_tile_user_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.lbl_tile_user_desc.Click += new System.EventHandler(this.btn_userManagement_Click);
             // 
             // tile_staff
             // 
-            this.tile_staff.BackColor = System.Drawing.Color.White;
-            this.tile_staff.Controls.Add(this.lbl_tile_staff_icon);
-            this.tile_staff.Controls.Add(this.lbl_tile_staff_name);
-            this.tile_staff.Controls.Add(this.lbl_tile_staff_desc);
+            this.tile_staff.BackColor = System.Drawing.Color.Transparent;
+            this.tile_staff.Badge = "";
+            this.tile_staff.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
             this.tile_staff.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.tile_staff.Location = new System.Drawing.Point(426, 20);
-            this.tile_staff.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_staff.Description = "Staff list and attendance.";
+            this.tile_staff.Highlighted = false;
+            this.tile_staff.Icon = "👔";
+            this.tile_staff.Location = new System.Drawing.Point(572, 24);
             this.tile_staff.Name = "tile_staff";
-            this.tile_staff.Size = new System.Drawing.Size(180, 160);
+            this.tile_staff.Size = new System.Drawing.Size(256, 175);
             this.tile_staff.TabIndex = 2;
+            this.tile_staff.Title = "Staff Management";
             this.tile_staff.Click += new System.EventHandler(this.btn_attendance_Click);
-            // 
-            // lbl_tile_staff_icon
-            // 
-            this.lbl_tile_staff_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
-            this.lbl_tile_staff_icon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(23)))), ((int)(((byte)(49)))));
-            this.lbl_tile_staff_icon.Location = new System.Drawing.Point(0, 18);
-            this.lbl_tile_staff_icon.Name = "lbl_tile_staff_icon";
-            this.lbl_tile_staff_icon.Size = new System.Drawing.Size(180, 52);
-            this.lbl_tile_staff_icon.TabIndex = 0;
-            this.lbl_tile_staff_icon.Text = "👔";
-            this.lbl_tile_staff_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_staff_icon.Click += new System.EventHandler(this.btn_attendance_Click);
-            // 
-            // lbl_tile_staff_name
-            // 
-            this.lbl_tile_staff_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lbl_tile_staff_name.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(35)))), ((int)(((byte)(60)))));
-            this.lbl_tile_staff_name.Location = new System.Drawing.Point(10, 74);
-            this.lbl_tile_staff_name.Name = "lbl_tile_staff_name";
-            this.lbl_tile_staff_name.Size = new System.Drawing.Size(160, 22);
-            this.lbl_tile_staff_name.TabIndex = 1;
-            this.lbl_tile_staff_name.Text = "Staff Management";
-            this.lbl_tile_staff_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_staff_name.Click += new System.EventHandler(this.btn_attendance_Click);
-            // 
-            // lbl_tile_staff_desc
-            // 
-            this.lbl_tile_staff_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
-            this.lbl_tile_staff_desc.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(125)))), ((int)(((byte)(145)))));
-            this.lbl_tile_staff_desc.Location = new System.Drawing.Point(10, 98);
-            this.lbl_tile_staff_desc.Name = "lbl_tile_staff_desc";
-            this.lbl_tile_staff_desc.Size = new System.Drawing.Size(160, 38);
-            this.lbl_tile_staff_desc.TabIndex = 2;
-            this.lbl_tile_staff_desc.Text = "View and manage\nstaff attendance";
-            this.lbl_tile_staff_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.lbl_tile_staff_desc.Click += new System.EventHandler(this.btn_attendance_Click);
             // 
             // tile_member
             // 
-            this.tile_member.BackColor = System.Drawing.Color.White;
-            this.tile_member.Controls.Add(this.lbl_tile_member_icon);
-            this.tile_member.Controls.Add(this.lbl_tile_member_name);
-            this.tile_member.Controls.Add(this.lbl_tile_member_desc);
+            this.tile_member.BackColor = System.Drawing.Color.Transparent;
+            this.tile_member.Badge = "";
+            this.tile_member.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
             this.tile_member.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.tile_member.Location = new System.Drawing.Point(624, 20);
-            this.tile_member.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_member.Description = "Member records, offline entries, renewals.";
+            this.tile_member.Highlighted = false;
+            this.tile_member.Icon = "🏋";
+            this.tile_member.Location = new System.Drawing.Point(24, 217);
             this.tile_member.Name = "tile_member";
-            this.tile_member.Size = new System.Drawing.Size(180, 160);
+            this.tile_member.Size = new System.Drawing.Size(256, 175);
             this.tile_member.TabIndex = 3;
+            this.tile_member.Title = "Member Management";
             this.tile_member.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
             // 
-            // lbl_tile_member_icon
+            // tile_finger
             // 
-            this.lbl_tile_member_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
-            this.lbl_tile_member_icon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(23)))), ((int)(((byte)(49)))));
-            this.lbl_tile_member_icon.Location = new System.Drawing.Point(0, 18);
-            this.lbl_tile_member_icon.Name = "lbl_tile_member_icon";
-            this.lbl_tile_member_icon.Size = new System.Drawing.Size(180, 52);
-            this.lbl_tile_member_icon.TabIndex = 0;
-            this.lbl_tile_member_icon.Text = "🏋";
-            this.lbl_tile_member_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_member_icon.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
-            // 
-            // lbl_tile_member_name
-            // 
-            this.lbl_tile_member_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lbl_tile_member_name.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(35)))), ((int)(((byte)(60)))));
-            this.lbl_tile_member_name.Location = new System.Drawing.Point(10, 74);
-            this.lbl_tile_member_name.Name = "lbl_tile_member_name";
-            this.lbl_tile_member_name.Size = new System.Drawing.Size(160, 22);
-            this.lbl_tile_member_name.TabIndex = 1;
-            this.lbl_tile_member_name.Text = "Member Management";
-            this.lbl_tile_member_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_member_name.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
-            // 
-            // lbl_tile_member_desc
-            // 
-            this.lbl_tile_member_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
-            this.lbl_tile_member_desc.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(125)))), ((int)(((byte)(145)))));
-            this.lbl_tile_member_desc.Location = new System.Drawing.Point(10, 98);
-            this.lbl_tile_member_desc.Name = "lbl_tile_member_desc";
-            this.lbl_tile_member_desc.Size = new System.Drawing.Size(160, 38);
-            this.lbl_tile_member_desc.TabIndex = 2;
-            this.lbl_tile_member_desc.Text = "Track member records\nand attendance logs";
-            this.lbl_tile_member_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.lbl_tile_member_desc.Click += new System.EventHandler(this.btn_attendencemanagment_Click);
+            this.tile_finger.BackColor = System.Drawing.Color.Transparent;
+            this.tile_finger.Badge = "";
+            this.tile_finger.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
+            this.tile_finger.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.tile_finger.Description = "Enroll or remove missing fingerprints.";
+            this.tile_finger.Highlighted = false;
+            this.tile_finger.Icon = "👆";
+            this.tile_finger.Location = new System.Drawing.Point(298, 217);
+            this.tile_finger.Name = "tile_finger";
+            this.tile_finger.Size = new System.Drawing.Size(256, 175);
+            this.tile_finger.TabIndex = 4;
+            this.tile_finger.Title = "Fingerprint Management";
+            this.tile_finger.Click += new System.EventHandler(this.tile_finger_Click);
             // 
             // tile_setup
             // 
-            this.tile_setup.BackColor = System.Drawing.Color.White;
-            this.tile_setup.Controls.Add(this.lbl_tile_setup_icon);
-            this.tile_setup.Controls.Add(this.lbl_tile_setup_name);
-            this.tile_setup.Controls.Add(this.lbl_tile_setup_desc);
+            this.tile_setup.BackColor = System.Drawing.Color.Transparent;
+            this.tile_setup.Badge = "";
+            this.tile_setup.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(16)))), ((int)(((byte)(185)))), ((int)(((byte)(129)))));
             this.tile_setup.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.tile_setup.Location = new System.Drawing.Point(30, 198);
-            this.tile_setup.Margin = new System.Windows.Forms.Padding(0, 0, 18, 18);
+            this.tile_setup.Description = "API keys, backups and settings.";
+            this.tile_setup.Highlighted = false;
+            this.tile_setup.Icon = "⚙";
+            this.tile_setup.Location = new System.Drawing.Point(572, 217);
             this.tile_setup.Name = "tile_setup";
-            this.tile_setup.Size = new System.Drawing.Size(180, 160);
-            this.tile_setup.TabIndex = 4;
+            this.tile_setup.Size = new System.Drawing.Size(256, 175);
+            this.tile_setup.TabIndex = 5;
+            this.tile_setup.Title = "Setup Management";
             this.tile_setup.Click += new System.EventHandler(this.btn_setupmanage_Click);
-            // 
-            // lbl_tile_setup_icon
-            // 
-            this.lbl_tile_setup_icon.Font = new System.Drawing.Font("Segoe UI Emoji", 26F);
-            this.lbl_tile_setup_icon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(23)))), ((int)(((byte)(49)))));
-            this.lbl_tile_setup_icon.Location = new System.Drawing.Point(0, 18);
-            this.lbl_tile_setup_icon.Name = "lbl_tile_setup_icon";
-            this.lbl_tile_setup_icon.Size = new System.Drawing.Size(180, 52);
-            this.lbl_tile_setup_icon.TabIndex = 0;
-            this.lbl_tile_setup_icon.Text = "⚙";
-            this.lbl_tile_setup_icon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_setup_icon.Click += new System.EventHandler(this.btn_setupmanage_Click);
-            // 
-            // lbl_tile_setup_name
-            // 
-            this.lbl_tile_setup_name.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lbl_tile_setup_name.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(35)))), ((int)(((byte)(60)))));
-            this.lbl_tile_setup_name.Location = new System.Drawing.Point(10, 74);
-            this.lbl_tile_setup_name.Name = "lbl_tile_setup_name";
-            this.lbl_tile_setup_name.Size = new System.Drawing.Size(160, 22);
-            this.lbl_tile_setup_name.TabIndex = 1;
-            this.lbl_tile_setup_name.Text = "Setup Management";
-            this.lbl_tile_setup_name.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lbl_tile_setup_name.Click += new System.EventHandler(this.btn_setupmanage_Click);
-            // 
-            // lbl_tile_setup_desc
-            // 
-            this.lbl_tile_setup_desc.Font = new System.Drawing.Font("Segoe UI", 7.5F);
-            this.lbl_tile_setup_desc.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(125)))), ((int)(((byte)(145)))));
-            this.lbl_tile_setup_desc.Location = new System.Drawing.Point(10, 98);
-            this.lbl_tile_setup_desc.Name = "lbl_tile_setup_desc";
-            this.lbl_tile_setup_desc.Size = new System.Drawing.Size(160, 38);
-            this.lbl_tile_setup_desc.TabIndex = 2;
-            this.lbl_tile_setup_desc.Text = "Configure API keys,\nbackups, and settings";
-            this.lbl_tile_setup_desc.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.lbl_tile_setup_desc.Click += new System.EventHandler(this.btn_setupmanage_Click);
             // 
             // pnl_welcome_header
             // 
@@ -595,7 +472,6 @@ namespace smart_attendance_middleware
             this.pnl_topnav.Name = "pnl_topnav";
             this.pnl_topnav.Size = new System.Drawing.Size(881, 46);
             this.pnl_topnav.TabIndex = 2;
-            this.pnl_topnav.Visible = false;
             // 
             // nav_device
             // 
@@ -689,7 +565,6 @@ namespace smart_attendance_middleware
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(187, 576);
             this.panel2.TabIndex = 2;
-            this.panel2.Visible = false;
             // 
             // btn_setupmanage
             // 
@@ -767,193 +642,312 @@ namespace smart_attendance_middleware
             this.btn_device_management.MouseLeave += new System.EventHandler(this.btn_device_management_MouseLeave);
             this.btn_device_management.MouseHover += new System.EventHandler(this.btn_device_management_MouseHover);
             // 
-            // txtAPIkey
+            // rtb_APIkey
             // 
-            this.txtAPIkey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtAPIkey.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txtAPIkey.Location = new System.Drawing.Point(13, 35);
-            this.txtAPIkey.Name = "txtAPIkey";
-            this.txtAPIkey.PasswordChar = '*';
-            this.txtAPIkey.Size = new System.Drawing.Size(668, 26);
-            this.txtAPIkey.TabIndex = 42;
+            this.rtb_APIkey.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_APIkey.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_APIkey.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_APIkey.Location = new System.Drawing.Point(16, 56);
+            this.rtb_APIkey.Name = "rtb_APIkey";
+            this.rtb_APIkey.Placeholder = "API Key";
+            this.rtb_APIkey.Radius = 10;
+            this.rtb_APIkey.Size = new System.Drawing.Size(386, 36);
+            this.rtb_APIkey.TabIndex = 42;
             // 
-            // btnSaveAPI
+            // rb_SaveAPI
             // 
-            this.btnSaveAPI.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnSaveAPI.Location = new System.Drawing.Point(687, 31);
-            this.btnSaveAPI.Name = "btnSaveAPI";
-            this.btnSaveAPI.Size = new System.Drawing.Size(108, 32);
-            this.btnSaveAPI.TabIndex = 39;
-            this.btnSaveAPI.Text = "Save";
-            this.btnSaveAPI.UseVisualStyleBackColor = true;
-            this.btnSaveAPI.Click += new System.EventHandler(this.btnSaveAPI_Click_1);
+            this.rb_SaveAPI.BackColor = System.Drawing.Color.Transparent;
+            this.rb_SaveAPI.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_SaveAPI.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_SaveAPI.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_SaveAPI.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_SaveAPI.ForeColor = System.Drawing.Color.White;
+            this.rb_SaveAPI.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_SaveAPI.Location = new System.Drawing.Point(410, 56);
+            this.rb_SaveAPI.Name = "rb_SaveAPI";
+            this.rb_SaveAPI.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_SaveAPI.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_SaveAPI.Radius = 10;
+            this.rb_SaveAPI.Size = new System.Drawing.Size(109, 36);
+            this.rb_SaveAPI.TabIndex = 39;
+            this.rb_SaveAPI.Text = "Save";
+            this.rb_SaveAPI.Click += new System.EventHandler(this.btnSaveAPI_Click_1);
             // 
             // pnl_UserManagement
             // 
             this.pnl_UserManagement.BackColor = System.Drawing.Color.WhiteSmoke;
             this.pnl_UserManagement.Controls.Add(this.panel3);
-            this.pnl_UserManagement.Location = new System.Drawing.Point(787, 83);
+            this.pnl_UserManagement.Location = new System.Drawing.Point(217, 750);
             this.pnl_UserManagement.Name = "pnl_UserManagement";
-            this.pnl_UserManagement.Size = new System.Drawing.Size(881, 724);
+            this.pnl_UserManagement.Size = new System.Drawing.Size(881, 712);
             this.pnl_UserManagement.TabIndex = 5;
-            this.pnl_UserManagement.Visible = false;
             // 
             // panel3
             // 
             this.panel3.BackColor = System.Drawing.Color.White;
-            this.panel3.Controls.Add(this.btn_addUser);
-            this.panel3.Controls.Add(this.btn_editUser);
-            this.panel3.Controls.Add(this.list_LocalUser);
-            this.panel3.Controls.Add(this.btn_change_password);
-            this.panel3.Controls.Add(this.btn_deleteUser);
+            this.panel3.Controls.Add(this.rb_addUser);
+            this.panel3.Controls.Add(this.rb_editUser);
+            this.panel3.Controls.Add(this.cmbUserRole);
+            this.panel3.Controls.Add(this.clv_localUsers);
+            this.panel3.Controls.Add(this.rb_change_password);
+            this.panel3.Controls.Add(this.rb_deleteUser);
             this.panel3.Location = new System.Drawing.Point(22, 156);
             this.panel3.Name = "panel3";
             this.panel3.Size = new System.Drawing.Size(837, 557);
             this.panel3.TabIndex = 2;
             // 
-            // btn_addUser
+            // rb_addUser
             // 
-            this.btn_addUser.Location = new System.Drawing.Point(723, 15);
-            this.btn_addUser.Name = "btn_addUser";
-            this.btn_addUser.Size = new System.Drawing.Size(105, 32);
-            this.btn_addUser.TabIndex = 4;
-            this.btn_addUser.Text = "Add New User";
-            this.btn_addUser.UseVisualStyleBackColor = true;
-            this.btn_addUser.Click += new System.EventHandler(this.btn_addUser_Click);
+            this.rb_addUser.BackColor = System.Drawing.Color.Transparent;
+            this.rb_addUser.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_addUser.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_addUser.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_addUser.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_addUser.ForeColor = System.Drawing.Color.White;
+            this.rb_addUser.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_addUser.Location = new System.Drawing.Point(723, 15);
+            this.rb_addUser.Name = "rb_addUser";
+            this.rb_addUser.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_addUser.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_addUser.Radius = 10;
+            this.rb_addUser.Size = new System.Drawing.Size(105, 32);
+            this.rb_addUser.TabIndex = 4;
+            this.rb_addUser.Text = "Add New User";
+            this.rb_addUser.Click += new System.EventHandler(this.btn_addUser_Click);
             // 
-            // btn_editUser
+            // rb_editUser
             // 
-            this.btn_editUser.Location = new System.Drawing.Point(717, 512);
-            this.btn_editUser.Name = "btn_editUser";
-            this.btn_editUser.Size = new System.Drawing.Size(113, 32);
-            this.btn_editUser.TabIndex = 41;
-            this.btn_editUser.Text = "Edit";
-            this.btn_editUser.UseVisualStyleBackColor = true;
-            this.btn_editUser.Click += new System.EventHandler(this.btn_editUser_Click_1);
+            this.rb_editUser.BackColor = System.Drawing.Color.Transparent;
+            this.rb_editUser.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_editUser.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_editUser.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_editUser.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_editUser.ForeColor = System.Drawing.Color.White;
+            this.rb_editUser.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_editUser.Location = new System.Drawing.Point(717, 512);
+            this.rb_editUser.Name = "rb_editUser";
+            this.rb_editUser.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.rb_editUser.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_editUser.Radius = 10;
+            this.rb_editUser.Size = new System.Drawing.Size(113, 32);
+            this.rb_editUser.TabIndex = 41;
+            this.rb_editUser.Text = "Edit";
+            this.rb_editUser.Click += new System.EventHandler(this.btn_editUser_Click_1);
             // 
-            // list_LocalUser
+            // cmbUserRole
             // 
-            this.list_LocalUser.HideSelection = false;
-            this.list_LocalUser.Location = new System.Drawing.Point(3, 53);
-            this.list_LocalUser.Name = "list_LocalUser";
-            this.list_LocalUser.Size = new System.Drawing.Size(831, 453);
-            this.list_LocalUser.TabIndex = 40;
-            this.list_LocalUser.UseCompatibleStateImageBehavior = false;
-            this.list_LocalUser.SelectedIndexChanged += new System.EventHandler(this.list_LocalUser_SelectedIndexChanged);
+            this.cmbUserRole.BackColor = System.Drawing.Color.White;
+            this.cmbUserRole.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbUserRole.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbUserRole.Location = new System.Drawing.Point(4, 4);
+            this.cmbUserRole.Name = "cmbUserRole";
+            this.cmbUserRole.Radius = 8;
+            this.cmbUserRole.Size = new System.Drawing.Size(130, 28);
+            this.cmbUserRole.TabIndex = 94;
+            this.cmbUserRole.SelectedIndexChanged += new System.EventHandler(this.cmbUserRole_SelectedIndexChanged);
             // 
-            // btn_change_password
+            // clv_localUsers
             // 
-            this.btn_change_password.Location = new System.Drawing.Point(595, 512);
-            this.btn_change_password.Name = "btn_change_password";
-            this.btn_change_password.Size = new System.Drawing.Size(113, 32);
-            this.btn_change_password.TabIndex = 39;
-            this.btn_change_password.Text = "Change Password";
-            this.btn_change_password.UseVisualStyleBackColor = true;
-            this.btn_change_password.Click += new System.EventHandler(this.btn_change_password_Click);
+            this.clv_localUsers.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_localUsers.Location = new System.Drawing.Point(3, 53);
+            this.clv_localUsers.Name = "clv_localUsers";
+            this.clv_localUsers.Size = new System.Drawing.Size(831, 453);
+            this.clv_localUsers.TabIndex = 40;
             // 
-            // btn_deleteUser
+            // rb_change_password
             // 
-            this.btn_deleteUser.Location = new System.Drawing.Point(473, 512);
-            this.btn_deleteUser.Name = "btn_deleteUser";
-            this.btn_deleteUser.Size = new System.Drawing.Size(113, 32);
-            this.btn_deleteUser.TabIndex = 5;
-            this.btn_deleteUser.Text = "Delete User";
-            this.btn_deleteUser.UseVisualStyleBackColor = true;
-            this.btn_deleteUser.Click += new System.EventHandler(this.btn_deleteUser_Click);
+            this.rb_change_password.BackColor = System.Drawing.Color.Transparent;
+            this.rb_change_password.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_change_password.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_change_password.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_change_password.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_change_password.ForeColor = System.Drawing.Color.White;
+            this.rb_change_password.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_change_password.Location = new System.Drawing.Point(595, 512);
+            this.rb_change_password.Name = "rb_change_password";
+            this.rb_change_password.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.rb_change_password.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_change_password.Radius = 10;
+            this.rb_change_password.Size = new System.Drawing.Size(113, 32);
+            this.rb_change_password.TabIndex = 39;
+            this.rb_change_password.Text = "Change Password";
+            this.rb_change_password.Click += new System.EventHandler(this.btn_change_password_Click);
+            // 
+            // rb_deleteUser
+            // 
+            this.rb_deleteUser.BackColor = System.Drawing.Color.Transparent;
+            this.rb_deleteUser.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_deleteUser.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_deleteUser.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_deleteUser.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_deleteUser.ForeColor = System.Drawing.Color.White;
+            this.rb_deleteUser.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
+            this.rb_deleteUser.Location = new System.Drawing.Point(473, 512);
+            this.rb_deleteUser.Name = "rb_deleteUser";
+            this.rb_deleteUser.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(68)))), ((int)(((byte)(68)))));
+            this.rb_deleteUser.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(185)))), ((int)(((byte)(28)))), ((int)(((byte)(28)))));
+            this.rb_deleteUser.Radius = 10;
+            this.rb_deleteUser.Size = new System.Drawing.Size(113, 32);
+            this.rb_deleteUser.TabIndex = 5;
+            this.rb_deleteUser.Text = "Delete User";
+            this.rb_deleteUser.Click += new System.EventHandler(this.btn_deleteUser_Click);
             // 
             // pnl_attendence
             // 
             this.pnl_attendence.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.pnl_attendence.Controls.Add(this.mtp_attendence);
             this.pnl_attendence.Controls.Add(this.tab_attendence);
             this.pnl_attendence.Location = new System.Drawing.Point(1114, 750);
             this.pnl_attendence.Name = "pnl_attendence";
             this.pnl_attendence.Size = new System.Drawing.Size(881, 724);
             this.pnl_attendence.TabIndex = 4;
-            this.pnl_attendence.Visible = false;
+            // 
+            // mtp_attendence
+            // 
+            this.mtp_attendence.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.mtp_attendence.Location = new System.Drawing.Point(8, 156);
+            this.mtp_attendence.Name = "mtp_attendence";
+            this.mtp_attendence.Size = new System.Drawing.Size(865, 44);
+            this.mtp_attendence.TabIndex = 200;
+            this.mtp_attendence.TabChanged += new System.EventHandler<int>(this.mtp_attendence_TabChanged);
             // 
             // tab_attendence
             // 
+            this.tab_attendence.Appearance = System.Windows.Forms.TabAppearance.FlatButtons;
             this.tab_attendence.Controls.Add(this.tab_members);
             this.tab_attendence.Controls.Add(this.tab_memberAttendence);
             this.tab_attendence.Controls.Add(this.tab_manualdoor);
             this.tab_attendence.Controls.Add(this.tab_pendingjobs);
-            this.tab_attendence.Location = new System.Drawing.Point(8, 156);
+            this.tab_attendence.ItemSize = new System.Drawing.Size(0, 1);
+            this.tab_attendence.Location = new System.Drawing.Point(8, 200);
             this.tab_attendence.Name = "tab_attendence";
             this.tab_attendence.SelectedIndex = 0;
-            this.tab_attendence.Size = new System.Drawing.Size(865, 557);
+            this.tab_attendence.Size = new System.Drawing.Size(865, 513);
+            this.tab_attendence.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
             this.tab_attendence.TabIndex = 83;
+            this.tab_attendence.SelectedIndexChanged += new System.EventHandler(this.tab_attendence_SelectedIndexChanged);
             // 
             // tab_members
             // 
-            this.tab_members.Controls.Add(this.txt_memb_name);
-            this.tab_members.Controls.Add(this.flt_members);
-            this.tab_members.Controls.Add(this.lst_members);
-            this.tab_members.Location = new System.Drawing.Point(4, 22);
+            this.tab_members.Controls.Add(this.rtb_memb_name);
+            this.tab_members.Controls.Add(this.rb_flt_members);
+            this.tab_members.Controls.Add(this.cmbMemberSync);
+            this.tab_members.Controls.Add(this.chkMemberFailure);
+            this.tab_members.Controls.Add(this.lbl_hasFailureOnly);
+            this.tab_members.Controls.Add(this.clv_members);
+            this.tab_members.Location = new System.Drawing.Point(4, 5);
             this.tab_members.Name = "tab_members";
-            this.tab_members.Size = new System.Drawing.Size(857, 531);
+            this.tab_members.Size = new System.Drawing.Size(857, 504);
             this.tab_members.TabIndex = 2;
             this.tab_members.Text = "Members";
             this.tab_members.UseVisualStyleBackColor = true;
             // 
-            // txt_memb_name
+            // rtb_memb_name
             // 
-            this.txt_memb_name.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_memb_name.Location = new System.Drawing.Point(7, 9);
-            this.txt_memb_name.Name = "txt_memb_name";
-            this.txt_memb_name.Size = new System.Drawing.Size(188, 23);
-            this.txt_memb_name.TabIndex = 89;
+            this.rtb_memb_name.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_memb_name.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_memb_name.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_memb_name.Location = new System.Drawing.Point(7, 9);
+            this.rtb_memb_name.Name = "rtb_memb_name";
+            this.rtb_memb_name.Placeholder = "";
+            this.rtb_memb_name.Radius = 10;
+            this.rtb_memb_name.Size = new System.Drawing.Size(188, 23);
+            this.rtb_memb_name.TabIndex = 89;
             // 
-            // flt_members
+            // rb_flt_members
             // 
-            this.flt_members.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.flt_members.Location = new System.Drawing.Point(201, 7);
-            this.flt_members.Name = "flt_members";
-            this.flt_members.Size = new System.Drawing.Size(80, 28);
-            this.flt_members.TabIndex = 91;
-            this.flt_members.Text = "Filter";
+            this.rb_flt_members.BackColor = System.Drawing.Color.Transparent;
+            this.rb_flt_members.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_flt_members.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_flt_members.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_flt_members.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_flt_members.ForeColor = System.Drawing.Color.White;
+            this.rb_flt_members.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_flt_members.Location = new System.Drawing.Point(201, 7);
+            this.rb_flt_members.Name = "rb_flt_members";
+            this.rb_flt_members.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_flt_members.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_flt_members.Radius = 10;
+            this.rb_flt_members.Size = new System.Drawing.Size(80, 28);
+            this.rb_flt_members.TabIndex = 91;
+            this.rb_flt_members.Text = "Filter";
             // 
-            // lst_members
+            // cmbMemberSync
             // 
-            this.lst_members.FullRowSelect = true;
-            this.lst_members.GridLines = true;
-            this.lst_members.HideSelection = false;
-            this.lst_members.Location = new System.Drawing.Point(7, 41);
-            this.lst_members.Name = "lst_members";
-            this.lst_members.Size = new System.Drawing.Size(847, 461);
-            this.lst_members.TabIndex = 92;
-            this.lst_members.UseCompatibleStateImageBehavior = false;
-            this.lst_members.View = System.Windows.Forms.View.Details;
+            this.cmbMemberSync.BackColor = System.Drawing.Color.White;
+            this.cmbMemberSync.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbMemberSync.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbMemberSync.Location = new System.Drawing.Point(4, 4);
+            this.cmbMemberSync.Name = "cmbMemberSync";
+            this.cmbMemberSync.Radius = 8;
+            this.cmbMemberSync.Size = new System.Drawing.Size(130, 28);
+            this.cmbMemberSync.TabIndex = 95;
+            this.cmbMemberSync.SelectedIndexChanged += new System.EventHandler(this.cmbMemberSync_SelectedIndexChanged);
+            // 
+            // chkMemberFailure
+            // 
+            this.chkMemberFailure.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.chkMemberFailure.Location = new System.Drawing.Point(142, 8);
+            this.chkMemberFailure.Name = "chkMemberFailure";
+            this.chkMemberFailure.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(204)))), ((int)(((byte)(216)))));
+            this.chkMemberFailure.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.chkMemberFailure.Size = new System.Drawing.Size(44, 24);
+            this.chkMemberFailure.TabIndex = 96;
+            this.chkMemberFailure.CheckedChanged += new System.EventHandler(this.chkMemberFailure_CheckedChanged);
+            // 
+            // lbl_hasFailureOnly
+            // 
+            this.lbl_hasFailureOnly.AutoSize = true;
+            this.lbl_hasFailureOnly.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_hasFailureOnly.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(85)))), ((int)(((byte)(99)))));
+            this.lbl_hasFailureOnly.Location = new System.Drawing.Point(192, 12);
+            this.lbl_hasFailureOnly.Name = "lbl_hasFailureOnly";
+            this.lbl_hasFailureOnly.Size = new System.Drawing.Size(63, 15);
+            this.lbl_hasFailureOnly.TabIndex = 0;
+            this.lbl_hasFailureOnly.Text = "Has failure";
+            // 
+            // clv_members
+            // 
+            this.clv_members.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_members.Location = new System.Drawing.Point(7, 41);
+            this.clv_members.Name = "clv_members";
+            this.clv_members.Size = new System.Drawing.Size(847, 461);
+            this.clv_members.TabIndex = 92;
             // 
             // tab_memberAttendence
             // 
             this.tab_memberAttendence.Controls.Add(this.panel5);
-            this.tab_memberAttendence.Location = new System.Drawing.Point(4, 22);
+            this.tab_memberAttendence.Location = new System.Drawing.Point(4, 5);
             this.tab_memberAttendence.Name = "tab_memberAttendence";
             this.tab_memberAttendence.Padding = new System.Windows.Forms.Padding(3);
-            this.tab_memberAttendence.Size = new System.Drawing.Size(857, 531);
+            this.tab_memberAttendence.Size = new System.Drawing.Size(857, 504);
             this.tab_memberAttendence.TabIndex = 0;
             this.tab_memberAttendence.Text = "Attendence";
             this.tab_memberAttendence.UseVisualStyleBackColor = true;
             // 
             // panel5
             // 
-            this.panel5.Controls.Add(this.txt_membername);
+            this.panel5.Controls.Add(this.rtb_membername);
             this.panel5.Controls.Add(this.date_member);
-            this.panel5.Controls.Add(this.btn_filter_member);
-            this.panel5.Controls.Add(this.lst_member);
+            this.panel5.Controls.Add(this.rb_filter_member);
+            this.panel5.Controls.Add(this.clv_memberAttendance);
             this.panel5.Location = new System.Drawing.Point(0, 1);
             this.panel5.Name = "panel5";
             this.panel5.Size = new System.Drawing.Size(854, 501);
             this.panel5.TabIndex = 85;
             // 
-            // txt_membername
+            // rtb_membername
             // 
-            this.txt_membername.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_membername.Location = new System.Drawing.Point(9, 9);
-            this.txt_membername.Name = "txt_membername";
-            this.txt_membername.Size = new System.Drawing.Size(100, 23);
-            this.txt_membername.TabIndex = 82;
-            this.txt_membername.TextChanged += new System.EventHandler(this.txt_membername_TextChanged);
+            this.rtb_membername.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_membername.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_membername.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_membername.Location = new System.Drawing.Point(9, 9);
+            this.rtb_membername.Name = "rtb_membername";
+            this.rtb_membername.Placeholder = "";
+            this.rtb_membername.Radius = 10;
+            this.rtb_membername.Size = new System.Drawing.Size(100, 23);
+            this.rtb_membername.TabIndex = 82;
+            this.rtb_membername.TextChanged += new System.EventHandler(this.txt_membername_TextChanged);
             // 
             // date_member
             // 
@@ -964,36 +958,40 @@ namespace smart_attendance_middleware
             this.date_member.TabIndex = 83;
             this.date_member.ValueChanged += new System.EventHandler(this.date_member_ValueChanged);
             // 
-            // btn_filter_member
+            // rb_filter_member
             // 
-            this.btn_filter_member.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_filter_member.Location = new System.Drawing.Point(261, 6);
-            this.btn_filter_member.Name = "btn_filter_member";
-            this.btn_filter_member.Size = new System.Drawing.Size(80, 28);
-            this.btn_filter_member.TabIndex = 85;
-            this.btn_filter_member.Text = "Filter";
-            this.btn_filter_member.Click += new System.EventHandler(this.btn_filter_member_Click);
+            this.rb_filter_member.BackColor = System.Drawing.Color.Transparent;
+            this.rb_filter_member.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_filter_member.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_filter_member.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_filter_member.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_filter_member.ForeColor = System.Drawing.Color.White;
+            this.rb_filter_member.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_filter_member.Location = new System.Drawing.Point(261, 6);
+            this.rb_filter_member.Name = "rb_filter_member";
+            this.rb_filter_member.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_filter_member.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_filter_member.Radius = 10;
+            this.rb_filter_member.Size = new System.Drawing.Size(80, 28);
+            this.rb_filter_member.TabIndex = 85;
+            this.rb_filter_member.Text = "Filter";
+            this.rb_filter_member.Click += new System.EventHandler(this.btn_filter_member_Click);
             // 
-            // lst_member
+            // clv_memberAttendance
             // 
-            this.lst_member.FullRowSelect = true;
-            this.lst_member.GridLines = true;
-            this.lst_member.HideSelection = false;
-            this.lst_member.Location = new System.Drawing.Point(9, 40);
-            this.lst_member.Name = "lst_member";
-            this.lst_member.Size = new System.Drawing.Size(842, 458);
-            this.lst_member.TabIndex = 86;
-            this.lst_member.UseCompatibleStateImageBehavior = false;
-            this.lst_member.View = System.Windows.Forms.View.Details;
-            this.lst_member.SelectedIndexChanged += new System.EventHandler(this.lst_member_SelectedIndexChanged);
+            this.clv_memberAttendance.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_memberAttendance.Location = new System.Drawing.Point(9, 40);
+            this.clv_memberAttendance.Name = "clv_memberAttendance";
+            this.clv_memberAttendance.Size = new System.Drawing.Size(842, 458);
+            this.clv_memberAttendance.TabIndex = 86;
             // 
             // tab_manualdoor
             // 
             this.tab_manualdoor.Controls.Add(this.panel6);
-            this.tab_manualdoor.Location = new System.Drawing.Point(4, 22);
+            this.tab_manualdoor.Location = new System.Drawing.Point(4, 5);
             this.tab_manualdoor.Name = "tab_manualdoor";
             this.tab_manualdoor.Padding = new System.Windows.Forms.Padding(3);
-            this.tab_manualdoor.Size = new System.Drawing.Size(857, 531);
+            this.tab_manualdoor.Size = new System.Drawing.Size(857, 504);
             this.tab_manualdoor.TabIndex = 1;
             this.tab_manualdoor.Text = "Manual Door ";
             this.tab_manualdoor.UseVisualStyleBackColor = true;
@@ -1001,8 +999,9 @@ namespace smart_attendance_middleware
             // panel6
             // 
             this.panel6.Controls.Add(this.date_manualdoor);
-            this.panel6.Controls.Add(this.btn_filter_manualdoor);
-            this.panel6.Controls.Add(this.lst_manualdoor);
+            this.panel6.Controls.Add(this.rb_filter_manualdoor);
+            this.panel6.Controls.Add(this.cmbDoorVisitor);
+            this.panel6.Controls.Add(this.clv_manualDoor);
             this.panel6.Location = new System.Drawing.Point(3, 0);
             this.panel6.Name = "panel6";
             this.panel6.Size = new System.Drawing.Size(851, 501);
@@ -1017,257 +1016,456 @@ namespace smart_attendance_middleware
             this.date_manualdoor.TabIndex = 83;
             this.date_manualdoor.ValueChanged += new System.EventHandler(this.date_manualdoor_ValueChanged);
             // 
-            // btn_filter_manualdoor
+            // rb_filter_manualdoor
             // 
-            this.btn_filter_manualdoor.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_filter_manualdoor.Location = new System.Drawing.Point(155, 4);
-            this.btn_filter_manualdoor.Name = "btn_filter_manualdoor";
-            this.btn_filter_manualdoor.Size = new System.Drawing.Size(79, 25);
-            this.btn_filter_manualdoor.TabIndex = 85;
-            this.btn_filter_manualdoor.Text = "Filter";
-            this.btn_filter_manualdoor.Click += new System.EventHandler(this.btn_filter_manualdoor_Click);
+            this.rb_filter_manualdoor.BackColor = System.Drawing.Color.Transparent;
+            this.rb_filter_manualdoor.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_filter_manualdoor.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_filter_manualdoor.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_filter_manualdoor.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_filter_manualdoor.ForeColor = System.Drawing.Color.White;
+            this.rb_filter_manualdoor.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_filter_manualdoor.Location = new System.Drawing.Point(155, 4);
+            this.rb_filter_manualdoor.Name = "rb_filter_manualdoor";
+            this.rb_filter_manualdoor.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_filter_manualdoor.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_filter_manualdoor.Radius = 10;
+            this.rb_filter_manualdoor.Size = new System.Drawing.Size(79, 25);
+            this.rb_filter_manualdoor.TabIndex = 85;
+            this.rb_filter_manualdoor.Text = "Filter";
+            this.rb_filter_manualdoor.Click += new System.EventHandler(this.btn_filter_manualdoor_Click);
             // 
-            // lst_manualdoor
+            // cmbDoorVisitor
             // 
-            this.lst_manualdoor.FullRowSelect = true;
-            this.lst_manualdoor.GridLines = true;
-            this.lst_manualdoor.HideSelection = false;
-            this.lst_manualdoor.Location = new System.Drawing.Point(9, 35);
-            this.lst_manualdoor.Name = "lst_manualdoor";
-            this.lst_manualdoor.Size = new System.Drawing.Size(839, 463);
-            this.lst_manualdoor.TabIndex = 86;
-            this.lst_manualdoor.UseCompatibleStateImageBehavior = false;
-            this.lst_manualdoor.View = System.Windows.Forms.View.Details;
-            this.lst_manualdoor.SelectedIndexChanged += new System.EventHandler(this.lst_manualdoor_SelectedIndexChanged);
-            //
+            this.cmbDoorVisitor.BackColor = System.Drawing.Color.Transparent;
+            this.cmbDoorVisitor.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbDoorVisitor.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbDoorVisitor.Location = new System.Drawing.Point(244, 6);
+            this.cmbDoorVisitor.Name = "cmbDoorVisitor";
+            this.cmbDoorVisitor.Radius = 10;
+            this.cmbDoorVisitor.Size = new System.Drawing.Size(130, 22);
+            this.cmbDoorVisitor.TabIndex = 87;
+            this.cmbDoorVisitor.SelectedIndexChanged += new System.EventHandler(this.cmbDoorVisitor_SelectedIndexChanged);
+            // 
+            // clv_manualDoor
+            // 
+            this.clv_manualDoor.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_manualDoor.Location = new System.Drawing.Point(9, 35);
+            this.clv_manualDoor.Name = "clv_manualDoor";
+            this.clv_manualDoor.Size = new System.Drawing.Size(839, 463);
+            this.clv_manualDoor.TabIndex = 86;
+            // 
             // tab_pendingjobs
-            //
-            this.tab_pendingjobs.Controls.Add(this.lst_pendingjobs);
+            // 
+            this.tab_pendingjobs.Controls.Add(this.clv_pendingJobs);
             this.tab_pendingjobs.Controls.Add(this.lbl_pendingjobs_info);
-            this.tab_pendingjobs.Location = new System.Drawing.Point(4, 22);
+            this.tab_pendingjobs.Controls.Add(this.cmbPendingDevice);
+            this.tab_pendingjobs.Controls.Add(this.cmbPendingFor);
+            this.tab_pendingjobs.Location = new System.Drawing.Point(4, 5);
             this.tab_pendingjobs.Name = "tab_pendingjobs";
             this.tab_pendingjobs.Padding = new System.Windows.Forms.Padding(3);
-            this.tab_pendingjobs.Size = new System.Drawing.Size(857, 531);
+            this.tab_pendingjobs.Size = new System.Drawing.Size(857, 504);
             this.tab_pendingjobs.TabIndex = 3;
             this.tab_pendingjobs.Text = "Pending Jobs";
             this.tab_pendingjobs.UseVisualStyleBackColor = true;
-            //
+            // 
+            // clv_pendingJobs
+            // 
+            this.clv_pendingJobs.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_pendingJobs.Location = new System.Drawing.Point(9, 41);
+            this.clv_pendingJobs.Name = "clv_pendingJobs";
+            this.clv_pendingJobs.Size = new System.Drawing.Size(841, 461);
+            this.clv_pendingJobs.TabIndex = 98;
+            // 
             // lbl_pendingjobs_info
-            //
+            // 
             this.lbl_pendingjobs_info.AutoSize = true;
             this.lbl_pendingjobs_info.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lbl_pendingjobs_info.ForeColor = System.Drawing.Color.DimGray;
             this.lbl_pendingjobs_info.Location = new System.Drawing.Point(9, 12);
             this.lbl_pendingjobs_info.Name = "lbl_pendingjobs_info";
-            this.lbl_pendingjobs_info.Size = new System.Drawing.Size(400, 15);
+            this.lbl_pendingjobs_info.Size = new System.Drawing.Size(416, 15);
             this.lbl_pendingjobs_info.TabIndex = 96;
             this.lbl_pendingjobs_info.Text = "Members/devices waiting for biometric data to sync — updates automatically";
-            //
-            // lst_pendingjobs
-            //
-            this.lst_pendingjobs.FullRowSelect = true;
-            this.lst_pendingjobs.GridLines = true;
-            this.lst_pendingjobs.HideSelection = false;
-            this.lst_pendingjobs.Location = new System.Drawing.Point(9, 41);
-            this.lst_pendingjobs.Name = "lst_pendingjobs";
-            this.lst_pendingjobs.Size = new System.Drawing.Size(841, 461);
-            this.lst_pendingjobs.TabIndex = 98;
-            this.lst_pendingjobs.UseCompatibleStateImageBehavior = false;
-            this.lst_pendingjobs.View = System.Windows.Forms.View.Details;
-            //
+            // 
+            // cmbPendingDevice
+            // 
+            this.cmbPendingDevice.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmbPendingDevice.BackColor = System.Drawing.Color.Transparent;
+            this.cmbPendingDevice.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbPendingDevice.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbPendingDevice.Location = new System.Drawing.Point(569, 11);
+            this.cmbPendingDevice.Name = "cmbPendingDevice";
+            this.cmbPendingDevice.Radius = 10;
+            this.cmbPendingDevice.Size = new System.Drawing.Size(150, 22);
+            this.cmbPendingDevice.TabIndex = 99;
+            this.cmbPendingDevice.SelectedIndexChanged += new System.EventHandler(this.cmbPendingDevice_SelectedIndexChanged);
+            // 
+            // cmbPendingFor
+            // 
+            this.cmbPendingFor.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmbPendingFor.BackColor = System.Drawing.Color.Transparent;
+            this.cmbPendingFor.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbPendingFor.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbPendingFor.Location = new System.Drawing.Point(727, 11);
+            this.cmbPendingFor.Name = "cmbPendingFor";
+            this.cmbPendingFor.Radius = 10;
+            this.cmbPendingFor.Size = new System.Drawing.Size(120, 22);
+            this.cmbPendingFor.TabIndex = 100;
+            this.cmbPendingFor.SelectedIndexChanged += new System.EventHandler(this.cmbPendingFor_SelectedIndexChanged);
+            // 
+            // tab_staffpendingjobs
+            // 
+            this.tab_staffpendingjobs.Controls.Add(this.clv_staffPendingJobs);
+            this.tab_staffpendingjobs.Controls.Add(this.lbl_staffpendingjobs_info);
+            this.tab_staffpendingjobs.Controls.Add(this.cmbStaffPendingDevice);
+            this.tab_staffpendingjobs.Controls.Add(this.cmbStaffPendingFor);
+            this.tab_staffpendingjobs.Location = new System.Drawing.Point(4, 5);
+            this.tab_staffpendingjobs.Name = "tab_staffpendingjobs";
+            this.tab_staffpendingjobs.Padding = new System.Windows.Forms.Padding(3);
+            this.tab_staffpendingjobs.Size = new System.Drawing.Size(857, 504);
+            this.tab_staffpendingjobs.TabIndex = 1;
+            this.tab_staffpendingjobs.Text = "Pending Jobs";
+            this.tab_staffpendingjobs.UseVisualStyleBackColor = true;
+            // 
+            // clv_staffPendingJobs
+            // 
+            this.clv_staffPendingJobs.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_staffPendingJobs.Location = new System.Drawing.Point(9, 41);
+            this.clv_staffPendingJobs.Name = "clv_staffPendingJobs";
+            this.clv_staffPendingJobs.Size = new System.Drawing.Size(841, 461);
+            this.clv_staffPendingJobs.TabIndex = 98;
+            // 
+            // lbl_staffpendingjobs_info
+            // 
+            this.lbl_staffpendingjobs_info.AutoSize = true;
+            this.lbl_staffpendingjobs_info.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbl_staffpendingjobs_info.ForeColor = System.Drawing.Color.DimGray;
+            this.lbl_staffpendingjobs_info.Location = new System.Drawing.Point(9, 12);
+            this.lbl_staffpendingjobs_info.Name = "lbl_staffpendingjobs_info";
+            this.lbl_staffpendingjobs_info.Size = new System.Drawing.Size(387, 15);
+            this.lbl_staffpendingjobs_info.TabIndex = 96;
+            this.lbl_staffpendingjobs_info.Text = "Staff/devices waiting for biometric data to sync — updates automatically";
+            // 
+            // cmbStaffPendingDevice
+            // 
+            this.cmbStaffPendingDevice.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmbStaffPendingDevice.BackColor = System.Drawing.Color.Transparent;
+            this.cmbStaffPendingDevice.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbStaffPendingDevice.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbStaffPendingDevice.Location = new System.Drawing.Point(569, 11);
+            this.cmbStaffPendingDevice.Name = "cmbStaffPendingDevice";
+            this.cmbStaffPendingDevice.Radius = 10;
+            this.cmbStaffPendingDevice.Size = new System.Drawing.Size(150, 22);
+            this.cmbStaffPendingDevice.TabIndex = 99;
+            this.cmbStaffPendingDevice.SelectedIndexChanged += new System.EventHandler(this.cmbStaffPendingDevice_SelectedIndexChanged);
+            // 
+            // cmbStaffPendingFor
+            // 
+            this.cmbStaffPendingFor.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmbStaffPendingFor.BackColor = System.Drawing.Color.Transparent;
+            this.cmbStaffPendingFor.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbStaffPendingFor.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbStaffPendingFor.Location = new System.Drawing.Point(727, 11);
+            this.cmbStaffPendingFor.Name = "cmbStaffPendingFor";
+            this.cmbStaffPendingFor.Radius = 10;
+            this.cmbStaffPendingFor.Size = new System.Drawing.Size(120, 22);
+            this.cmbStaffPendingFor.TabIndex = 100;
+            this.cmbStaffPendingFor.SelectedIndexChanged += new System.EventHandler(this.cmbStaffPendingFor_SelectedIndexChanged);
+            // 
+            // cmbStaffStatus
+            // 
+            this.cmbStaffStatus.BackColor = System.Drawing.Color.Transparent;
+            this.cmbStaffStatus.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbStaffStatus.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbStaffStatus.Location = new System.Drawing.Point(291, 11);
+            this.cmbStaffStatus.Name = "cmbStaffStatus";
+            this.cmbStaffStatus.Radius = 10;
+            this.cmbStaffStatus.Size = new System.Drawing.Size(110, 22);
+            this.cmbStaffStatus.TabIndex = 92;
+            this.cmbStaffStatus.SelectedIndexChanged += new System.EventHandler(this.cmbStaffStatus_SelectedIndexChanged);
+            // 
+            // cmbStaffSync
+            // 
+            this.cmbStaffSync.BackColor = System.Drawing.Color.Transparent;
+            this.cmbStaffSync.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbStaffSync.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbStaffSync.Location = new System.Drawing.Point(409, 11);
+            this.cmbStaffSync.Name = "cmbStaffSync";
+            this.cmbStaffSync.Radius = 10;
+            this.cmbStaffSync.Size = new System.Drawing.Size(120, 22);
+            this.cmbStaffSync.TabIndex = 93;
+            this.cmbStaffSync.SelectedIndexChanged += new System.EventHandler(this.cmbStaffSync_SelectedIndexChanged);
+            // 
+            // chkStaffFailure
+            // 
+            this.chkStaffFailure.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.chkStaffFailure.Location = new System.Drawing.Point(537, 14);
+            this.chkStaffFailure.Name = "chkStaffFailure";
+            this.chkStaffFailure.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(204)))), ((int)(((byte)(216)))));
+            this.chkStaffFailure.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.chkStaffFailure.Size = new System.Drawing.Size(44, 24);
+            this.chkStaffFailure.TabIndex = 94;
+            this.chkStaffFailure.CheckedChanged += new System.EventHandler(this.chkStaffFailure_CheckedChanged);
+            // 
+            // lbl_chkStaffFailure
+            // 
+            this.lbl_chkStaffFailure.AutoSize = true;
+            this.lbl_chkStaffFailure.BackColor = System.Drawing.Color.Transparent;
+            this.lbl_chkStaffFailure.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lbl_chkStaffFailure.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lbl_chkStaffFailure.Location = new System.Drawing.Point(587, 17);
+            this.lbl_chkStaffFailure.Name = "lbl_chkStaffFailure";
+            this.lbl_chkStaffFailure.Size = new System.Drawing.Size(93, 15);
+            this.lbl_chkStaffFailure.TabIndex = 95;
+            this.lbl_chkStaffFailure.Text = "Has Failure Only";
+            // 
             // pnl_setup
-            //
-            this.pnl_setup.BackColor = System.Drawing.Color.WhiteSmoke;
+            // 
+            this.pnl_setup.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(243)))), ((int)(((byte)(244)))), ((int)(((byte)(246)))));
             this.pnl_setup.Controls.Add(this.subpnl_setup);
+            this.pnl_setup.Controls.Add(this.card_api);
+            this.pnl_setup.Controls.Add(this.card_sync);
+            this.pnl_setup.Controls.Add(this.card_backup);
+            this.pnl_setup.Controls.Add(this.card_maint);
+            this.pnl_setup.Controls.Add(this.card_gate);
             this.pnl_setup.Location = new System.Drawing.Point(2021, 12);
             this.pnl_setup.Name = "pnl_setup";
             this.pnl_setup.Size = new System.Drawing.Size(881, 724);
             this.pnl_setup.TabIndex = 85;
-            this.pnl_setup.Visible = false;
             // 
             // subpnl_setup
             // 
-            this.subpnl_setup.Controls.Add(this.panel1);
-            this.subpnl_setup.Controls.Add(this.pnl_backup);
             this.subpnl_setup.Location = new System.Drawing.Point(20, 156);
             this.subpnl_setup.Name = "subpnl_setup";
             this.subpnl_setup.Size = new System.Drawing.Size(841, 557);
             this.subpnl_setup.TabIndex = 2;
             this.subpnl_setup.Paint += new System.Windows.Forms.PaintEventHandler(this.subpnl_setup_Paint);
             // 
-            // panel1
+            // card_api
             // 
-            this.panel1.Controls.Add(this.btn_backupcleanup);
-            this.panel1.Controls.Add(this.btn_settime);
-            this.panel1.Controls.Add(this.lbl_apikey);
-            this.panel1.Controls.Add(this.btn_getdb);
-            this.panel1.Controls.Add(this.lbl_debounce);
-            this.panel1.Controls.Add(this.btn_savedebounce);
-            this.panel1.Controls.Add(this.lbl_retention);
-            this.panel1.Controls.Add(this.txt_debounce);
-            this.panel1.Controls.Add(this.txtAPIkey);
-            this.panel1.Controls.Add(this.btn_save_retentiondays);
-            this.panel1.Controls.Add(this.btnSaveAPI);
-            this.panel1.Controls.Add(this.num_retention);
-            this.panel1.Location = new System.Drawing.Point(16, 22);
-            this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(811, 232);
-            this.panel1.TabIndex = 88;
+            this.card_api.BackColor = System.Drawing.Color.White;
+            this.card_api.Controls.Add(this.lbl_card_api_title);
+            this.card_api.Controls.Add(this.lbl_card_api_sub);
+            this.card_api.Controls.Add(this.rtb_APIkey);
+            this.card_api.Controls.Add(this.rb_SaveAPI);
+            this.card_api.Location = new System.Drawing.Point(20, 168);
+            this.card_api.Name = "card_api";
+            this.card_api.Size = new System.Drawing.Size(535, 96);
+            this.card_api.TabIndex = 300;
+            this.card_api.Paint += new System.Windows.Forms.PaintEventHandler(this.card_Paint);
             // 
-            // btn_backupcleanup
+            // lbl_card_api_title
             // 
-            this.btn_backupcleanup.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_backupcleanup.Location = new System.Drawing.Point(687, 76);
-            this.btn_backupcleanup.Name = "btn_backupcleanup";
-            this.btn_backupcleanup.Size = new System.Drawing.Size(108, 32);
-            this.btn_backupcleanup.TabIndex = 75;
-            this.btn_backupcleanup.Text = "Cleanup";
-            this.btn_backupcleanup.UseVisualStyleBackColor = true;
-            this.btn_backupcleanup.Click += new System.EventHandler(this.btn_backupcleanup_Click);
+            this.lbl_card_api_title.AutoSize = true;
+            this.lbl_card_api_title.BackColor = System.Drawing.Color.White;
+            this.lbl_card_api_title.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lbl_card_api_title.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(24)))), ((int)(((byte)(39)))));
+            this.lbl_card_api_title.Location = new System.Drawing.Point(16, 12);
+            this.lbl_card_api_title.Name = "lbl_card_api_title";
+            this.lbl_card_api_title.Size = new System.Drawing.Size(62, 20);
+            this.lbl_card_api_title.TabIndex = 301;
+            this.lbl_card_api_title.Text = "API key";
             // 
-            // btn_settime
+            // lbl_card_api_sub
             // 
-            this.btn_settime.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_settime.Location = new System.Drawing.Point(687, 123);
-            this.btn_settime.Name = "btn_settime";
-            this.btn_settime.Size = new System.Drawing.Size(108, 32);
-            this.btn_settime.TabIndex = 50;
-            this.btn_settime.Text = "Set Time";
-            this.btn_settime.UseVisualStyleBackColor = true;
-            this.btn_settime.Click += new System.EventHandler(this.btn_settime_Click);
+            this.lbl_card_api_sub.BackColor = System.Drawing.Color.White;
+            this.lbl_card_api_sub.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_api_sub.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_api_sub.Location = new System.Drawing.Point(16, 34);
+            this.lbl_card_api_sub.Name = "lbl_card_api_sub";
+            this.lbl_card_api_sub.Size = new System.Drawing.Size(390, 18);
+            this.lbl_card_api_sub.TabIndex = 302;
+            this.lbl_card_api_sub.Text = "Used to sync members with your cloud account.";
             // 
-            // btn_getdb
+            // card_sync
             // 
-            this.btn_getdb.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_getdb.Location = new System.Drawing.Point(687, 167);
-            this.btn_getdb.Name = "btn_getdb";
-            this.btn_getdb.Size = new System.Drawing.Size(108, 32);
-            this.btn_getdb.TabIndex = 47;
-            this.btn_getdb.Text = "Manual Backup";
-            this.btn_getdb.UseVisualStyleBackColor = true;
-            this.btn_getdb.Click += new System.EventHandler(this.btn_getdb_Click);
+            this.card_sync.BackColor = System.Drawing.Color.White;
+            this.card_sync.Controls.Add(this.lbl_card_sync_title);
+            this.card_sync.Controls.Add(this.lbl_card_sync_sub);
+            this.card_sync.Controls.Add(this.lbl_debounce);
+            this.card_sync.Controls.Add(this.rtb_debounce);
+            this.card_sync.Controls.Add(this.lbl_card_sync_retentionlabel);
+            this.card_sync.Controls.Add(this.rcmb_retention);
+            this.card_sync.Controls.Add(this.lbl_card_sync_retentionfooter);
+            this.card_sync.Controls.Add(this.rb_btn_sync_save);
+            this.card_sync.Location = new System.Drawing.Point(20, 276);
+            this.card_sync.Name = "card_sync";
+            this.card_sync.Size = new System.Drawing.Size(535, 164);
+            this.card_sync.TabIndex = 310;
+            this.card_sync.Paint += new System.Windows.Forms.PaintEventHandler(this.card_Paint);
             // 
-            // btn_savedebounce
+            // lbl_card_sync_title
             // 
-            this.btn_savedebounce.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_savedebounce.Location = new System.Drawing.Point(109, 89);
-            this.btn_savedebounce.Name = "btn_savedebounce";
-            this.btn_savedebounce.Size = new System.Drawing.Size(120, 32);
-            this.btn_savedebounce.TabIndex = 41;
-            this.btn_savedebounce.Text = "Save";
-            this.btn_savedebounce.UseVisualStyleBackColor = true;
-            this.btn_savedebounce.Click += new System.EventHandler(this.btn_savedebounce_Click);
+            this.lbl_card_sync_title.AutoSize = true;
+            this.lbl_card_sync_title.BackColor = System.Drawing.Color.White;
+            this.lbl_card_sync_title.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lbl_card_sync_title.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(24)))), ((int)(((byte)(39)))));
+            this.lbl_card_sync_title.Location = new System.Drawing.Point(16, 12);
+            this.lbl_card_sync_title.Name = "lbl_card_sync_title";
+            this.lbl_card_sync_title.Size = new System.Drawing.Size(101, 20);
+            this.lbl_card_sync_title.TabIndex = 311;
+            this.lbl_card_sync_title.Text = "Sync settings";
             // 
-            // txt_debounce
+            // lbl_card_sync_sub
             // 
-            this.txt_debounce.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_debounce.Location = new System.Drawing.Point(13, 92);
-            this.txt_debounce.Name = "txt_debounce";
-            this.txt_debounce.Size = new System.Drawing.Size(90, 26);
-            this.txt_debounce.TabIndex = 44;
+            this.lbl_card_sync_sub.BackColor = System.Drawing.Color.White;
+            this.lbl_card_sync_sub.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_sync_sub.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_sync_sub.Location = new System.Drawing.Point(16, 32);
+            this.lbl_card_sync_sub.Name = "lbl_card_sync_sub";
+            this.lbl_card_sync_sub.Size = new System.Drawing.Size(510, 18);
+            this.lbl_card_sync_sub.TabIndex = 312;
+            this.lbl_card_sync_sub.Text = "How fast device events are processed and how long logs are kept.";
             // 
-            // btn_save_retentiondays
+            // rtb_debounce
             // 
-            this.btn_save_retentiondays.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_save_retentiondays.Location = new System.Drawing.Point(109, 149);
-            this.btn_save_retentiondays.Name = "btn_save_retentiondays";
-            this.btn_save_retentiondays.Size = new System.Drawing.Size(120, 32);
-            this.btn_save_retentiondays.TabIndex = 69;
-            this.btn_save_retentiondays.Text = "Save";
-            this.btn_save_retentiondays.UseVisualStyleBackColor = true;
-            this.btn_save_retentiondays.Click += new System.EventHandler(this.btn_save_retentiondays_Click);
+            this.rtb_debounce.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_debounce.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_debounce.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_debounce.Location = new System.Drawing.Point(16, 74);
+            this.rtb_debounce.Name = "rtb_debounce";
+            this.rtb_debounce.Placeholder = "";
+            this.rtb_debounce.Radius = 10;
+            this.rtb_debounce.Size = new System.Drawing.Size(200, 36);
+            this.rtb_debounce.TabIndex = 44;
             // 
-            // num_retention
+            // lbl_card_sync_retentionlabel
             // 
-            this.num_retention.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.num_retention.Location = new System.Drawing.Point(13, 152);
-            this.num_retention.Name = "num_retention";
-            this.num_retention.Size = new System.Drawing.Size(91, 26);
-            this.num_retention.TabIndex = 70;
+            this.lbl_card_sync_retentionlabel.AutoSize = true;
+            this.lbl_card_sync_retentionlabel.BackColor = System.Drawing.Color.White;
+            this.lbl_card_sync_retentionlabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_sync_retentionlabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(55)))), ((int)(((byte)(65)))), ((int)(((byte)(81)))));
+            this.lbl_card_sync_retentionlabel.Location = new System.Drawing.Point(232, 58);
+            this.lbl_card_sync_retentionlabel.Name = "lbl_card_sync_retentionlabel";
+            this.lbl_card_sync_retentionlabel.Size = new System.Drawing.Size(93, 15);
+            this.lbl_card_sync_retentionlabel.TabIndex = 313;
+            this.lbl_card_sync_retentionlabel.Text = "Retention (days)";
             // 
-            // pnl_backup
+            // rcmb_retention
             // 
-            this.pnl_backup.Controls.Add(this.lbl_backuptype);
-            this.pnl_backup.Controls.Add(this.txt_drivefolderid);
-            this.pnl_backup.Controls.Add(this.txt_drivecredentials);
-            this.pnl_backup.Controls.Add(this.btn_save_drivefolderid);
-            this.pnl_backup.Controls.Add(this.btn_save_drivecredentials);
-            this.pnl_backup.Controls.Add(this.lbl_drivefolderid);
-            this.pnl_backup.Controls.Add(this.btn_test_connection);
-            this.pnl_backup.Controls.Add(this.lbl_drivecredentials);
-            this.pnl_backup.Controls.Add(this.chk_glogs);
-            this.pnl_backup.Controls.Add(this.chk_database);
-            this.pnl_backup.Controls.Add(this.chk_logs);
-            this.pnl_backup.Controls.Add(this.btn_save_backuptype);
-            this.pnl_backup.Location = new System.Drawing.Point(16, 276);
-            this.pnl_backup.Name = "pnl_backup";
-            this.pnl_backup.Size = new System.Drawing.Size(811, 146);
-            this.pnl_backup.TabIndex = 87;
+            this.rcmb_retention.BackColor = System.Drawing.Color.White;
+            this.rcmb_retention.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rcmb_retention.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rcmb_retention.Location = new System.Drawing.Point(232, 74);
+            this.rcmb_retention.Name = "rcmb_retention";
+            this.rcmb_retention.Radius = 8;
+            this.rcmb_retention.Size = new System.Drawing.Size(90, 28);
+            this.rcmb_retention.TabIndex = 97;
             // 
-            // lbl_backuptype
+            // lbl_card_sync_retentionfooter
             // 
-            this.lbl_backuptype.AutoSize = true;
-            this.lbl_backuptype.Location = new System.Drawing.Point(19, 18);
-            this.lbl_backuptype.Name = "lbl_backuptype";
-            this.lbl_backuptype.Size = new System.Drawing.Size(71, 13);
-            this.lbl_backuptype.TabIndex = 87;
-            this.lbl_backuptype.Text = "Backup Type";
+            this.lbl_card_sync_retentionfooter.AutoSize = true;
+            this.lbl_card_sync_retentionfooter.BackColor = System.Drawing.Color.White;
+            this.lbl_card_sync_retentionfooter.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lbl_card_sync_retentionfooter.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(156)))), ((int)(((byte)(163)))), ((int)(((byte)(175)))));
+            this.lbl_card_sync_retentionfooter.Location = new System.Drawing.Point(16, 118);
+            this.lbl_card_sync_retentionfooter.Name = "lbl_card_sync_retentionfooter";
+            this.lbl_card_sync_retentionfooter.Size = new System.Drawing.Size(168, 13);
+            this.lbl_card_sync_retentionfooter.TabIndex = 314;
+            this.lbl_card_sync_retentionfooter.Text = "Retention 0 keeps data forever.";
             // 
-            // txt_drivefolderid
+            // rb_btn_sync_save
             // 
-            this.txt_drivefolderid.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_drivefolderid.Location = new System.Drawing.Point(13, 90);
-            this.txt_drivefolderid.Name = "txt_drivefolderid";
-            this.txt_drivefolderid.Size = new System.Drawing.Size(189, 26);
-            this.txt_drivefolderid.TabIndex = 56;
+            this.rb_btn_sync_save.BackColor = System.Drawing.Color.Transparent;
+            this.rb_btn_sync_save.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_btn_sync_save.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_btn_sync_save.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_btn_sync_save.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_btn_sync_save.ForeColor = System.Drawing.Color.White;
+            this.rb_btn_sync_save.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_btn_sync_save.Location = new System.Drawing.Point(16, 126);
+            this.rb_btn_sync_save.Name = "rb_btn_sync_save";
+            this.rb_btn_sync_save.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_btn_sync_save.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_btn_sync_save.Radius = 10;
+            this.rb_btn_sync_save.Size = new System.Drawing.Size(503, 34);
+            this.rb_btn_sync_save.TabIndex = 91;
+            this.rb_btn_sync_save.Text = "Save sync settings";
+            this.rb_btn_sync_save.Click += new System.EventHandler(this.btn_sync_save_Click);
             // 
-            // txt_drivecredentials
+            // card_backup
             // 
-            this.txt_drivecredentials.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_drivecredentials.Location = new System.Drawing.Point(304, 34);
-            this.txt_drivecredentials.Multiline = true;
-            this.txt_drivecredentials.Name = "txt_drivecredentials";
-            this.txt_drivecredentials.Size = new System.Drawing.Size(395, 90);
-            this.txt_drivecredentials.TabIndex = 57;
+            this.card_backup.Controls.Add(this.lbl_card_backup_title);
+            this.card_backup.Controls.Add(this.lbl_card_backup_sub);
+            this.card_backup.Controls.Add(this.lbl_backupConnectionStatus);
+            this.card_backup.Controls.Add(this.lbl_card_backup_type_label);
+            this.card_backup.Controls.Add(this.chk_logs);
+            this.card_backup.Controls.Add(this.chk_glogs);
+            this.card_backup.Controls.Add(this.chk_database);
+            this.card_backup.Controls.Add(this.lbl_card_backup_drivefolder_label);
+            this.card_backup.Controls.Add(this.rtb_drivefolderid);
+            this.card_backup.Controls.Add(this.lbl_card_backup_creds_label);
+            this.card_backup.Controls.Add(this.rtb_drivecredentials);
+            this.card_backup.Controls.Add(this.rb_test_connection);
+            this.card_backup.Controls.Add(this.rb_btn_savebackup);
+            this.card_backup.Location = new System.Drawing.Point(20, 452);
+            this.card_backup.Name = "card_backup";
+            this.card_backup.Size = new System.Drawing.Size(535, 252);
+            this.card_backup.TabIndex = 87;
+            this.card_backup.Paint += new System.Windows.Forms.PaintEventHandler(this.card_Paint);
             // 
-            // btn_save_drivefolderid
+            // lbl_card_backup_title
             // 
-            this.btn_save_drivefolderid.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_save_drivefolderid.Location = new System.Drawing.Point(208, 84);
-            this.btn_save_drivefolderid.Name = "btn_save_drivefolderid";
-            this.btn_save_drivefolderid.Size = new System.Drawing.Size(90, 32);
-            this.btn_save_drivefolderid.TabIndex = 62;
-            this.btn_save_drivefolderid.Text = "Save";
-            this.btn_save_drivefolderid.UseVisualStyleBackColor = true;
-            this.btn_save_drivefolderid.Click += new System.EventHandler(this.btn_save_drivefolderid_Click);
+            this.lbl_card_backup_title.AutoSize = true;
+            this.lbl_card_backup_title.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lbl_card_backup_title.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(24)))), ((int)(((byte)(39)))));
+            this.lbl_card_backup_title.Location = new System.Drawing.Point(16, 14);
+            this.lbl_card_backup_title.Name = "lbl_card_backup_title";
+            this.lbl_card_backup_title.Size = new System.Drawing.Size(151, 19);
+            this.lbl_card_backup_title.TabIndex = 0;
+            this.lbl_card_backup_title.Text = "Google Drive Backup";
             // 
-            // btn_save_drivecredentials
+            // lbl_card_backup_sub
             // 
-            this.btn_save_drivecredentials.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_save_drivecredentials.Location = new System.Drawing.Point(705, 31);
-            this.btn_save_drivecredentials.Name = "btn_save_drivecredentials";
-            this.btn_save_drivecredentials.Size = new System.Drawing.Size(90, 32);
-            this.btn_save_drivecredentials.TabIndex = 63;
-            this.btn_save_drivecredentials.Text = "Save";
-            this.btn_save_drivecredentials.UseVisualStyleBackColor = true;
-            this.btn_save_drivecredentials.Click += new System.EventHandler(this.btn_save_drivecredentials_Click);
+            this.lbl_card_backup_sub.AutoSize = true;
+            this.lbl_card_backup_sub.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_backup_sub.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_backup_sub.Location = new System.Drawing.Point(16, 34);
+            this.lbl_card_backup_sub.Name = "lbl_card_backup_sub";
+            this.lbl_card_backup_sub.Size = new System.Drawing.Size(277, 15);
+            this.lbl_card_backup_sub.TabIndex = 0;
+            this.lbl_card_backup_sub.Text = "Configure automatic cloud backup to Google Drive";
             // 
-            // btn_test_connection
+            // lbl_backupConnectionStatus
             // 
-            this.btn_test_connection.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_test_connection.Location = new System.Drawing.Point(705, 78);
-            this.btn_test_connection.Name = "btn_test_connection";
-            this.btn_test_connection.Size = new System.Drawing.Size(90, 46);
-            this.btn_test_connection.TabIndex = 76;
-            this.btn_test_connection.Text = "Connect";
-            this.btn_test_connection.UseVisualStyleBackColor = true;
-            this.btn_test_connection.Click += new System.EventHandler(this.btn_test_connection_Click);
+            this.lbl_backupConnectionStatus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(254)))), ((int)(((byte)(243)))), ((int)(((byte)(199)))));
+            this.lbl_backupConnectionStatus.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lbl_backupConnectionStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lbl_backupConnectionStatus.Location = new System.Drawing.Point(320, 58);
+            this.lbl_backupConnectionStatus.Name = "lbl_backupConnectionStatus";
+            this.lbl_backupConnectionStatus.Size = new System.Drawing.Size(130, 22);
+            this.lbl_backupConnectionStatus.TabIndex = 0;
+            this.lbl_backupConnectionStatus.Text = "● Not connected";
+            this.lbl_backupConnectionStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lbl_card_backup_type_label
+            // 
+            this.lbl_card_backup_type_label.AutoSize = true;
+            this.lbl_card_backup_type_label.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_backup_type_label.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_backup_type_label.Location = new System.Drawing.Point(16, 68);
+            this.lbl_card_backup_type_label.Name = "lbl_card_backup_type_label";
+            this.lbl_card_backup_type_label.Size = new System.Drawing.Size(49, 15);
+            this.lbl_card_backup_type_label.TabIndex = 0;
+            this.lbl_card_backup_type_label.Text = "Include:";
+            // 
+            // chk_logs
+            // 
+            this.chk_logs.AutoSize = true;
+            this.chk_logs.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chk_logs.Location = new System.Drawing.Point(16, 86);
+            this.chk_logs.Name = "chk_logs";
+            this.chk_logs.Size = new System.Drawing.Size(58, 21);
+            this.chk_logs.TabIndex = 72;
+            this.chk_logs.Text = "Logs";
+            this.chk_logs.UseVisualStyleBackColor = true;
             // 
             // chk_glogs
             // 
             this.chk_glogs.AutoSize = true;
             this.chk_glogs.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.chk_glogs.Location = new System.Drawing.Point(86, 42);
+            this.chk_glogs.Location = new System.Drawing.Point(130, 86);
             this.chk_glogs.Name = "chk_glogs";
             this.chk_glogs.Size = new System.Drawing.Size(64, 21);
             this.chk_glogs.TabIndex = 71;
@@ -1278,126 +1476,519 @@ namespace smart_attendance_middleware
             // 
             this.chk_database.AutoSize = true;
             this.chk_database.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.chk_database.Location = new System.Drawing.Point(156, 42);
+            this.chk_database.Location = new System.Drawing.Point(228, 86);
             this.chk_database.Name = "chk_database";
             this.chk_database.Size = new System.Drawing.Size(46, 21);
             this.chk_database.TabIndex = 74;
             this.chk_database.Text = "DB";
             this.chk_database.UseVisualStyleBackColor = true;
             // 
-            // chk_logs
+            // lbl_card_backup_drivefolder_label
             // 
-            this.chk_logs.AutoSize = true;
-            this.chk_logs.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.chk_logs.Location = new System.Drawing.Point(22, 42);
-            this.chk_logs.Name = "chk_logs";
-            this.chk_logs.Size = new System.Drawing.Size(58, 21);
-            this.chk_logs.TabIndex = 72;
-            this.chk_logs.Text = "Logs";
-            this.chk_logs.UseVisualStyleBackColor = true;
+            this.lbl_card_backup_drivefolder_label.AutoSize = true;
+            this.lbl_card_backup_drivefolder_label.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_backup_drivefolder_label.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_backup_drivefolder_label.Location = new System.Drawing.Point(16, 116);
+            this.lbl_card_backup_drivefolder_label.Name = "lbl_card_backup_drivefolder_label";
+            this.lbl_card_backup_drivefolder_label.Size = new System.Drawing.Size(84, 15);
+            this.lbl_card_backup_drivefolder_label.TabIndex = 0;
+            this.lbl_card_backup_drivefolder_label.Text = "Drive Folder ID";
             // 
-            // btn_save_backuptype
+            // rtb_drivefolderid
             // 
-            this.btn_save_backuptype.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_save_backuptype.Location = new System.Drawing.Point(210, 38);
-            this.btn_save_backuptype.Name = "btn_save_backuptype";
-            this.btn_save_backuptype.Size = new System.Drawing.Size(90, 32);
-            this.btn_save_backuptype.TabIndex = 73;
-            this.btn_save_backuptype.Text = "Save";
-            this.btn_save_backuptype.UseVisualStyleBackColor = true;
-            this.btn_save_backuptype.Click += new System.EventHandler(this.btn_save_backuptype_Click);
+            this.rtb_drivefolderid.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_drivefolderid.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_drivefolderid.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_drivefolderid.Location = new System.Drawing.Point(16, 136);
+            this.rtb_drivefolderid.Name = "rtb_drivefolderid";
+            this.rtb_drivefolderid.Placeholder = "Google Drive Folder ID";
+            this.rtb_drivefolderid.Radius = 10;
+            this.rtb_drivefolderid.Size = new System.Drawing.Size(503, 36);
+            this.rtb_drivefolderid.TabIndex = 56;
+            // 
+            // lbl_card_backup_creds_label
+            // 
+            this.lbl_card_backup_creds_label.AutoSize = true;
+            this.lbl_card_backup_creds_label.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_backup_creds_label.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_backup_creds_label.Location = new System.Drawing.Point(16, 168);
+            this.lbl_card_backup_creds_label.Name = "lbl_card_backup_creds_label";
+            this.lbl_card_backup_creds_label.Size = new System.Drawing.Size(97, 15);
+            this.lbl_card_backup_creds_label.TabIndex = 0;
+            this.lbl_card_backup_creds_label.Text = "Credentials JSON";
+            // 
+            // rtb_drivecredentials
+            // 
+            this.rtb_drivecredentials.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_drivecredentials.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_drivecredentials.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_drivecredentials.Location = new System.Drawing.Point(16, 186);
+            this.rtb_drivecredentials.Name = "rtb_drivecredentials";
+            this.rtb_drivecredentials.Placeholder = "Paste credentials.json content here";
+            this.rtb_drivecredentials.Radius = 10;
+            this.rtb_drivecredentials.Size = new System.Drawing.Size(503, 44);
+            this.rtb_drivecredentials.TabIndex = 57;
+            // 
+            // rb_test_connection
+            // 
+            this.rb_test_connection.BackColor = System.Drawing.Color.Transparent;
+            this.rb_test_connection.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_test_connection.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_test_connection.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_test_connection.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_test_connection.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_test_connection.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(246)))), ((int)(((byte)(255)))));
+            this.rb_test_connection.Location = new System.Drawing.Point(16, 244);
+            this.rb_test_connection.Name = "rb_test_connection";
+            this.rb_test_connection.NormalColor = System.Drawing.Color.White;
+            this.rb_test_connection.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(219)))), ((int)(((byte)(234)))), ((int)(((byte)(254)))));
+            this.rb_test_connection.Radius = 10;
+            this.rb_test_connection.Size = new System.Drawing.Size(196, 34);
+            this.rb_test_connection.TabIndex = 76;
+            this.rb_test_connection.Text = "Connect Google Drive";
+            this.rb_test_connection.Click += new System.EventHandler(this.btn_test_connection_Click);
+            // 
+            // rb_btn_savebackup
+            // 
+            this.rb_btn_savebackup.BackColor = System.Drawing.Color.Transparent;
+            this.rb_btn_savebackup.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_btn_savebackup.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_btn_savebackup.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_btn_savebackup.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_btn_savebackup.ForeColor = System.Drawing.Color.White;
+            this.rb_btn_savebackup.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_btn_savebackup.Location = new System.Drawing.Point(320, 244);
+            this.rb_btn_savebackup.Name = "rb_btn_savebackup";
+            this.rb_btn_savebackup.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_btn_savebackup.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_btn_savebackup.Radius = 10;
+            this.rb_btn_savebackup.Size = new System.Drawing.Size(199, 34);
+            this.rb_btn_savebackup.TabIndex = 90;
+            this.rb_btn_savebackup.Text = "Save backup settings";
+            this.rb_btn_savebackup.Click += new System.EventHandler(this.btn_savebackup_Click);
+            // 
+            // card_maint
+            // 
+            this.card_maint.BackColor = System.Drawing.Color.White;
+            this.card_maint.Controls.Add(this.lbl_card_maint_title);
+            this.card_maint.Controls.Add(this.lbl_card_maint_sub);
+            this.card_maint.Controls.Add(this.rb_backupcleanup);
+            this.card_maint.Controls.Add(this.rb_settime);
+            this.card_maint.Controls.Add(this.rb_getdb);
+            this.card_maint.Location = new System.Drawing.Point(572, 168);
+            this.card_maint.Name = "card_maint";
+            this.card_maint.Size = new System.Drawing.Size(289, 236);
+            this.card_maint.TabIndex = 340;
+            this.card_maint.Paint += new System.Windows.Forms.PaintEventHandler(this.card_Paint);
+            // 
+            // lbl_card_maint_title
+            // 
+            this.lbl_card_maint_title.AutoSize = true;
+            this.lbl_card_maint_title.BackColor = System.Drawing.Color.White;
+            this.lbl_card_maint_title.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lbl_card_maint_title.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(24)))), ((int)(((byte)(39)))));
+            this.lbl_card_maint_title.Location = new System.Drawing.Point(16, 12);
+            this.lbl_card_maint_title.Name = "lbl_card_maint_title";
+            this.lbl_card_maint_title.Size = new System.Drawing.Size(99, 20);
+            this.lbl_card_maint_title.TabIndex = 341;
+            this.lbl_card_maint_title.Text = "Maintenance";
+            // 
+            // lbl_card_maint_sub
+            // 
+            this.lbl_card_maint_sub.BackColor = System.Drawing.Color.White;
+            this.lbl_card_maint_sub.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_maint_sub.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_maint_sub.Location = new System.Drawing.Point(16, 32);
+            this.lbl_card_maint_sub.Name = "lbl_card_maint_sub";
+            this.lbl_card_maint_sub.Size = new System.Drawing.Size(257, 18);
+            this.lbl_card_maint_sub.TabIndex = 342;
+            this.lbl_card_maint_sub.Text = "Run when something looks off.";
+            // 
+            // rb_backupcleanup
+            // 
+            this.rb_backupcleanup.BackColor = System.Drawing.Color.Transparent;
+            this.rb_backupcleanup.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_backupcleanup.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_backupcleanup.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_backupcleanup.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_backupcleanup.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_backupcleanup.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(246)))), ((int)(((byte)(255)))));
+            this.rb_backupcleanup.Location = new System.Drawing.Point(12, 56);
+            this.rb_backupcleanup.Name = "rb_backupcleanup";
+            this.rb_backupcleanup.NormalColor = System.Drawing.Color.White;
+            this.rb_backupcleanup.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(219)))), ((int)(((byte)(234)))), ((int)(((byte)(254)))));
+            this.rb_backupcleanup.Radius = 10;
+            this.rb_backupcleanup.Size = new System.Drawing.Size(265, 34);
+            this.rb_backupcleanup.TabIndex = 75;
+            this.rb_backupcleanup.Text = "Clean up old data";
+            this.rb_backupcleanup.Click += new System.EventHandler(this.btn_backupcleanup_Click);
+            // 
+            // rb_settime
+            // 
+            this.rb_settime.BackColor = System.Drawing.Color.Transparent;
+            this.rb_settime.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_settime.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_settime.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_settime.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_settime.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_settime.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(246)))), ((int)(((byte)(255)))));
+            this.rb_settime.Location = new System.Drawing.Point(12, 96);
+            this.rb_settime.Name = "rb_settime";
+            this.rb_settime.NormalColor = System.Drawing.Color.White;
+            this.rb_settime.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(219)))), ((int)(((byte)(234)))), ((int)(((byte)(254)))));
+            this.rb_settime.Radius = 10;
+            this.rb_settime.Size = new System.Drawing.Size(265, 34);
+            this.rb_settime.TabIndex = 50;
+            this.rb_settime.Text = "Set device time";
+            this.rb_settime.Click += new System.EventHandler(this.btn_settime_Click);
+            // 
+            // rb_getdb
+            // 
+            this.rb_getdb.BackColor = System.Drawing.Color.Transparent;
+            this.rb_getdb.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_getdb.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_getdb.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_getdb.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_getdb.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_getdb.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(246)))), ((int)(((byte)(255)))));
+            this.rb_getdb.Location = new System.Drawing.Point(12, 136);
+            this.rb_getdb.Name = "rb_getdb";
+            this.rb_getdb.NormalColor = System.Drawing.Color.White;
+            this.rb_getdb.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(219)))), ((int)(((byte)(234)))), ((int)(((byte)(254)))));
+            this.rb_getdb.Radius = 10;
+            this.rb_getdb.Size = new System.Drawing.Size(265, 34);
+            this.rb_getdb.TabIndex = 47;
+            this.rb_getdb.Text = "Run backup now";
+            this.rb_getdb.Click += new System.EventHandler(this.btn_getdb_Click);
+            // 
+            // card_gate
+            // 
+            this.card_gate.Controls.Add(this.lbl_card_gate_title);
+            this.card_gate.Controls.Add(this.lbl_card_gate_sub);
+            this.card_gate.Controls.Add(this.chk_requireGateEntryForm);
+            this.card_gate.Controls.Add(this.chk_requireGatePassword);
+            this.card_gate.Controls.Add(this.rb_btn_gate_save);
+            this.card_gate.Location = new System.Drawing.Point(572, 416);
+            this.card_gate.Name = "card_gate";
+            this.card_gate.Size = new System.Drawing.Size(289, 288);
+            this.card_gate.TabIndex = 88;
+            this.card_gate.Paint += new System.Windows.Forms.PaintEventHandler(this.card_Paint);
+            // 
+            // lbl_card_gate_title
+            // 
+            this.lbl_card_gate_title.AutoSize = true;
+            this.lbl_card_gate_title.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lbl_card_gate_title.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(24)))), ((int)(((byte)(39)))));
+            this.lbl_card_gate_title.Location = new System.Drawing.Point(16, 14);
+            this.lbl_card_gate_title.Name = "lbl_card_gate_title";
+            this.lbl_card_gate_title.Size = new System.Drawing.Size(88, 19);
+            this.lbl_card_gate_title.TabIndex = 0;
+            this.lbl_card_gate_title.Text = "Gate Access";
+            // 
+            // lbl_card_gate_sub
+            // 
+            this.lbl_card_gate_sub.AutoSize = true;
+            this.lbl_card_gate_sub.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_card_gate_sub.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.lbl_card_gate_sub.Location = new System.Drawing.Point(16, 34);
+            this.lbl_card_gate_sub.Name = "lbl_card_gate_sub";
+            this.lbl_card_gate_sub.Size = new System.Drawing.Size(176, 15);
+            this.lbl_card_gate_sub.TabIndex = 0;
+            this.lbl_card_gate_sub.Text = "Control gate entry requirements";
+            // 
+            // chk_requireGateEntryForm
+            // 
+            this.chk_requireGateEntryForm.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.chk_requireGateEntryForm.Location = new System.Drawing.Point(16, 68);
+            this.chk_requireGateEntryForm.Name = "chk_requireGateEntryForm";
+            this.chk_requireGateEntryForm.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(204)))), ((int)(((byte)(216)))));
+            this.chk_requireGateEntryForm.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.chk_requireGateEntryForm.Size = new System.Drawing.Size(44, 24);
+            this.chk_requireGateEntryForm.TabIndex = 1;
+            // 
+            // chk_requireGatePassword
+            // 
+            this.chk_requireGatePassword.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.chk_requireGatePassword.Location = new System.Drawing.Point(16, 116);
+            this.chk_requireGatePassword.Name = "chk_requireGatePassword";
+            this.chk_requireGatePassword.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(204)))), ((int)(((byte)(216)))));
+            this.chk_requireGatePassword.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.chk_requireGatePassword.Size = new System.Drawing.Size(44, 24);
+            this.chk_requireGatePassword.TabIndex = 2;
+            // 
+            // rb_btn_gate_save
+            // 
+            this.rb_btn_gate_save.BackColor = System.Drawing.Color.Transparent;
+            this.rb_btn_gate_save.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_btn_gate_save.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_btn_gate_save.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_btn_gate_save.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_btn_gate_save.ForeColor = System.Drawing.Color.White;
+            this.rb_btn_gate_save.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_btn_gate_save.Location = new System.Drawing.Point(12, 242);
+            this.rb_btn_gate_save.Name = "rb_btn_gate_save";
+            this.rb_btn_gate_save.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_btn_gate_save.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_btn_gate_save.Radius = 10;
+            this.rb_btn_gate_save.Size = new System.Drawing.Size(265, 34);
+            this.rb_btn_gate_save.TabIndex = 3;
+            this.rb_btn_gate_save.Text = "Save gate settings";
+            this.rb_btn_gate_save.Click += new System.EventHandler(this.btn_gate_save_Click);
+            // 
+            // panel1
+            // 
+            this.panel1.Location = new System.Drawing.Point(0, 0);
+            this.panel1.Name = "panel1";
+            this.panel1.Size = new System.Drawing.Size(200, 100);
+            this.panel1.TabIndex = 0;
+            // 
+            // rb_savedebounce
+            // 
+            this.rb_savedebounce.BackColor = System.Drawing.Color.Transparent;
+            this.rb_savedebounce.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_savedebounce.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_savedebounce.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_savedebounce.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_savedebounce.ForeColor = System.Drawing.Color.White;
+            this.rb_savedebounce.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_savedebounce.Location = new System.Drawing.Point(109, 89);
+            this.rb_savedebounce.Name = "rb_savedebounce";
+            this.rb_savedebounce.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_savedebounce.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_savedebounce.Radius = 10;
+            this.rb_savedebounce.Size = new System.Drawing.Size(120, 32);
+            this.rb_savedebounce.TabIndex = 41;
+            this.rb_savedebounce.Text = "Save";
+            this.rb_savedebounce.Visible = false;
+            this.rb_savedebounce.Click += new System.EventHandler(this.btn_savedebounce_Click);
+            // 
+            // rb_save_retentiondays
+            // 
+            this.rb_save_retentiondays.BackColor = System.Drawing.Color.Transparent;
+            this.rb_save_retentiondays.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_save_retentiondays.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_save_retentiondays.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_save_retentiondays.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_save_retentiondays.ForeColor = System.Drawing.Color.White;
+            this.rb_save_retentiondays.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_save_retentiondays.Location = new System.Drawing.Point(109, 149);
+            this.rb_save_retentiondays.Name = "rb_save_retentiondays";
+            this.rb_save_retentiondays.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_save_retentiondays.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_save_retentiondays.Radius = 10;
+            this.rb_save_retentiondays.Size = new System.Drawing.Size(120, 32);
+            this.rb_save_retentiondays.TabIndex = 69;
+            this.rb_save_retentiondays.Text = "Save";
+            this.rb_save_retentiondays.Visible = false;
+            this.rb_save_retentiondays.Click += new System.EventHandler(this.btn_save_retentiondays_Click);
+            // 
+            // num_retention
+            // 
+            this.num_retention.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.num_retention.Location = new System.Drawing.Point(13, 152);
+            this.num_retention.Name = "num_retention";
+            this.num_retention.Size = new System.Drawing.Size(91, 26);
+            this.num_retention.TabIndex = 70;
+            this.num_retention.Visible = false;
+            // 
+            // pnl_backup
+            // 
+            this.pnl_backup.Location = new System.Drawing.Point(0, 0);
+            this.pnl_backup.Name = "pnl_backup";
+            this.pnl_backup.Size = new System.Drawing.Size(200, 100);
+            this.pnl_backup.TabIndex = 0;
+            // 
+            // lbl_backuptype
+            // 
+            this.lbl_backuptype.AutoSize = true;
+            this.lbl_backuptype.Location = new System.Drawing.Point(0, 0);
+            this.lbl_backuptype.Name = "lbl_backuptype";
+            this.lbl_backuptype.Size = new System.Drawing.Size(71, 13);
+            this.lbl_backuptype.TabIndex = 87;
+            this.lbl_backuptype.Text = "Backup Type";
+            this.lbl_backuptype.Visible = false;
+            // 
+            // rb_save_drivefolderid
+            // 
+            this.rb_save_drivefolderid.BackColor = System.Drawing.Color.Transparent;
+            this.rb_save_drivefolderid.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_save_drivefolderid.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_save_drivefolderid.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_save_drivefolderid.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_save_drivefolderid.ForeColor = System.Drawing.Color.White;
+            this.rb_save_drivefolderid.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_save_drivefolderid.Location = new System.Drawing.Point(208, 84);
+            this.rb_save_drivefolderid.Name = "rb_save_drivefolderid";
+            this.rb_save_drivefolderid.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_save_drivefolderid.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_save_drivefolderid.Radius = 10;
+            this.rb_save_drivefolderid.Size = new System.Drawing.Size(90, 32);
+            this.rb_save_drivefolderid.TabIndex = 62;
+            this.rb_save_drivefolderid.Text = "Save";
+            this.rb_save_drivefolderid.Visible = false;
+            this.rb_save_drivefolderid.Click += new System.EventHandler(this.btn_save_drivefolderid_Click);
+            // 
+            // rb_save_drivecredentials
+            // 
+            this.rb_save_drivecredentials.BackColor = System.Drawing.Color.Transparent;
+            this.rb_save_drivecredentials.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_save_drivecredentials.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_save_drivecredentials.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_save_drivecredentials.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_save_drivecredentials.ForeColor = System.Drawing.Color.White;
+            this.rb_save_drivecredentials.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_save_drivecredentials.Location = new System.Drawing.Point(705, 31);
+            this.rb_save_drivecredentials.Name = "rb_save_drivecredentials";
+            this.rb_save_drivecredentials.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_save_drivecredentials.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_save_drivecredentials.Radius = 10;
+            this.rb_save_drivecredentials.Size = new System.Drawing.Size(90, 32);
+            this.rb_save_drivecredentials.TabIndex = 63;
+            this.rb_save_drivecredentials.Text = "Save";
+            this.rb_save_drivecredentials.Visible = false;
+            this.rb_save_drivecredentials.Click += new System.EventHandler(this.btn_save_drivecredentials_Click);
+            // 
+            // rb_save_backuptype
+            // 
+            this.rb_save_backuptype.BackColor = System.Drawing.Color.Transparent;
+            this.rb_save_backuptype.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_save_backuptype.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_save_backuptype.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_save_backuptype.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_save_backuptype.ForeColor = System.Drawing.Color.White;
+            this.rb_save_backuptype.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_save_backuptype.Location = new System.Drawing.Point(210, 38);
+            this.rb_save_backuptype.Name = "rb_save_backuptype";
+            this.rb_save_backuptype.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_save_backuptype.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_save_backuptype.Radius = 10;
+            this.rb_save_backuptype.Size = new System.Drawing.Size(90, 32);
+            this.rb_save_backuptype.TabIndex = 73;
+            this.rb_save_backuptype.Text = "Save";
+            this.rb_save_backuptype.Visible = false;
+            this.rb_save_backuptype.Click += new System.EventHandler(this.btn_save_backuptype_Click);
             // 
             // pnl_staffsManagment
             // 
             this.pnl_staffsManagment.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.pnl_staffsManagment.Controls.Add(this.mtp_staff);
             this.pnl_staffsManagment.Controls.Add(this.tab_staff);
             this.pnl_staffsManagment.Location = new System.Drawing.Point(2926, 12);
             this.pnl_staffsManagment.Name = "pnl_staffsManagment";
             this.pnl_staffsManagment.Size = new System.Drawing.Size(881, 724);
             this.pnl_staffsManagment.TabIndex = 84;
-            this.pnl_staffsManagment.Visible = false;
+            // 
+            // mtp_staff
+            // 
+            this.mtp_staff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.mtp_staff.Location = new System.Drawing.Point(8, 156);
+            this.mtp_staff.Name = "mtp_staff";
+            this.mtp_staff.Size = new System.Drawing.Size(865, 44);
+            this.mtp_staff.TabIndex = 201;
+            this.mtp_staff.TabChanged += new System.EventHandler<int>(this.mtp_staff_TabChanged);
             // 
             // tab_staff
             // 
+            this.tab_staff.Appearance = System.Windows.Forms.TabAppearance.FlatButtons;
             this.tab_staff.Controls.Add(this.tab_staffmembers);
             this.tab_staff.Controls.Add(this.tab_staffattendence);
             this.tab_staff.Controls.Add(this.tab_staffpendingjobs);
-            this.tab_staff.Location = new System.Drawing.Point(8, 156);
+            this.tab_staff.ItemSize = new System.Drawing.Size(0, 1);
+            this.tab_staff.Location = new System.Drawing.Point(8, 200);
             this.tab_staff.Name = "tab_staff";
             this.tab_staff.SelectedIndex = 0;
-            this.tab_staff.Size = new System.Drawing.Size(865, 557);
+            this.tab_staff.Size = new System.Drawing.Size(865, 513);
+            this.tab_staff.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
             this.tab_staff.TabIndex = 83;
+            this.tab_staff.SelectedIndexChanged += new System.EventHandler(this.tab_staff_SelectedIndexChanged);
             // 
             // tab_staffmembers
             // 
-            this.tab_staffmembers.Controls.Add(this.txt_staff);
-            this.tab_staffmembers.Controls.Add(this.btn_stafffilter);
-            this.tab_staffmembers.Controls.Add(this.lst_staffs);
-            this.tab_staffmembers.Location = new System.Drawing.Point(4, 22);
+            this.tab_staffmembers.Controls.Add(this.rtb_staff);
+            this.tab_staffmembers.Controls.Add(this.rb_stafffilter);
+            this.tab_staffmembers.Controls.Add(this.cmbStaffStatus);
+            this.tab_staffmembers.Controls.Add(this.cmbStaffSync);
+            this.tab_staffmembers.Controls.Add(this.chkStaffFailure);
+            this.tab_staffmembers.Controls.Add(this.lbl_chkStaffFailure);
+            this.tab_staffmembers.Controls.Add(this.clv_staffs);
+            this.tab_staffmembers.Location = new System.Drawing.Point(4, 5);
             this.tab_staffmembers.Name = "tab_staffmembers";
-            this.tab_staffmembers.Size = new System.Drawing.Size(857, 531);
+            this.tab_staffmembers.Size = new System.Drawing.Size(857, 504);
             this.tab_staffmembers.TabIndex = 2;
             this.tab_staffmembers.Text = "Staffs";
             this.tab_staffmembers.UseVisualStyleBackColor = true;
             // 
-            // txt_staff
+            // rtb_staff
             // 
-            this.txt_staff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_staff.Location = new System.Drawing.Point(7, 9);
-            this.txt_staff.Name = "txt_staff";
-            this.txt_staff.Size = new System.Drawing.Size(188, 23);
-            this.txt_staff.TabIndex = 89;
+            this.rtb_staff.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_staff.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_staff.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_staff.Location = new System.Drawing.Point(7, 9);
+            this.rtb_staff.Name = "rtb_staff";
+            this.rtb_staff.Placeholder = "";
+            this.rtb_staff.Radius = 10;
+            this.rtb_staff.Size = new System.Drawing.Size(188, 23);
+            this.rtb_staff.TabIndex = 89;
             // 
-            // btn_stafffilter
+            // rb_stafffilter
             // 
-            this.btn_stafffilter.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_stafffilter.Location = new System.Drawing.Point(201, 7);
-            this.btn_stafffilter.Name = "btn_stafffilter";
-            this.btn_stafffilter.Size = new System.Drawing.Size(80, 28);
-            this.btn_stafffilter.TabIndex = 91;
-            this.btn_stafffilter.Text = "Filter";
+            this.rb_stafffilter.BackColor = System.Drawing.Color.Transparent;
+            this.rb_stafffilter.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_stafffilter.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_stafffilter.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_stafffilter.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_stafffilter.ForeColor = System.Drawing.Color.White;
+            this.rb_stafffilter.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_stafffilter.Location = new System.Drawing.Point(201, 7);
+            this.rb_stafffilter.Name = "rb_stafffilter";
+            this.rb_stafffilter.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_stafffilter.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_stafffilter.Radius = 10;
+            this.rb_stafffilter.Size = new System.Drawing.Size(80, 28);
+            this.rb_stafffilter.TabIndex = 91;
+            this.rb_stafffilter.Text = "Filter";
             // 
-            // lst_staffs
+            // clv_staffs
             // 
-            this.lst_staffs.FullRowSelect = true;
-            this.lst_staffs.GridLines = true;
-            this.lst_staffs.HideSelection = false;
-            this.lst_staffs.Location = new System.Drawing.Point(7, 41);
-            this.lst_staffs.Name = "lst_staffs";
-            this.lst_staffs.Size = new System.Drawing.Size(847, 481);
-            this.lst_staffs.TabIndex = 92;
-            this.lst_staffs.UseCompatibleStateImageBehavior = false;
-            this.lst_staffs.View = System.Windows.Forms.View.Details;
+            this.clv_staffs.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_staffs.Location = new System.Drawing.Point(7, 41);
+            this.clv_staffs.Name = "clv_staffs";
+            this.clv_staffs.Size = new System.Drawing.Size(847, 481);
+            this.clv_staffs.TabIndex = 92;
             // 
             // tab_staffattendence
             // 
             this.tab_staffattendence.Controls.Add(this.panel8);
-            this.tab_staffattendence.Location = new System.Drawing.Point(4, 22);
+            this.tab_staffattendence.Location = new System.Drawing.Point(4, 5);
             this.tab_staffattendence.Name = "tab_staffattendence";
             this.tab_staffattendence.Padding = new System.Windows.Forms.Padding(3);
-            this.tab_staffattendence.Size = new System.Drawing.Size(857, 531);
+            this.tab_staffattendence.Size = new System.Drawing.Size(857, 504);
             this.tab_staffattendence.TabIndex = 0;
             this.tab_staffattendence.Text = "Attendence";
             this.tab_staffattendence.UseVisualStyleBackColor = true;
             // 
             // panel8
             // 
-            this.panel8.Controls.Add(this.txt_staffname);
+            this.panel8.Controls.Add(this.rtb_staffname);
             this.panel8.Controls.Add(this.date_staffattendence);
-            this.panel8.Controls.Add(this.btn_filterattendencestaff);
-            this.panel8.Controls.Add(this.lst_staffattendence);
+            this.panel8.Controls.Add(this.rb_filterattendencestaff);
+            this.panel8.Controls.Add(this.clv_staffAttendance);
             this.panel8.Location = new System.Drawing.Point(0, 1);
             this.panel8.Name = "panel8";
             this.panel8.Size = new System.Drawing.Size(854, 501);
             this.panel8.TabIndex = 85;
             // 
-            // txt_staffname
+            // rtb_staffname
             // 
-            this.txt_staffname.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_staffname.Location = new System.Drawing.Point(9, 9);
-            this.txt_staffname.Name = "txt_staffname";
-            this.txt_staffname.Size = new System.Drawing.Size(100, 23);
-            this.txt_staffname.TabIndex = 82;
+            this.rtb_staffname.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_staffname.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_staffname.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_staffname.Location = new System.Drawing.Point(9, 9);
+            this.rtb_staffname.Name = "rtb_staffname";
+            this.rtb_staffname.Placeholder = "";
+            this.rtb_staffname.Radius = 10;
+            this.rtb_staffname.Size = new System.Drawing.Size(100, 23);
+            this.rtb_staffname.TabIndex = 82;
             // 
             // date_staffattendence
             // 
@@ -1407,89 +1998,62 @@ namespace smart_attendance_middleware
             this.date_staffattendence.Size = new System.Drawing.Size(140, 23);
             this.date_staffattendence.TabIndex = 83;
             // 
-            // btn_filterattendencestaff
+            // rb_filterattendencestaff
             // 
-            this.btn_filterattendencestaff.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btn_filterattendencestaff.Location = new System.Drawing.Point(261, 6);
-            this.btn_filterattendencestaff.Name = "btn_filterattendencestaff";
-            this.btn_filterattendencestaff.Size = new System.Drawing.Size(80, 28);
-            this.btn_filterattendencestaff.TabIndex = 85;
-            this.btn_filterattendencestaff.Text = "Filter";
+            this.rb_filterattendencestaff.BackColor = System.Drawing.Color.Transparent;
+            this.rb_filterattendencestaff.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_filterattendencestaff.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_filterattendencestaff.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_filterattendencestaff.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_filterattendencestaff.ForeColor = System.Drawing.Color.White;
+            this.rb_filterattendencestaff.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_filterattendencestaff.Location = new System.Drawing.Point(261, 6);
+            this.rb_filterattendencestaff.Name = "rb_filterattendencestaff";
+            this.rb_filterattendencestaff.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_filterattendencestaff.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_filterattendencestaff.Radius = 10;
+            this.rb_filterattendencestaff.Size = new System.Drawing.Size(80, 28);
+            this.rb_filterattendencestaff.TabIndex = 85;
+            this.rb_filterattendencestaff.Text = "Filter";
             // 
-            // lst_staffattendence
+            // clv_staffAttendance
             // 
-            this.lst_staffattendence.FullRowSelect = true;
-            this.lst_staffattendence.GridLines = true;
-            this.lst_staffattendence.HideSelection = false;
-            this.lst_staffattendence.Location = new System.Drawing.Point(9, 40);
-            this.lst_staffattendence.Name = "lst_staffattendence";
-            this.lst_staffattendence.Size = new System.Drawing.Size(838, 458);
-            this.lst_staffattendence.TabIndex = 86;
-            this.lst_staffattendence.UseCompatibleStateImageBehavior = false;
-            this.lst_staffattendence.View = System.Windows.Forms.View.Details;
-            //
-            // tab_staffpendingjobs
-            //
-            this.tab_staffpendingjobs.Controls.Add(this.lst_staffpendingjobs);
-            this.tab_staffpendingjobs.Controls.Add(this.lbl_staffpendingjobs_info);
-            this.tab_staffpendingjobs.Location = new System.Drawing.Point(4, 22);
-            this.tab_staffpendingjobs.Name = "tab_staffpendingjobs";
-            this.tab_staffpendingjobs.Padding = new System.Windows.Forms.Padding(3);
-            this.tab_staffpendingjobs.Size = new System.Drawing.Size(857, 531);
-            this.tab_staffpendingjobs.TabIndex = 1;
-            this.tab_staffpendingjobs.Text = "Pending Jobs";
-            this.tab_staffpendingjobs.UseVisualStyleBackColor = true;
-            //
-            // lbl_staffpendingjobs_info
-            //
-            this.lbl_staffpendingjobs_info.AutoSize = true;
-            this.lbl_staffpendingjobs_info.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbl_staffpendingjobs_info.ForeColor = System.Drawing.Color.DimGray;
-            this.lbl_staffpendingjobs_info.Location = new System.Drawing.Point(9, 12);
-            this.lbl_staffpendingjobs_info.Name = "lbl_staffpendingjobs_info";
-            this.lbl_staffpendingjobs_info.Size = new System.Drawing.Size(400, 15);
-            this.lbl_staffpendingjobs_info.TabIndex = 96;
-            this.lbl_staffpendingjobs_info.Text = "Staff/devices waiting for biometric data to sync — updates automatically";
-            //
-            // lst_staffpendingjobs
-            //
-            this.lst_staffpendingjobs.FullRowSelect = true;
-            this.lst_staffpendingjobs.GridLines = true;
-            this.lst_staffpendingjobs.HideSelection = false;
-            this.lst_staffpendingjobs.Location = new System.Drawing.Point(9, 41);
-            this.lst_staffpendingjobs.Name = "lst_staffpendingjobs";
-            this.lst_staffpendingjobs.Size = new System.Drawing.Size(841, 461);
-            this.lst_staffpendingjobs.TabIndex = 98;
-            this.lst_staffpendingjobs.UseCompatibleStateImageBehavior = false;
-            this.lst_staffpendingjobs.View = System.Windows.Forms.View.Details;
-            //
+            this.clv_staffAttendance.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_staffAttendance.Location = new System.Drawing.Point(9, 40);
+            this.clv_staffAttendance.Name = "clv_staffAttendance";
+            this.clv_staffAttendance.Size = new System.Drawing.Size(838, 458);
+            this.clv_staffAttendance.TabIndex = 86;
+            // 
             // pnl_device
-            //
+            // 
             this.pnl_device.BackColor = System.Drawing.Color.White;
-            this.pnl_device.Controls.Add(this.btn_format);
-            this.pnl_device.Controls.Add(this.txt_password);
+            this.pnl_device.Controls.Add(this.rb_format);
+            this.pnl_device.Controls.Add(this.rtb_password);
             this.pnl_device.Controls.Add(this.lbl_password);
             this.pnl_device.Controls.Add(this.label4);
-            this.pnl_device.Controls.Add(this.cmb_machine_no);
-            this.pnl_device.Controls.Add(this.listViewDevices);
-            this.pnl_device.Controls.Add(this.btnCancle);
-            this.pnl_device.Controls.Add(this.cmb_connectionType);
-            this.pnl_device.Controls.Add(this.cmb_device_type);
-            this.pnl_device.Controls.Add(this.btnSave);
-            this.pnl_device.Controls.Add(this.txt_finger_capacity);
-            this.pnl_device.Controls.Add(this.txt_RFID_capacity);
-            this.pnl_device.Controls.Add(this.btn_remove_device);
-            this.pnl_device.Controls.Add(this.txt_face_capacity);
-            this.pnl_device.Controls.Add(this.txt_last_synced);
-            this.pnl_device.Controls.Add(this.txt_device_status);
-            this.pnl_device.Controls.Add(this.btnEdit);
-            this.pnl_device.Controls.Add(this.txt_location);
-            this.pnl_device.Controls.Add(this.txt_timeZone);
-            this.pnl_device.Controls.Add(this.txt_port);
-            this.pnl_device.Controls.Add(this.txt_ip);
-            this.pnl_device.Controls.Add(this.txt_Serial);
-            this.pnl_device.Controls.Add(this.txt_department);
-            this.pnl_device.Controls.Add(this.txt_Device_id);
+            this.pnl_device.Controls.Add(this.rcmb_machine_no);
+            this.pnl_device.Controls.Add(this.cmbDeviceStatus);
+            this.pnl_device.Controls.Add(this.chkDeviceIsStaff);
+            this.pnl_device.Controls.Add(this.lbl_staffDevicesOnly);
+            this.pnl_device.Controls.Add(this.clv_devices);
+            this.pnl_device.Controls.Add(this.rb_Cancle);
+            this.pnl_device.Controls.Add(this.rcmb_connectionType);
+            this.pnl_device.Controls.Add(this.rcmb_device_type);
+            this.pnl_device.Controls.Add(this.rb_Save);
+            this.pnl_device.Controls.Add(this.rtb_finger_capacity);
+            this.pnl_device.Controls.Add(this.rtb_RFID_capacity);
+            this.pnl_device.Controls.Add(this.rb_remove_device);
+            this.pnl_device.Controls.Add(this.rtb_face_capacity);
+            this.pnl_device.Controls.Add(this.rtb_last_synced);
+            this.pnl_device.Controls.Add(this.rtb_device_status);
+            this.pnl_device.Controls.Add(this.rb_Edit);
+            this.pnl_device.Controls.Add(this.rtb_location);
+            this.pnl_device.Controls.Add(this.rtb_timeZone);
+            this.pnl_device.Controls.Add(this.rtb_port);
+            this.pnl_device.Controls.Add(this.rtb_ip);
+            this.pnl_device.Controls.Add(this.rtb_Serial);
+            this.pnl_device.Controls.Add(this.rtb_department);
+            this.pnl_device.Controls.Add(this.rtb_Device_id);
             this.pnl_device.Controls.Add(this.label17);
             this.pnl_device.Controls.Add(this.label18);
             this.pnl_device.Controls.Add(this.label19);
@@ -1510,27 +2074,37 @@ namespace smart_attendance_middleware
             this.pnl_device.Size = new System.Drawing.Size(837, 521);
             this.pnl_device.TabIndex = 2;
             // 
-            // btn_format
+            // rb_format
             // 
-            this.btn_format.Location = new System.Drawing.Point(270, 412);
-            this.btn_format.Name = "btn_format";
-            this.btn_format.Size = new System.Drawing.Size(113, 32);
-            this.btn_format.TabIndex = 51;
-            this.btn_format.Text = "Format";
-            this.btn_format.UseVisualStyleBackColor = true;
-            this.btn_format.Visible = false;
-            this.btn_format.Click += new System.EventHandler(this.btn_format_Click);
+            this.rb_format.BackColor = System.Drawing.Color.Transparent;
+            this.rb_format.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_format.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_format.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_format.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_format.ForeColor = System.Drawing.Color.White;
+            this.rb_format.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_format.Location = new System.Drawing.Point(270, 412);
+            this.rb_format.Name = "rb_format";
+            this.rb_format.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_format.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_format.Radius = 10;
+            this.rb_format.Size = new System.Drawing.Size(113, 32);
+            this.rb_format.TabIndex = 51;
+            this.rb_format.Text = "Format";
+            this.rb_format.Visible = false;
+            this.rb_format.Click += new System.EventHandler(this.btn_format_Click);
             // 
-            // txt_password
+            // rtb_password
             // 
-            this.txt_password.BackColor = System.Drawing.Color.White;
-            this.txt_password.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_password.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_password.Location = new System.Drawing.Point(122, 359);
-            this.txt_password.Name = "txt_password";
-            this.txt_password.PasswordChar = '*';
-            this.txt_password.Size = new System.Drawing.Size(72, 16);
-            this.txt_password.TabIndex = 50;
+            this.rtb_password.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_password.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_password.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_password.Location = new System.Drawing.Point(122, 359);
+            this.rtb_password.Name = "rtb_password";
+            this.rtb_password.Placeholder = "";
+            this.rtb_password.Radius = 10;
+            this.rtb_password.Size = new System.Drawing.Size(72, 16);
+            this.rtb_password.TabIndex = 50;
             // 
             // lbl_password
             // 
@@ -1552,221 +2126,302 @@ namespace smart_attendance_middleware
             this.label4.TabIndex = 43;
             this.label4.Text = "Machine No";
             // 
-            // cmb_machine_no
+            // rcmb_machine_no
             // 
-            this.cmb_machine_no.BackColor = System.Drawing.Color.White;
-            this.cmb_machine_no.FormattingEnabled = true;
-            this.cmb_machine_no.Items.AddRange(new object[] {
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "10"});
-            this.cmb_machine_no.Location = new System.Drawing.Point(510, 123);
-            this.cmb_machine_no.Name = "cmb_machine_no";
-            this.cmb_machine_no.Size = new System.Drawing.Size(135, 21);
-            this.cmb_machine_no.TabIndex = 42;
+            this.rcmb_machine_no.BackColor = System.Drawing.Color.Transparent;
+            this.rcmb_machine_no.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rcmb_machine_no.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rcmb_machine_no.Location = new System.Drawing.Point(510, 123);
+            this.rcmb_machine_no.Name = "rcmb_machine_no";
+            this.rcmb_machine_no.Radius = 10;
+            this.rcmb_machine_no.Size = new System.Drawing.Size(135, 21);
+            this.rcmb_machine_no.TabIndex = 42;
             // 
-            // listViewDevices
+            // cmbDeviceStatus
             // 
-            this.listViewDevices.HideSelection = false;
-            this.listViewDevices.Location = new System.Drawing.Point(0, 0);
-            this.listViewDevices.Name = "listViewDevices";
-            this.listViewDevices.Size = new System.Drawing.Size(837, 108);
-            this.listViewDevices.TabIndex = 41;
-            this.listViewDevices.UseCompatibleStateImageBehavior = false;
+            this.cmbDeviceStatus.BackColor = System.Drawing.Color.White;
+            this.cmbDeviceStatus.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbDeviceStatus.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbDeviceStatus.Location = new System.Drawing.Point(4, 4);
+            this.cmbDeviceStatus.Name = "cmbDeviceStatus";
+            this.cmbDeviceStatus.Radius = 8;
+            this.cmbDeviceStatus.Size = new System.Drawing.Size(130, 28);
+            this.cmbDeviceStatus.TabIndex = 92;
+            this.cmbDeviceStatus.SelectedIndexChanged += new System.EventHandler(this.cmbDeviceStatus_SelectedIndexChanged);
             // 
-            // btnCancle
+            // chkDeviceIsStaff
             // 
-            this.btnCancle.Location = new System.Drawing.Point(390, 412);
-            this.btnCancle.Name = "btnCancle";
-            this.btnCancle.Size = new System.Drawing.Size(113, 32);
-            this.btnCancle.TabIndex = 40;
-            this.btnCancle.Text = "Cancel";
-            this.btnCancle.UseVisualStyleBackColor = true;
-            this.btnCancle.Visible = false;
-            this.btnCancle.Click += new System.EventHandler(this.btnCancle_Click);
+            this.chkDeviceIsStaff.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.chkDeviceIsStaff.Location = new System.Drawing.Point(142, 8);
+            this.chkDeviceIsStaff.Name = "chkDeviceIsStaff";
+            this.chkDeviceIsStaff.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(204)))), ((int)(((byte)(216)))));
+            this.chkDeviceIsStaff.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.chkDeviceIsStaff.Size = new System.Drawing.Size(44, 24);
+            this.chkDeviceIsStaff.TabIndex = 93;
+            this.chkDeviceIsStaff.CheckedChanged += new System.EventHandler(this.chkDeviceIsStaff_CheckedChanged);
             // 
-            // cmb_connectionType
+            // lbl_staffDevicesOnly
             // 
-            this.cmb_connectionType.BackColor = System.Drawing.Color.White;
-            this.cmb_connectionType.FormattingEnabled = true;
-            this.cmb_connectionType.Items.AddRange(new object[] {
-            "NET",
-            "LAN",
-            "USB"});
-            this.cmb_connectionType.Location = new System.Drawing.Point(510, 179);
-            this.cmb_connectionType.Name = "cmb_connectionType";
-            this.cmb_connectionType.Size = new System.Drawing.Size(135, 21);
-            this.cmb_connectionType.TabIndex = 37;
+            this.lbl_staffDevicesOnly.AutoSize = true;
+            this.lbl_staffDevicesOnly.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lbl_staffDevicesOnly.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(85)))), ((int)(((byte)(99)))));
+            this.lbl_staffDevicesOnly.Location = new System.Drawing.Point(192, 12);
+            this.lbl_staffDevicesOnly.Name = "lbl_staffDevicesOnly";
+            this.lbl_staffDevicesOnly.Size = new System.Drawing.Size(57, 15);
+            this.lbl_staffDevicesOnly.TabIndex = 0;
+            this.lbl_staffDevicesOnly.Text = "Staff only";
             // 
-            // cmb_device_type
+            // clv_devices
             // 
-            this.cmb_device_type.FormattingEnabled = true;
-            this.cmb_device_type.Items.AddRange(new object[] {
-            "Check-in",
-            "Check-out",
-            "Check-in/Check-out"});
-            this.cmb_device_type.Location = new System.Drawing.Point(123, 212);
-            this.cmb_device_type.Name = "cmb_device_type";
-            this.cmb_device_type.Size = new System.Drawing.Size(135, 21);
-            this.cmb_device_type.TabIndex = 36;
+            this.clv_devices.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
+            this.clv_devices.Location = new System.Drawing.Point(0, 38);
+            this.clv_devices.Name = "clv_devices";
+            this.clv_devices.Size = new System.Drawing.Size(837, 70);
+            this.clv_devices.TabIndex = 41;
             // 
-            // btnSave
+            // rb_Cancle
             // 
-            this.btnSave.Location = new System.Drawing.Point(510, 412);
-            this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(113, 32);
-            this.btnSave.TabIndex = 39;
-            this.btnSave.Text = "Save";
-            this.btnSave.UseVisualStyleBackColor = true;
-            this.btnSave.Visible = false;
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            this.rb_Cancle.BackColor = System.Drawing.Color.Transparent;
+            this.rb_Cancle.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_Cancle.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_Cancle.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_Cancle.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_Cancle.ForeColor = System.Drawing.Color.White;
+            this.rb_Cancle.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(75)))), ((int)(((byte)(85)))), ((int)(((byte)(99)))));
+            this.rb_Cancle.Location = new System.Drawing.Point(390, 412);
+            this.rb_Cancle.Name = "rb_Cancle";
+            this.rb_Cancle.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(107)))), ((int)(((byte)(114)))), ((int)(((byte)(128)))));
+            this.rb_Cancle.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_Cancle.Radius = 10;
+            this.rb_Cancle.Size = new System.Drawing.Size(113, 32);
+            this.rb_Cancle.TabIndex = 40;
+            this.rb_Cancle.Text = "Cancel";
+            this.rb_Cancle.Visible = false;
+            this.rb_Cancle.Click += new System.EventHandler(this.btnCancle_Click);
             // 
-            // txt_finger_capacity
+            // rcmb_connectionType
             // 
-            this.txt_finger_capacity.BackColor = System.Drawing.Color.White;
-            this.txt_finger_capacity.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_finger_capacity.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_finger_capacity.Location = new System.Drawing.Point(510, 333);
-            this.txt_finger_capacity.Name = "txt_finger_capacity";
-            this.txt_finger_capacity.Size = new System.Drawing.Size(136, 16);
-            this.txt_finger_capacity.TabIndex = 35;
+            this.rcmb_connectionType.BackColor = System.Drawing.Color.Transparent;
+            this.rcmb_connectionType.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rcmb_connectionType.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rcmb_connectionType.Location = new System.Drawing.Point(510, 179);
+            this.rcmb_connectionType.Name = "rcmb_connectionType";
+            this.rcmb_connectionType.Radius = 10;
+            this.rcmb_connectionType.Size = new System.Drawing.Size(135, 21);
+            this.rcmb_connectionType.TabIndex = 37;
             // 
-            // txt_RFID_capacity
+            // rcmb_device_type
             // 
-            this.txt_RFID_capacity.BackColor = System.Drawing.Color.White;
-            this.txt_RFID_capacity.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_RFID_capacity.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_RFID_capacity.Location = new System.Drawing.Point(510, 303);
-            this.txt_RFID_capacity.Name = "txt_RFID_capacity";
-            this.txt_RFID_capacity.Size = new System.Drawing.Size(136, 16);
-            this.txt_RFID_capacity.TabIndex = 34;
+            this.rcmb_device_type.BackColor = System.Drawing.Color.Transparent;
+            this.rcmb_device_type.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rcmb_device_type.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rcmb_device_type.Location = new System.Drawing.Point(123, 212);
+            this.rcmb_device_type.Name = "rcmb_device_type";
+            this.rcmb_device_type.Radius = 10;
+            this.rcmb_device_type.Size = new System.Drawing.Size(135, 21);
+            this.rcmb_device_type.TabIndex = 36;
             // 
-            // btn_remove_device
+            // rb_Save
             // 
-            this.btn_remove_device.Location = new System.Drawing.Point(510, 412);
-            this.btn_remove_device.Name = "btn_remove_device";
-            this.btn_remove_device.Size = new System.Drawing.Size(113, 32);
-            this.btn_remove_device.TabIndex = 38;
-            this.btn_remove_device.Text = "Remove Device";
-            this.btn_remove_device.UseVisualStyleBackColor = true;
-            this.btn_remove_device.Click += new System.EventHandler(this.btn_remove_device_Click);
+            this.rb_Save.BackColor = System.Drawing.Color.Transparent;
+            this.rb_Save.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_Save.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_Save.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_Save.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_Save.ForeColor = System.Drawing.Color.White;
+            this.rb_Save.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_Save.Location = new System.Drawing.Point(510, 412);
+            this.rb_Save.Name = "rb_Save";
+            this.rb_Save.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_Save.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_Save.Radius = 10;
+            this.rb_Save.Size = new System.Drawing.Size(113, 32);
+            this.rb_Save.TabIndex = 39;
+            this.rb_Save.Text = "Save";
+            this.rb_Save.Visible = false;
+            this.rb_Save.Click += new System.EventHandler(this.btnSave_Click);
             // 
-            // txt_face_capacity
+            // rtb_finger_capacity
             // 
-            this.txt_face_capacity.BackColor = System.Drawing.Color.White;
-            this.txt_face_capacity.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_face_capacity.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_face_capacity.Location = new System.Drawing.Point(510, 273);
-            this.txt_face_capacity.Name = "txt_face_capacity";
-            this.txt_face_capacity.Size = new System.Drawing.Size(136, 16);
-            this.txt_face_capacity.TabIndex = 33;
+            this.rtb_finger_capacity.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_finger_capacity.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_finger_capacity.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_finger_capacity.Location = new System.Drawing.Point(510, 333);
+            this.rtb_finger_capacity.Name = "rtb_finger_capacity";
+            this.rtb_finger_capacity.Placeholder = "";
+            this.rtb_finger_capacity.Radius = 10;
+            this.rtb_finger_capacity.Size = new System.Drawing.Size(136, 16);
+            this.rtb_finger_capacity.TabIndex = 35;
             // 
-            // txt_last_synced
+            // rtb_RFID_capacity
             // 
-            this.txt_last_synced.BackColor = System.Drawing.Color.White;
-            this.txt_last_synced.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_last_synced.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_last_synced.Location = new System.Drawing.Point(510, 243);
-            this.txt_last_synced.Name = "txt_last_synced";
-            this.txt_last_synced.Size = new System.Drawing.Size(136, 16);
-            this.txt_last_synced.TabIndex = 32;
+            this.rtb_RFID_capacity.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_RFID_capacity.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_RFID_capacity.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_RFID_capacity.Location = new System.Drawing.Point(510, 303);
+            this.rtb_RFID_capacity.Name = "rtb_RFID_capacity";
+            this.rtb_RFID_capacity.Placeholder = "";
+            this.rtb_RFID_capacity.Radius = 10;
+            this.rtb_RFID_capacity.Size = new System.Drawing.Size(136, 16);
+            this.rtb_RFID_capacity.TabIndex = 34;
             // 
-            // txt_device_status
+            // rb_remove_device
             // 
-            this.txt_device_status.BackColor = System.Drawing.Color.White;
-            this.txt_device_status.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_device_status.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_device_status.Location = new System.Drawing.Point(510, 213);
-            this.txt_device_status.Name = "txt_device_status";
-            this.txt_device_status.Size = new System.Drawing.Size(136, 16);
-            this.txt_device_status.TabIndex = 31;
+            this.rb_remove_device.BackColor = System.Drawing.Color.Transparent;
+            this.rb_remove_device.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_remove_device.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_remove_device.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_remove_device.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_remove_device.ForeColor = System.Drawing.Color.White;
+            this.rb_remove_device.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
+            this.rb_remove_device.Location = new System.Drawing.Point(510, 412);
+            this.rb_remove_device.Name = "rb_remove_device";
+            this.rb_remove_device.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(68)))), ((int)(((byte)(68)))));
+            this.rb_remove_device.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(185)))), ((int)(((byte)(28)))), ((int)(((byte)(28)))));
+            this.rb_remove_device.Radius = 10;
+            this.rb_remove_device.Size = new System.Drawing.Size(113, 32);
+            this.rb_remove_device.TabIndex = 38;
+            this.rb_remove_device.Text = "Remove Device";
+            this.rb_remove_device.Click += new System.EventHandler(this.btn_remove_device_Click);
             // 
-            // btnEdit
+            // rtb_face_capacity
             // 
-            this.btnEdit.Location = new System.Drawing.Point(635, 412);
-            this.btnEdit.Name = "btnEdit";
-            this.btnEdit.Size = new System.Drawing.Size(113, 32);
-            this.btnEdit.TabIndex = 5;
-            this.btnEdit.Text = "Edit";
-            this.btnEdit.UseVisualStyleBackColor = true;
-            this.btnEdit.Click += new System.EventHandler(this.btnEdit_Click);
+            this.rtb_face_capacity.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_face_capacity.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_face_capacity.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_face_capacity.Location = new System.Drawing.Point(510, 273);
+            this.rtb_face_capacity.Name = "rtb_face_capacity";
+            this.rtb_face_capacity.Placeholder = "";
+            this.rtb_face_capacity.Radius = 10;
+            this.rtb_face_capacity.Size = new System.Drawing.Size(136, 16);
+            this.rtb_face_capacity.TabIndex = 33;
             // 
-            // txt_location
+            // rtb_last_synced
             // 
-            this.txt_location.BackColor = System.Drawing.Color.White;
-            this.txt_location.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_location.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_location.Location = new System.Drawing.Point(510, 153);
-            this.txt_location.Name = "txt_location";
-            this.txt_location.Size = new System.Drawing.Size(136, 16);
-            this.txt_location.TabIndex = 29;
+            this.rtb_last_synced.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_last_synced.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_last_synced.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_last_synced.Location = new System.Drawing.Point(510, 243);
+            this.rtb_last_synced.Name = "rtb_last_synced";
+            this.rtb_last_synced.Placeholder = "";
+            this.rtb_last_synced.Radius = 10;
+            this.rtb_last_synced.Size = new System.Drawing.Size(136, 16);
+            this.rtb_last_synced.TabIndex = 32;
             // 
-            // txt_timeZone
+            // rtb_device_status
             // 
-            this.txt_timeZone.BackColor = System.Drawing.Color.White;
-            this.txt_timeZone.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_timeZone.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_timeZone.Location = new System.Drawing.Point(123, 333);
-            this.txt_timeZone.Name = "txt_timeZone";
-            this.txt_timeZone.Size = new System.Drawing.Size(136, 16);
-            this.txt_timeZone.TabIndex = 28;
+            this.rtb_device_status.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_device_status.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_device_status.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_device_status.Location = new System.Drawing.Point(510, 213);
+            this.rtb_device_status.Name = "rtb_device_status";
+            this.rtb_device_status.Placeholder = "";
+            this.rtb_device_status.Radius = 10;
+            this.rtb_device_status.Size = new System.Drawing.Size(136, 16);
+            this.rtb_device_status.TabIndex = 31;
             // 
-            // txt_port
+            // rb_Edit
             // 
-            this.txt_port.BackColor = System.Drawing.Color.White;
-            this.txt_port.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_port.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_port.Location = new System.Drawing.Point(123, 303);
-            this.txt_port.Name = "txt_port";
-            this.txt_port.Size = new System.Drawing.Size(136, 16);
-            this.txt_port.TabIndex = 27;
+            this.rb_Edit.BackColor = System.Drawing.Color.Transparent;
+            this.rb_Edit.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_Edit.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_Edit.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_Edit.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_Edit.ForeColor = System.Drawing.Color.White;
+            this.rb_Edit.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_Edit.Location = new System.Drawing.Point(635, 412);
+            this.rb_Edit.Name = "rb_Edit";
+            this.rb_Edit.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.rb_Edit.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_Edit.Radius = 10;
+            this.rb_Edit.Size = new System.Drawing.Size(113, 32);
+            this.rb_Edit.TabIndex = 5;
+            this.rb_Edit.Text = "Edit";
+            this.rb_Edit.Click += new System.EventHandler(this.btnEdit_Click);
             // 
-            // txt_ip
+            // rtb_location
             // 
-            this.txt_ip.BackColor = System.Drawing.Color.White;
-            this.txt_ip.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_ip.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_ip.Location = new System.Drawing.Point(123, 273);
-            this.txt_ip.Name = "txt_ip";
-            this.txt_ip.Size = new System.Drawing.Size(136, 16);
-            this.txt_ip.TabIndex = 26;
+            this.rtb_location.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_location.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_location.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_location.Location = new System.Drawing.Point(510, 153);
+            this.rtb_location.Name = "rtb_location";
+            this.rtb_location.Placeholder = "";
+            this.rtb_location.Radius = 10;
+            this.rtb_location.Size = new System.Drawing.Size(136, 16);
+            this.rtb_location.TabIndex = 29;
             // 
-            // txt_Serial
+            // rtb_timeZone
             // 
-            this.txt_Serial.BackColor = System.Drawing.Color.White;
-            this.txt_Serial.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_Serial.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_Serial.Location = new System.Drawing.Point(123, 243);
-            this.txt_Serial.Name = "txt_Serial";
-            this.txt_Serial.Size = new System.Drawing.Size(136, 16);
-            this.txt_Serial.TabIndex = 25;
+            this.rtb_timeZone.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_timeZone.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_timeZone.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_timeZone.Location = new System.Drawing.Point(123, 333);
+            this.rtb_timeZone.Name = "rtb_timeZone";
+            this.rtb_timeZone.Placeholder = "";
+            this.rtb_timeZone.Radius = 10;
+            this.rtb_timeZone.Size = new System.Drawing.Size(136, 16);
+            this.rtb_timeZone.TabIndex = 28;
             // 
-            // txt_department
+            // rtb_port
             // 
-            this.txt_department.BackColor = System.Drawing.Color.White;
-            this.txt_department.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_department.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_department.Location = new System.Drawing.Point(123, 182);
-            this.txt_department.Name = "txt_department";
-            this.txt_department.Size = new System.Drawing.Size(136, 16);
-            this.txt_department.TabIndex = 23;
+            this.rtb_port.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_port.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_port.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_port.Location = new System.Drawing.Point(123, 303);
+            this.rtb_port.Name = "rtb_port";
+            this.rtb_port.Placeholder = "";
+            this.rtb_port.Radius = 10;
+            this.rtb_port.Size = new System.Drawing.Size(136, 16);
+            this.rtb_port.TabIndex = 27;
             // 
-            // txt_Device_id
+            // rtb_ip
             // 
-            this.txt_Device_id.BackColor = System.Drawing.Color.White;
-            this.txt_Device_id.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txt_Device_id.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txt_Device_id.Location = new System.Drawing.Point(123, 151);
-            this.txt_Device_id.Name = "txt_Device_id";
-            this.txt_Device_id.Size = new System.Drawing.Size(136, 16);
-            this.txt_Device_id.TabIndex = 22;
+            this.rtb_ip.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_ip.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_ip.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_ip.Location = new System.Drawing.Point(123, 273);
+            this.rtb_ip.Name = "rtb_ip";
+            this.rtb_ip.Placeholder = "";
+            this.rtb_ip.Radius = 10;
+            this.rtb_ip.Size = new System.Drawing.Size(136, 16);
+            this.rtb_ip.TabIndex = 26;
+            // 
+            // rtb_Serial
+            // 
+            this.rtb_Serial.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_Serial.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_Serial.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_Serial.Location = new System.Drawing.Point(123, 243);
+            this.rtb_Serial.Name = "rtb_Serial";
+            this.rtb_Serial.Placeholder = "";
+            this.rtb_Serial.Radius = 10;
+            this.rtb_Serial.Size = new System.Drawing.Size(136, 16);
+            this.rtb_Serial.TabIndex = 25;
+            // 
+            // rtb_department
+            // 
+            this.rtb_department.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_department.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_department.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_department.Location = new System.Drawing.Point(123, 182);
+            this.rtb_department.Name = "rtb_department";
+            this.rtb_department.Placeholder = "";
+            this.rtb_department.Radius = 10;
+            this.rtb_department.Size = new System.Drawing.Size(136, 16);
+            this.rtb_department.TabIndex = 23;
+            // 
+            // rtb_Device_id
+            // 
+            this.rtb_Device_id.BackColor = System.Drawing.Color.Transparent;
+            this.rtb_Device_id.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.rtb_Device_id.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rtb_Device_id.Location = new System.Drawing.Point(123, 151);
+            this.rtb_Device_id.Name = "rtb_Device_id";
+            this.rtb_Device_id.Placeholder = "";
+            this.rtb_Device_id.Radius = 10;
+            this.rtb_Device_id.Size = new System.Drawing.Size(136, 16);
+            this.rtb_Device_id.TabIndex = 22;
             // 
             // label17
             // 
@@ -1918,32 +2573,69 @@ namespace smart_attendance_middleware
             this.label9.TabIndex = 7;
             this.label9.Text = "Device Details";
             // 
-            // btn_add_device
+            // rb_add_device
             // 
-            this.btn_add_device.Location = new System.Drawing.Point(754, 154);
-            this.btn_add_device.Name = "btn_add_device";
-            this.btn_add_device.Size = new System.Drawing.Size(105, 32);
-            this.btn_add_device.TabIndex = 3;
-            this.btn_add_device.Text = "Add New Device";
-            this.btn_add_device.UseVisualStyleBackColor = true;
-            this.btn_add_device.Click += new System.EventHandler(this.btn_add_device_Click);
+            this.rb_add_device.BackColor = System.Drawing.Color.Transparent;
+            this.rb_add_device.BorderColor = System.Drawing.Color.Transparent;
+            this.rb_add_device.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rb_add_device.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.rb_add_device.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.rb_add_device.ForeColor = System.Drawing.Color.White;
+            this.rb_add_device.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.rb_add_device.Location = new System.Drawing.Point(754, 154);
+            this.rb_add_device.Name = "rb_add_device";
+            this.rb_add_device.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.rb_add_device.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.rb_add_device.Radius = 10;
+            this.rb_add_device.Size = new System.Drawing.Size(105, 32);
+            this.rb_add_device.TabIndex = 3;
+            this.rb_add_device.Text = "Add New Device";
+            this.rb_add_device.Click += new System.EventHandler(this.btn_add_device_Click);
             // 
             // pnl_deviceManager
             // 
             this.pnl_deviceManager.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.pnl_deviceManager.Controls.Add(this.btn_add_device);
+            this.pnl_deviceManager.Controls.Add(this.rb_add_device);
             this.pnl_deviceManager.Controls.Add(this.pnl_device);
             this.pnl_deviceManager.Location = new System.Drawing.Point(1114, 12);
             this.pnl_deviceManager.Name = "pnl_deviceManager";
             this.pnl_deviceManager.Size = new System.Drawing.Size(881, 724);
             this.pnl_deviceManager.TabIndex = 0;
             // 
+            // lbl_gate_entrylabel
+            // 
+            this.lbl_gate_entrylabel.Location = new System.Drawing.Point(0, 0);
+            this.lbl_gate_entrylabel.Name = "lbl_gate_entrylabel";
+            this.lbl_gate_entrylabel.Size = new System.Drawing.Size(100, 23);
+            this.lbl_gate_entrylabel.TabIndex = 0;
+            // 
+            // lbl_gate_entrydesc
+            // 
+            this.lbl_gate_entrydesc.Location = new System.Drawing.Point(0, 0);
+            this.lbl_gate_entrydesc.Name = "lbl_gate_entrydesc";
+            this.lbl_gate_entrydesc.Size = new System.Drawing.Size(100, 23);
+            this.lbl_gate_entrydesc.TabIndex = 0;
+            // 
+            // lbl_gate_passwordlabel
+            // 
+            this.lbl_gate_passwordlabel.Location = new System.Drawing.Point(0, 0);
+            this.lbl_gate_passwordlabel.Name = "lbl_gate_passwordlabel";
+            this.lbl_gate_passwordlabel.Size = new System.Drawing.Size(100, 23);
+            this.lbl_gate_passwordlabel.TabIndex = 0;
+            // 
+            // lbl_gate_passworddesc
+            // 
+            this.lbl_gate_passworddesc.Location = new System.Drawing.Point(0, 0);
+            this.lbl_gate_passworddesc.Name = "lbl_gate_passworddesc";
+            this.lbl_gate_passworddesc.Size = new System.Drawing.Size(100, 23);
+            this.lbl_gate_passworddesc.TabIndex = 0;
+            // 
             // DeviceManager
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.ClientSize = new System.Drawing.Size(880, 720);
+            this.ClientSize = new System.Drawing.Size(3799, 1053);
             this.Controls.Add(this.pnl_topnav);
             this.Controls.Add(this.pnl_welcome);
             this.Controls.Add(this.pnl_setup);
@@ -1960,11 +2652,6 @@ namespace smart_attendance_middleware
             this.Load += new System.EventHandler(this.DeviceManager_Load);
             this.pnl_welcome.ResumeLayout(false);
             this.pnl_welcome_tiles.ResumeLayout(false);
-            this.tile_device.ResumeLayout(false);
-            this.tile_user.ResumeLayout(false);
-            this.tile_staff.ResumeLayout(false);
-            this.tile_member.ResumeLayout(false);
-            this.tile_setup.ResumeLayout(false);
             this.pnl_welcome_header.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.pnl_topnav.ResumeLayout(false);
@@ -1977,7 +2664,6 @@ namespace smart_attendance_middleware
             this.tab_members.PerformLayout();
             this.tab_memberAttendence.ResumeLayout(false);
             this.panel5.ResumeLayout(false);
-            this.panel5.PerformLayout();
             this.tab_manualdoor.ResumeLayout(false);
             this.panel6.ResumeLayout(false);
             this.tab_pendingjobs.ResumeLayout(false);
@@ -1985,19 +2671,23 @@ namespace smart_attendance_middleware
             this.tab_staffpendingjobs.ResumeLayout(false);
             this.tab_staffpendingjobs.PerformLayout();
             this.pnl_setup.ResumeLayout(false);
-            this.subpnl_setup.ResumeLayout(false);
-            this.panel1.ResumeLayout(false);
-            this.panel1.PerformLayout();
+            this.card_api.ResumeLayout(false);
+            this.card_api.PerformLayout();
+            this.card_sync.ResumeLayout(false);
+            this.card_sync.PerformLayout();
+            this.card_backup.ResumeLayout(false);
+            this.card_backup.PerformLayout();
+            this.card_maint.ResumeLayout(false);
+            this.card_maint.PerformLayout();
+            this.card_gate.ResumeLayout(false);
+            this.card_gate.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.num_retention)).EndInit();
-            this.pnl_backup.ResumeLayout(false);
-            this.pnl_backup.PerformLayout();
             this.pnl_staffsManagment.ResumeLayout(false);
             this.tab_staff.ResumeLayout(false);
             this.tab_staffmembers.ResumeLayout(false);
             this.tab_staffmembers.PerformLayout();
             this.tab_staffattendence.ResumeLayout(false);
             this.panel8.ResumeLayout(false);
-            this.panel8.PerformLayout();
             this.pnl_device.ResumeLayout(false);
             this.pnl_device.PerformLayout();
             this.pnl_deviceManager.ResumeLayout(false);
@@ -2011,15 +2701,15 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Label btn_device_management;
         private System.Windows.Forms.Label btn_staffmanagment;
         private System.Windows.Forms.Label btn_userManagement;
-        private System.Windows.Forms.TextBox txtAPIkey;
-        private System.Windows.Forms.Button btnSaveAPI;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_APIkey;
+        private smart_attendance_middleware.Controls.RoundedButton rb_SaveAPI;
         private System.Windows.Forms.Panel pnl_UserManagement;
-        private System.Windows.Forms.Button btn_addUser;
+        private smart_attendance_middleware.Controls.RoundedButton rb_addUser;
         private System.Windows.Forms.Panel panel3;
-        private System.Windows.Forms.Button btn_editUser;
-        private System.Windows.Forms.ListView list_LocalUser;
-        private System.Windows.Forms.Button btn_change_password;
-        private System.Windows.Forms.Button btn_deleteUser;
+        private smart_attendance_middleware.Controls.RoundedButton rb_editUser;
+        private smart_attendance_middleware.Controls.CardListView clv_localUsers;
+        private smart_attendance_middleware.Controls.RoundedButton rb_change_password;
+        private smart_attendance_middleware.Controls.RoundedButton rb_deleteUser;
         private Label btn_attendencemanagment;
         private Panel pnl_attendence;
         private TabControl tab_attendence;
@@ -2027,63 +2717,113 @@ namespace smart_attendance_middleware
         private TabPage tab_manualdoor;
         private Panel panel6;
         private DateTimePicker date_manualdoor;
-        private Button btn_filter_manualdoor;
-        private ListView lst_manualdoor;
+        private smart_attendance_middleware.Controls.RoundedButton rb_filter_manualdoor;
+        private smart_attendance_middleware.Controls.CardListView clv_manualDoor;
         private TabPage tab_pendingjobs;
         private Label lbl_pendingjobs_info;
-        private ListView lst_pendingjobs;
+        private smart_attendance_middleware.Controls.CardListView clv_pendingJobs;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbPendingDevice;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbPendingFor;
         private TabPage tab_staffpendingjobs;
         private Label lbl_staffpendingjobs_info;
-        private ListView lst_staffpendingjobs;
+        private smart_attendance_middleware.Controls.CardListView clv_staffPendingJobs;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffPendingDevice;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffPendingFor;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbDoorVisitor;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffStatus;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffSync;
+        private smart_attendance_middleware.Controls.ToggleSwitch chkStaffFailure;
+        private System.Windows.Forms.Label lbl_chkStaffFailure;
         private Panel panel5;
-        private TextBox txt_membername;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_membername;
         private DateTimePicker date_member;
-        private Button btn_filter_member;
-        private ListView lst_member;
+        private smart_attendance_middleware.Controls.RoundedButton rb_filter_member;
+        private smart_attendance_middleware.Controls.CardListView clv_memberAttendance;
         private Panel pnl_setup;
         private Panel subpnl_setup;
-        private TextBox txt_debounce;
-        private Button btn_savedebounce;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_debounce;
+        private smart_attendance_middleware.Controls.RoundedButton rb_savedebounce;
         private Label btn_setupmanage;
-        private Button btn_getdb;
-        private Button btn_settime;
-        private TabPage tab_members;
-        private TextBox txt_memb_name;
-        private Button flt_members;
-        private ListView lst_members;
+        private smart_attendance_middleware.Controls.RoundedButton rb_getdb;
+        private smart_attendance_middleware.Controls.RoundedButton rb_settime;
+        private System.Windows.Forms.TabPage tab_members;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_memb_name;
+        private smart_attendance_middleware.Controls.RoundedButton rb_flt_members;
+        private smart_attendance_middleware.Controls.CardListView clv_members;
         private Panel pnl_staffsManagment;
         private TabControl tab_staff;
         private TabPage tab_staffmembers;
-        private TextBox txt_staff;
-        private Button btn_stafffilter;
-        private ListView lst_staffs;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_staff;
+        private smart_attendance_middleware.Controls.RoundedButton rb_stafffilter;
+        private smart_attendance_middleware.Controls.CardListView clv_staffs;
         private TabPage tab_staffattendence;
         private Panel panel8;
-        private TextBox txt_staffname;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_staffname;
         private DateTimePicker date_staffattendence;
-        private Button btn_filterattendencestaff;
-        private ListView lst_staffattendence;
-        private Button btn_save_drivefolderid;
-        private TextBox txt_drivecredentials;
-        private TextBox txt_drivefolderid;
-        private Button btn_save_drivecredentials;
+        private smart_attendance_middleware.Controls.RoundedButton rb_filterattendencestaff;
+        private smart_attendance_middleware.Controls.CardListView clv_staffAttendance;
+        private smart_attendance_middleware.Controls.RoundedButton rb_save_drivefolderid;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_drivecredentials;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_drivefolderid;
+        private smart_attendance_middleware.Controls.RoundedButton rb_save_drivecredentials;
         private CheckBox chk_database;
-        private Button btn_save_backuptype;
+        private smart_attendance_middleware.Controls.RoundedButton rb_save_backuptype;
         private CheckBox chk_logs;
         private CheckBox chk_glogs;
         private NumericUpDown num_retention;
-        private Button btn_save_retentiondays;
-        private Button btn_backupcleanup;
-        private Button btn_test_connection;
+        private smart_attendance_middleware.Controls.RoundedButton rb_save_retentiondays;
+        private smart_attendance_middleware.Controls.RoundedButton rb_backupcleanup;
+        private smart_attendance_middleware.Controls.RoundedButton rb_test_connection;
         private System.Windows.Forms.Label lbl_debounce;
         private System.Windows.Forms.Label lbl_retention;
         private System.Windows.Forms.Label lbl_drivefolderid;
         private System.Windows.Forms.Label lbl_drivecredentials;
         private System.Windows.Forms.Label lbl_apikey;
-        private Panel pnl_backup;
-        private Label lbl_backuptype;
+        private System.Windows.Forms.Panel pnl_backup;
+        private System.Windows.Forms.Label lbl_backuptype;
+        private System.Windows.Forms.Panel card_api;
+        private System.Windows.Forms.Label lbl_card_api_title;
+        private System.Windows.Forms.Label lbl_card_api_sub;
+        private System.Windows.Forms.Panel card_sync;
+        private System.Windows.Forms.Label lbl_card_sync_title;
+        private System.Windows.Forms.Label lbl_card_sync_sub;
+        private System.Windows.Forms.Label lbl_card_sync_retentionlabel;
+        private System.Windows.Forms.Label lbl_card_sync_retentionfooter;
+        private System.Windows.Forms.Panel card_maint;
+        private System.Windows.Forms.Label lbl_card_maint_title;
+        private System.Windows.Forms.Label lbl_card_maint_sub;
+        private System.Windows.Forms.Panel card_backup;
+        private System.Windows.Forms.Label lbl_card_backup_title;
+        private System.Windows.Forms.Label lbl_card_backup_sub;
+        private System.Windows.Forms.Label lbl_card_backup_type_label;
+        private System.Windows.Forms.Label lbl_card_backup_drivefolder_label;
+        private System.Windows.Forms.Label lbl_card_backup_creds_label;
+        private System.Windows.Forms.Label lbl_backupConnectionStatus;
+        private smart_attendance_middleware.Controls.RoundedButton rb_btn_savebackup;
+        private System.Windows.Forms.Panel card_gate;
+        private System.Windows.Forms.Label lbl_card_gate_title;
+        private System.Windows.Forms.Label lbl_card_gate_sub;
+        private System.Windows.Forms.Label lbl_gate_entrylabel;
+        private System.Windows.Forms.Label lbl_gate_entrydesc;
+        private System.Windows.Forms.Label lbl_gate_passwordlabel;
+        private System.Windows.Forms.Label lbl_gate_passworddesc;
+        private smart_attendance_middleware.Controls.ToggleSwitch chk_requireGateEntryForm;
+        private smart_attendance_middleware.Controls.ToggleSwitch chk_requireGatePassword;
+        private smart_attendance_middleware.Controls.RoundedButton rb_btn_gate_save;
+        private smart_attendance_middleware.Controls.RoundedButton rb_btn_sync_save;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbDeviceStatus;
+        private smart_attendance_middleware.Controls.ToggleSwitch chkDeviceIsStaff;
+        private System.Windows.Forms.Label lbl_staffDevicesOnly;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbUserRole;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbMemberSync;
+        private smart_attendance_middleware.Controls.ToggleSwitch chkMemberFailure;
+        private System.Windows.Forms.Label lbl_hasFailureOnly;
+        private smart_attendance_middleware.Controls.RoundedComboBox rcmb_retention;
+        private smart_attendance_middleware.Controls.ModernTabPanel mtp_attendence;
+        private smart_attendance_middleware.Controls.ModernTabPanel mtp_staff;
         private Panel panel1;
         private System.Windows.Forms.Panel pnl_welcome;
+        private smart_attendance_middleware.Controls.TileCard tile_finger;
         private System.Windows.Forms.Panel pnl_topnav;
         private System.Windows.Forms.Label nav_device;
         private System.Windows.Forms.Label nav_user;
@@ -2093,52 +2833,37 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Panel pnl_welcome_header;
         private System.Windows.Forms.Label lbl_welcome_title;
         private System.Windows.Forms.Label lbl_welcome_sub;
-        private System.Windows.Forms.FlowLayoutPanel pnl_welcome_tiles;
-        private System.Windows.Forms.Panel tile_device;
-        private System.Windows.Forms.Label lbl_tile_device_icon;
-        private System.Windows.Forms.Label lbl_tile_device_name;
-        private System.Windows.Forms.Label lbl_tile_device_desc;
-        private System.Windows.Forms.Panel tile_user;
-        private System.Windows.Forms.Label lbl_tile_user_icon;
-        private System.Windows.Forms.Label lbl_tile_user_name;
-        private System.Windows.Forms.Label lbl_tile_user_desc;
-        private System.Windows.Forms.Panel tile_staff;
-        private System.Windows.Forms.Label lbl_tile_staff_icon;
-        private System.Windows.Forms.Label lbl_tile_staff_name;
-        private System.Windows.Forms.Label lbl_tile_staff_desc;
-        private System.Windows.Forms.Panel tile_member;
-        private System.Windows.Forms.Label lbl_tile_member_icon;
-        private System.Windows.Forms.Label lbl_tile_member_name;
-        private System.Windows.Forms.Label lbl_tile_member_desc;
-        private System.Windows.Forms.Panel tile_setup;
-        private System.Windows.Forms.Label lbl_tile_setup_icon;
-        private System.Windows.Forms.Label lbl_tile_setup_name;
-        private System.Windows.Forms.Label lbl_tile_setup_desc;
+        private System.Windows.Forms.Panel pnl_welcome_tiles;
+        private smart_attendance_middleware.Controls.TileCard tile_device;
+        private smart_attendance_middleware.Controls.TileCard tile_user;
+        private smart_attendance_middleware.Controls.TileCard tile_staff;
+        private smart_attendance_middleware.Controls.TileCard tile_member;
+        private smart_attendance_middleware.Controls.TileCard tile_setup;
         private Panel pnl_device;
-        private Button btn_format;
-        private TextBox txt_password;
+        private smart_attendance_middleware.Controls.RoundedButton rb_format;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_password;
         private Label lbl_password;
         private Label label4;
-        private ComboBox cmb_machine_no;
-        private ListView listViewDevices;
-        private Button btnCancle;
-        private ComboBox cmb_connectionType;
-        private ComboBox cmb_device_type;
-        private Button btnSave;
-        private TextBox txt_finger_capacity;
-        private TextBox txt_RFID_capacity;
-        private Button btn_remove_device;
-        private TextBox txt_face_capacity;
-        private TextBox txt_last_synced;
-        private TextBox txt_device_status;
-        private Button btnEdit;
-        private TextBox txt_location;
-        private TextBox txt_timeZone;
-        private TextBox txt_port;
-        private TextBox txt_ip;
-        private TextBox txt_Serial;
-        private TextBox txt_department;
-        private TextBox txt_Device_id;
+        private smart_attendance_middleware.Controls.RoundedComboBox rcmb_machine_no;
+        private smart_attendance_middleware.Controls.CardListView clv_devices;
+        private smart_attendance_middleware.Controls.RoundedButton rb_Cancle;
+        private smart_attendance_middleware.Controls.RoundedComboBox rcmb_connectionType;
+        private smart_attendance_middleware.Controls.RoundedComboBox rcmb_device_type;
+        private smart_attendance_middleware.Controls.RoundedButton rb_Save;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_finger_capacity;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_RFID_capacity;
+        private smart_attendance_middleware.Controls.RoundedButton rb_remove_device;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_face_capacity;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_last_synced;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_device_status;
+        private smart_attendance_middleware.Controls.RoundedButton rb_Edit;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_location;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_timeZone;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_port;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_ip;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_Serial;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_department;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_Device_id;
         private Label label17;
         private Label label18;
         private Label label19;
@@ -2154,7 +2879,12 @@ namespace smart_attendance_middleware
         private Label label11;
         private Label label10;
         private Label label9;
-        private Button btn_add_device;
+        private smart_attendance_middleware.Controls.RoundedButton rb_add_device;
         private Panel pnl_deviceManager;
     }
 }
+
+
+
+
+

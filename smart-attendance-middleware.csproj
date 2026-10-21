@@ -234,6 +234,9 @@
     <Compile Include="Controls\RoundedButton.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\TileCard.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\RoundedTextBox.cs">
       <SubType>UserControl</SubType>
     </Compile>

@@ -80,7 +80,7 @@ namespace smart_attendance_middleware.Controls
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
             var rc  = new Rectangle(1, 1, Width - 2, Height - 2);
-            var border = _isFocused ? _focusBorderColor : _borderColor;
+            var border = DesignMode ? _borderColor : (_isFocused ? _focusBorderColor : _borderColor);
 
             using (var path = RoundedPath(rc, _radius))
             {
@@ -90,7 +90,17 @@ namespace smart_attendance_middleware.Controls
                     g.DrawPath(pen, path);
             }
 
-            // Placeholder
+            // Placeholder / design-mode label
+            if (DesignMode)
+            {
+                string label = !string.IsNullOrEmpty(_placeholder) ? _placeholder : Name;
+                int pad2 = _radius / 2 + 10;
+                using (var br = new SolidBrush(Color.FromArgb(156, 163, 175)))
+                    g.DrawString(label, new Font("Segoe UI", 10f), br,
+                        new RectangleF(pad2, 0, Width - pad2 * 2, Height),
+                        new StringFormat { LineAlignment = StringAlignment.Center });
+                return;
+            }
             if (!_isFocused && string.IsNullOrEmpty(_inner.Text) && !string.IsNullOrEmpty(_placeholder))
             {
                 int pad = _radius / 2 + 10;

@@ -76,16 +76,34 @@ namespace smart_attendance_middleware.Controls
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
             var rc     = new Rectangle(1, 1, Width - 2, Height - 2);
-            var border = _isFocused ? _focusBorderColor : _borderColor;
+            var border = DesignMode ? _borderColor : (_isFocused ? _focusBorderColor : _borderColor);
 
             using (var path = RoundedPath(rc, _radius))
             {
                 using (var br = new SolidBrush(Color.White))
                     g.FillPath(br, path);
-                using (var pen = new Pen(border, _isFocused ? 2f : 1.5f))
+                using (var pen = new Pen(border, DesignMode || !_isFocused ? 1.5f : 2f))
                     g.DrawPath(pen, path);
             }
 
+            if (DesignMode)
+            {
+                // Show name label + dropdown arrow
+                int pad = _radius / 2 + 8;
+                using (var br = new SolidBrush(Color.FromArgb(156, 163, 175)))
+                using (var f = new Font("Segoe UI", 10f))
+                    g.DrawString(Name, f, br,
+                        new RectangleF(pad, 0, Width - pad * 2 - 20, Height),
+                        new StringFormat { LineAlignment = StringAlignment.Center });
+                // Dropdown arrow
+                int ax = Width - 18, ay = Height / 2 - 2;
+                using (var br = new SolidBrush(Color.FromArgb(100, 108, 132)))
+                {
+                    var arrow = new[] { new Point(ax, ay), new Point(ax + 8, ay), new Point(ax + 4, ay + 5) };
+                    g.FillPolygon(br, arrow);
+                }
+                return;
+            }
         }
 
         private GraphicsPath RoundedPath(Rectangle r, int rad)

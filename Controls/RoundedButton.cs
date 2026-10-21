@@ -5,7 +5,7 @@ using System.Windows.Forms;
 
 namespace smart_attendance_middleware.Controls
 {
-    public class RoundedButton : Control
+    public class RoundedButton : Control, IButtonControl
     {
         private Color _backColor    = Color.FromArgb(59, 130, 246);
         private Color _hoverColor   = Color.FromArgb(37, 99, 235);
@@ -17,6 +17,8 @@ namespace smart_attendance_middleware.Controls
         private bool  _isPressed    = false;
 
         public DialogResult DialogResult { get; set; } = DialogResult.None;
+        public void NotifyDefault(bool value) { }
+        public void PerformClick() => OnClick(EventArgs.Empty);
 
         public Color NormalColor  { get => _backColor;    set { _backColor    = value; Invalidate(); } }
         public Color HoverColor   { get => _hoverColor;   set { _hoverColor   = value; Invalidate(); } }
@@ -58,7 +60,7 @@ namespace smart_attendance_middleware.Controls
             g.TextRenderingHint  = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             var rc   = new Rectangle(1, 1, Width - 2, Height - 2);
-            var fill = _isPressed ? _pressedColor : _isHovered ? _hoverColor : _backColor;
+            var fill = DesignMode ? _backColor : (_isPressed ? _pressedColor : _isHovered ? _hoverColor : _backColor);
 
             using (var path = RoundedPath(rc, _radius))
             {

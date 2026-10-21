@@ -70,7 +70,19 @@ namespace smart_attendance_middleware.Controls
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(_bg);
 
-            if (_tabTitles.Count == 0) return;
+            if (_tabTitles.Count == 0)
+            {
+                if (DesignMode)
+                {
+                    using (var f = new Font("Segoe UI", 9f))
+                    using (var br = new SolidBrush(_muted))
+                    {
+                        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                        g.DrawString("ModernTabPanel", f, br, new RectangleF(0, 0, Width, Height), sf);
+                    }
+                }
+                return;
+            }
 
             _tabRects = new Rectangle[_tabTitles.Count];
                 int x = 8;

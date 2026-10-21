@@ -59,6 +59,37 @@ namespace smart_attendance_middleware.Controls
         private static readonly Font _fontActionBtn = new Font("Segoe UI", 8f,   FontStyle.Regular);
         private static readonly Font _fontColHeader = new Font("Segoe UI", 8.5f, FontStyle.Regular);
 
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            if (DesignMode)
+            {
+                var g = e.Graphics;
+                g.Clear(_bg);
+                using (var pen = new Pen(Color.FromArgb(200, 205, 220)))
+                    g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+                using (var hdrBr = new SolidBrush(Color.FromArgb(230, 232, 242)))
+                    g.FillRectangle(hdrBr, 0, 0, Width, 36);
+                using (var f = new Font("Segoe UI", 8.5f))
+                using (var br = new SolidBrush(_muted))
+                {
+                    int x = 8;
+                    for (int i = 0; i < _colTitles.Length; i++)
+                    {
+                        int cx = i < _colX.Length ? _colX[i] + 8 : x;
+                        g.DrawString(_colTitles[i], f, br, cx, 10);
+                    }
+                    if (_colTitles.Length == 0)
+                    {
+                        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                        using (var br2 = new SolidBrush(Color.FromArgb(100, 108, 132)))
+                            g.DrawString("CardListView", f, br2, new RectangleF(0, 0, Width, Height), sf);
+                    }
+                }
+                return;
+            }
+            base.OnPaint(e);
+        }
+
         public CardListView()
         {
             BackColor = _bg;
