@@ -71,7 +71,6 @@ namespace smart_attendance_middleware
             this.rb_change_password = new smart_attendance_middleware.Controls.RoundedButton();
             this.rb_deleteUser = new smart_attendance_middleware.Controls.RoundedButton();
             this.pnl_attendence = new System.Windows.Forms.Panel();
-            this.mtp_attendence = new smart_attendance_middleware.Controls.ModernTabPanel();
             this.tab_attendence = new System.Windows.Forms.TabControl();
             this.tab_members = new System.Windows.Forms.TabPage();
             this.rtb_memb_name = new smart_attendance_middleware.Controls.RoundedTextBox();
@@ -155,7 +154,6 @@ namespace smart_attendance_middleware
             this.rb_save_drivecredentials = new smart_attendance_middleware.Controls.RoundedButton();
             this.rb_save_backuptype = new smart_attendance_middleware.Controls.RoundedButton();
             this.pnl_staffsManagment = new System.Windows.Forms.Panel();
-            this.mtp_staff = new smart_attendance_middleware.Controls.ModernTabPanel();
             this.tab_staff = new System.Windows.Forms.TabControl();
             this.tab_staffmembers = new System.Windows.Forms.TabPage();
             this.rtb_staff = new smart_attendance_middleware.Controls.RoundedTextBox();
@@ -795,35 +793,22 @@ namespace smart_attendance_middleware
             // pnl_attendence
             // 
             this.pnl_attendence.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.pnl_attendence.Controls.Add(this.mtp_attendence);
             this.pnl_attendence.Controls.Add(this.tab_attendence);
             this.pnl_attendence.Location = new System.Drawing.Point(1114, 750);
             this.pnl_attendence.Name = "pnl_attendence";
             this.pnl_attendence.Size = new System.Drawing.Size(881, 724);
             this.pnl_attendence.TabIndex = 4;
-            // 
-            // mtp_attendence
-            // 
-            this.mtp_attendence.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
-            this.mtp_attendence.Location = new System.Drawing.Point(8, 156);
-            this.mtp_attendence.Name = "mtp_attendence";
-            this.mtp_attendence.Size = new System.Drawing.Size(865, 44);
-            this.mtp_attendence.TabIndex = 200;
-            this.mtp_attendence.TabChanged += new System.EventHandler<int>(this.mtp_attendence_TabChanged);
-            // 
+            //
             // tab_attendence
             // 
-            this.tab_attendence.Appearance = System.Windows.Forms.TabAppearance.FlatButtons;
             this.tab_attendence.Controls.Add(this.tab_members);
             this.tab_attendence.Controls.Add(this.tab_memberAttendence);
             this.tab_attendence.Controls.Add(this.tab_manualdoor);
             this.tab_attendence.Controls.Add(this.tab_pendingjobs);
-            this.tab_attendence.ItemSize = new System.Drawing.Size(0, 1);
-            this.tab_attendence.Location = new System.Drawing.Point(8, 200);
+            this.tab_attendence.Location = new System.Drawing.Point(8, 156);
             this.tab_attendence.Name = "tab_attendence";
             this.tab_attendence.SelectedIndex = 0;
-            this.tab_attendence.Size = new System.Drawing.Size(865, 513);
-            this.tab_attendence.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
+            this.tab_attendence.Size = new System.Drawing.Size(865, 557);
             this.tab_attendence.TabIndex = 83;
             this.tab_attendence.SelectedIndexChanged += new System.EventHandler(this.tab_attendence_SelectedIndexChanged);
             // 
@@ -1871,34 +1856,21 @@ namespace smart_attendance_middleware
             // pnl_staffsManagment
             // 
             this.pnl_staffsManagment.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.pnl_staffsManagment.Controls.Add(this.mtp_staff);
             this.pnl_staffsManagment.Controls.Add(this.tab_staff);
             this.pnl_staffsManagment.Location = new System.Drawing.Point(2926, 12);
             this.pnl_staffsManagment.Name = "pnl_staffsManagment";
             this.pnl_staffsManagment.Size = new System.Drawing.Size(881, 724);
             this.pnl_staffsManagment.TabIndex = 84;
-            // 
-            // mtp_staff
-            // 
-            this.mtp_staff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
-            this.mtp_staff.Location = new System.Drawing.Point(8, 156);
-            this.mtp_staff.Name = "mtp_staff";
-            this.mtp_staff.Size = new System.Drawing.Size(865, 44);
-            this.mtp_staff.TabIndex = 201;
-            this.mtp_staff.TabChanged += new System.EventHandler<int>(this.mtp_staff_TabChanged);
-            // 
+            //
             // tab_staff
             // 
-            this.tab_staff.Appearance = System.Windows.Forms.TabAppearance.FlatButtons;
             this.tab_staff.Controls.Add(this.tab_staffmembers);
             this.tab_staff.Controls.Add(this.tab_staffattendence);
             this.tab_staff.Controls.Add(this.tab_staffpendingjobs);
-            this.tab_staff.ItemSize = new System.Drawing.Size(0, 1);
-            this.tab_staff.Location = new System.Drawing.Point(8, 200);
+            this.tab_staff.Location = new System.Drawing.Point(8, 156);
             this.tab_staff.Name = "tab_staff";
             this.tab_staff.SelectedIndex = 0;
-            this.tab_staff.Size = new System.Drawing.Size(865, 513);
-            this.tab_staff.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
+            this.tab_staff.Size = new System.Drawing.Size(865, 557);
             this.tab_staff.TabIndex = 83;
             this.tab_staff.SelectedIndexChanged += new System.EventHandler(this.tab_staff_SelectedIndexChanged);
             // 
@@ -2819,8 +2791,7 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.ToggleSwitch chkMemberFailure;
         private System.Windows.Forms.Label lbl_hasFailureOnly;
         private smart_attendance_middleware.Controls.RoundedComboBox rcmb_retention;
-        private smart_attendance_middleware.Controls.ModernTabPanel mtp_attendence;
-        private smart_attendance_middleware.Controls.ModernTabPanel mtp_staff;
+
         private Panel panel1;
         private System.Windows.Forms.Panel pnl_welcome;
         private smart_attendance_middleware.Controls.TileCard tile_finger;

@@ -423,25 +423,8 @@ namespace smart_attendance_middleware
             }
         }
 
-        // ── ModernTabPanel sync handlers ───────────────────────────────────────
-        private void mtp_attendence_TabChanged(object sender, int e)
-        {
-            if (tab_attendence.SelectedIndex != e) tab_attendence.SelectedIndex = e;
-        }
-        private void tab_attendence_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (mtp_attendence.ActiveTabIndex != tab_attendence.SelectedIndex)
-                mtp_attendence.SelectTab(tab_attendence.SelectedIndex);
-        }
-        private void mtp_staff_TabChanged(object sender, int e)
-        {
-            if (tab_staff.SelectedIndex != e) tab_staff.SelectedIndex = e;
-        }
-        private void tab_staff_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (mtp_staff.ActiveTabIndex != tab_staff.SelectedIndex)
-                mtp_staff.SelectTab(tab_staff.SelectedIndex);
-        }
+        private void tab_attendence_SelectedIndexChanged(object sender, EventArgs e) { }
+        private void tab_staff_SelectedIndexChanged(object sender, EventArgs e) { }
 
         // ── Filter event handlers ───────────────────────────────────────────
         private void cmbDeviceStatus_SelectedIndexChanged(object sender, EventArgs e) { SetupDeviceList(); }
