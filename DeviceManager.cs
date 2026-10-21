@@ -40,10 +40,7 @@ namespace smart_attendance_middleware
         private bool _isInitialized = false;
 
         // Filter controls declared in Designer.cs
-        private Controls.RoundedComboBox cmbMemberStatus;
-        private Controls.RoundedComboBox cmbAllMemberStatus;
-        private Controls.RoundedComboBox cmbAllMemberBiometric;
-        private Controls.RoundedComboBox cmbAllMemberExpiry;
+        private Controls.RoundedComboBox cmbMemberStatus = new Controls.RoundedComboBox();
 
         private bool _loadingUserData;
 
@@ -57,6 +54,7 @@ namespace smart_attendance_middleware
         // Edit-mode colors
         private static readonly Color EditableColor  = Color.White;
         private static readonly Color ReadOnlyColor  = Color.FromArgb(240, 240, 240);
+
 
 
 
@@ -100,8 +98,8 @@ namespace smart_attendance_middleware
         private void SetupListViewColumns()
         {
             clv_devices.SetColumns(
-                new[] { "ID", "MACHINE NO", "ATT. TYPE", "DEVICE IP", "PORT", "CONN TYPE", "STATUS", "IS STAFF" },
-                new[] {  0,    50,           130,          250,         390,    460,          580,      670 });
+                new[] { "MACHINE NO", "ATT. TYPE", "DEVICE IP", "PORT", "CONN TYPE", "STATUS", "IS STAFF", "ACTIONS" },
+                new[] {  0,            90,           180,         300,    360,          430,      502,         572 });
 
             clv_localUsers.SetColumns(
                 new[] { "USER ID", "USERNAME", "ROLE", "CREATED",  "ACTIONS" },
@@ -129,7 +127,7 @@ namespace smart_attendance_middleware
 
             clv_staffs.SetColumns(
                 new[] { "STAFF ID", "NAME", "STATUS", "BIOMETRIC", "ENROLLMENT", "SYNC", "FAILURE", "ACTIONS" },
-                new[] {  0,          70,     210,       290,         420,          520,    630,        715 });
+                new[] {  0,          140,    275,       360,         490,          575,    650,        725 });
 
             clv_staffAttendance.SetColumns(
                 new[] { "STAFF", "LOG ID", "CHECK-IN", "CHECK-OUT", "TIME ON SITE" },
@@ -142,11 +140,26 @@ namespace smart_attendance_middleware
         private const string RequireGateEntryFormSettingKey = "RequireGateEntryForm";
         private const string RequireGatePasswordSettingKey  = "RequireGatePassword";
 
+        private void ApplyCardRoundedRegions()
+        {
+            foreach (var card in new System.Windows.Forms.Panel[] { card_api, card_sync, card_backup, card_maint, card_gate })
+            {
+                var path = new System.Drawing.Drawing2D.GraphicsPath();
+                int r = 10, d = r * 2;
+                var rc = new Rectangle(0, 0, card.Width, card.Height);
+                path.AddArc(rc.X, rc.Y, d, d, 180, 90);
+                path.AddArc(rc.Right - d, rc.Y, d, d, 270, 90);
+                path.AddArc(rc.Right - d, rc.Bottom - d, d, d, 0, 90);
+                path.AddArc(rc.X, rc.Bottom - d, d, d, 90, 90);
+                path.CloseFigure();
+                card.Region = new Region(path);
+            }
+        }
+
         private void LoadSetupPanelData()
         {
             pnl_setup.BackColor  = Color.FromArgb(243, 244, 246);
-            subpnl_setup.Visible = false;
-
+            ApplyCardRoundedRegions();
             try { rtb_APIkey.Text = _dbHelper.GetSetting("APIKey") ?? ""; } catch { }
             try { rtb_debounce.Text = _dbHelper.GetSetting("DebounceSetting") ?? ""; } catch { }
 
@@ -222,9 +235,6 @@ namespace smart_attendance_middleware
                     string.IsNullOrWhiteSpace(sd.StaffAttendanceType) ? "-" : sd.StaffAttendanceType,
                     sd.DeviceIP ?? "-", sd.Port.ToString(), sd.ConnectionType ?? "-", sd.IsActive ? "Active" : "Inactive", "Yes", sd));
 
-            string devStatusSel = cmbDeviceStatus?.SelectedItem?.ToString() ?? "All Status";
-            if (devStatusSel != "All Status")
-                rows = rows.Where(r => string.Equals(r.status, devStatusSel, StringComparison.OrdinalIgnoreCase)).ToList();
             if (chkDeviceIsStaff?.Checked == true)
                 rows = rows.Where(r => r.isStaff == "Yes").ToList();
 
@@ -242,18 +252,47 @@ namespace smart_attendance_middleware
                 Color sFg = isActive ? green : red;
                 bool isStaff = r.isStaff == "Yes";
                 object capturedTag = r.tag;
+                var editBg   = Color.FromArgb(30, 38, 90);
+                var removeBg = Color.FromArgb(239, 68, 68);
+                var formatBg = Color.FromArgb(107, 114, 128);
                 return new CLV.CardBuilder()
-                    .Text(r.id,        0,   15, 50,  22, CLV.F9,     navy)
-                    .Text(r.machineNo, 50,  15, 80,  22, CLV.F9Bold, navy)
-                    .Text(r.attType,   130, 15, 120, 22, CLV.F9,     muted)
-                    .Text(r.ip,        250, 15, 140, 22, CLV.F9,     navy)
-                    .Text(r.port,      390, 15, 70,  22, CLV.F9,     muted)
-                    .Text(r.connType,  460, 15, 120, 22, CLV.F9,     muted)
-                    .Pill(r.status, sBg, sFg, 580, 13, 88, 22)
+                    .Text(r.machineNo, 0,   15, 88,  22, CLV.F9Bold, navy)
+                    .Text(r.attType,   90,  15, 88,  22, CLV.F9,     muted)
+                    .Text(r.ip,        180, 15, 118, 22, CLV.F9,     navy)
+                    .Text(r.port,      300, 15, 56,  22, CLV.F9,     muted)
+                    .Text(r.connType,  360, 15, 68,  22, CLV.F9,     muted)
+                    .Pill(r.status, sBg, sFg, 430, 14, 68, 22)
                     .Pill(isStaff ? "Staff" : "Member",
                           isStaff ? Color.FromArgb(237, 233, 254) : Color.FromArgb(219, 234, 254),
                           isStaff ? Color.FromArgb(109, 40, 217) : accent,
-                          670, 13, 70, 22)
+                          502, 14, 62, 22)
+                    .Button("Edit",   editBg,   Color.White, 572, 13, 46, 26, () => {
+                        var dev = capturedTag as Device;
+                        if (dev == null) return;
+                        _selectedDevice        = dev;
+                        _selectedIsStaff       = dev.StaffDeviceId > 0;
+                        _selectedDeviceId      = dev.DeviceId;
+                        _selectedStaffDeviceId = dev.StaffDeviceId;
+                        btnEdit_Click(null, EventArgs.Empty);
+                    })
+                    .Button("Remove", removeBg, Color.White, 622, 13, 56, 26, () => {
+                        var dev = capturedTag as Device;
+                        if (dev == null) return;
+                        _selectedDevice        = dev;
+                        _selectedIsStaff       = dev.StaffDeviceId > 0;
+                        _selectedDeviceId      = dev.DeviceId;
+                        _selectedStaffDeviceId = dev.StaffDeviceId;
+                        btn_remove_device_Click(null, EventArgs.Empty);
+                    })
+                    .Button("Format", formatBg, Color.White, 682, 13, 54, 26, () => {
+                        var dev = capturedTag as Device;
+                        if (dev == null) return;
+                        _selectedDevice        = dev;
+                        _selectedIsStaff       = dev.StaffDeviceId > 0;
+                        _selectedDeviceId      = dev.DeviceId;
+                        _selectedStaffDeviceId = dev.StaffDeviceId;
+                        btn_format_Click(null, EventArgs.Empty);
+                    })
                     .CardClick(() => {
                         var dev = capturedTag as Device;
                         if (dev == null) return;
@@ -261,11 +300,10 @@ namespace smart_attendance_middleware
                         _selectedIsStaff       = dev.StaffDeviceId > 0;
                         _selectedDeviceId      = dev.DeviceId;
                         _selectedStaffDeviceId = dev.StaffDeviceId;
-                        if (_selectedIsStaff) LoadSelectedStaffDeviceDetails(_selectedStaffDeviceId);
-                        else                  LoadSelectedDeviceDetails(_selectedDeviceId);
                     })
-                    .Build(900, 52);
+                    .Build(750, 52);
             });
+
         }
 
         //*************************************Event Listview Setup************************************//
@@ -308,10 +346,6 @@ namespace smart_attendance_middleware
             var red    = Color.FromArgb(239, 68, 68);
             var green  = Color.FromArgb(16, 185, 129);
 
-            // Hide standalone action buttons — actions are now inline per row
-            if (rb_deleteUser != null)       rb_deleteUser.Visible       = false;
-            if (rb_editUser != null)         rb_editUser.Visible         = false;
-            if (rb_change_password != null)  rb_change_password.Visible  = false;
 
             clv_localUsers.SetRowFactory(visibleUsers.Count, idx =>
             {
@@ -381,9 +415,7 @@ namespace smart_attendance_middleware
                 pnl_welcome.Visible = true;
                 pnl_welcome.BringToFront();
 
-                rb_deleteUser.Enabled = false;
-                rb_change_password.Enabled = false;
-                rb_editUser.Enabled = false;
+
                 ClearDeviceFields(); // Clear device fields on load
                 await UpdateSessionAsync(); // Update session with device data
                 InvalidateMemberCache();  // force rebuild on next member list load
@@ -427,7 +459,6 @@ namespace smart_attendance_middleware
         private void tab_staff_SelectedIndexChanged(object sender, EventArgs e) { }
 
         // ── Filter event handlers ───────────────────────────────────────────
-        private void cmbDeviceStatus_SelectedIndexChanged(object sender, EventArgs e) { SetupDeviceList(); }
         private void chkDeviceIsStaff_CheckedChanged(object sender, EventArgs e) { SetupDeviceList(); }
         private void cmbUserRole_SelectedIndexChanged(object sender, EventArgs e) { LoadLocalUserData(); }
         private void cmbMemberSync_SelectedIndexChanged(object sender, EventArgs e) { LoadMembersIntoListView(rtb_memb_name?.Text?.Trim()); }
@@ -790,52 +821,24 @@ namespace smart_attendance_middleware
         // Device selection is handled via per-row click handlers in SetupDeviceList()
         private void listViewDevices_SelectedIndexChanged(object sender, EventArgs e) { }
 
-        private void button2_Click(object sender, EventArgs e)
-        {
-            rtb_Device_id.BorderStyle = BorderStyle.FixedSingle;
-        }
+
+        private void button2_Click(object sender, EventArgs e) { }
 
         //********************************* Toggle Device Details Fields EditMode ***************************************
 
-        private void ToggleDeviceFieldsEditMode(bool enable)
-        {
-            var border    = enable ? BorderStyle.Fixed3D : BorderStyle.None;
-            var backColor = enable ? EditableColor : ReadOnlyColor;
-
-            foreach (var txt in new[] {
-                rtb_department, rtb_Device_id, rtb_finger_capacity, rtb_RFID_capacity,
-                rtb_face_capacity, rtb_last_synced, rtb_device_status, rtb_location,
-                rtb_timeZone, rtb_port, rtb_ip, rtb_Serial, rtb_password })
-            {
-                txt.ReadOnly    = !enable;
-                txt.BorderStyle = border;
-                txt.BackColor   = backColor;
-            }
-
-            rcmb_device_type.Enabled    = enable;
-            rcmb_connectionType.Enabled = enable;
-            rcmb_machine_no.Enabled     = enable;
-        }
+        private void ToggleDeviceFieldsEditMode(bool enable) { }
 
 
         private void btnEdit_Click(object sender, EventArgs e)
         {
-            if (_selectedDevice != null)
-            {
-                ToggleDeviceFieldsEditMode(true); // Enable editing
-                rb_Edit.Visible = false;
-                rb_Save.Visible = true;
-                rb_Save.Location = rb_Edit.Location;
-                rb_remove_device.Visible = false;
-                rb_Cancle.Visible = true;
-                rb_Cancle.Location = rb_remove_device.Location;
-                rb_format.Visible = true;
-
-            }
-            else
+            if (_selectedDevice == null)
             {
                 MessageBox.Show("Please select a device to edit.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
+            var editForm = new EditDevice(_selectedDevice, _selectedIsStaff);
+            editForm.FormClosed += (s, args) => { SetupDeviceList(); _selectedDevice = null; };
+            editForm.ShowDialog(this);
         }
 
 
@@ -858,25 +861,6 @@ namespace smart_attendance_middleware
 
         private void LoadSelectedStaffDeviceDetails(int staffDeviceId)
         {
-            var device = _dbHelper.LoadStaffDevices().FirstOrDefault(d => d.StaffDeviceId == staffDeviceId);
-            if (device == null) return;
-
-            rtb_Device_id.Text = device.StaffDeviceId.ToString();  // show StaffDeviceId
-            rtb_Serial.Text = device.DeviceSerial;
-            rtb_department.Text = device.Department;
-            rtb_face_capacity.Text = device.FaceCapacity.ToString();
-            rtb_finger_capacity.Text = device.FingerCapacity.ToString();
-            rtb_RFID_capacity.Text = device.RFIDCapacity.ToString();
-            rtb_ip.Text = device.DeviceIP;
-            rtb_port.Text = device.Port.ToString();
-            rtb_location.Text = device.Location;
-            rtb_timeZone.Text = device.TimeZone;
-            rtb_password.Text = device.Password;
-            rtb_device_status.Text = device.IsActive ? "Active" : "Inactive";
-            rtb_last_synced.Text = device.LastSyncTime ?? "Not Synced";
-            rcmb_device_type.SelectedItem = string.IsNullOrWhiteSpace(device.StaffAttendanceType) ? null : device.StaffAttendanceType;
-            rcmb_connectionType.SelectedItem = device.ConnectionType;
-            rcmb_machine_no.SelectedItem = device.MachineNo.ToString();
         }
 
         private async void btnSave_Click(object sender, EventArgs e)
@@ -946,7 +930,7 @@ namespace smart_attendance_middleware
 
                 if (_dbHelper.VerifyLoginUser(currentUser, enteredPassword))
                 {
-                    string deviceIp = rtb_ip.Text.Trim();
+                    string deviceIp = (_selectedDevice?.DeviceIP ?? "").Trim();
 
                     if (!await IsValidIpAsync(deviceIp))
                     {
@@ -954,7 +938,7 @@ namespace smart_attendance_middleware
                         return;
                     }
 
-                    int machineNoParsed = int.TryParse(rcmb_machine_no.SelectedItem?.ToString(), out int machineParsed) ? machineParsed : 0;
+                    int machineNoParsed = _selectedDevice?.MachineNo ?? 0;
 
                     // For normal devices, guard against IP/Machine conflicts (port uniqueness removed per helper doc)
                     if (!_selectedIsStaff)
@@ -969,33 +953,30 @@ namespace smart_attendance_middleware
                     // Staff devices may have different constraints; skipping duplicate guard unless implemented
 
                     ToggleDeviceFieldsEditMode(false);
-                    rb_Edit.Visible = true;
-                    rb_Save.Visible = false;
-                    rb_Cancle.Visible = false;
-                    rb_remove_device.Visible = true;
-                    rb_format.Visible = false;
 
                     // Build common model from fields
                     var deviceModel = new Device
                     {
-                        Department = rtb_department.Text,
-                        DeviceSerial = rtb_Serial.Text,
-                        DeviceIP = deviceIp,
-                        Port = int.TryParse(rtb_port.Text, out var p) ? p : 0,
-                        TimeZone = rtb_timeZone.Text,
-                        Location = rtb_location.Text,
-                        Password = rtb_password.Text,
-                        ConnectionType = rcmb_connectionType.SelectedItem?.ToString(),
-                        MachineNo = machineNoParsed,
-                        IsActive = rtb_device_status.Text == "Active",
-                        LastSyncTime = rtb_last_synced.Text,
-                        FaceCapacity = int.TryParse(rtb_face_capacity.Text, out var fc) ? fc : 0,
-                        RFIDCapacity = int.TryParse(rtb_RFID_capacity.Text, out var rc) ? rc : 0,
-                        FingerCapacity = int.TryParse(rtb_finger_capacity.Text, out var fpc) ? fpc : 0
+                        Department     = _selectedDevice?.Department     ?? "",
+                        DeviceSerial   = _selectedDevice?.DeviceSerial   ?? "",
+                        DeviceIP       = deviceIp,
+                        Port           = _selectedDevice?.Port           ?? 0,
+                        TimeZone       = _selectedDevice?.TimeZone       ?? "",
+                        Location       = _selectedDevice?.Location       ?? "",
+                        Password       = _selectedDevice?.Password       ?? "",
+                        ConnectionType = _selectedDevice?.ConnectionType ?? "",
+                        MachineNo      = machineNoParsed,
+                        IsActive     = _selectedDevice?.IsActive ?? false,
+                        LastSyncTime = _selectedDevice?.LastSyncTime ?? "",
+                        FaceCapacity    = _selectedDevice?.FaceCapacity    ?? 0,
+                        RFIDCapacity    = _selectedDevice?.RFIDCapacity    ?? 0,
+                        FingerCapacity  = _selectedDevice?.FingerCapacity  ?? 0
                     };
 
                     // Attendance type mapping
-                    var attendanceText = rcmb_device_type.SelectedItem?.ToString() ?? string.Empty;
+                    var attendanceText = _selectedIsStaff
+                        ? (_selectedDevice?.StaffAttendanceType ?? string.Empty)
+                        : (_selectedDevice?.AttendanceType == true ? "Check-in" : "Check-out");
 
                     try
                     {
@@ -1064,12 +1045,6 @@ namespace smart_attendance_middleware
             // Revert UI to non-editable mode
             ToggleDeviceFieldsEditMode(false);
 
-            // Hide Save/Cancel, show Edit
-            rb_Edit.Visible = true;
-            rb_remove_device.Visible = true;
-            rb_Save.Visible = false;
-            rb_Cancle.Visible = false;
-            rb_format.Visible = true;
 
 
 
@@ -1085,46 +1060,10 @@ namespace smart_attendance_middleware
             // Fetch device details from the database based on the selected deviceId
             var device = _dbHelper.LoadDevices().FirstOrDefault(d => d.DeviceId == deviceId);
 
-            if (device != null)
-            {
-                rtb_Device_id.Text = device.DeviceId.ToString();
-                rtb_Serial.Text = device.DeviceSerial;
-                rtb_department.Text = device.Department;
-                rtb_face_capacity.Text = device.FaceCapacity.ToString();
-                rtb_finger_capacity.Text = device.FingerCapacity.ToString();
-                rtb_RFID_capacity.Text = device.RFIDCapacity.ToString();
-                rtb_ip.Text = device.DeviceIP;
-                rtb_port.Text = device.Port.ToString();
-                rtb_location.Text = device.Location;
-                rtb_timeZone.Text = device.TimeZone;
-                rtb_password.Text = device.Password;
-                rtb_device_status.Text = device.IsActive ? "Active" : "Inactive";
-                rtb_last_synced.Text = device.LastSyncTime ?? "Not Synced";
-                rcmb_device_type.SelectedItem = device.AttendanceType ? "Check-in" : "Check-out";
-                rcmb_connectionType.SelectedItem = device.ConnectionType;
-                rcmb_machine_no.SelectedItem = device.MachineNo.ToString();
-
-            }
         }
 
         public void ClearDeviceFields()
         {
-            rtb_Device_id.Clear();
-            rtb_Serial.Clear();
-            rtb_department.Clear();
-            rtb_face_capacity.Clear();
-            rtb_finger_capacity.Clear();
-            rtb_RFID_capacity.Clear();
-            rtb_ip.Clear();
-            rtb_port.Clear();
-            rtb_location.Clear();
-            rtb_timeZone.Clear();
-            rtb_password.Clear();
-            rtb_device_status.Clear();
-            rtb_last_synced.Clear();
-            rcmb_device_type.SelectedIndex = -1;
-            rcmb_connectionType.SelectedIndex = -1;
-            rcmb_machine_no.SelectedIndex = -1;
         }
 
 
@@ -1145,7 +1084,8 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            if (!int.TryParse(rtb_Device_id.Text, out int deviceId))
+            int deviceId = _selectedIsStaff ? _selectedStaffDeviceId : _selectedDeviceId;
+            if (deviceId <= 0)
             {
                 MessageBox.Show("Invalid Device ID. Please enter a valid number.");
                 return;
@@ -1214,7 +1154,7 @@ namespace smart_attendance_middleware
             {
                 string enteredPassword = inputBox.Text;
 
-                if (!await IsValidIpAsync(rtb_ip.Text.Trim()))
+                if (!await IsValidIpAsync((_selectedDevice?.DeviceIP ?? "").Trim()))
                 {
                     MessageBox.Show("The device is not reachable. Please check the IP address and try again.", "Ping Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
@@ -1224,7 +1164,7 @@ namespace smart_attendance_middleware
                 {
                     if (_selectedIsStaff)
                     {
-                        aiChatLogger.AddDeviceMessage($"Preparing to remove staff device from {rtb_location.Text}...");
+                        aiChatLogger.AddDeviceMessage($"Preparing to remove staff device from {_selectedDevice?.Location ?? ""}...");
                         aiChatLogger.AddInfoMessage("Clearing all enrollment data from the staff device first...");
 
                         await _deviceFunctions.EmptyEnrollmentDataAndDeleteLogsByStaffDeviceId(_selectedStaffDeviceId);
@@ -1232,7 +1172,7 @@ namespace smart_attendance_middleware
                     }
                     else
                     {
-                        aiChatLogger.AddDeviceMessage($"Preparing to remove device from {rtb_location.Text}...");
+                        aiChatLogger.AddDeviceMessage($"Preparing to remove device from {_selectedDevice?.Location ?? ""}...");
                         aiChatLogger.AddInfoMessage("Clearing all enrollment data from the device first...");
 
                         await _deviceFunctions.EmptyEnrollmentDataAndDeleteLogsByDeviceId(_selectedDeviceId);
@@ -1249,7 +1189,7 @@ namespace smart_attendance_middleware
                     NotifyDashboardRefresh();
 
                     // Add AI messages after successful removal
-                    aiChatLogger.AddSuccessMessage($"Device from {rtb_location.Text} has been successfully removed!");
+                    aiChatLogger.AddSuccessMessage($"Device from {_selectedDevice?.Location ?? ""} has been successfully removed!");
                     aiChatLogger.AddInfoMessage("Don't worry, I'm still here to help with your remaining devices.");
                     aiChatLogger.AddDeviceMessage("Device network updated. All enrollment data has been cleared.");
 
@@ -2680,15 +2620,15 @@ namespace smart_attendance_middleware
 
                     var builder = new CLV.CardBuilder()
                         .Avatar(initial, sAccent, 8, 8, 36)
-                        .Text(staffId,  0,   6, 70,  18, CLV.F9,     sNavy)
-                        .Text(name,     70,  6, 140, 18, CLV.F9Bold, sNavy)
-                        .Pill(status,   stBg, stFg, 210, 13, 80, 22)
-                        .Pill(string.IsNullOrWhiteSpace(bio) ? "-" : bio, Color.FromArgb(219, 234, 254), Color.FromArgb(37, 99, 235), 290, 13, 130, 22)
-                        .Text(enrollId, 420, 6, 100, 18, CLV.F8,     sMuted)
-                        .Text(sync,     520, 6, 110, 18, CLV.F8,     sMuted);
+                        .Text(staffId,  50,  6, 85,  18, CLV.F9,     sNavy)
+                        .Text(name,     140, 6, 130, 18, CLV.F9Bold, sNavy)
+                        .Pill(status,   stBg, stFg, 275, 13, 80, 22)
+                        .Pill(string.IsNullOrWhiteSpace(bio) ? "-" : bio, Color.FromArgb(219, 234, 254), Color.FromArgb(37, 99, 235), 360, 13, 125, 22)
+                        .Text(enrollId, 490, 6, 80,  18, CLV.F8,     sMuted)
+                        .Text(sync,     575, 6, 70,  18, CLV.F8,     sMuted);
 
                     if (hasFailure)
-                        builder.Button("Failure", Color.FromArgb(254, 226, 226), sRed, 630, 13, 72, 26, () =>
+                        builder.Button("Failure", Color.FromArgb(254, 226, 226), sRed, 650, 13, 68, 26, () =>
                         {
                             string staffName = capturedTag?.Name?.ToString() ?? "-";
                             int.TryParse(capturedTag?.EnrollmentID?.ToString() ?? "", out int enrollIdInt);
@@ -2705,7 +2645,7 @@ namespace smart_attendance_middleware
                                     dlg.ShowDialog(this);
                         });
 
-                    builder.Button("View", sAccent, Color.White, 715, 13, 60, 26, () =>
+                    builder.Button("View", sAccent, Color.White, 723, 13, 60, 26, () =>
                     {
                         ShowStaffDetailsForm(capturedTag?.StaffID?.ToString(), capturedTag?.Name?.ToString(), capturedTag?.EnrollmentID?.ToString());
                     });
@@ -3815,10 +3755,6 @@ namespace smart_attendance_middleware
         {
             // Trigger initial backup after 5 seconds
             _backupService?.TriggerBackupAfterDelay(TimeSpan.FromSeconds(5));
-        }
-
-        private void subpnl_setup_Paint(object sender, PaintEventArgs e)
-        {
         }
 
         private void card_Paint(object sender, PaintEventArgs e)

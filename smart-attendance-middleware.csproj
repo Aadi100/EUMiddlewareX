@@ -355,6 +355,12 @@
     <Compile Include="AddNewDevice.Designer.cs">
       <DependentUpon>AddNewDevice.cs</DependentUpon>
     </Compile>
+    <Compile Include="EditDevice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="EditDevice.Designer.cs">
+      <DependentUpon>EditDevice.cs</DependentUpon>
+    </Compile>
     <Compile Include="AddNewUser.cs">
       <SubType>Form</SubType>
     </Compile>
