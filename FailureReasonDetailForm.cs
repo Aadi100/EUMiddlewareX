@@ -41,6 +41,11 @@ namespace smart_attendance_middleware
         private string _errorCode;
         private string _errorMessage;
 
+        // resolved current member (may be enriched from DB when only enrollmentId is supplied)
+        private int?   _resolvedCurrentMemberId;
+        private string _resolvedCurrentPictureUrl;
+        private string _resolvedCurrentName;
+
         // ── photo boxes ────────────────────────────────────────────────────────
         private RoundPictureBox _picCurrent;
         private RoundPictureBox _picConflict;
@@ -69,6 +74,34 @@ namespace smart_attendance_middleware
             _currentName         = currentName;
             _currentPictureUrl   = currentPictureUrl;
             _dbHelper            = dbHelper;
+
+            // Seed resolved values from what was passed in
+            _resolvedCurrentMemberId   = currentMemberId;
+            _resolvedCurrentPictureUrl = currentPictureUrl;
+            _resolvedCurrentName       = currentName;
+
+            // If memberId/picture weren't supplied but enrollmentId was, look up the member
+            if ((_currentMemberId == null || string.IsNullOrWhiteSpace(_currentPictureUrl)) &&
+                _currentEnrollmentId.HasValue && dbHelper != null)
+            {
+                try
+                {
+                    var memberId = dbHelper.GetMemberIdByEnrollment(_currentEnrollmentId.Value);
+                    if (memberId.HasValue)
+                    {
+                        _resolvedCurrentMemberId = memberId.Value;
+                        var m = dbHelper.GetMember(memberId.Value);
+                        if (m != null)
+                        {
+                            if (string.IsNullOrWhiteSpace(_resolvedCurrentName))
+                                _resolvedCurrentName = m.Name;
+                            if (string.IsNullOrWhiteSpace(_resolvedCurrentPictureUrl))
+                                _resolvedCurrentPictureUrl = m.Picture;
+                        }
+                    }
+                }
+                catch { }
+            }
 
             ParseConflict();
             BuildUi();
@@ -163,7 +196,7 @@ namespace smart_attendance_middleware
                 Controls.Add(MakePhotoPanel(
                     x: gap, y: y, w: panW, picSize: picSize,
                     badge: "Current Member", badgeColor: AccentBlue,
-                    name: string.IsNullOrWhiteSpace(_currentName) ? "—" : _currentName,
+                    name: string.IsNullOrWhiteSpace(_resolvedCurrentName) ? "—" : _resolvedCurrentName,
                     enroll: _currentEnrollmentId.HasValue ? $"Enrollment  #{_currentEnrollmentId}" : "—",
                     out _picCurrent));
 
@@ -278,7 +311,7 @@ namespace smart_attendance_middleware
         {
             if (_picCurrent != null)
             {
-                var img = await Task.Run(() => ResolveImage(_currentMemberId, _currentEnrollmentId, _currentPictureUrl));
+                var img = await Task.Run(() => ResolveImage(_resolvedCurrentMemberId, _currentEnrollmentId, _resolvedCurrentPictureUrl));
                 SafeSetImage(_picCurrent, img);
             }
             if (_picConflict != null)

@@ -2,60 +2,45 @@ namespace smart_attendance_middleware.UI
 {
     partial class LogForm
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
+            if (disposing && (components != null)) components.Dispose();
             base.Dispose(disposing);
         }
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
             this.txtLog = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
-            // 
+
             // txtLog
-            // 
             this.txtLog.BackColor = System.Drawing.Color.Black;
             this.txtLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.txtLog.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txtLog.Font = new System.Drawing.Font("Consolas", 9F);
             this.txtLog.ForeColor = System.Drawing.Color.Lime;
             this.txtLog.Location = new System.Drawing.Point(0, 0);
             this.txtLog.Multiline = true;
             this.txtLog.Name = "txtLog";
             this.txtLog.ReadOnly = true;
             this.txtLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.txtLog.Size = new System.Drawing.Size(800, 450);
+            this.txtLog.Size = new System.Drawing.Size(900, 560);
             this.txtLog.TabIndex = 0;
-            // 
+            this.txtLog.WordWrap = false;
+
             // LogForm
-            // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
+            this.ClientSize = new System.Drawing.Size(900, 560);
             this.Controls.Add(this.txtLog);
             this.Name = "LogForm";
             this.Text = "Debug Logs";
+
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
 
         #endregion

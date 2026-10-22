@@ -245,7 +245,7 @@ namespace smart_attendance_middleware
             var cmd = txt_cmd.Text.Trim();
             if (string.IsNullOrEmpty(sn) || string.IsNullOrEmpty(cmd))
             {
-                MessageBox.Show("Select a device and enter a command.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Validation", "Select a device and enter a command.", MsgType.Warning);
                 return;
             }
             btn_sendCommand.Enabled = false;
@@ -257,7 +257,7 @@ namespace smart_attendance_middleware
                     try { JObject.Parse(paramsText); }
                     catch
                     {
-                        MessageBox.Show("JSON Params is not valid JSON.\nExample: {\"enrollid\": 107}", "Invalid JSON", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Invalid JSON", "JSON Params is not valid JSON.\nExample: {\"enrollid\": 107}", MsgType.Warning);
                         return;
                     }
                 }
@@ -267,7 +267,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogToUI($"[CMD-ERR] {cmd}: {ex.Message}");
-                MessageBox.Show($"Command failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Command failed: {ex.Message}", MsgType.Error);
             }
             finally
             {

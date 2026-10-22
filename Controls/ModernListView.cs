@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.Drawing;
 using smart_attendance_middleware;
 using System.Drawing.Drawing2D;
@@ -25,8 +26,11 @@ namespace smart_attendance_middleware.Controls
     {
         // ── Properties ────────────────────────────────────────────────────────
 
-        private int _boldColumnIndex = 0;
-        private int _pillColumnIndex = -1;
+        private int _boldColumnIndex   = 0;
+        private int _pillColumnIndex   = -1;
+        private int _buttonColumnIndex = -1;
+
+        public event EventHandler<int> ButtonColumnItemClicked;
 
         [Browsable(true), Category("Modern List"), DefaultValue(0),
          Description("Column index whose text is rendered bold.")]
@@ -42,6 +46,14 @@ namespace smart_attendance_middleware.Controls
         {
             get => _pillColumnIndex;
             set { _pillColumnIndex = value; Invalidate(); }
+        }
+
+        [Browsable(true), Category("Modern List"), DefaultValue(-1),
+         Description("Column index rendered as a clickable View button. Set -1 to disable.")]
+        public int ButtonColumnIndex
+        {
+            get => _buttonColumnIndex;
+            set { _buttonColumnIndex = value; Invalidate(); }
         }
 
         // Colours
@@ -116,7 +128,11 @@ namespace smart_attendance_middleware.Controls
             var    bounds = e.Bounds;
             var    sf     = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
 
-            if (e.ColumnIndex == _pillColumnIndex && !string.IsNullOrEmpty(text))
+            if (e.ColumnIndex == _buttonColumnIndex && !string.IsNullOrEmpty(text) && text != "-")
+            {
+                DrawViewButton(g, bounds);
+            }
+            else if (e.ColumnIndex == _pillColumnIndex && !string.IsNullOrEmpty(text))
             {
                 DrawPill(g, bounds, text);
             }
@@ -130,6 +146,45 @@ namespace smart_attendance_middleware.Controls
                 using (var b = new SolidBrush(_normalForeColor))
                     g.DrawString(text, new Font("Segoe UI", 9f, FontStyle.Regular), b, new Rectangle(bounds.X + 8, bounds.Y, bounds.Width - 8, bounds.Height), sf);
             }
+        }
+
+        private void DrawViewButton(Graphics g, Rectangle bounds)
+        {
+            int btnW = 46, btnH = 22;
+            int btnX = bounds.X + 8;
+            int btnY = bounds.Y + (bounds.Height - btnH) / 2;
+            const int r = 6;
+
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var path = new GraphicsPath())
+            {
+                path.AddArc(btnX,              btnY,              r * 2, r * 2, 180, 90);
+                path.AddArc(btnX + btnW - r*2, btnY,              r * 2, r * 2, 270, 90);
+                path.AddArc(btnX + btnW - r*2, btnY + btnH - r*2, r * 2, r * 2,   0, 90);
+                path.AddArc(btnX,              btnY + btnH - r*2, r * 2, r * 2,  90, 90);
+                path.CloseFigure();
+                using (var bg = new SolidBrush(Color.FromArgb(254, 226, 226)))
+                    g.FillPath(bg, path);
+            }
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            using (var tb = new SolidBrush(Color.FromArgb(220, 53, 69)))
+            {
+                var sf = new StringFormat { LineAlignment = StringAlignment.Center, Alignment = StringAlignment.Center };
+                g.DrawString("View", new Font("Segoe UI", 8f, FontStyle.Regular), tb, new System.Drawing.RectangleF(btnX, btnY, btnW, btnH), sf);
+            }
+        }
+
+        protected override void OnMouseClick(System.Windows.Forms.MouseEventArgs e)
+        {
+            base.OnMouseClick(e);
+            if (_buttonColumnIndex < 0) return;
+            var info = HitTest(e.X, e.Y);
+            if (info?.Item == null || info.SubItem == null) return;
+            int colIdx = info.Item.SubItems.IndexOf(info.SubItem);
+            if (colIdx != _buttonColumnIndex) return;
+            string text = info.SubItem.Text;
+            if (string.IsNullOrEmpty(text) || text == "-") return;
+            ButtonColumnItemClicked?.Invoke(this, info.Item.Index);
         }
 
         private void DrawPill(Graphics g, Rectangle bounds, string text)

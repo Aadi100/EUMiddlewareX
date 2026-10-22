@@ -77,6 +77,7 @@ namespace smart_attendance_middleware
 
         private readonly object _loaderLock = new object();
         private int _loaderRefCount = 0;
+        private string _pendingJobsSnapshot = null;
 
         private bool servicesInitialized = false;
         private smart_attendance_middleware.UI.LoaderPopupForm _loaderPopup;
@@ -98,6 +99,13 @@ namespace smart_attendance_middleware
         public Dashboard()
         {
             InitializeComponent();
+            try
+            {
+                pbLogo.BackColor = Color.Transparent;
+                using (var ico = new Icon(this.Icon, 48, 48))
+                    pbLogo.Image = ico.ToBitmap();
+            }
+            catch { try { pbLogo.Image = this.Icon.ToBitmap(); } catch { } }
             InitializeHeaderCards();
 
             _dbHelper = new DatabaseHelper();
@@ -237,12 +245,14 @@ namespace smart_attendance_middleware
             }
             _loaderPopup.BringToFront();
             _loaderPopup.Refresh();
+            this.Enabled = false;
         }
 
         private void HideLoader()
         {
             _loaderPopup?.SafeClose();
             _loaderPopup = null;
+            this.Enabled = true;
         }
 
         // aiChatLogger Code Started from Here *************
@@ -438,9 +448,40 @@ namespace smart_attendance_middleware
             lstPendingJobsMini.Columns.Add("Name", 180);
             lstPendingJobsMini.Columns.Add("Device", 140);
             lstPendingJobsMini.Columns.Add("Pending For", 150);
-            lstPendingJobsMini.Columns.Add("Since", 100);
+            lstPendingJobsMini.Columns.Add("Failure Reason", 100);
 
-            lstPendingJobsMini.PillColumnIndex = 2;
+            lstPendingJobsMini.PillColumnIndex   = 2;
+            lstPendingJobsMini.ButtonColumnIndex = 3;
+            lstPendingJobsMini.ButtonColumnItemClicked += LstPendingJobsMini_ButtonClicked;
+        }
+
+        private void LstPendingJobsMini_ButtonClicked(object sender, int rowIndex)
+        {
+            try
+            {
+                if (rowIndex < 0 || rowIndex >= lstPendingJobsMini.Items.Count) return;
+                var tag = lstPendingJobsMini.Items[rowIndex].Tag as object[];
+                if (tag == null || tag.Length < 2) return;
+                int enrollId  = (int)tag[0];
+                string reason = (string)tag[1];
+                if (string.IsNullOrWhiteSpace(reason) || reason == "-") return;
+
+                string fullReason = reason;
+                try
+                {
+                    if (enrollId > 0)
+                    {
+                        var log = _dbHelper.GetLatestLogForMember(enrollId);
+                        if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
+                            fullReason = (string)log.FailureReason;
+                    }
+                }
+                catch { }
+
+                using (var dlg = new FailureReasonDetailForm(fullReason, (int?)null, enrollId > 0 ? enrollId : (int?)null, null, null, _dbHelper))
+                    dlg.ShowDialog(this);
+            }
+            catch { }
         }
 
         // Same underlying list shown in Device Manager's pending jobs grid — sourced from
@@ -451,6 +492,12 @@ namespace smart_attendance_middleware
             try
             {
                 var unsyncedEntries = AppSession.PendingBiometricSyncLogs ?? new List<LogEntry>();
+
+                // Skip redraw when the entry set hasn't changed
+                string snapshot = string.Join("|", unsyncedEntries.Select(e =>
+                    $"{e.EnrollmentID}:{e.MemberID}:{e.DeviceID}:{string.Join(",", (e.SyncStatus ?? new System.Collections.Generic.Dictionary<string, bool>()).Where(kv => !kv.Value).Select(kv => kv.Key))}"));
+                if (snapshot == _pendingJobsSnapshot) return;
+                _pendingJobsSnapshot = snapshot;
 
                 var membersById = (AppSession.AllMembers ?? new List<Member>())
                     .GroupBy(m => m.MemberID)
@@ -478,13 +525,23 @@ namespace smart_attendance_middleware
                            : $"Device {entry.DeviceID}")
                         : $"Device {entry.DeviceID}";
 
+                    string failureReason = "-";
+                    try
+                    {
+                        if (entry.EnrollmentID > 0)
+                        {
+                            var log = _dbHelper.GetLatestLogForMember(entry.EnrollmentID);
+                            if (log != null && !string.IsNullOrWhiteSpace((string)log.FailureReason))
+                                failureReason = (string)log.FailureReason;
+                        }
+                    }
+                    catch { }
+
                     var item = new ListViewItem(name);
                     item.SubItems.Add(deviceName);
                     item.SubItems.Add(pendingFor);
-                    string since = "--";
-                    if (!string.IsNullOrEmpty(entry.CreatedAt) && DateTime.TryParse(entry.CreatedAt, out var createdAt))
-                        since = createdAt.ToString("HH:mm");
-                    item.SubItems.Add(since);
+                    item.SubItems.Add(failureReason != "-" ? "view" : "-");
+                    item.Tag = new object[] { entry.EnrollmentID, failureReason };
                     displayItems.Add(item);
                 }
 
@@ -1137,46 +1194,7 @@ namespace smart_attendance_middleware
 
         private static string ShowPasswordDialog(IWin32Window owner, string title, string prompt)
         {
-            using (var form = new Form())
-            using (var lbl = new Label())
-            using (var txt = new TextBox())
-            using (var ok = new Button())
-            using (var cancel = new Button())
-            {
-                form.Text = title;
-                form.FormBorderStyle = FormBorderStyle.FixedDialog;
-                form.StartPosition = FormStartPosition.CenterParent;
-                form.MinimizeBox = false;
-                form.MaximizeBox = false;
-                form.ShowInTaskbar = false;
-                form.ClientSize = new Size(360, 140);
-                form.TopMost = true;
-
-                lbl.Text = prompt;
-                lbl.AutoSize = true;
-                lbl.Location = new Point(12, 12);
-
-                txt.UseSystemPasswordChar = true;
-                txt.Location = new Point(15, 45);
-                txt.Width = form.ClientSize.Width - 30;
-                txt.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-
-                ok.Text = "OK";
-                ok.DialogResult = DialogResult.OK;
-                ok.Location = new Point(form.ClientSize.Width - 170, 95);
-                ok.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-
-                cancel.Text = "Cancel";
-                cancel.DialogResult = DialogResult.Cancel;
-                cancel.Location = new Point(form.ClientSize.Width - 90, 95);
-                cancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-
-                form.Controls.AddRange(new Control[] { lbl, txt, ok, cancel });
-                form.AcceptButton = ok;
-                form.CancelButton = cancel;
-
-                return form.ShowDialog(owner) == DialogResult.OK ? txt.Text : null;
-            }
+            return ModernMessageBox.ShowPasswordPrompt(owner, title, "", prompt);
         }
 
         private void Dashboard_FormClosing(object sender, FormClosingEventArgs e)
@@ -1202,8 +1220,7 @@ namespace smart_attendance_middleware
                     {
                         LogHelper.Log($"Application closure denied: Invalid or missing password for user '{AppSession.LoggedInUser}'.");
                         e.Cancel = true;
-                        MessageBox.Show("Invalid password. Application closure canceled.", "Authentication Failed",
-                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Authentication Failed", "Invalid password. Application closure canceled.", MsgType.Warning);
                         return;
                     }
 
@@ -1283,8 +1300,7 @@ namespace smart_attendance_middleware
         {
             if (AppSession.UserRole == "user")
             {
-                MessageBox.Show("Access denied. Only admin or developer can add devices.", "Access Denied",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "Access denied. Only admin or developer can add devices.", MsgType.Warning);
                 return;
             }
 
@@ -1317,10 +1333,7 @@ namespace smart_attendance_middleware
                 if (existingDevices == null || existingDevices.Count == 0)
                 {
                     LogHelper.Log("❌ No devices found in the database. Please add devices first.");
-                    MessageBox.Show("No devices found in the database. Please add devices before connecting.",
-                                  "No Devices Found",
-                                  MessageBoxButtons.OK,
-                                  MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "No Devices Found", "No devices found in the database. Please add devices before connecting.", MsgType.Warning);
                     return;
                 }
 
@@ -1329,10 +1342,7 @@ namespace smart_attendance_middleware
                 if (string.IsNullOrWhiteSpace(apiKey))
                 {
                     LogHelper.Log("❌ No API key found. Please configure it first.");
-                    MessageBox.Show("API Key is missing. Please configure it in the settings.",
-                                  "Missing API Key",
-                                  MessageBoxButtons.OK,
-                                  MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Missing API Key", "API Key is missing. Please configure it in the settings.", MsgType.Warning);
                     return;
                 }
 
@@ -1422,10 +1432,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ WebSocket connection/sync failed: {ex.Message}");
-                MessageBox.Show("Failed to complete synchronization.\n" + ex.Message,
-                              "Sync Error",
-                              MessageBoxButtons.OK,
-                              MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Sync Error", "Failed to complete synchronization.\n" + ex.Message, MsgType.Error);
                 OnSubscriptionStatusChanged(false);
             }
             finally
@@ -1887,7 +1894,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.ToString(), "Controls Test Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Controls Test Error", ex.ToString(), MsgType.Error);
             }
         }
 
@@ -1900,8 +1907,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Failed to open Device Manager:\n\n" + ex.Message + "\n\n" + (ex.InnerException?.Message ?? ""),
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to open Device Manager:\n\n" + ex.Message + "\n\n" + (ex.InnerException?.Message ?? ""), MsgType.Error);
             }
         }
 
@@ -2312,7 +2318,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"[ERROR] Failed to populate DataPairPanel: {ex.Message}");
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Error: {ex.Message}", MsgType.Error);
             }
         }
 

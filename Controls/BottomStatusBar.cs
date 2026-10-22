@@ -101,10 +101,10 @@ namespace smart_attendance_middleware.Controls
 
             using (var labelBrush = new SolidBrush(TextGray))
             {
-                string hdr = "Device connection";
-                var sz = g.MeasureString(hdr, new Font("Segoe UI", 8.5f, FontStyle.Regular));
-                g.DrawString(hdr, new Font("Segoe UI", 8.5f, FontStyle.Regular), labelBrush, lx, cy - sz.Height / 2);
-                lx += (int)sz.Width + 8;
+                string hdr = "Device Tunnel";
+                var sz = g.MeasureString(hdr, new Font("Segoe UI", 8f, FontStyle.Regular));
+                g.DrawString(hdr, new Font("Segoe UI", 8f, FontStyle.Regular), labelBrush, lx, cy - sz.Height / 2);
+                lx += (int)sz.Width + 6;
             }
 
             // Pills
@@ -156,8 +156,8 @@ namespace smart_attendance_middleware.Controls
 
             using (var sb = new SolidBrush(statusColor))
             {
-                var sz = g.MeasureString(statusText, new Font("Segoe UI", 8.5f, FontStyle.Bold));
-                g.DrawString(statusText, new Font("Segoe UI", 8.5f, FontStyle.Bold), sb, lx, cy - sz.Height / 2);
+                var sz = g.MeasureString(statusText, new Font("Segoe UI", 8f, FontStyle.Bold));
+                g.DrawString(statusText, new Font("Segoe UI", 8f, FontStyle.Bold), sb, lx, cy - sz.Height / 2);
             }
 
             // ── RIGHT: Stats ───────────────────────────────────────────────

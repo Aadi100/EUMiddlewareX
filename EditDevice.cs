@@ -128,7 +128,7 @@ namespace smart_attendance_middleware
                     cmb_connectionType.SelectedItem == null ||
                     cmb_machine_no.SelectedItem == null)
                 {
-                    MessageBox.Show("Please fill in all required fields.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation Error", "Please fill in all required fields.", MsgType.Warning);
                     return;
                 }
 
@@ -144,7 +144,7 @@ namespace smart_attendance_middleware
                     string conflict = _dbHelper.IDCheckDeviceExists(ip, machineNo, _device.DeviceId);
                     if (!string.IsNullOrEmpty(conflict))
                     {
-                        MessageBox.Show(conflict, "Device Conflict", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Device Conflict", conflict, MsgType.Warning);
                         return;
                     }
                 }
@@ -156,8 +156,7 @@ namespace smart_attendance_middleware
                 if (!reachable)
                 {
                     lbl_saving_status.Text = "Connection failed";
-                    if (MessageBox.Show($"Could not reach device at {ip}. Save anyway?", "Connection Warning",
-                            MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
+                    if (!ModernMessageBox.ShowConfirm(this, "Connection Warning", $"Could not reach device at {ip}. Save anyway?", "Save Anyway", "Cancel"))
                         return;
                 }
 
@@ -196,12 +195,12 @@ namespace smart_attendance_middleware
                 NotifyDashboardRefresh();
 
                 lbl_saving_status.Text = "Saved successfully.";
-                MessageBox.Show("Device updated successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "Device updated successfully.", MsgType.Success);
                 this.Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error updating device: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Error updating device: " + ex.Message, MsgType.Error);
             }
             finally
             {

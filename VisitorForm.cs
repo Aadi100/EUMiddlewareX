@@ -87,7 +87,7 @@ namespace smart_attendance_middleware
                 var selected = members.FirstOrDefault(m => string.Equals(m.Name?.Trim(), txtMemberName.Text?.Trim(), StringComparison.OrdinalIgnoreCase));
                 if (selected == null)
                 {
-                    MessageBox.Show("Please select a valid member.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Error", "Please select a valid member.", MsgType.Error);
                     return;
                 }
                 memberId = selected.MemberID;
@@ -96,7 +96,7 @@ namespace smart_attendance_middleware
             {
                 if (string.IsNullOrWhiteSpace(txtVisitorName.Text))
                 {
-                    MessageBox.Show("Please enter the visitor's name.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Error", "Please enter the visitor's name.", MsgType.Error);
                     return;
                 }
             }

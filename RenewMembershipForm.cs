@@ -34,6 +34,13 @@ namespace smart_attendance_middleware
             lblHeaderName.Text = _member.Name ?? "";
             lblStatusBadge.Text = BuildStatusText();
 
+            // Populate payment methods
+            cmbPaymentMethod.Items.Clear();
+            cmbPaymentMethod.Items.Add("Cash");
+            cmbPaymentMethod.Items.Add("Card");
+            cmbPaymentMethod.Items.Add("Bank Transfer");
+            cmbPaymentMethod.Items.Add("Online");
+
             // Select Cash by default
             cmbPaymentMethod.SelectedIndex = 0;
             UpdateTxnRefVisibility();

@@ -78,12 +78,14 @@ namespace smart_attendance_middleware
         }
         private void Form1_Load(object sender, EventArgs e)
         {
-            txt_password.PasswordChar = '*'; 
-            txt_confirmpass.PasswordChar = '*'; 
+            txt_password.PasswordChar = '*';
+            txt_confirmpass.PasswordChar = '*';
 
-            txt_password.MaxLength = 20; 
+            txt_password.MaxLength = 20;
             txt_confirmpass.MaxLength = 20;
-         
+
+            btnTogglePassword.BringToFront();
+            btnToggleConfirmPassword.BringToFront();
         }
 
 
@@ -112,67 +114,6 @@ namespace smart_attendance_middleware
         }
 
 
-        //Abdul Hadi Code
-        //MessageBox to display Backup Code
-        private void ShowBackupCodeMessageBox(string message, string title, string backupCode)
-        {
-            int messageHeight = (message.Length / 50) * 30 + 60; 
-            int formHeight = Math.Max(messageHeight, 200); 
-            formHeight = formHeight + 60; 
-
-            Form msgBoxForm = new Form()
-            {
-                Size = new Size(400, formHeight),
-                FormBorderStyle = FormBorderStyle.None,
-                StartPosition = FormStartPosition.CenterScreen,
-                TopMost = true,
-                BackColor = Color.FromArgb(45, 45, 48),
-                ForeColor = Color.White,
-                Opacity = 0.95
-            };
-
-            Label lblMessage = new Label()
-            {
-                Text = message,
-                AutoSize = false,
-                Dock = DockStyle.Top,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-                ForeColor = Color.White,
-                Padding = new Padding(20),
-                Height = messageHeight 
-            };
-
-            Button btnClose = new Button()
-            {
-                Text = "OK",
-                Size = new Size(100, 40),
-                Location = new Point(75, formHeight - 60),
-                BackColor = Color.FromArgb(0, 122, 204),
-                ForeColor = Color.White
-            };
-            btnClose.Click += (s, e) => msgBoxForm.Close();
-
-            Button btnCopy = new Button()
-            {
-                Text = "Copy",
-                Size = new Size(150, 40),
-                Location = new Point(200, formHeight - 60), 
-                BackColor = Color.FromArgb(0, 122, 204),
-                ForeColor = Color.White
-            };
-            btnCopy.Click += (s, e) =>
-            {
-                Clipboard.SetText(backupCode);
-                MessageBox.Show("Backup code copied to clipboard.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            };
-
-            msgBoxForm.Controls.Add(lblMessage);
-            msgBoxForm.Controls.Add(btnClose);
-            msgBoxForm.Controls.Add(btnCopy);
-
-            msgBoxForm.ShowDialog();
-        }
 
 
 
@@ -220,19 +161,19 @@ namespace smart_attendance_middleware
 
             if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
             {
-                MessageBox.Show("Username and password cannot be empty.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Username and password cannot be empty.", MsgType.Error);
                 return;
             }
 
             if (password.Length < 8)
             {
-                MessageBox.Show("Password must be at least 8 characters long.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Password must be at least 8 characters long.", MsgType.Error);
                 return;
             }
 
             if (password != confirmPassword)
             {
-                MessageBox.Show("Passwords do not match.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Passwords do not match.", MsgType.Error);
                 return;
             }
 
@@ -245,8 +186,7 @@ namespace smart_attendance_middleware
                 AppSession.UserRole = role;
                 AppSession.LoggedInUserID = userId.Value;
 
-                string message = $"Important: Securely save your backup code.\nUse it if you forget your password.\nBackup Code: {backupCode}";
-                ShowBackupCodeMessageBox(message, "Success", backupCode);
+                ModernMessageBox.ShowBackupCode(this, backupCode);
 
                 // Show Dashboard on SAME UI thread
                 var dash = new Dashboard();
@@ -256,7 +196,7 @@ namespace smart_attendance_middleware
             }
             else
             {
-                MessageBox.Show("Failed to create user.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to create user.", MsgType.Error);
             }
         }
 

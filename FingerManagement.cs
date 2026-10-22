@@ -67,7 +67,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"Error loading fingerprint status: {ex.Message}");
-                MessageBox.Show("Failed to load members. See logs for more info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to load members. See logs for more info.", MsgType.Error);
             }
         }
 
@@ -124,7 +124,7 @@ namespace smart_attendance_middleware
                 var btnEnroll = CardListView.MakeActionButton("Enroll fingerprint", accent, Color.White, 512, 13, 160, 26);
                 btnEnroll.Click += async (s, ev) => {
                     if (string.IsNullOrEmpty(capturedEnrollId) || capturedEnrollId == "NULL") {
-                        MessageBox.Show("This member does not have a valid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Error", "This member does not have a valid Enrollment ID.", MsgType.Warning);
                         return;
                     }
                     var form = new Fingerprint();
@@ -138,18 +138,15 @@ namespace smart_attendance_middleware
                 var btnDelete = CardListView.MakeActionButton("Delete", Color.White, red, 682, 13, 80, 26);
                 btnDelete.Click += async (s, ev) => {
                     if (string.IsNullOrEmpty(capturedEnrollId) || capturedEnrollId == "NULL") {
-                        MessageBox.Show("This member does not have a valid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Error", "This member does not have a valid Enrollment ID.", MsgType.Warning);
                         return;
                     }
-                    var confirm = MessageBox.Show(
-                        $"Delete fingerprint for Enrollment ID: {capturedEnrollId}?",
-                        "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-                    if (confirm == DialogResult.Yes) {
+                    if (ModernMessageBox.ShowConfirm(this, "Confirm Delete", $"Delete fingerprint for Enrollment ID: {capturedEnrollId}?", "Yes", "No", MsgType.Warning)) {
                         if (_dbHelper.DeleteFingerprint(int.Parse(capturedEnrollId))) {
-                            MessageBox.Show("Fingerprint deleted successfully. You can now re-enroll.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            ModernMessageBox.Show(this, "Success", "Fingerprint deleted successfully. You can now re-enroll.", MsgType.Success);
                             await LoadAllFingerprintStatusAsync();
                         } else {
-                            MessageBox.Show("Failed to delete fingerprint or fingerprint not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            ModernMessageBox.Show(this, "Error", "Failed to delete fingerprint or fingerprint not found.", MsgType.Error);
                         }
                     }
                 };

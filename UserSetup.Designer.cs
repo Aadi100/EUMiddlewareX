@@ -89,16 +89,17 @@ namespace smart_attendance_middleware
 
             // btnTogglePassword — eye icon
             this.btnTogglePassword.AutoSize  = false;
-            this.btnTogglePassword.BackColor = System.Drawing.Color.Transparent;
+            this.btnTogglePassword.BackColor = System.Drawing.Color.White;
             this.btnTogglePassword.Cursor    = System.Windows.Forms.Cursors.Hand;
             this.btnTogglePassword.Font      = new System.Drawing.Font("Segoe UI", 12F);
             this.btnTogglePassword.ForeColor = System.Drawing.Color.Gray;
-            this.btnTogglePassword.Location  = new System.Drawing.Point(728, 224);
+            this.btnTogglePassword.Location  = new System.Drawing.Point(720, 224);
             this.btnTogglePassword.Name      = "btnTogglePassword";
             this.btnTogglePassword.Size      = new System.Drawing.Size(28, 28);
             this.btnTogglePassword.TabIndex  = 41;
             this.btnTogglePassword.Text      = "👁";
             this.btnTogglePassword.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnTogglePassword.BringToFront();
             this.btnTogglePassword.Click    += new System.EventHandler(this.btnTogglePassword_Click);
 
             // label3 — Confirm Password label
@@ -121,16 +122,17 @@ namespace smart_attendance_middleware
 
             // btnToggleConfirmPassword — eye icon
             this.btnToggleConfirmPassword.AutoSize  = false;
-            this.btnToggleConfirmPassword.BackColor = System.Drawing.Color.Transparent;
+            this.btnToggleConfirmPassword.BackColor = System.Drawing.Color.White;
             this.btnToggleConfirmPassword.Cursor    = System.Windows.Forms.Cursors.Hand;
             this.btnToggleConfirmPassword.Font      = new System.Drawing.Font("Segoe UI", 12F);
             this.btnToggleConfirmPassword.ForeColor = System.Drawing.Color.Gray;
-            this.btnToggleConfirmPassword.Location  = new System.Drawing.Point(728, 294);
+            this.btnToggleConfirmPassword.Location  = new System.Drawing.Point(720, 294);
             this.btnToggleConfirmPassword.Name      = "btnToggleConfirmPassword";
             this.btnToggleConfirmPassword.Size      = new System.Drawing.Size(28, 28);
             this.btnToggleConfirmPassword.TabIndex  = 42;
             this.btnToggleConfirmPassword.Text      = "👁";
             this.btnToggleConfirmPassword.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnToggleConfirmPassword.BringToFront();
             this.btnToggleConfirmPassword.Click    += new System.EventHandler(this.btnToggleConfirmPassword_Click);
 
             // chkBox_is_Admin — ToggleSwitch
@@ -258,15 +260,15 @@ namespace smart_attendance_middleware
             this.Controls.Add(this.txt_username);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.txt_password);
-            this.Controls.Add(this.btnTogglePassword);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.txt_confirmpass);
-            this.Controls.Add(this.btnToggleConfirmPassword);
             this.Controls.Add(this.chkBox_is_Admin);
             this.Controls.Add(this.lbl_is_Admin);
             this.Controls.Add(this.btnCreateAccount);
             this.Controls.Add(this.linkLbl_terms);
             this.Controls.Add(this.panel1);
+            this.Controls.Add(this.btnTogglePassword);
+            this.Controls.Add(this.btnToggleConfirmPassword);
 
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();

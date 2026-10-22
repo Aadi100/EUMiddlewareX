@@ -18,7 +18,15 @@ namespace smart_attendance_middleware.Controls
         private Color _middleColor = Color.FromArgb(122, 68, 242);      // Violet
         private Color _endColor = Color.FromArgb(63, 107, 255);         // Blue
 
-        private bool _enableShadow = true;
+        private bool  _enableShadow = true;
+        private Image _logoImage;
+
+        [Browsable(true)]
+        public Image LogoImage
+        {
+            get => _logoImage;
+            set { _logoImage = value; Invalidate(); }
+        }
 
         [Browsable(true)]
         public int Thickness
@@ -137,9 +145,21 @@ namespace smart_attendance_middleware.Controls
             int innerCover = _thickness + 4;
             var coverRect = new Rectangle(arcRect.X + innerCover, arcRect.Y + innerCover,
                 arcRect.Width - innerCover * 2, arcRect.Height - innerCover * 2);
-            using (var coverBrush = new SolidBrush(Color.FromArgb(30, 24, 70))) // Harmonized with dark palette
+            using (var coverBrush = new SolidBrush(Color.FromArgb(30, 24, 70)))
             {
                 e.Graphics.FillEllipse(coverBrush, coverRect);
+            }
+
+            // Logo centered inside the inner circle
+            if (_logoImage != null)
+            {
+                int logoSize = (int)(coverRect.Width * 0.65f);
+                var logoRect = new Rectangle(
+                    coverRect.X + (coverRect.Width  - logoSize) / 2,
+                    coverRect.Y + (coverRect.Height - logoSize) / 2,
+                    logoSize, logoSize);
+                e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                e.Graphics.DrawImage(_logoImage, logoRect);
             }
         }
 

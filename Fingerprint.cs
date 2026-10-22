@@ -32,13 +32,16 @@ namespace smart_attendance_middleware
 
         private async Task CheckDeviceConnectionOnStart()
         {
+            const int timeoutMs = 15000;
+            bool isConnected = false;
+
             try
             {
-                _startupCts = new CancellationTokenSource();
+                _startupCts = new CancellationTokenSource(timeoutMs);
                 var token = _startupCts.Token;
 
                 Dashboard.GlobalStartLoader("Detecting fingerprint scanner... Please connect the device.");
-                bool isConnected = false;
+                this.Enabled = false;
 
                 while (!isConnected && !token.IsCancellationRequested)
                 {
@@ -89,8 +92,19 @@ namespace smart_attendance_middleware
             finally
             {
                 Dashboard.GlobalStopLoader();
+                if (!this.IsDisposed) this.Enabled = true;
                 _startupCts?.Dispose();
                 _startupCts = null;
+            }
+
+            // Close form if device never connected within timeout
+            if (!isConnected && !this.IsDisposed)
+            {
+                Message.Text = "No fingerprint scanner detected. Closing...";
+                Message.Update();
+                await Task.Delay(1500);
+                _isClosingForced = true;
+                this.Close();
             }
         }
 
@@ -99,6 +113,7 @@ namespace smart_attendance_middleware
             try
             {
                 Dashboard.GlobalStartLoader("Process complete. Please disconnect the fingerprint scanner to finish.");
+                if (!this.IsDisposed) this.Enabled = false;
 
                 bool isStillConnected = true;
                 while (isStillConnected)
@@ -1016,9 +1031,7 @@ namespace smart_attendance_middleware
                 return;
             }
 
-            DialogResult dr;
-            dr = MessageBox.Show("Continue?", "Delete All data in database? ", MessageBoxButtons.YesNo, MessageBoxIcon.Asterisk);
-            if (dr == DialogResult.No)
+            if (!ModernMessageBox.ShowConfirm(this, "Delete All data in database?", "Continue?", "Yes", "No", MsgType.Warning))
             {
                 return;
             }

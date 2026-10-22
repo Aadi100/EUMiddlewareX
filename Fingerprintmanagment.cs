@@ -56,7 +56,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"Error loading missing fingerprint members: {ex.Message}");
-                MessageBox.Show("Failed to load members. See logs for more info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to load members. See logs for more info.", MsgType.Error);
             }
         }
 
@@ -74,10 +74,7 @@ namespace smart_attendance_middleware
             // Validate the enrollment ID
             if (string.IsNullOrWhiteSpace(enrollmentId) || enrollmentId == "NULL")
             {
-                MessageBox.Show("Selected member doesn't have a valid enrollment ID.",
-                              "Error",
-                              MessageBoxButtons.OK,
-                              MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Selected member doesn't have a valid enrollment ID.", MsgType.Error);
                 return;
             }
 
@@ -97,10 +94,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error opening fingerprint form: {ex.Message}",
-                                "Error",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Error opening fingerprint form: {ex.Message}", MsgType.Error);
                 LogHelper.Log($"Error in double-click handler: {ex.Message}");
             }
         }

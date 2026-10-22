@@ -1,4 +1,4 @@
-﻿using System.Windows.Forms;
+using System.Windows.Forms;
 
 namespace smart_attendance_middleware
 {
@@ -317,7 +317,7 @@ namespace smart_attendance_middleware
             this.lbl_welcome_sub.Name = "lbl_welcome_sub";
             this.lbl_welcome_sub.Size = new System.Drawing.Size(580, 22);
             this.lbl_welcome_sub.TabIndex = 1;
-            this.lbl_welcome_sub.Text = "Manage your biometric devices, users, staff, members, and system settings — all i" +
+            this.lbl_welcome_sub.Text = "Manage your biometric devices, users, staff, members, and system settings � all i" +
     "n one place.";
             // 
             // pnl_topnav
@@ -655,7 +655,7 @@ namespace smart_attendance_middleware
             this.lbl_pendingjobs_info.Name = "lbl_pendingjobs_info";
             this.lbl_pendingjobs_info.Size = new System.Drawing.Size(416, 15);
             this.lbl_pendingjobs_info.TabIndex = 96;
-            this.lbl_pendingjobs_info.Text = "Members/devices waiting for biometric data to sync — updates automatically";
+            this.lbl_pendingjobs_info.Text = "Members/devices waiting for biometric data to sync � updates automatically";
             // 
             // tab_staffpendingjobs
             // 
@@ -680,7 +680,7 @@ namespace smart_attendance_middleware
             this.lbl_staffpendingjobs_info.Name = "lbl_staffpendingjobs_info";
             this.lbl_staffpendingjobs_info.Size = new System.Drawing.Size(387, 15);
             this.lbl_staffpendingjobs_info.TabIndex = 96;
-            this.lbl_staffpendingjobs_info.Text = "Staff/devices waiting for biometric data to sync — updates automatically";
+            this.lbl_staffpendingjobs_info.Text = "Staff/devices waiting for biometric data to sync � updates automatically";
             // 
             // lbl_chkStaffFailure
             // 
@@ -860,7 +860,7 @@ namespace smart_attendance_middleware
             this.lbl_backupConnectionStatus.Name = "lbl_backupConnectionStatus";
             this.lbl_backupConnectionStatus.Size = new System.Drawing.Size(130, 22);
             this.lbl_backupConnectionStatus.TabIndex = 0;
-            this.lbl_backupConnectionStatus.Text = "● Not connected";
+            this.lbl_backupConnectionStatus.Text = "? Not connected";
             this.lbl_backupConnectionStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lbl_card_backup_type_label
@@ -1226,7 +1226,7 @@ namespace smart_attendance_middleware
             this.tile_device.Cursor = System.Windows.Forms.Cursors.Hand;
             this.tile_device.Description = "Add, edit and monitor biometric devices.";
             this.tile_device.Highlighted = true;
-            this.tile_device.Icon = "🖥";
+            this.tile_device.Icon = "??";
             this.tile_device.Location = new System.Drawing.Point(24, 24);
             this.tile_device.Name = "tile_device";
             this.tile_device.Size = new System.Drawing.Size(256, 175);
@@ -1242,7 +1242,7 @@ namespace smart_attendance_middleware
             this.tile_user.Cursor = System.Windows.Forms.Cursors.Hand;
             this.tile_user.Description = "System users and their permissions.";
             this.tile_user.Highlighted = false;
-            this.tile_user.Icon = "👤";
+            this.tile_user.Icon = "??";
             this.tile_user.Location = new System.Drawing.Point(298, 24);
             this.tile_user.Name = "tile_user";
             this.tile_user.Size = new System.Drawing.Size(256, 175);
@@ -1258,7 +1258,7 @@ namespace smart_attendance_middleware
             this.tile_staff.Cursor = System.Windows.Forms.Cursors.Hand;
             this.tile_staff.Description = "Staff list and attendance.";
             this.tile_staff.Highlighted = false;
-            this.tile_staff.Icon = "👔";
+            this.tile_staff.Icon = "??";
             this.tile_staff.Location = new System.Drawing.Point(572, 24);
             this.tile_staff.Name = "tile_staff";
             this.tile_staff.Size = new System.Drawing.Size(256, 175);
@@ -1274,7 +1274,7 @@ namespace smart_attendance_middleware
             this.tile_member.Cursor = System.Windows.Forms.Cursors.Hand;
             this.tile_member.Description = "Member records, offline entries, renewals.";
             this.tile_member.Highlighted = false;
-            this.tile_member.Icon = "🏋";
+            this.tile_member.Icon = "??";
             this.tile_member.Location = new System.Drawing.Point(24, 217);
             this.tile_member.Name = "tile_member";
             this.tile_member.Size = new System.Drawing.Size(256, 175);
@@ -1290,7 +1290,7 @@ namespace smart_attendance_middleware
             this.tile_setup.Cursor = System.Windows.Forms.Cursors.Hand;
             this.tile_setup.Description = "API keys, backups and settings.";
             this.tile_setup.Highlighted = false;
-            this.tile_setup.Icon = "⚙";
+            this.tile_setup.Icon = "?";
             this.tile_setup.Location = new System.Drawing.Point(298, 217);
             this.tile_setup.Name = "tile_setup";
             this.tile_setup.Size = new System.Drawing.Size(256, 175);
@@ -1308,6 +1308,8 @@ namespace smart_attendance_middleware
             this.rtb_APIkey.Placeholder = "API Key";
             this.rtb_APIkey.Radius = 10;
             this.rtb_APIkey.Size = new System.Drawing.Size(386, 36);
+            this.rtb_APIkey.PasswordChar = '*';
+            this.rtb_APIkey.UseSystemPasswordChar = true;
             this.rtb_APIkey.TabIndex = 42;
             // 
             // rb_SaveAPI
@@ -2043,6 +2045,7 @@ namespace smart_attendance_middleware
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "DeviceManager";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Device Manager";
             this.Load += new System.EventHandler(this.DeviceManager_Load);
             this.pnl_welcome.ResumeLayout(false);

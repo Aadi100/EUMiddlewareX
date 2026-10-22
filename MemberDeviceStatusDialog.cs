@@ -109,7 +109,7 @@ namespace smart_attendance_middleware
                             DateTime.TryParse(packageExpiry, out DateTime expiryDate) &&
                             expiryDate.Date < DateTime.Today)
                         {
-                            MessageBox.Show("Member membership has expired. Sync cancelled.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            ModernMessageBox.Show(this, "Access Denied", "Member membership has expired. Sync cancelled.", MsgType.Warning);
                             return;
                         }
                     }
@@ -120,7 +120,7 @@ namespace smart_attendance_middleware
                     string enrollIdStr = GetPropertyValue("EnrollmentID")?.ToString();
                     if (!int.TryParse(enrollIdStr, out int enrollId))
                     {
-                        MessageBox.Show("Invalid Enrollment ID.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        ModernMessageBox.Show(this, "Error", "Invalid Enrollment ID.", MsgType.Error);
                         this.Enabled = true;
                         return;
                     }
@@ -154,10 +154,9 @@ namespace smart_attendance_middleware
                     this.Enabled = true;
 
                     string entityType = _isMember ? "Member" : "Staff";
-                    MessageBox.Show(attempted > 0
+                    ModernMessageBox.Show(this, "Sync Complete", attempted > 0
                         ? $"Sync commands dispatched to {success} of {attempted} devices."
-                        : $"{entityType} already enabled on all devices.",
-                        "Sync Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        : $"{entityType} already enabled on all devices.", MsgType.Success);
                     this.Close();
                 };
                 pnlFooter.Controls.Add(btnSync);

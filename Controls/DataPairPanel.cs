@@ -255,12 +255,10 @@ namespace smart_attendance_middleware.Controls
             bool isOnline    = statusText.Contains("ONLINE");
             bool isRetrying  = statusText.Contains("RETRYING");
 
-            Color borderColor = isOnline   ? Color.FromArgb(220, 220, 220)
-                              : isRetrying ? Color.Orange
-                              :              Color.FromArgb(240, 185, 185);
-            Color cardBg      = isOnline   ? Color.White
-                              : isRetrying ? Color.FromArgb(255, 250, 240)
-                              :              Color.FromArgb(255, 248, 248);
+            Color borderColor = (isOnline || isRetrying) ? Color.FromArgb(220, 220, 220)
+                              :                           Color.FromArgb(240, 185, 185);
+            Color cardBg      = (isOnline || isRetrying) ? Color.White
+                              :                           Color.FromArgb(255, 248, 248);
             Color dotColor    = isOnline   ? Color.FromArgb(40, 167, 69)
                               : isRetrying ? Color.Orange
                               :              Color.FromArgb(220, 53, 69);
@@ -509,7 +507,7 @@ namespace smart_attendance_middleware.Controls
                             Alignment     = StringAlignment.Center,
                             LineAlignment = StringAlignment.Center
                         };
-                        pe.Graphics.DrawString("Retrying...",
+                        pe.Graphics.DrawString("Open door",
                             new Font("Segoe UI", 8.5f, FontStyle.Bold),
                             new SolidBrush(Color.FromArgb(140, 70, 0)),
                             new RectangleF(0, 0, p.Width, p.Height), sf);

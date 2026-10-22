@@ -15,11 +15,13 @@ namespace smart_attendance_middleware.UI
         public LogForm()
         {
             InitializeComponent();
+            try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             LogHelper.LogUpdated += AppendLogToTextBox;
             this.FormClosing += (s, e) => {
                 LogHelper.LogUpdated -= AppendLogToTextBox;
             };
         }
+
 
         private void AppendLogToTextBox(string logMessage)
         {

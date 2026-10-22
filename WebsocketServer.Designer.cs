@@ -69,7 +69,7 @@
             this.tabControlLogs.Controls.Add(this.tabIncoming);
             this.tabControlLogs.Controls.Add(this.tabOutgoing);
             this.tabControlLogs.Controls.Add(this.tabAttendance);
-            this.tabControlLogs.Location = new System.Drawing.Point(19, 152);
+            this.tabControlLogs.Location = new System.Drawing.Point(19, 94);
             this.tabControlLogs.Name = "tabControlLogs";
             this.tabControlLogs.SelectedIndex = 0;
             this.tabControlLogs.Size = new System.Drawing.Size(643, 606);
@@ -225,69 +225,69 @@
             this.pnlCommand.Controls.Add(this.btn_sendCommand);
             this.pnlCommand.Location = new System.Drawing.Point(19, 28);
             this.pnlCommand.Name = "pnlCommand";
-            this.pnlCommand.Size = new System.Drawing.Size(643, 118);
+            this.pnlCommand.Size = new System.Drawing.Size(643, 58);
             this.pnlCommand.TabIndex = 18;
             // 
             // lbl_sn
             // 
             this.lbl_sn.AutoSize = true;
-            this.lbl_sn.Location = new System.Drawing.Point(12, 45);
+            this.lbl_sn.Location = new System.Drawing.Point(10, 20);
             this.lbl_sn.Name = "lbl_sn";
             this.lbl_sn.Size = new System.Drawing.Size(62, 13);
             this.lbl_sn.TabIndex = 0;
             this.lbl_sn.Text = "Device SN:";
-            // 
+            //
             // cmb_deviceSn
             //
-            this.cmb_deviceSn.Location = new System.Drawing.Point(80, 42);
+            this.cmb_deviceSn.Location = new System.Drawing.Point(78, 10);
             this.cmb_deviceSn.Name = "cmb_deviceSn";
-            this.cmb_deviceSn.Size = new System.Drawing.Size(180, 42);
+            this.cmb_deviceSn.Size = new System.Drawing.Size(160, 36);
             this.cmb_deviceSn.TabIndex = 1;
-            // 
+            //
             // lbl_cmd
-            // 
+            //
             this.lbl_cmd.AutoSize = true;
-            this.lbl_cmd.Location = new System.Drawing.Point(275, 45);
+            this.lbl_cmd.Location = new System.Drawing.Point(248, 20);
             this.lbl_cmd.Name = "lbl_cmd";
             this.lbl_cmd.Size = new System.Drawing.Size(34, 13);
             this.lbl_cmd.TabIndex = 2;
             this.lbl_cmd.Text = "CMD:";
-            // 
+            //
             // txt_cmd
-            // 
-            this.txt_cmd.Location = new System.Drawing.Point(316, 42);
+            //
+            this.txt_cmd.Location = new System.Drawing.Point(284, 10);
             this.txt_cmd.Name = "txt_cmd";
-            this.txt_cmd.Size = new System.Drawing.Size(140, 42);
+            this.txt_cmd.Size = new System.Drawing.Size(100, 36);
             this.txt_cmd.TabIndex = 3;
-            // 
+            //
             // lbl_params
-            // 
+            //
             this.lbl_params.AutoSize = true;
-            this.lbl_params.Location = new System.Drawing.Point(12, 75);
+            this.lbl_params.Location = new System.Drawing.Point(392, 20);
             this.lbl_params.Name = "lbl_params";
             this.lbl_params.Size = new System.Drawing.Size(76, 13);
             this.lbl_params.TabIndex = 4;
             this.lbl_params.Text = "JSON Params:";
-            // 
+            //
             // txt_params
-            // 
-            this.txt_params.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            //
+            this.txt_params.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.txt_params.Location = new System.Drawing.Point(80, 72);
+            this.txt_params.Location = new System.Drawing.Point(470, 10);
             this.txt_params.Name = "txt_params";
-            this.txt_params.Size = new System.Drawing.Size(370, 42);
+            this.txt_params.Size = new System.Drawing.Size(64, 36);
             this.txt_params.TabIndex = 5;
-            // 
+            //
             // btn_sendCommand
-            // 
+            //
             this.btn_sendCommand.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btn_sendCommand.NormalColor = System.Drawing.Color.FromArgb(59, 130, 246);
             this.btn_sendCommand.HoverColor = System.Drawing.Color.FromArgb(37, 99, 235);
             this.btn_sendCommand.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
             this.btn_sendCommand.ForeColor = System.Drawing.Color.White;
-            this.btn_sendCommand.Location = new System.Drawing.Point(545, 56);
+            this.btn_sendCommand.Location = new System.Drawing.Point(545, 7);
             this.btn_sendCommand.Name = "btn_sendCommand";
-            this.btn_sendCommand.Size = new System.Drawing.Size(90, 50);
+            this.btn_sendCommand.Size = new System.Drawing.Size(90, 44);
             this.btn_sendCommand.TabIndex = 6;
             this.btn_sendCommand.Text = "Send Command";
             this.btn_sendCommand.Click += new System.EventHandler(this.btn_sendCommand_Click);

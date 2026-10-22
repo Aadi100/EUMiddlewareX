@@ -24,9 +24,7 @@ namespace smart_attendance_middleware
 
         private void MembershipManagement_Load(object sender, EventArgs e)
         {
-            tabPanel.SetTabs(new[] { "Offline Members", "Members" });
-            tabPanel.TabChanged += tabPanel_TabChanged;
-            tabPanel.SelectTab(0);
+            tabPanel.SelectedIndex = 0;
 
             cardListViewOfflineMembers.SetColumns(
                 new[] { "MEMBER", "PACKAGE", "PERIODICITY", "BIOMETRIC", "SYNC", "CLEANUP", "FAILURE" },
@@ -36,17 +34,40 @@ namespace smart_attendance_middleware
                 new[] { "MEMBER", "ENROLLMENT", "STATUS", "BIOMETRIC", "SYNC", "PACKAGE EXPIRY", "RENEW" },
                 new[] { 52, 252, 340, 434, 560, 676, 774 });
 
+            cmbOfflineServerSync.Items.Clear();
+            cmbOfflineServerSync.Items.Add("All Sync");
+            cmbOfflineServerSync.Items.Add("Synced");
+            cmbOfflineServerSync.Items.Add("Pending");
             cmbOfflineServerSync.SelectedIndex = 0;
+
+            cmbAllMemberStatus.Items.Clear();
+            cmbAllMemberStatus.Items.Add("All Status");
+            cmbAllMemberStatus.Items.Add("active");
+            cmbAllMemberStatus.Items.Add("inactive");
             cmbAllMemberStatus.SelectedIndex = 0;
+
+            cmbAllMemberBiometric.Items.Clear();
+            cmbAllMemberBiometric.Items.Add("All Biometric");
+            cmbAllMemberBiometric.Items.Add("Has Face");
+            cmbAllMemberBiometric.Items.Add("Has Fingerprint");
+            cmbAllMemberBiometric.Items.Add("RFID");
+            cmbAllMemberBiometric.Items.Add("No Biometric");
             cmbAllMemberBiometric.SelectedIndex = 0;
+
+            cmbAllMemberExpiry.Items.Clear();
+            cmbAllMemberExpiry.Items.Add("Any Expiry");
+            cmbAllMemberExpiry.Items.Add("Expired");
+            cmbAllMemberExpiry.Items.Add("Expiring Soon");
+            cmbAllMemberExpiry.Items.Add("No Expiry");
             cmbAllMemberExpiry.SelectedIndex = 0;
 
             LoadOfflineMembersList();
             LoadAllMembersList();
         }
 
-        private void tabPanel_TabChanged(object sender, int index)
+        private void tabPanel_SelectedIndexChanged(object sender, EventArgs e)
         {
+            int index = tabPanel.SelectedIndex;
             pnlOfflineContent.Visible = (index == 0);
             pnlAllMembersContent.Visible = (index == 1);
         }
@@ -63,7 +84,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Failed to open form:\n" + ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to open form:\n" + ex.Message, MsgType.Error);
             }
         }
 
@@ -374,7 +395,7 @@ namespace smart_attendance_middleware
                 var btnRenew = CardListView.MakeActionButton("Renew", accent, Color.White, 774, 13, 72, 26);
                 btnRenew.Click += (s, ev) => {
                     if (!capturedMember.EnrollmentID.HasValue || capturedMember.EnrollmentID.Value <= 0) {
-                        MessageBox.Show("This member has no EnrollmentID and cannot be renewed.", "Renew Membership", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Renew Membership", "This member has no EnrollmentID and cannot be renewed.", MsgType.Warning);
                         return;
                     }
                     using (var form = new RenewMembershipForm(capturedMember)) {

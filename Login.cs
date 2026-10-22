@@ -91,8 +91,7 @@ namespace smart_attendance_middleware
 
             if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(passwordOrBackup))
             {
-                MessageBox.Show("Username and password/backup code cannot be empty.", "Error",
-                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Username and password/backup code cannot be empty.", MsgType.Error);
                 return;
             }
 
@@ -101,8 +100,7 @@ namespace smart_attendance_middleware
 
             if (!isLoggedIn)
             {
-                MessageBox.Show("Invalid username or password/backup code.", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Invalid username or password/backup code.", MsgType.Error);
                 return;
             }
 
@@ -132,67 +130,18 @@ namespace smart_attendance_middleware
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            // Create an inline form to prompt for backup code
-            Form prompt = new Form()
-            {
-                Width = 360,
-                Height = 160,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = "Login with Backup Code",
-                StartPosition = FormStartPosition.CenterScreen
-            };
+            string backupCode = ModernMessageBox.ShowPasswordPrompt(this,
+                "Login with Backup Code", "Enter your backup code to sign in",
+                "Backup code:", "Sign In");
 
-            Label label = new Label()
+            if (backupCode != null)
             {
-                Left = 10,
-                Top = 20,
-                Width = 320,
-                Text = "Enter your backup code:"
-            };
-
-            TextBox inputBox = new TextBox()
-            {
-                Left = 10,
-                Top = 50,
-                Width = 320,
-                UseSystemPasswordChar = true // Mask the backup code input
-            };
-
-            Button okButton = new Button()
-            {
-                Text = "OK",
-                Left = 180,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.OK
-            };
-
-            Button cancelButton = new Button()
-            {
-                Text = "Cancel",
-                Left = 260,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.Cancel
-            };
-
-            prompt.Controls.Add(label);
-            prompt.Controls.Add(inputBox);
-            prompt.Controls.Add(okButton);
-            prompt.Controls.Add(cancelButton);
-            prompt.AcceptButton = okButton;
-            prompt.CancelButton = cancelButton;
-
-            // Show the form and handle the result
-            if (prompt.ShowDialog() == DialogResult.OK)
-            {
-                string backupCode = inputBox.Text.Trim();
+                backupCode = backupCode.Trim();
                 string userName = txt_username.Text.Trim();
 
                 if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(backupCode))
                 {
-                    MessageBox.Show("Username and backup code cannot be empty.", "Error",
-                                  MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Error", "Username and backup code cannot be empty.", MsgType.Error);
                     return;
                 }
 
@@ -201,8 +150,7 @@ namespace smart_attendance_middleware
 
                 if (!isLoggedIn)
                 {
-                    MessageBox.Show("Invalid username or password/backup code.", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Error", "Invalid username or password/backup code.", MsgType.Error);
                     return;
                 }
 

@@ -61,6 +61,14 @@ namespace smart_attendance_middleware
         public DeviceManager()
         {
             InitializeComponent();
+
+            // Restore emoji icons lost due to Designer file encoding
+            tile_device.Icon = "🖥";
+            tile_user.Icon   = "👤";
+            tile_staff.Icon  = "👥";
+            tile_member.Icon = "🪪";
+            tile_setup.Icon  = "⚙";
+
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
             _backupService = new BackupService(_dbHelper);
@@ -106,8 +114,8 @@ namespace smart_attendance_middleware
                 new[] {  0,         50,         200,    320,         500 });
 
             clv_members.SetColumns(
-                new[] { "MEMBER ID", "NAME", "ENROLLMENT", "STATUS", "BIOMETRIC", "SYNC", "EXPIRY", "FAILURE", "ACTIONS" },
-                new[] {  0,           105,    220,           300,      372,         478,    543,       638,       712 });
+                new[] { "MEMBER", "ENROLLMENT", "STATUS", "BIOMETRIC", "SYNC", "EXPIRY", "FAILURE", "ACTIONS" },
+                new[] {  0,        220,           300,      372,         478,    543,       638,       712 });
 
             clv_memberAttendance.SetColumns(
                 new[] { "MEMBER", "LOG ID", "CHECK-IN", "CHECK-OUT", "TIME ON SITE" },
@@ -126,8 +134,8 @@ namespace smart_attendance_middleware
                 new[] {  0,          90,     240,           330,      470,           655 });
 
             clv_staffs.SetColumns(
-                new[] { "STAFF ID", "NAME", "STATUS", "BIOMETRIC", "ENROLLMENT", "SYNC", "FAILURE", "ACTIONS" },
-                new[] {  0,          140,    275,       360,         490,          575,    650,        725 });
+                new[] { "STAFF", "STATUS", "BIOMETRIC", "ENROLLMENT", "SYNC", "FAILURE", "ACTIONS" },
+                new[] {  0,       275,      360,          490,          575,    650,        725 });
 
             clv_staffAttendance.SetColumns(
                 new[] { "STAFF", "LOG ID", "CHECK-IN", "CHECK-OUT", "TIME ON SITE" },
@@ -490,12 +498,12 @@ namespace smart_attendance_middleware
                 _dbHelper.SaveSetting(RequireGateEntryFormSettingKey, chk_requireGateEntryForm.Checked ? "true" : "false");
                 _dbHelper.SaveSetting(RequireGatePasswordSettingKey,  chk_requireGatePassword.Checked  ? "true" : "false");
                 LogHelper.Log($"[Setup][Gate] Saved: EntryForm={chk_requireGateEntryForm.Checked}, Password={chk_requireGatePassword.Checked}");
-                MessageBox.Show("Gate access settings saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "Gate access settings saved.", MsgType.Success);
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[Setup][Gate][ERROR] {ex.Message}");
-                MessageBox.Show("Failed to save gate access settings.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to save gate access settings.", MsgType.Error);
             }
         }
 
@@ -611,7 +619,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error loading devices: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Error loading devices: " + ex.Message, MsgType.Error);
             }
         }
 
@@ -692,7 +700,7 @@ namespace smart_attendance_middleware
         {
             if (AppSession.UserRole == "user")
             {
-                MessageBox.Show("Access denied. Only admin or developer can open Device Management.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "Access denied. Only admin or developer can open Device Management.", MsgType.Warning);
                 return;
             }
 
@@ -765,7 +773,7 @@ namespace smart_attendance_middleware
         {
             if (AppSession.UserRole == "user")
             {
-                MessageBox.Show("Access denied. Only admin or developer can open Setup Management.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "Access denied. Only admin or developer can open Setup Management.", MsgType.Warning);
                 return;
             }
 
@@ -833,7 +841,7 @@ namespace smart_attendance_middleware
         {
             if (_selectedDevice == null)
             {
-                MessageBox.Show("Please select a device to edit.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "No Selection", "Please select a device to edit.", MsgType.Warning);
                 return;
             }
             var editForm = new EditDevice(_selectedDevice, _selectedIsStaff);
@@ -868,65 +876,17 @@ namespace smart_attendance_middleware
             string currentUser = AppSession.LoggedInUser;
             if (string.IsNullOrWhiteSpace(currentUser))
             {
-                MessageBox.Show("No user is currently logged in. Cannot proceed.");
+                ModernMessageBox.Show(this, "Error", "No user is currently logged in. Cannot proceed.", MsgType.Error);
                 return;
             }
 
-            // Inline password prompt
-            Form prompt = new Form()
-            {
-                Width = 360,
-                Height = 160,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = $"Confirm Update - {currentUser} Login",
-                StartPosition = FormStartPosition.CenterScreen
-            };
+            string enteredPassword = ModernMessageBox.ShowPasswordPrompt(this,
+                $"Confirm Update",
+                $"Signed in as {currentUser}",
+                "Enter your password or backup code to update the device:");
 
-            Label label = new Label()
+            if (enteredPassword != null)
             {
-                Left = 10,
-                Top = 20,
-                Width = 320,
-                Text = "Enter your password or backup code to update the device:"
-            };
-
-            TextBox inputBox = new TextBox()
-            {
-                Left = 10,
-                Top = 50,
-                Width = 320,
-                UseSystemPasswordChar = true
-            };
-
-            var okButton = new Controls.RoundedButton
-            {
-                Text = "OK",
-                Left = 180,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.OK
-            };
-
-            var cancelButton = new Controls.RoundedButton
-            {
-                Text = "Cancel",
-                Left = 260,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.Cancel,
-                NormalColor = Color.FromArgb(107, 114, 128)
-            };
-
-            prompt.Controls.Add(label);
-            prompt.Controls.Add(inputBox);
-            prompt.Controls.Add(okButton);
-            prompt.Controls.Add(cancelButton);
-            prompt.AcceptButton = okButton;
-            prompt.CancelButton = cancelButton;
-
-            if (prompt.ShowDialog() == DialogResult.OK)
-            {
-                string enteredPassword = inputBox.Text;
 
                 if (_dbHelper.VerifyLoginUser(currentUser, enteredPassword))
                 {
@@ -934,7 +894,7 @@ namespace smart_attendance_middleware
 
                     if (!await IsValidIpAsync(deviceIp))
                     {
-                        MessageBox.Show("Invalid IP address. Please check the IP and try again.", "Invalid IP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Invalid IP", "Invalid IP address. Please check the IP and try again.", MsgType.Warning);
                         return;
                     }
 
@@ -946,7 +906,7 @@ namespace smart_attendance_middleware
                         string deviceExistsMessage = _dbHelper.IDCheckDeviceExists(deviceIp, machineNoParsed, _selectedDeviceId);
                         if (!string.IsNullOrEmpty(deviceExistsMessage))
                         {
-                            MessageBox.Show(deviceExistsMessage, "Device Conflict", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            ModernMessageBox.Show(this, "Device Conflict", deviceExistsMessage, MsgType.Warning);
                             return;
                         }
                     }
@@ -1010,26 +970,26 @@ namespace smart_attendance_middleware
                         // Notify dashboard to refresh
                         NotifyDashboardRefresh();
 
-                        MessageBox.Show("Device updated successfully.");
+                        ModernMessageBox.Show(this, "Success", "Device updated successfully.", MsgType.Success);
                     }
                     catch (InvalidOperationException ex)
                     {
                         aiChatLogger.AddErrorMessage("Device update failed due to duplicate entry. Please check your settings.");
-                        MessageBox.Show(ex.Message, "Update Failed - Duplicate Entry", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        ModernMessageBox.Show(this, "Update Failed - Duplicate Entry", ex.Message, MsgType.Error);
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"An unexpected error occurred:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        ModernMessageBox.Show(this, "Error", $"An unexpected error occurred:\n{ex.Message}", MsgType.Error);
                     }
                 }
                 else
                 {
-                    MessageBox.Show("Authentication failed. Device update was cancelled.");
+                    ModernMessageBox.Show(this, "Error", "Authentication failed. Device update was cancelled.", MsgType.Error);
                 }
             }
             else
             {
-                MessageBox.Show("Device update cancelled.");
+                ModernMessageBox.Show(this, "Info", "Device update cancelled.", MsgType.Info);
                 _selectedDevice = null;
                 ClearDeviceFields();
             }
@@ -1080,83 +1040,36 @@ namespace smart_attendance_middleware
         {
             if (_selectedDevice == null)
             {
-                MessageBox.Show("Please select a device to remove.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "No Selection", "Please select a device to remove.", MsgType.Warning);
                 return;
             }
 
             int deviceId = _selectedIsStaff ? _selectedStaffDeviceId : _selectedDeviceId;
             if (deviceId <= 0)
             {
-                MessageBox.Show("Invalid Device ID. Please enter a valid number.");
+                ModernMessageBox.Show(this, "Error", "Invalid Device ID. Please enter a valid number.", MsgType.Error);
                 return;
             }
 
             string currentUser = AppSession.LoggedInUser;
             if (string.IsNullOrWhiteSpace(currentUser))
             {
-                MessageBox.Show("No user is currently logged in. Cannot proceed.");
+                ModernMessageBox.Show(this, "Error", "No user is currently logged in. Cannot proceed.", MsgType.Error);
                 return;
             }
 
-            // Inline prompt to ask for the password or backup code
-            Form prompt = new Form()
-            {
-                Width = 360,
-                Height = 160,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = $"Confirm Deletion - {currentUser} Login",
-                StartPosition = FormStartPosition.CenterScreen
-            };
+            string enteredPassword = ModernMessageBox.ShowPasswordPrompt(this,
+                "Confirm Deletion",
+                $"Signed in as {currentUser}",
+                $"Enter your password or backup code to delete Device ID {deviceId}:",
+                "Delete");
 
-            Label label = new Label()
+            if (enteredPassword != null)
             {
-                Left = 10,
-                Top = 20,
-                Width = 320,
-                Text = $"Enter your password or backup code to delete Device ID {deviceId}:"
-            };
-
-            TextBox inputBox = new TextBox()
-            {
-                Left = 10,
-                Top = 50,
-                Width = 320,
-                UseSystemPasswordChar = true // This ensures that the password is masked with asterisks (*)
-            };
-
-            var okButton = new Controls.RoundedButton
-            {
-                Text = "OK",
-                Left = 180,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.OK
-            };
-
-            var cancelButton = new Controls.RoundedButton
-            {
-                Text = "Cancel",
-                Left = 260,
-                Width = 70,
-                Top = 85,
-                DialogResult = DialogResult.Cancel,
-                NormalColor = Color.FromArgb(107, 114, 128)
-            };
-
-            prompt.Controls.Add(label);
-            prompt.Controls.Add(inputBox);
-            prompt.Controls.Add(okButton);
-            prompt.Controls.Add(cancelButton);
-            prompt.AcceptButton = okButton;
-            prompt.CancelButton = cancelButton;
-
-            if (prompt.ShowDialog() == DialogResult.OK)
-            {
-                string enteredPassword = inputBox.Text;
 
                 if (!await IsValidIpAsync((_selectedDevice?.DeviceIP ?? "").Trim()))
                 {
-                    MessageBox.Show("The device is not reachable. Please check the IP address and try again.", "Ping Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Ping Failed", "The device is not reachable. Please check the IP address and try again.", MsgType.Warning);
                     return;
                 }
 
@@ -1193,18 +1106,18 @@ namespace smart_attendance_middleware
                     aiChatLogger.AddInfoMessage("Don't worry, I'm still here to help with your remaining devices.");
                     aiChatLogger.AddDeviceMessage("Device network updated. All enrollment data has been cleared.");
 
-                    MessageBox.Show("Device deleted successfully.");
+                    ModernMessageBox.Show(this, "Success", "Device deleted successfully.", MsgType.Success);
                 }
                 else
                 {
-                    MessageBox.Show("Authentication failed. Device was not deleted.");
+                    ModernMessageBox.Show(this, "Error", "Authentication failed. Device was not deleted.", MsgType.Error);
                 }
             }
             else
             {
                 ClearDeviceFields(); // Clear the fields if the user cancels
                 _selectedDevice = null;
-                    MessageBox.Show("Device deletion cancelled.");
+                    ModernMessageBox.Show(this, "Info", "Device deletion cancelled.", MsgType.Info);
                     }
                 }
 
@@ -1216,14 +1129,14 @@ namespace smart_attendance_middleware
             // Step 1: Basic validation
             if (string.IsNullOrWhiteSpace(apiKey))
             {
-                MessageBox.Show("Please enter a valid API Key.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Validation Error", "Please enter a valid API Key.", MsgType.Warning);
                 return;
             }
 
             // ✅ Validate format: Must contain colon (GYMID:SECRETKEY)
             if (!apiKey.Contains(":") || apiKey.Split(':').Length != 2)
             {
-                MessageBox.Show("API Key format is invalid. Expected format: gymId:secretKey", "Format Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Format Error", "API Key format is invalid. Expected format: gymId:secretKey", MsgType.Warning);
                 return;
             }
 
@@ -1233,8 +1146,7 @@ namespace smart_attendance_middleware
                 int sepIndex = apiKey.IndexOf(':');
                 if (sepIndex <= 0 || sepIndex == apiKey.Length - 1)
                 {
-                    MessageBox.Show("Invalid API key format. Expected '<gymId>:<jwt>'.", "Invalid Format",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Invalid Format", "Invalid API key format. Expected '<gymId>:<jwt>'.", MsgType.Warning);
                     return;
                 }
 
@@ -1243,8 +1155,7 @@ namespace smart_attendance_middleware
 
                 if (string.IsNullOrWhiteSpace(gymId) || string.IsNullOrWhiteSpace(jwt))
                 {
-                    MessageBox.Show("Gym ID or token is empty after split.", "Validation Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation Error", "Gym ID or token is empty after split.", MsgType.Warning);
                     return;
                 }
 
@@ -1254,14 +1165,12 @@ namespace smart_attendance_middleware
                 _dbHelper.SaveSetting("GWTToken", jwt);
 
                 LogHelper.Log($"[API Key Saved] GymId='{gymId}', JWT length={jwt.Length}.");
-                MessageBox.Show("API key saved.\nGym ID and GWT token stored successfully.", "Success",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "API key saved.\nGym ID and GWT token stored successfully.", MsgType.Success);
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[btnSaveAPI_Click_1][ERROR] {ex.Message}");
-                MessageBox.Show("Failed to save API key. See logs for details.", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to save API key. See logs for details.", MsgType.Error);
             }
         }
 
@@ -1270,7 +1179,7 @@ namespace smart_attendance_middleware
         {
             if (AppSession.UserRole == "user")
             {
-                MessageBox.Show("You do not have permission to add users.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You do not have permission to add users.", MsgType.Warning);
                 return;
             }
             Thread newThread = new Thread(Newuser);
@@ -1303,14 +1212,14 @@ namespace smart_attendance_middleware
         {
             if (!selectedUserId.HasValue)
             {
-                MessageBox.Show("Please select a user to delete.", "No User Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "No User Selected", "Please select a user to delete.", MsgType.Info);
                 return;
             }
 
             // Nobody can delete themselves
             if (selectedUserId.Value == AppSession.LoggedInUserID)
             {
-                MessageBox.Show("You cannot delete your own account.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You cannot delete your own account.", MsgType.Warning);
                 return;
             }
 
@@ -1319,19 +1228,18 @@ namespace smart_attendance_middleware
             // user cannot delete anyone
             if (currentRole == "user")
             {
-                MessageBox.Show("You do not have permission to delete users.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You do not have permission to delete users.", MsgType.Warning);
                 return;
             }
 
             // admin cannot delete developer or another admin
             if (currentRole == "admin" && (selectedRole == "developer" || selectedRole == "admin"))
             {
-                MessageBox.Show("You do not have permission to delete this user.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You do not have permission to delete this user.", MsgType.Warning);
                 return;
             }
 
-            var confirm = MessageBox.Show("Are you sure you want to delete this user?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (confirm == DialogResult.Yes)
+            if (ModernMessageBox.ShowConfirm(this, "Confirm Delete", "Are you sure you want to delete this user?", "Yes", "No", MsgType.Warning))
             {
                 aiChatLogger.AddUserMessage($"Removing user {selectedUsername} from the system...");
                 _dbHelper.DeleteUserById(selectedUserId.Value);
@@ -1348,7 +1256,7 @@ namespace smart_attendance_middleware
         {
             if (!selectedUserId.HasValue)
             {
-                MessageBox.Show("Please select a user to change password.");
+                ModernMessageBox.Show(this, "No Selection", "Please select a user to change password.", MsgType.Info);
                 return;
             }
 
@@ -1357,7 +1265,7 @@ namespace smart_attendance_middleware
             // user can only change their own password
             if (currentRole == "user" && selectedUserId.Value != AppSession.LoggedInUserID)
             {
-                MessageBox.Show("You can only change your own password.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You can only change your own password.", MsgType.Warning);
                 return;
             }
 
@@ -1365,65 +1273,40 @@ namespace smart_attendance_middleware
             if (currentRole == "admin" && selectedUserId.Value != AppSession.LoggedInUserID
                 && (selectedRole == "developer" || selectedRole == "admin"))
             {
-                MessageBox.Show("You do not have permission to change this user's password.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You do not have permission to change this user's password.", MsgType.Warning);
                 return;
             }
 
             if (selectedUserId.HasValue)
             {
-                using (Form prompt = new Form())
+                var pwResult = ModernMessageBox.ShowChangePasswordPrompt(this);
+                if (pwResult.HasValue)
                 {
-                    prompt.Width = 400;
-                    prompt.Height = 220;
-                    prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
-                    prompt.Text = "Change Password";
-                    prompt.StartPosition = FormStartPosition.CenterScreen;
+                    string newPassword     = pwResult.Value.newPw;
+                    string confirmPassword = pwResult.Value.confirmPw;
 
-                    Label textLabel1 = new Label() { Left = 20, Top = 20, Text = "Enter new password (min 8 characters):", Width = 340 };
-                    TextBox textBox1 = new TextBox() { Left = 20, Top = 50, Width = 340, PasswordChar = '*' };
-
-                    Label textLabel2 = new Label() { Left = 20, Top = 85, Text = "Confirm new password:", Width = 340 };
-                    TextBox textBox2 = new TextBox() { Left = 20, Top = 110, Width = 340, PasswordChar = '*' };
-
-                    var confirmation = new Controls.RoundedButton { Text = "OK", Left = 270, Width = 90, Top = 145, DialogResult = DialogResult.OK };
-                    confirmation.Click += (sender2, e2) => { prompt.Close(); };
-
-                    prompt.Controls.Add(textLabel1);
-                    prompt.Controls.Add(textBox1);
-                    prompt.Controls.Add(textLabel2);
-                    prompt.Controls.Add(textBox2);
-                    prompt.Controls.Add(confirmation);
-                    prompt.AcceptButton = confirmation;
-
-                    if (prompt.ShowDialog() == DialogResult.OK)
+                    if (newPassword.Length < 8)
                     {
-                        string newPassword = textBox1.Text;
-                        string confirmPassword = textBox2.Text;
+                        ModernMessageBox.Show(this, "Validation", "Password must be at least 8 characters long.", MsgType.Warning);
+                        return;
+                    }
 
-                        if (newPassword.Length < 8)
-                        {
-                            MessageBox.Show("Password must be at least 8 characters long.");
-                            return;
-                        }
+                    if (newPassword != confirmPassword)
+                    {
+                        ModernMessageBox.Show(this, "Validation", "Passwords do not match. Please try again.", MsgType.Warning);
+                        return;
+                    }
 
-                        if (newPassword != confirmPassword)
-                        {
-                            MessageBox.Show("Passwords do not match. Please try again.");
-                            return;
-                        }
-
-                        DialogResult confirm = MessageBox.Show("Are you sure you want to change the password?", "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-                        if (confirm == DialogResult.Yes)
-                        {
-                            _dbHelper.UpdateUserPassword(selectedUserId.Value, newPassword);
-                            MessageBox.Show("Password changed successfully.");
-                        }
+                    if (ModernMessageBox.ShowConfirm(this, "Confirm", "Are you sure you want to change the password?", "Yes", "No", MsgType.Warning))
+                    {
+                        _dbHelper.UpdateUserPassword(selectedUserId.Value, newPassword);
+                        ModernMessageBox.Show(this, "Success", "Password changed successfully.", MsgType.Success);
                     }
                 }
             }
             else
             {
-                MessageBox.Show("Please select a user to change password.");
+                ModernMessageBox.Show(this, "No Selection", "Please select a user to change password.", MsgType.Info);
             }
         }
 
@@ -1435,7 +1318,7 @@ namespace smart_attendance_middleware
         {
             if (!selectedUserId.HasValue || string.IsNullOrEmpty(selectedUsername) || string.IsNullOrEmpty(selectedRole))
             {
-                MessageBox.Show("Please select a user to edit.");
+                ModernMessageBox.Show(this, "No Selection", "Please select a user to edit.", MsgType.Info);
                 return;
             }
 
@@ -1444,7 +1327,7 @@ namespace smart_attendance_middleware
             // user can only edit themselves
             if (currentRole == "user" && selectedUserId.Value != AppSession.LoggedInUserID)
             {
-                MessageBox.Show("You can only edit your own account.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You can only edit your own account.", MsgType.Warning);
                 return;
             }
 
@@ -1452,7 +1335,7 @@ namespace smart_attendance_middleware
             if (currentRole == "admin" && selectedUserId.Value != AppSession.LoggedInUserID
                 && (selectedRole == "developer" || selectedRole == "admin"))
             {
-                MessageBox.Show("You do not have permission to edit this user.", "Access Denied", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Access Denied", "You do not have permission to edit this user.", MsgType.Warning);
                 return;
             }
 
@@ -1519,7 +1402,7 @@ namespace smart_attendance_middleware
             // Require a selection
             if (_selectedDevice == null)
             {
-                MessageBox.Show("Please select a device to format.", "No Device Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "No Device Selected", "Please select a device to format.", MsgType.Warning);
                 return;
             }
 
@@ -1529,42 +1412,27 @@ namespace smart_attendance_middleware
             string currentUser = AppSession.LoggedInUser;
             if (string.IsNullOrWhiteSpace(currentUser))
             {
-                MessageBox.Show("No user is currently logged in. Cannot proceed.");
+                ModernMessageBox.Show(this, "Error", "No user is currently logged in. Cannot proceed.", MsgType.Error);
                 return;
             }
 
-            var confirmResult = MessageBox.Show(
-                "WARNING: This will delete ALL user data (Fingerprints, Face, RFID, Passwords) from the terminal via Cloud WebSocket.\n\n" +
-                "This action cannot be undone. Are you sure you want to continue?",
-                "Format Device Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-
-            if (confirmResult != DialogResult.Yes) return;
+            if (!ModernMessageBox.ShowConfirm(this, "Confirm Format",
+                "WARNING: This will delete ALL user data (Fingerprints, Face, RFID, Passwords) from the terminal via Cloud WebSocket.\n\nThis action cannot be undone. Are you sure you want to continue?",
+                "Yes, Format", "Cancel", MsgType.Warning)) return;
 
             // Authentication Prompt
-            using (Form prompt = new Form()
+            string formatPassword = ModernMessageBox.ShowPasswordPrompt(this,
+                "Confirm Format",
+                $"Signed in as {currentUser}",
+                "Enter your password to format the device:",
+                "Format Device");
+
+            if (formatPassword == null) return;
+
+            if (!_dbHelper.VerifyLoginUser(currentUser, formatPassword))
             {
-                Width = 360,
-                Height = 160,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = $"Confirm Format - {currentUser} Login",
-                StartPosition = FormStartPosition.CenterScreen
-            })
-            {
-                var label = new Label { Left = 10, Top = 20, Width = 320, Text = "Enter your password to format the device:" };
-                var inputBox = new TextBox { Left = 10, Top = 50, Width = 320, UseSystemPasswordChar = true };
-                var okButton = new Controls.RoundedButton { Text = "Format Device", Left = 150, Width = 100, Top = 85, DialogResult = DialogResult.OK };
-                var cancelButton = new Controls.RoundedButton { Text = "Cancel", Left = 260, Width = 70, Top = 85, DialogResult = DialogResult.Cancel, NormalColor = Color.FromArgb(107, 114, 128) };
-
-                prompt.Controls.Add(label); prompt.Controls.Add(inputBox); prompt.Controls.Add(okButton); prompt.Controls.Add(cancelButton);
-                prompt.AcceptButton = okButton; prompt.CancelButton = cancelButton;
-
-                if (prompt.ShowDialog() != DialogResult.OK) return;
-
-                if (!_dbHelper.VerifyLoginUser(currentUser, inputBox.Text))
-                {
-                    MessageBox.Show("Authentication failed. Device formatting was cancelled.");
-                    return;
-                }
+                ModernMessageBox.Show(this, "Error", "Authentication failed. Device formatting was cancelled.", MsgType.Error);
+                return;
             }
 
             try
@@ -1580,7 +1448,7 @@ namespace smart_attendance_middleware
 
                 if (string.IsNullOrEmpty(sn))
                 {
-                    MessageBox.Show("Device Serial Number not found. Ensure the device is registered.", "Device Unreachable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Device Unreachable", "Device Serial Number not found. Ensure the device is registered.", MsgType.Warning);
                     return;
                 }
 
@@ -1604,19 +1472,16 @@ namespace smart_attendance_middleware
                         await _deviceFunctions.EmptyEnrollmentDataAndDeleteLogsByDeviceId(selectedDevice.DeviceId);
                     }
 
-                    MessageBox.Show("All user data has been cleared from terminal and database Successfully.",
-                        "Format Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.Show(this, "Format Complete", "All user data has been cleared from terminal and database Successfully.", MsgType.Success);
                 }
                 else
                 {
-                    MessageBox.Show("Failed to reach device via WebSocket. Please ensure the terminal is online.",
-                        "Format Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Format Failed", "Failed to reach device via WebSocket. Please ensure the terminal is online.", MsgType.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An error occurred while formatting the device: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"An error occurred while formatting the device: {ex.Message}", MsgType.Error);
             }
             finally
             {
@@ -1814,8 +1679,8 @@ namespace smart_attendance_middleware
 
                     var builder = new CLV.CardBuilder()
                         .Avatar(initial, accent, 8, 8, 36)
-                        .Text(item.SubItems[0].Text, 50,  6,  50,  18, CLV.F9,     navy)
-                        .Text(item.SubItems[1].Text, 105, 6,  110, 18, CLV.F9Bold, navy)
+                        .Text(item.SubItems[1].Text, 50, 6,  160, 18, CLV.F9Bold, navy)
+                        .Text(item.SubItems[0].Text, 50, 26, 160, 16, CLV.F8,     muted)
                         .Text(item.SubItems[2].Text, 220, 6,  75,  18, CLV.F9,     muted)
                         .Pill(statusTxt,            sBg, sFg, 300, 13, 68, 22)
                         .Pill(item.SubItems.Count > 4 && !string.IsNullOrWhiteSpace(item.SubItems[4].Text) ? item.SubItems[4].Text : "-", Color.FromArgb(219, 234, 254), Color.FromArgb(37, 99, 235), 372, 13, 100, 22)
@@ -1847,12 +1712,12 @@ namespace smart_attendance_middleware
                         if (capturedM != null) ShowMemberDeviceStatus(capturedM);
                     });
 
-                    return builder.Build(900, 52);
+                    return builder.Build(900, 60);
                 });
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load members: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Failed to load members: {ex.Message}", MsgType.Error);
             }
         }
 
@@ -2303,13 +2168,13 @@ namespace smart_attendance_middleware
             {
                 if (string.IsNullOrWhiteSpace(rtb_debounce.Text) || !int.TryParse(rtb_debounce.Text, out int seconds))
                 {
-                    MessageBox.Show("Please enter a valid numeric value for debounce seconds.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation Error", "Please enter a valid numeric value for debounce seconds.", MsgType.Warning);
                     return;
                 }
 
                 if (seconds < 0)
                 {
-                    MessageBox.Show("Debounce seconds cannot be negative.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation", "Debounce seconds cannot be negative.", MsgType.Warning);
                     return;
                 }
 
@@ -2317,12 +2182,12 @@ namespace smart_attendance_middleware
                 _dbHelper.SaveSetting("AttendanceDebounceSeconds", seconds.ToString());
 
                 LogHelper.Log($"[Debounce] Saved AttendanceDebounceSeconds = {seconds}");
-                MessageBox.Show("Debounce setting saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "Debounce setting saved.", MsgType.Success);
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[Debounce][ERROR] {ex.Message}");
-                MessageBox.Show("Failed to save debounce setting.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to save debounce setting.", MsgType.Error);
             }
         }
 
@@ -2340,25 +2205,17 @@ namespace smart_attendance_middleware
 
                 if (ok)
                 {
-                    MessageBox.Show(
-                        "Backup bundle has been sent via email (DB snapshot + Logs ZIP + GLogs ZIP).",
-                        "Success",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
+                    ModernMessageBox.Show(this, "Success", "Backup bundle has been sent via email (DB snapshot + Logs ZIP + GLogs ZIP).", MsgType.Success);
                 }
                 else
                 {
-                    MessageBox.Show(
-                        "Failed to send backup bundle email. Check Logs for details.",
-                        "Error",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Error", "Failed to send backup bundle email. Check Logs for details.", MsgType.Error);
                 }
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"Error in btn_getdb_Click: {ex.Message}");
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"An error occurred: {ex.Message}", MsgType.Error);
             }
             finally
             {
@@ -2386,14 +2243,12 @@ namespace smart_attendance_middleware
                 _dbHelper.SaveSetting("GMT", gmt);
 
                 LogHelper.Log($"[Setup] Saved LocalTime='{nowLocal:yyyy-MM-dd HH:mm:ss}', GMT='{gmt}'");
-                MessageBox.Show($"Local time and GMT saved.\nLocalTime: {nowLocal:yyyy-MM-dd HH:mm:ss}\nGMT: {gmt}",
-                    "Time Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Time Saved", $"Local time and GMT saved.\nLocalTime: {nowLocal:yyyy-MM-dd HH:mm:ss}\nGMT: {gmt}", MsgType.Success);
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[btn_settime_Click][ERROR] {ex.Message}");
-                MessageBox.Show("Failed to save local time and GMT. See logs for details.",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to save local time and GMT. See logs for details.", MsgType.Error);
             }
         }
 
@@ -2620,9 +2475,9 @@ namespace smart_attendance_middleware
 
                     var builder = new CLV.CardBuilder()
                         .Avatar(initial, sAccent, 8, 8, 36)
-                        .Text(staffId,  50,  6, 85,  18, CLV.F9,     sNavy)
-                        .Text(name,     140, 6, 130, 18, CLV.F9Bold, sNavy)
-                        .Pill(status,   stBg, stFg, 275, 13, 80, 22)
+                        .Text(name,    50, 6,  215, 18, CLV.F9Bold, sNavy)
+                        .Text(staffId, 50, 26, 215, 16, CLV.F8,     sMuted)
+                        .Pill(status,  stBg, stFg, 275, 13, 80, 22)
                         .Pill(string.IsNullOrWhiteSpace(bio) ? "-" : bio, Color.FromArgb(219, 234, 254), Color.FromArgb(37, 99, 235), 360, 13, 125, 22)
                         .Text(enrollId, 490, 6, 80,  18, CLV.F8,     sMuted)
                         .Text(sync,     575, 6, 70,  18, CLV.F8,     sMuted);
@@ -2650,12 +2505,12 @@ namespace smart_attendance_middleware
                         ShowStaffDetailsForm(capturedTag?.StaffID?.ToString(), capturedTag?.Name?.ToString(), capturedTag?.EnrollmentID?.ToString());
                     });
 
-                    return builder.Build(800, 52);
+                    return builder.Build(800, 60);
                 });
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load staff list: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Failed to load staff list: {ex.Message}", MsgType.Error);
             }
         }
 
@@ -2753,7 +2608,7 @@ namespace smart_attendance_middleware
 
             if (!member.EnrollmentID.HasValue || member.EnrollmentID.Value <= 0)
             {
-                MessageBox.Show("This member does not have an Enrollment ID assigned.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Not Found", "This member does not have an Enrollment ID assigned.", MsgType.Info);
                 return;
             }
 
@@ -2764,7 +2619,7 @@ namespace smart_attendance_middleware
 
             if (allDevices.Count == 0)
             {
-                MessageBox.Show("No devices available to check.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "No Devices", "No devices available to check.", MsgType.Info);
                 return;
             }
 
@@ -2811,7 +2666,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 Dashboard.GlobalStopLoader();
-                MessageBox.Show($"Error retrieving member status: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Error retrieving member status: {ex.Message}", MsgType.Error);
             }
         }
 
@@ -2924,7 +2779,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load staff attendance logs: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Failed to load staff attendance logs: {ex.Message}", MsgType.Error);
             }
         }
 
@@ -3034,7 +2889,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"[lst_staffs_ItemActivate] Error: {ex.Message}");
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Error: {ex.Message}", MsgType.Error);
             }
         }
 
@@ -3042,7 +2897,7 @@ namespace smart_attendance_middleware
         {
             if (string.IsNullOrEmpty(enrollmentId) || !int.TryParse(enrollmentId, out int enrollmentIdInt) || enrollmentIdInt <= 0)
             {
-                MessageBox.Show("This staff member does not have a valid Enrollment ID.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Not Found", "This staff member does not have a valid Enrollment ID.", MsgType.Info);
                 return;
             }
 
@@ -3052,7 +2907,7 @@ namespace smart_attendance_middleware
 
             if (allDevices.Count == 0)
             {
-                MessageBox.Show("No devices available to check.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "No Devices", "No devices available to check.", MsgType.Info);
                 return;
             }
 
@@ -3105,7 +2960,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"[ShowStaffDetailsForm] Error: {ex.Message}");
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Error: {ex.Message}", MsgType.Error);
             }
         }
 
@@ -3114,8 +2969,7 @@ namespace smart_attendance_middleware
             // Input validation
             if (string.IsNullOrWhiteSpace(staffName))
             {
-                MessageBox.Show("Staff name is required.", "Validation Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Validation Error", "Staff name is required.", MsgType.Warning);
                 return;
             }
 
@@ -3160,10 +3014,7 @@ namespace smart_attendance_middleware
             // If still no enrollmentId, we cannot proceed
             if (!enrollmentId.HasValue || enrollmentId.Value <= 0)
             {
-                MessageBox.Show(
-                    $"Cannot delete '{staffName}'. No numeric Enrollment ID found for this staff.\n\n" +
-                    "Please ensure the staff record has a valid EnrollmentID (numeric) in the database.",
-                    "Missing Enrollment ID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Missing Enrollment ID", $"Cannot delete '{staffName}'. No numeric Enrollment ID found for this staff.\n\nPlease ensure the staff record has a valid EnrollmentID (numeric) in the database.", MsgType.Warning);
                 LogHelper.Log($"[DeleteStaffFromListView] Aborted - EnrollmentID missing for staff '{staffName}' (Identifier: {staffIdentifier})");
                 return;
             }
@@ -3171,12 +3022,7 @@ namespace smart_attendance_middleware
             int enrollId = enrollmentId.Value;
 
             // Confirm deletion with user
-            var confirmResult = MessageBox.Show(
-                $"Are you sure you want to DELETE all biometric data for '{staffName}' (Enrollment ID: {enrollId}) from all devices?\n\n" +
-                "This action cannot be undone.",
-                "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-
-            if (confirmResult != DialogResult.Yes)
+            if (!ModernMessageBox.ShowConfirm(this, "Confirm Delete", $"Are you sure you want to DELETE all biometric data for '{staffName}' (Enrollment ID: {enrollId}) from all devices?\n\nThis action cannot be undone.", "Yes, Delete", "Cancel", MsgType.Warning))
             {
                 LogHelper.Log($"[DeleteStaffFromListView] Deletion cancelled by user for staff '{staffName}' (EnrollmentID: {enrollId})");
                 return;
@@ -3194,9 +3040,7 @@ namespace smart_attendance_middleware
                 // Only show success message if the operation was not cancelled
                 if (deleteSuccess)
                 {
-                    MessageBox.Show(
-                        $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) deleted successfully from all devices!",
-                        "Deletion Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.Show(this, "Deletion Complete", $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) deleted successfully from all devices!", MsgType.Success);
 
                     LogHelper.Log($"[DeleteStaffFromListView] ✓ Successfully deleted staff '{staffName}' (Enrollment ID: {enrollId})");
 
@@ -3211,8 +3055,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"[DeleteStaffFromListView] ❌ Error: {ex.Message}\n{ex.StackTrace}");
-                MessageBox.Show($"❌ Deletion failed: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"❌ Deletion failed: {ex.Message}", MsgType.Error);
             }
             finally
             {
@@ -3225,8 +3068,7 @@ namespace smart_attendance_middleware
             // Input validation
             if (string.IsNullOrWhiteSpace(staffName))
             {
-                MessageBox.Show("Staff name is required.", "Validation Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Validation Error", "Staff name is required.", MsgType.Warning);
                 return;
             }
 
@@ -3277,10 +3119,7 @@ namespace smart_attendance_middleware
                 // If still no enrollmentId, we cannot safely call the device APIs that require numeric enrollment IDs
                 if (!enrollmentId.HasValue || enrollmentId.Value <= 0)
                 {
-                    MessageBox.Show(
-                        $"Cannot enroll '{staffName}'. No numeric Enrollment ID found for this staff.\n\n" +
-                        "Please ensure the staff record has a valid EnrollmentID (numeric) in the database.",
-                        "Missing Enrollment ID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Missing Enrollment ID", $"Cannot enroll '{staffName}'. No numeric Enrollment ID found for this staff.\n\nPlease ensure the staff record has a valid EnrollmentID (numeric) in the database.", MsgType.Warning);
                     LogHelper.Log($"[EnrollStaffFromListView] Aborted - EnrollmentID missing for staff '{staffName}' (Identifier: {staffIdentifier})");
                     return;
                 }
@@ -3291,8 +3130,7 @@ namespace smart_attendance_middleware
                 var already = _enrolledStaffBuffer.FirstOrDefault(x => x.Id == enrollId);
                 if (already != default)
                 {
-                    MessageBox.Show($"Enrollment ID {enrollId} is already enrolled in the buffer. Cannot enroll twice.",
-                        "Duplicate Entry", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Duplicate Entry", $"Enrollment ID {enrollId} is already enrolled in the buffer. Cannot enroll twice.", MsgType.Warning);
                     return;
                 }
 
@@ -3354,8 +3192,7 @@ namespace smart_attendance_middleware
 
                 if (!hasImage && !hasCard)
                 {
-                    MessageBox.Show($"❌ No Card ID or Face Image found for '{staffName}'.\n\nCannot enroll without biometric data.",
-                        "Insufficient Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Insufficient Data", $"❌ No Card ID or Face Image found for '{staffName}'.\n\nCannot enroll without biometric data.", MsgType.Warning);
                     LogHelper.Log($"[EnrollStaffFromListView] Enrollment cancelled - no biometric data for staff '{staffName}' (EnrollmentID: {enrollId})");
                     return;
                 }
@@ -3369,11 +3206,7 @@ namespace smart_attendance_middleware
                 // Only show success message if the operation was not cancelled
                 if (enrollSuccess)
                 {
-                    MessageBox.Show(
-                        $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) enrolled successfully!\n\n" +
-                        $"Card ID: {(hasCard ? staffCardId.ToString() : "Not used")}\n" +
-                        $"Face Image: {(hasImage ? "Yes" : "No")}",
-                        "Enrollment Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.Show(this, "Enrollment Complete", $"✓ Staff '{staffName}' (Enrollment ID: {enrollId}) enrolled successfully!\n\nCard ID: {(hasCard ? staffCardId.ToString() : "Not used")}\nFace Image: {(hasImage ? "Yes" : "No")}", MsgType.Success);
 
                     LogHelper.Log($"[EnrollStaffFromListView] ✓ Successfully enrolled staff '{staffName}' (Enrollment ID: {enrollId})");
                 }
@@ -3385,8 +3218,7 @@ namespace smart_attendance_middleware
             catch (Exception ex)
             {
                 LogHelper.Log($"[EnrollStaffFromListView] ❌ Error: {ex.Message}\n{ex.StackTrace}");
-                MessageBox.Show($"❌ Enrollment failed: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"❌ Enrollment failed: {ex.Message}", MsgType.Error);
             }
             finally
             {
@@ -3396,78 +3228,7 @@ namespace smart_attendance_middleware
 
         private List<Device> ShowDeviceSelectionDialog(List<Device> devices, string title = "Select Devices")
         {
-            var selected = new List<Device>();
-
-            if (devices == null || devices.Count == 0)
-                return selected;
-
-            using (var dlg = new Form())
-            {
-                dlg.Text = title;
-                dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dlg.StartPosition = FormStartPosition.CenterParent;
-                dlg.Width = 520;
-                dlg.Height = 420;
-                dlg.MinimizeBox = false;
-                dlg.MaximizeBox = false;
-                dlg.ShowInTaskbar = false;
-
-                var clb = new CheckedListBox
-                {
-                    Dock = DockStyle.Top,
-                    Height = 320,
-                    CheckOnClick = true
-                };
-
-                // Keep device ordering aligned with the passed list so indices map correctly
-                foreach (var device in devices)
-                {
-                    string label = !string.IsNullOrWhiteSpace(device.Location)
-                        ? $"{device.Location} ({device.DeviceIP})"
-                        : device.DeviceIP ?? "(unknown)";
-                    clb.Items.Add(label, true); // default: pre-check all
-                }
-
-                var btnOk = new Controls.RoundedButton
-                {
-                    Text = "OK",
-                    DialogResult = DialogResult.OK,
-                    Width = 100,
-                    Left = dlg.ClientSize.Width - 220,
-                    Top = clb.Bottom + 8,
-                    Anchor = AnchorStyles.Bottom | AnchorStyles.Right
-                };
-
-                var btnCancel = new Controls.RoundedButton
-                {
-                    Text = "Cancel",
-                    DialogResult = DialogResult.Cancel,
-                    Width = 100,
-                    Left = dlg.ClientSize.Width - 110,
-                    Top = clb.Bottom + 8,
-                    Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-                    NormalColor = Color.FromArgb(107, 114, 128)
-                };
-
-                dlg.Controls.Add(clb);
-                dlg.Controls.Add(btnOk);
-                dlg.Controls.Add(btnCancel);
-                dlg.AcceptButton = btnOk;
-                dlg.CancelButton = btnCancel;
-
-                // Show as modal on the UI thread
-                if (dlg.ShowDialog(this) != DialogResult.OK)
-                    return selected;
-
-                // Map checked indices back to device list
-                foreach (int idx in clb.CheckedIndices)
-                {
-                    if (idx >= 0 && idx < devices.Count)
-                        selected.Add(devices[idx]);
-                }
-            }
-
-            return selected;
+            return ModernMessageBox.ShowDeviceSelector(this, devices, title);
         }
 
         private async Task<bool> EnrollStaffAcrossAllDevicesAsync(int enrollId, string userName, long cardId, string imagePath)
@@ -3476,7 +3237,7 @@ namespace smart_attendance_middleware
 
             if (normalDevices.Count == 0)
             {
-                MessageBox.Show("No normal devices are available to enroll.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "No Devices", "No normal devices are available to enroll.", MsgType.Info);
                 return false;
             }
 
@@ -3545,7 +3306,7 @@ namespace smart_attendance_middleware
 
             if (normalDevices.Count == 0)
             {
-                MessageBox.Show("No normal devices are available.", "No Devices", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "No Devices", "No normal devices are available.", MsgType.Info);
                 return false;
             }
 
@@ -3611,13 +3372,13 @@ namespace smart_attendance_middleware
                 string folderId = rtb_drivefolderid.Text.Trim();
                 if (string.IsNullOrWhiteSpace(folderId))
                 {
-                    MessageBox.Show("Please enter a valid Google Drive Folder ID.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation Error", "Please enter a valid Google Drive Folder ID.", MsgType.Warning);
                     return;
                 }
 
                 _dbHelper.SaveSetting("GoogleDriveFolderId", folderId);
                 LogHelper.Log($"[Backup] Saved GoogleDriveFolderId: {folderId}");
-                MessageBox.Show("Google Drive Folder ID saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "Google Drive Folder ID saved successfully.", MsgType.Success);
             }
             catch (Exception ex)
             {
@@ -3632,17 +3393,17 @@ namespace smart_attendance_middleware
                 string json = rtb_drivecredentials.Text.Trim();
                 if (string.IsNullOrWhiteSpace(json))
                 {
-                    MessageBox.Show("Please paste the credentials JSON content.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation Error", "Please paste the credentials JSON content.", MsgType.Warning);
                     return;
                 }
 
                 // Verify if it's valid JSON before saving
                 try { Newtonsoft.Json.Linq.JObject.Parse(json); }
-                catch { MessageBox.Show("The content is not a valid JSON string.", "Invalid Format", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+                catch { ModernMessageBox.Show(this, "Invalid Format", "The content is not a valid JSON string.", MsgType.Error); return; }
 
                 _dbHelper.SaveEncryptedSetting("GoogleDriveCredentialsJson", json);
                 LogHelper.Log("[Backup] Saved and Encrypted Google Drive Credentials.");
-                MessageBox.Show("Google Drive credentials saved and encrypted successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "Google Drive credentials saved and encrypted successfully.", MsgType.Success);
                 rtb_drivecredentials.Clear(); // Clear for security
 
             }
@@ -3662,12 +3423,12 @@ namespace smart_attendance_middleware
                 _dbHelper.SaveSetting("BackupRetentionDays", days.ToString());
 
                 LogHelper.Log($"[Backup] Saved BackupRetentionDays: {days} days");
-                MessageBox.Show("Retention policy saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "Retention policy saved successfully.", MsgType.Success);
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[Backup][ERROR] btn_save_retentiondays: {ex.Message}");
-                MessageBox.Show("Failed to save retention policy.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to save retention policy.", MsgType.Error);
             }
         }
 
@@ -3686,13 +3447,12 @@ namespace smart_attendance_middleware
                 _dbHelper.SaveSetting("BackupIncludeDatabase", includeDB.ToString().ToLower());
 
                 LogHelper.Log($"[Backup] Content settings updated: Logs={includeLogs}, GLogs={includeGLogs}, DB={includeDB}");
-                MessageBox.Show($"Backup preferences updated:\nLogs: {includeLogs}\nGLogs: {includeGLogs}\nDatabase: {includeDB}",
-                    "Settings Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Settings Saved", $"Backup preferences updated:\nLogs: {includeLogs}\nGLogs: {includeGLogs}\nDatabase: {includeDB}", MsgType.Success);
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[Backup][ERROR] btn_save_backuptype: {ex.Message}");
-                MessageBox.Show("Failed to save backup preferences.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Failed to save backup preferences.", MsgType.Error);
             }
         }
 
@@ -3707,13 +3467,13 @@ namespace smart_attendance_middleware
                 // 2. Validations
                 if (string.IsNullOrEmpty(folderId))
                 {
-                    MessageBox.Show("Google Drive Folder ID is not configured. Please save it first.", "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Configuration Error", "Google Drive Folder ID is not configured. Please save it first.", MsgType.Warning);
                     return;
                 }
 
                 if (!int.TryParse(retentionStr, out int days) || days <= 0)
                 {
-                    MessageBox.Show("Retention policy is invalid or not set. Please save a value above 0 in Retention Days.", "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Configuration Error", "Retention policy is invalid or not set. Please save a value above 0 in Retention Days.", MsgType.Warning);
                     return;
                 }
 
@@ -3732,17 +3492,17 @@ namespace smart_attendance_middleware
                 // 5. Result Feedback
                 if (deleted >= 0)
                 {
-                    MessageBox.Show($"Drive cleanup successful!\nTotal files removed: {deleted}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ModernMessageBox.Show(this, "Success", $"Drive cleanup successful!\nTotal files removed: {deleted}", MsgType.Success);
                 }
                 else
                 {
-                    MessageBox.Show("Drive cleanup failed. Please check the system logs for details (likely an authentication error).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Error", "Drive cleanup failed. Please check the system logs for details (likely an authentication error).", MsgType.Error);
                 }
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[UI] Error in btn_backupcleanup_Click: {ex.Message}");
-                MessageBox.Show($"An unexpected error occurred: {ex.Message}", "Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Exception", $"An unexpected error occurred: {ex.Message}", MsgType.Error);
             }
             finally
             {

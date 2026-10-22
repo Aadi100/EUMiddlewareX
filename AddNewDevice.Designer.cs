@@ -238,9 +238,9 @@
             this.txt_Serial.MaxLength = 32767;
             this.txt_Serial.Name = "txt_Serial";
             this.txt_Serial.PasswordChar = '\0';
-            this.txt_Serial.Placeholder = "";
+            this.txt_Serial.Placeholder = "Auto-filled after connection";
             this.txt_Serial.Radius = 10;
-            this.txt_Serial.ReadOnly = false;
+            this.txt_Serial.ReadOnly = true;
             this.txt_Serial.Size = new System.Drawing.Size(218, 36);
             this.txt_Serial.TabIndex = 7;
             this.txt_Serial.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
@@ -465,14 +465,14 @@
             this.txt_password.Location = new System.Drawing.Point(497, 263);
             this.txt_password.MaxLength = 32767;
             this.txt_password.Name = "txt_password";
-            this.txt_password.PasswordChar = '\0';
+            this.txt_password.PasswordChar = '*';
             this.txt_password.Placeholder = "";
             this.txt_password.Radius = 10;
             this.txt_password.ReadOnly = false;
             this.txt_password.Size = new System.Drawing.Size(218, 36);
             this.txt_password.TabIndex = 24;
             this.txt_password.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
-            this.txt_password.UseSystemPasswordChar = false;
+            this.txt_password.UseSystemPasswordChar = true;
             // 
             // lblLTimeZone
             // 

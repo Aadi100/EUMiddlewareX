@@ -23,6 +23,10 @@ namespace smart_attendance_middleware
 
             rtxtUserName.Text = currentUsername;
 
+            cmbRole.Items.Clear();
+            cmbRole.Items.Add("admin");
+            cmbRole.Items.Add("user");
+
             // Pre-select current role in dropdown
             for (int i = 0; i < cmbRole.Items.Count; i++)
             {
@@ -42,7 +46,7 @@ namespace smart_attendance_middleware
 
             if (string.IsNullOrWhiteSpace(newRole))
             {
-                MessageBox.Show("Role is required.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Validation", "Role is required.", MsgType.Warning);
                 return;
             }
 
@@ -51,12 +55,12 @@ namespace smart_attendance_middleware
             {
                 if (newPassword.Length < 8)
                 {
-                    MessageBox.Show("Password must be at least 8 characters long.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation", "Password must be at least 8 characters long.", MsgType.Warning);
                     return;
                 }
                 if (newPassword != confirmPw)
                 {
-                    MessageBox.Show("Passwords do not match.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation", "Passwords do not match.", MsgType.Warning);
                     return;
                 }
             }
@@ -68,7 +72,7 @@ namespace smart_attendance_middleware
                 if (!string.IsNullOrEmpty(newPassword))
                     _dbHelper.UpdateUserPassword(_userId, newPassword);
 
-                MessageBox.Show("User updated successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "User updated successfully.", MsgType.Success);
 
                 var dm = Application.OpenForms.OfType<DeviceManager>().FirstOrDefault();
                 if (dm != null)
@@ -78,7 +82,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to update user: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", $"Failed to update user: {ex.Message}", MsgType.Error);
             }
         }
 

@@ -20,7 +20,7 @@ namespace smart_attendance_middleware
             _singleInstanceMutex = new Mutex(true, "smart_attendance_middleware_single_instance");
             if (!_singleInstanceMutex.WaitOne(TimeSpan.Zero, true))
             {
-                MessageBox.Show("Application is already running. Please close the existing instance first.", "Application Already Running", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(null, "Application Already Running", "Application is already running. Please close the existing instance first.", MsgType.Warning);
                 return;
             }
 

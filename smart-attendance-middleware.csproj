@@ -361,6 +361,12 @@
     <Compile Include="EditDevice.Designer.cs">
       <DependentUpon>EditDevice.cs</DependentUpon>
     </Compile>
+    <Compile Include="ModernMessageBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModernMessageBox.Designer.cs">
+      <DependentUpon>ModernMessageBox.cs</DependentUpon>
+    </Compile>
     <Compile Include="AddNewUser.cs">
       <SubType>Form</SubType>
     </Compile>

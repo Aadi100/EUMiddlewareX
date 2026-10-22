@@ -34,6 +34,24 @@ namespace smart_attendance_middleware.UI
             {
                 Location = new Point((ClientSize.Width - 120) / 2, 30)
             };
+
+            // Load app icon as the logo inside the spinner
+            try
+            {
+                string icoPath = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "favicon.ico");
+                if (System.IO.File.Exists(icoPath))
+                {
+                    using (var ico = new Icon(icoPath))
+                        _loader.LogoImage = ico.ToBitmap();
+                }
+                else
+                {
+                    using (var ico = Icon.ExtractAssociatedIcon(Application.ExecutablePath))
+                        _loader.LogoImage = ico?.ToBitmap();
+                }
+            }
+            catch { }
             _status = new Label
             {
                 Text = "Initializing...",

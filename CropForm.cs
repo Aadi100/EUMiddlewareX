@@ -153,7 +153,7 @@ namespace smart_attendance_middleware
             srcRect.Intersect(new Rectangle(0, 0, _sourceImage.Width, _sourceImage.Height));
             if (srcRect.Width <= 0 || srcRect.Height <= 0)
             {
-                MessageBox.Show("Invalid crop selection.", "Crop", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ModernMessageBox.Show(this, "Crop", "Invalid crop selection.", MsgType.Warning);
                 return;
             }
 

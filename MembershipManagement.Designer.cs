@@ -19,7 +19,9 @@ namespace smart_attendance_middleware
             this.lblFormTitle = new System.Windows.Forms.Label();
             this.lblFormSubtitle = new System.Windows.Forms.Label();
             this.pnlNav = new System.Windows.Forms.Panel();
-            this.tabPanel = new smart_attendance_middleware.Controls.ModernTabPanel();
+            this.tabPanel = new System.Windows.Forms.TabControl();
+            this.tabPageOffline = new System.Windows.Forms.TabPage();
+            this.tabPageMembers = new System.Windows.Forms.TabPage();
             this.pnlContentHost = new System.Windows.Forms.Panel();
             this.pnlAllMembersContent = new System.Windows.Forms.Panel();
             this.pnlAllMembersCard = new System.Windows.Forms.Panel();
@@ -117,6 +119,11 @@ namespace smart_attendance_middleware
             this.tabPanel.Name = "tabPanel";
             this.tabPanel.Size = new System.Drawing.Size(980, 44);
             this.tabPanel.TabIndex = 0;
+            this.tabPanel.Controls.Add(this.tabPageOffline);
+            this.tabPanel.Controls.Add(this.tabPageMembers);
+            this.tabPanel.SelectedIndexChanged += new System.EventHandler(this.tabPanel_SelectedIndexChanged);
+            this.tabPageOffline.Text = "Offline Members"; this.tabPageOffline.Name = "tabPageOffline";
+            this.tabPageMembers.Text = "Members"; this.tabPageMembers.Name = "tabPageMembers";
             // 
             // pnlContentHost
             // 
@@ -504,7 +511,9 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Label lblFormTitle;
         private System.Windows.Forms.Label lblFormSubtitle;
         private System.Windows.Forms.Panel pnlNav;
-        private smart_attendance_middleware.Controls.ModernTabPanel tabPanel;
+        private System.Windows.Forms.TabControl tabPanel;
+        private System.Windows.Forms.TabPage tabPageOffline;
+        private System.Windows.Forms.TabPage tabPageMembers;
         private System.Windows.Forms.Panel pnlContentHost;
         private System.Windows.Forms.Panel pnlOfflineContent;
         private System.Windows.Forms.Panel pnlOfflineStats;

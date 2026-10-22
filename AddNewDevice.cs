@@ -37,6 +37,29 @@ namespace smart_attendance_middleware
 
         private void AddNewDevice_Load(object sender, EventArgs e)
         {
+            cmb_device_type.Items.Clear();
+            cmb_device_type.Items.Add("Check-in");
+            cmb_device_type.Items.Add("Check-out");
+            cmb_device_type.Items.Add("Check-in/Check-out");
+
+            cmb_connectionType.Items.Clear();
+            cmb_connectionType.Items.Add("LAN");
+            cmb_connectionType.Items.Add("WiFi");
+            cmb_connectionType.Items.Add("USB");
+
+            cmb_timeZone.Items.Clear();
+            foreach (TimeZoneInfo tz in TimeZoneInfo.GetSystemTimeZones())
+                cmb_timeZone.Items.Add(tz.DisplayName);
+
+            // Pre-select local time zone
+            string localDisplay = TimeZoneInfo.Local.DisplayName;
+            int idx = cmb_timeZone.Items.IndexOf(localDisplay);
+            if (idx >= 0) cmb_timeZone.SelectedIndex = idx;
+
+            // Machine no 1-10
+            cmb_machine_no.Items.Clear();
+            for (int i = 1; i <= 10; i++)
+                cmb_machine_no.Items.Add(i.ToString());
         }
 
         private void btnCancle_Click(object sender, EventArgs e)
@@ -232,7 +255,7 @@ namespace smart_attendance_middleware
                     cmb_connectionType.SelectedItem == null ||
                     cmb_machine_no.SelectedItem == null)
                 {
-                    MessageBox.Show("Please fill in all required fields.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Validation Error", "Please fill in all required fields.", MsgType.Warning);
                     return;
                 }
 
@@ -246,7 +269,7 @@ namespace smart_attendance_middleware
                 if (checkResult != "Neither IP nor Machine No exists.")
                 {
                     lbl_saving_status.Text = checkResult;
-                    MessageBox.Show(checkResult, "Device Exists", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ModernMessageBox.Show(this, "Device Exists", checkResult, MsgType.Warning);
                     return;
                 }
 
@@ -255,8 +278,7 @@ namespace smart_attendance_middleware
                 if (!isReachable)
                 {
                     lbl_saving_status.Text = "Device connection failed";
-                    MessageBox.Show($"Could not connect to device at {ip} after 5 attempts. Please check the device network connection.",
-                        "Connection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ModernMessageBox.Show(this, "Connection Error", $"Could not connect to device at {ip} after 5 attempts. Please check the device network connection.", MsgType.Error);
                     return;
                 }
 
@@ -269,19 +291,11 @@ namespace smart_attendance_middleware
                 txt_Serial.Text = serial;
                 txt_Serial.Refresh();
 
-                DialogResult result = MessageBox.Show(
+                if (!ModernMessageBox.ShowConfirm(this, "Confirm Device Addition",
                     $"Device connected successfully.\n\nSerial Number: {serial}\nIP Address: {ip}\n\nWould you like to save this device?",
-                    "Confirm Device Addition",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-
-                if (result == DialogResult.No)
+                    "Yes, Save", "No", MsgType.Info))
                 {
-                    MessageBox.Show(
-                        "You've cancelled the device addition.\n\nNo changes have been made.",
-                        "Device Not Added",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
+                    ModernMessageBox.Show(this, "Device Not Added", "You've cancelled the device addition.\n\nNo changes have been made.", MsgType.Info);
                     return;
                 }
 
@@ -318,7 +332,7 @@ namespace smart_attendance_middleware
                     if (_dbHelper.StaffDeviceExists(ip, machineNo))
                     {
                         lbl_saving_status.Text = "Staff device with same IP or Machine No already exists.";
-                        MessageBox.Show("Staff device with same IP or Machine No already exists.", "Duplicate Staff Device", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Duplicate Staff Device", "Staff device with same IP or Machine No already exists.", MsgType.Warning);
                         return;
                     }
 
@@ -330,7 +344,7 @@ namespace smart_attendance_middleware
                     // Normal devices only support boolean check-in/check-out.
                     if (string.Equals(attendanceText, "Check-in/Check-out", StringComparison.OrdinalIgnoreCase))
                     {
-                        MessageBox.Show("Normal devices cannot be 'Check-in/Check-out'. Please select 'Check-in' or 'Check-out', or mark as Staff device.", "Invalid Type", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ModernMessageBox.Show(this, "Invalid Type", "Normal devices cannot be 'Check-in/Check-out'. Please select 'Check-in' or 'Check-out', or mark as Staff device.", MsgType.Warning);
                         return;
                     }
 
@@ -344,7 +358,7 @@ namespace smart_attendance_middleware
                 // Notify dashboard to refresh
                 NotifyDashboardRefresh();
 
-                MessageBox.Show("Device has been saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ModernMessageBox.Show(this, "Success", "Device has been saved.", MsgType.Success);
 
                 // Only process user workflow if this isn't the first device (after message box)
                 if (!isFirstDevice)
@@ -360,7 +374,7 @@ namespace smart_attendance_middleware
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error saving device: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ModernMessageBox.Show(this, "Error", "Error saving device: " + ex.Message, MsgType.Error);
             }
             finally
             {
