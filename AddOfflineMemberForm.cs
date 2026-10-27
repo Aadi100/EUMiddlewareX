@@ -28,6 +28,7 @@ namespace smart_attendance_middleware
             try { this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath); } catch { }
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
+            cmbGender.Items.AddRange(new object[] { "male", "female", "other" });
             cmbPaymentMethod.Items.AddRange(new object[] { "cash", "card", "bank_transfer", "online" });
             cmbPaymentMethod.SelectedIndex = 0;
             LoadPackages();
@@ -349,6 +350,11 @@ namespace smart_attendance_middleware
             }
         }
 
+        private void BtnSameAsPhone_Click(object sender, EventArgs e)
+        {
+            txtWhatsapp.Text = txtPhone.Text;
+        }
+
         // ── Save ─────────────────────────────────────────────────────────────
 
         private void btnCancel_Click(object sender, EventArgs e)
@@ -366,6 +372,14 @@ namespace smart_attendance_middleware
             if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
             {
                 lblStatus.Text = "First name and last name are required.";
+                return;
+            }
+
+            bool hasPhoto = _croppedPhoto != null;
+            bool hasRfid  = !string.IsNullOrWhiteSpace(txtRfid.Text);
+            if (!hasPhoto && !hasRfid)
+            {
+                lblStatus.Text = "At least a photo or RFID card is required.";
                 return;
             }
 
@@ -394,7 +408,9 @@ namespace smart_attendance_middleware
                     subscription,
                     picture: null,
                     rfid: string.IsNullOrWhiteSpace(txtRfid.Text) ? null : txtRfid.Text.Trim(),
-                    fingerprint: false);
+                    fingerprint: false,
+                    email: string.IsNullOrWhiteSpace(txtEmail.Text) ? null : txtEmail.Text.Trim(),
+                    whatsapp: string.IsNullOrWhiteSpace(txtWhatsapp.Text) ? null : txtWhatsapp.Text.Trim());
 
                 if (_croppedPhoto != null)
                 {

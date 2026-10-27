@@ -1886,18 +1886,6 @@ namespace smart_attendance_middleware
             membershipManagement.ShowDialog();
         }
 
-        private void btn_controls_test_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                new ControlsTestForm().ShowDialog(this);
-            }
-            catch (Exception ex)
-            {
-                ModernMessageBox.Show(this, "Controls Test Error", ex.ToString(), MsgType.Error);
-            }
-        }
-
         private void btn_device_mgr_qa_Click(object sender, EventArgs e)
         {
             try

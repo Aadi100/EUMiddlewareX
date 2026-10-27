@@ -585,6 +585,8 @@ namespace smart_attendance_middleware.Classes
                 ["authentication_methods"] = authMethods
             };
             if (!string.IsNullOrWhiteSpace(member.Gender)) memberObj["gender"] = member.Gender.ToLowerInvariant();
+            if (!string.IsNullOrWhiteSpace(member.Email)) memberObj["email"] = member.Email.Trim();
+            if (!string.IsNullOrWhiteSpace(member.Whatsapp)) memberObj["whatsapp"] = member.Whatsapp.Trim();
             if (uploadedPictureUrl != null) memberObj["picture"] = uploadedPictureUrl;
 
             var record = new JObject

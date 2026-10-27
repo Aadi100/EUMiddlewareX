@@ -27,8 +27,8 @@ namespace smart_attendance_middleware
             tabPanel.SelectedIndex = 0;
 
             cardListViewOfflineMembers.SetColumns(
-                new[] { "MEMBER", "PACKAGE", "PERIODICITY", "BIOMETRIC", "SYNC", "CLEANUP", "FAILURE" },
-                new[] { 52, 190, 318, 406, 560, 663, 752 });
+                new[] { "MEMBER", "PACKAGE", "PERIODICITY", "BIOMETRIC", "SYNC", "CLEANUP", "FAILURE", "" },
+                new[] { 52, 190, 318, 406, 560, 663, 752, 830 });
 
             cardListViewAllMembers.SetColumns(
                 new[] { "MEMBER", "ENROLLMENT", "STATUS", "BIOMETRIC", "SYNC", "PACKAGE EXPIRY", "RENEW" },
@@ -137,6 +137,8 @@ namespace smart_attendance_middleware
                 : _offlineMembersCache.Where(m =>
                     (m.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     (m.Phone ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (m.Email ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (m.Whatsapp ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     m.EnrollmentID.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
                   ).ToList();
 
@@ -224,31 +226,36 @@ namespace smart_attendance_middleware
                 var navy   = Color.FromArgb(30, 38, 90);
                 var muted  = Color.FromArgb(130, 138, 165);
 
-                var card = CardListView.MakeCard(900, 52);
+                var card = CardListView.MakeCard(900, 66);
 
                 string initial = (!string.IsNullOrWhiteSpace(m.Name)) ? m.Name.Substring(0, 1) : "?";
                 card.Controls.Add(CardListView.MakeAvatarLabel(initial, accent, 8, 8, 36));
-                card.Controls.Add(new Label { Text = m.Name ?? "-",         Location = new Point(52,  6), Width = 130, Height = 18, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = navy,  BackColor = Color.Transparent });
-                card.Controls.Add(new Label { Text = m.Phone ?? "-",        Location = new Point(52, 26), Width = 130, Height = 16, Font = new Font("Segoe UI", 8f, FontStyle.Regular),  ForeColor = muted, BackColor = Color.Transparent });
-                card.Controls.Add(new Label { Text = packageTitle,          Location = new Point(190,17), Width = 120, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular),    ForeColor = navy,  BackColor = Color.Transparent });
-                card.Controls.Add(new Label { Text = periodicity,           Location = new Point(318,17), Width = 80,  Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular),    ForeColor = muted, BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = m.Name ?? "-",         Location = new Point(52,  4), Width = 130, Height = 18, Font = new Font("Segoe UI", 9f, FontStyle.Bold),    ForeColor = navy,  BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = m.Phone ?? "-",        Location = new Point(52, 22), Width = 130, Height = 16, Font = new Font("Segoe UI", 7.5f, FontStyle.Regular), ForeColor = muted, BackColor = Color.Transparent });
+                string contactLine = string.Join("  |  ", new[] {
+                    string.IsNullOrWhiteSpace(m.Email) ? null : m.Email,
+                    string.IsNullOrWhiteSpace(m.Whatsapp) ? null : ("WA: " + m.Whatsapp)
+                }.Where(s => s != null));
+                card.Controls.Add(new Label { Text = string.IsNullOrEmpty(contactLine) ? "" : contactLine, Location = new Point(52, 38), Width = 130, Height = 14, Font = new Font("Segoe UI", 7f, FontStyle.Regular), ForeColor = muted, BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = packageTitle,          Location = new Point(190,24), Width = 120, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular),    ForeColor = navy,  BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = periodicity,           Location = new Point(318,24), Width = 80,  Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular),    ForeColor = muted, BackColor = Color.Transparent });
 
                 if (bioList.Count == 0)
-                    card.Controls.Add(CardListView.MakePill("No biometric", Color.FromArgb(255, 237, 213), orange, 406, 15, 110, 22));
+                    card.Controls.Add(CardListView.MakePill("No biometric", Color.FromArgb(255, 237, 213), orange, 406, 22, 110, 22));
                 else
-                    card.Controls.Add(CardListView.MakePill(string.Join(", ", bioList), Color.FromArgb(229, 231, 235), gray, 406, 15, 110, 22));
+                    card.Controls.Add(CardListView.MakePill(string.Join(", ", bioList), Color.FromArgb(229, 231, 235), gray, 406, 22, 110, 22));
 
                 bool synced = m.ServerSync;
                 card.Controls.Add(CardListView.MakePill(
                     synced ? "● Synced" : "● Pending",
                     synced ? Color.FromArgb(209, 250, 229) : Color.FromArgb(255, 237, 213),
-                    synced ? green : orange, 560, 15, 95, 22));
+                    synced ? green : orange, 560, 22, 95, 22));
 
-                card.Controls.Add(new Label { Text = cleanupText, Location = new Point(663, 17), Width = 80, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular), ForeColor = muted, BackColor = Color.Transparent });
+                card.Controls.Add(new Label { Text = cleanupText, Location = new Point(663, 24), Width = 80, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular), ForeColor = muted, BackColor = Color.Transparent });
 
                 if (hasFailure) {
                     var capturedMember = m;
-                    var btnView = CardListView.MakeActionButton("Failure", Color.White, red, 752, 13, 60, 26);
+                    var btnView = CardListView.MakeActionButton("Failure", Color.White, red, 752, 20, 60, 26);
                     btnView.Click += (s, ev) => {
                         string fullReason = "-";
                         try {
@@ -262,8 +269,24 @@ namespace smart_attendance_middleware
                     };
                     card.Controls.Add(btnView);
                 } else {
-                    card.Controls.Add(new Label { Text = "-", Location = new Point(752, 17), Width = 40, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular), ForeColor = muted, BackColor = Color.Transparent });
+                    card.Controls.Add(new Label { Text = "-", Location = new Point(752, 24), Width = 40, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Regular), ForeColor = muted, BackColor = Color.Transparent });
                 }
+
+                var capturedForDelete = m;
+                var btnDelete = CardListView.MakeActionButton("Delete", Color.White, Color.FromArgb(180, 30, 30), 830, 20, 60, 26);
+                btnDelete.Click += (s, ev) => {
+                    bool confirm = ModernMessageBox.ShowConfirm(this, "Confirm Delete",
+                        $"Delete offline member '{capturedForDelete.Name}'? This cannot be undone.");
+                    if (!confirm) return;
+                    try {
+                        _dbHelper.DeleteOfflineMemberLogs(capturedForDelete.ClientId);
+                        _dbHelper.DeleteOfflineMember(capturedForDelete.ClientId);
+                        LoadOfflineMembersList();
+                    } catch (Exception ex) {
+                        ModernMessageBox.Show(this, "Error", "Failed to delete: " + ex.Message, MsgType.Error);
+                    }
+                };
+                card.Controls.Add(btnDelete);
 
                 return card;
             });

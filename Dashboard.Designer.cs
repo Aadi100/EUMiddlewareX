@@ -32,8 +32,13 @@ namespace smart_attendance_middleware
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
             this.lbl_version = new System.Windows.Forms.Label();
+            this._hdrLastSyncCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
+            this._hdrCloudCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
+            this._hdrInternetCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
             this.pbLogo = new System.Windows.Forms.PictureBox();
             this.cuiPanel1 = new CuoreUI.Controls.cuiPanel();
+            this.btn_adddevice = new smart_attendance_middleware.Controls.RoundedButton();
+            this.dataPairPanel1 = new smart_attendance_middleware.Controls.DataPairPanel();
             this.label2 = new System.Windows.Forms.Label();
             this.cuiPanel5 = new CuoreUI.Controls.cuiPanel();
             this.panel3 = new System.Windows.Forms.Panel();
@@ -49,13 +54,20 @@ namespace smart_attendance_middleware
             this.lbl_time_out = new System.Windows.Forms.Label();
             this.lbl_action_out = new System.Windows.Forms.Label();
             this.lbl_name_out = new System.Windows.Forms.Label();
+            this.toastNotificationControl2 = new smart_attendance_middleware.UI.ToastNotificationControl();
             this.cuiSeparator1 = new CuoreUI.Controls.cuiSeparator();
+            this.btn_retry = new smart_attendance_middleware.Controls.RoundedButton();
+            this.btn_fingerprint_qa = new smart_attendance_middleware.Controls.RoundedButton();
+            this.btn_backup_qa = new smart_attendance_middleware.Controls.RoundedButton();
+            this.btn_device_mgr_qa = new smart_attendance_middleware.Controls.RoundedButton();
+            this.btn_sync = new smart_attendance_middleware.Controls.RoundedButton();
             this.label5 = new System.Windows.Forms.Label();
             this.pnlAlertBar = new System.Windows.Forms.Panel();
             this.lblAlertBar = new System.Windows.Forms.Label();
             this.cuiPanelTelemetry = new CuoreUI.Controls.cuiPanel();
             this.pnlPendingJobsList = new System.Windows.Forms.Panel();
             this.lblPendingJobsListTitle = new System.Windows.Forms.Label();
+            this.lstPendingJobsMini = new smart_attendance_middleware.Controls.ModernListView();
             this.pnlEmptyState = new System.Windows.Forms.Panel();
             this.lblEmptyIcon = new System.Windows.Forms.Label();
             this.lblEmptyText = new System.Windows.Forms.Label();
@@ -64,8 +76,16 @@ namespace smart_attendance_middleware
             this.lblLastEventText = new System.Windows.Forms.Label();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
+            this._statMembersSynced = new smart_attendance_middleware.Controls.StatCard();
+            this._statActive = new smart_attendance_middleware.Controls.StatCard();
+            this._statStaff = new smart_attendance_middleware.Controls.StatCard();
+            this._statPendingJobs = new smart_attendance_middleware.Controls.StatCard();
+            this._statExpiring = new smart_attendance_middleware.Controls.StatCard();
+            this._statMissingFp = new smart_attendance_middleware.Controls.StatCard();
             this.pnlStatusBar = new System.Windows.Forms.Panel();
             this.lblDevConnHdr = new System.Windows.Forms.Label();
+            this._pillsPanel = new smart_attendance_middleware.Controls.PillsPanel();
             this.lblDevStatus = new System.Windows.Forms.Label();
             this.lblSep0 = new System.Windows.Forms.Label();
             this.lblStatusLastSync = new System.Windows.Forms.Label();
@@ -79,27 +99,6 @@ namespace smart_attendance_middleware
             this.lblStatusUser = new System.Windows.Forms.Label();
             this.lblSep5 = new System.Windows.Forms.Label();
             this.lblStatusRole = new System.Windows.Forms.Label();
-            this.lstPendingJobsMini = new smart_attendance_middleware.Controls.ModernListView();
-            this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
-            this.toastNotificationControl2 = new smart_attendance_middleware.UI.ToastNotificationControl();
-            this.btn_retry = new smart_attendance_middleware.Controls.RoundedButton();
-            this.btn_fingerprint_qa = new smart_attendance_middleware.Controls.RoundedButton();
-            this.btn_backup_qa = new smart_attendance_middleware.Controls.RoundedButton();
-            this.btn_device_mgr_qa = new smart_attendance_middleware.Controls.RoundedButton();
-            this.btn_sync = new smart_attendance_middleware.Controls.RoundedButton();
-            this.btn_adddevice = new smart_attendance_middleware.Controls.RoundedButton();
-            this.dataPairPanel1 = new smart_attendance_middleware.Controls.DataPairPanel();
-            this._statMembersSynced = new smart_attendance_middleware.Controls.StatCard();
-            this._statActive = new smart_attendance_middleware.Controls.StatCard();
-            this._statStaff = new smart_attendance_middleware.Controls.StatCard();
-            this._statPendingJobs = new smart_attendance_middleware.Controls.StatCard();
-            this._statExpiring = new smart_attendance_middleware.Controls.StatCard();
-            this._statMissingFp = new smart_attendance_middleware.Controls.StatCard();
-            this.btn_controls_test = new smart_attendance_middleware.Controls.RoundedButton();
-            this._hdrLastSyncCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
-            this._hdrCloudCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
-            this._hdrInternetCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
-            this._pillsPanel = new smart_attendance_middleware.Controls.PillsPanel();
             this.panel4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbLogo)).BeginInit();
             this.cuiPanel1.SuspendLayout();
@@ -135,7 +134,6 @@ namespace smart_attendance_middleware
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.panel4.Controls.Add(this.label8);
             this.panel4.Controls.Add(this.lbl_version);
-            this.panel4.Controls.Add(this.btn_controls_test);
             this.panel4.Controls.Add(this._hdrLastSyncCard);
             this.panel4.Controls.Add(this._hdrCloudCard);
             this.panel4.Controls.Add(this._hdrInternetCard);
@@ -154,8 +152,49 @@ namespace smart_attendance_middleware
             this.lbl_version.Name = "lbl_version";
             this.lbl_version.Size = new System.Drawing.Size(45, 22);
             this.lbl_version.TabIndex = 44;
-            this.lbl_version.Text = "3.1.1";
+            this.lbl_version.Text = "3.2.0";
             this.lbl_version.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // _hdrLastSyncCard
+            // 
+            this._hdrLastSyncCard.BackColor = System.Drawing.Color.Transparent;
+            this._hdrLastSyncCard.BottomText = "Open web app";
+            this._hdrLastSyncCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
+            this._hdrLastSyncCard.Cursor = System.Windows.Forms.Cursors.Hand;
+            this._hdrLastSyncCard.IsConnected = false;
+            this._hdrLastSyncCard.Location = new System.Drawing.Point(1151, 13);
+            this._hdrLastSyncCard.Name = "_hdrLastSyncCard";
+            this._hdrLastSyncCard.ShowDot = false;
+            this._hdrLastSyncCard.Size = new System.Drawing.Size(130, 52);
+            this._hdrLastSyncCard.TabIndex = 45;
+            this._hdrLastSyncCard.TopLabel = "";
+            this._hdrLastSyncCard.Click += new System.EventHandler(this._hdrLastSyncCard_Click);
+            // 
+            // _hdrCloudCard
+            // 
+            this._hdrCloudCard.BackColor = System.Drawing.Color.Transparent;
+            this._hdrCloudCard.BottomText = "Connecting";
+            this._hdrCloudCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
+            this._hdrCloudCard.IsConnected = false;
+            this._hdrCloudCard.Location = new System.Drawing.Point(991, 13);
+            this._hdrCloudCard.Name = "_hdrCloudCard";
+            this._hdrCloudCard.ShowDot = true;
+            this._hdrCloudCard.Size = new System.Drawing.Size(154, 52);
+            this._hdrCloudCard.TabIndex = 46;
+            this._hdrCloudCard.TopLabel = "Fitness Marvel Cloud";
+            // 
+            // _hdrInternetCard
+            // 
+            this._hdrInternetCard.BackColor = System.Drawing.Color.Transparent;
+            this._hdrInternetCard.BottomText = "Connecting";
+            this._hdrInternetCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
+            this._hdrInternetCard.IsConnected = false;
+            this._hdrInternetCard.Location = new System.Drawing.Point(855, 13);
+            this._hdrInternetCard.Name = "_hdrInternetCard";
+            this._hdrInternetCard.ShowDot = true;
+            this._hdrInternetCard.Size = new System.Drawing.Size(130, 52);
+            this._hdrInternetCard.TabIndex = 47;
+            this._hdrInternetCard.TopLabel = "Internet";
             // 
             // pbLogo
             // 
@@ -180,6 +219,42 @@ namespace smart_attendance_middleware
             this.cuiPanel1.Rounding = new System.Windows.Forms.Padding(8);
             this.cuiPanel1.Size = new System.Drawing.Size(304, 583);
             this.cuiPanel1.TabIndex = 2;
+            // 
+            // btn_adddevice
+            // 
+            this.btn_adddevice.BackColor = System.Drawing.Color.Transparent;
+            this.btn_adddevice.BorderColor = System.Drawing.Color.Transparent;
+            this.btn_adddevice.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_adddevice.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_adddevice.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btn_adddevice.ForeColor = System.Drawing.Color.White;
+            this.btn_adddevice.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(3)))), ((int)(((byte)(70)))), ((int)(((byte)(214)))));
+            this.btn_adddevice.Location = new System.Drawing.Point(13, 526);
+            this.btn_adddevice.Name = "btn_adddevice";
+            this.btn_adddevice.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
+            this.btn_adddevice.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
+            this.btn_adddevice.Radius = 10;
+            this.btn_adddevice.Size = new System.Drawing.Size(271, 40);
+            this.btn_adddevice.TabIndex = 11;
+            this.btn_adddevice.Text = "+ Add New Devices";
+            this.btn_adddevice.Click += new System.EventHandler(this.btn_adddevice_Click);
+            // 
+            // dataPairPanel1
+            // 
+            this.dataPairPanel1.AlternateColors = true;
+            this.dataPairPanel1.AutoScroll = true;
+            this.dataPairPanel1.AutoScrollMinSize = new System.Drawing.Size(180, 15);
+            this.dataPairPanel1.BackColor = System.Drawing.Color.Transparent;
+            this.dataPairPanel1.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(220)))), ((int)(((byte)(220)))));
+            this.dataPairPanel1.ChildPanelBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.dataPairPanel1.ChildPanelHeight = 40;
+            this.dataPairPanel1.LabelColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
+            this.dataPairPanel1.LabelWidth = 120;
+            this.dataPairPanel1.Location = new System.Drawing.Point(3, 55);
+            this.dataPairPanel1.Name = "dataPairPanel1";
+            this.dataPairPanel1.Size = new System.Drawing.Size(298, 459);
+            this.dataPairPanel1.TabIndex = 50;
+            this.dataPairPanel1.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(102)))), ((int)(((byte)(204)))));
             // 
             // label2
             // 
@@ -356,6 +431,15 @@ namespace smart_attendance_middleware
             this.lbl_name_out.TabIndex = 1;
             this.lbl_name_out.Text = "No recent check-outs";
             // 
+            // toastNotificationControl2
+            // 
+            this.toastNotificationControl2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(32)))), ((int)(((byte)(64)))));
+            this.toastNotificationControl2.Location = new System.Drawing.Point(20, 515);
+            this.toastNotificationControl2.MinimumSize = new System.Drawing.Size(200, 60);
+            this.toastNotificationControl2.Name = "toastNotificationControl2";
+            this.toastNotificationControl2.Size = new System.Drawing.Size(270, 73);
+            this.toastNotificationControl2.TabIndex = 17;
+            // 
             // cuiSeparator1
             // 
             this.cuiSeparator1.BackColor = System.Drawing.Color.Transparent;
@@ -367,6 +451,101 @@ namespace smart_attendance_middleware
             this.cuiSeparator1.TabIndex = 16;
             this.cuiSeparator1.Thickness = 0.5F;
             this.cuiSeparator1.Vertical = false;
+            // 
+            // btn_retry
+            // 
+            this.btn_retry.BackColor = System.Drawing.Color.Transparent;
+            this.btn_retry.BorderColor = System.Drawing.Color.Transparent;
+            this.btn_retry.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_retry.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_retry.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_retry.ForeColor = System.Drawing.Color.White;
+            this.btn_retry.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(35)))));
+            this.btn_retry.Location = new System.Drawing.Point(17, 96);
+            this.btn_retry.Name = "btn_retry";
+            this.btn_retry.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
+            this.btn_retry.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
+            this.btn_retry.Radius = 10;
+            this.btn_retry.Size = new System.Drawing.Size(271, 40);
+            this.btn_retry.TabIndex = 13;
+            this.btn_retry.Text = "Retry Failed Job";
+            this.btn_retry.Click += new System.EventHandler(this.cuiButton5_Click);
+            // 
+            // btn_fingerprint_qa
+            // 
+            this.btn_fingerprint_qa.BackColor = System.Drawing.Color.Transparent;
+            this.btn_fingerprint_qa.BorderColor = System.Drawing.Color.Transparent;
+            this.btn_fingerprint_qa.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_fingerprint_qa.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_fingerprint_qa.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_fingerprint_qa.ForeColor = System.Drawing.Color.White;
+            this.btn_fingerprint_qa.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
+            this.btn_fingerprint_qa.Location = new System.Drawing.Point(17, 372);
+            this.btn_fingerprint_qa.Name = "btn_fingerprint_qa";
+            this.btn_fingerprint_qa.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.btn_fingerprint_qa.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btn_fingerprint_qa.Radius = 10;
+            this.btn_fingerprint_qa.Size = new System.Drawing.Size(271, 40);
+            this.btn_fingerprint_qa.TabIndex = 31;
+            this.btn_fingerprint_qa.Text = "Fingerprint Management";
+            this.btn_fingerprint_qa.Click += new System.EventHandler(this.btn_fingerprint_qa_Click);
+            // 
+            // btn_backup_qa
+            // 
+            this.btn_backup_qa.BackColor = System.Drawing.Color.Transparent;
+            this.btn_backup_qa.BorderColor = System.Drawing.Color.Transparent;
+            this.btn_backup_qa.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_backup_qa.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_backup_qa.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_backup_qa.ForeColor = System.Drawing.Color.White;
+            this.btn_backup_qa.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(130)))), ((int)(((byte)(58)))));
+            this.btn_backup_qa.Location = new System.Drawing.Point(17, 419);
+            this.btn_backup_qa.Name = "btn_backup_qa";
+            this.btn_backup_qa.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(163)))), ((int)(((byte)(74)))));
+            this.btn_backup_qa.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(10)))), ((int)(((byte)(100)))), ((int)(((byte)(44)))));
+            this.btn_backup_qa.Radius = 10;
+            this.btn_backup_qa.Size = new System.Drawing.Size(271, 40);
+            this.btn_backup_qa.TabIndex = 32;
+            this.btn_backup_qa.Text = "Membership Management";
+            this.btn_backup_qa.Click += new System.EventHandler(this.btn_backup_qa_Click);
+            // 
+            // btn_device_mgr_qa
+            // 
+            this.btn_device_mgr_qa.BackColor = System.Drawing.Color.Transparent;
+            this.btn_device_mgr_qa.BorderColor = System.Drawing.Color.Transparent;
+            this.btn_device_mgr_qa.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_device_mgr_qa.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_device_mgr_qa.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_device_mgr_qa.ForeColor = System.Drawing.Color.White;
+            this.btn_device_mgr_qa.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(109)))), ((int)(((byte)(40)))), ((int)(((byte)(217)))));
+            this.btn_device_mgr_qa.Location = new System.Drawing.Point(19, 467);
+            this.btn_device_mgr_qa.Name = "btn_device_mgr_qa";
+            this.btn_device_mgr_qa.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(139)))), ((int)(((byte)(92)))), ((int)(((byte)(246)))));
+            this.btn_device_mgr_qa.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(88)))), ((int)(((byte)(28)))), ((int)(((byte)(190)))));
+            this.btn_device_mgr_qa.Radius = 10;
+            this.btn_device_mgr_qa.Size = new System.Drawing.Size(271, 40);
+            this.btn_device_mgr_qa.TabIndex = 33;
+            this.btn_device_mgr_qa.Text = "Device Manager";
+            this.btn_device_mgr_qa.Click += new System.EventHandler(this.btn_device_mgr_qa_Click);
+            // 
+            // btn_sync
+            // 
+            this.btn_sync.BackColor = System.Drawing.Color.Transparent;
+            this.btn_sync.BorderColor = System.Drawing.Color.Transparent;
+            this.btn_sync.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_sync.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btn_sync.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btn_sync.ForeColor = System.Drawing.Color.White;
+            this.btn_sync.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(23)))), ((int)(((byte)(163)))), ((int)(((byte)(150)))));
+            this.btn_sync.Location = new System.Drawing.Point(17, 50);
+            this.btn_sync.Name = "btn_sync";
+            this.btn_sync.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(23)))), ((int)(((byte)(163)))), ((int)(((byte)(74)))));
+            this.btn_sync.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
+            this.btn_sync.Radius = 10;
+            this.btn_sync.Size = new System.Drawing.Size(271, 40);
+            this.btn_sync.TabIndex = 12;
+            this.btn_sync.Text = "Sync Now";
+            this.btn_sync.Click += new System.EventHandler(this.cuiButton4_Click);
             // 
             // label5
             // 
@@ -437,6 +616,29 @@ namespace smart_attendance_middleware
             this.lblPendingJobsListTitle.Size = new System.Drawing.Size(98, 19);
             this.lblPendingJobsListTitle.TabIndex = 0;
             this.lblPendingJobsListTitle.Text = "Pending Jobs";
+            // 
+            // lstPendingJobsMini
+            // 
+            this.lstPendingJobsMini.BoldForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lstPendingJobsMini.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.lstPendingJobsMini.Font = new System.Drawing.Font("Segoe UI", 13F);
+            this.lstPendingJobsMini.FullRowSelect = true;
+            this.lstPendingJobsMini.HeaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(249)))), ((int)(((byte)(252)))));
+            this.lstPendingJobsMini.HeaderForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.lstPendingJobsMini.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            this.lstPendingJobsMini.HideSelection = false;
+            this.lstPendingJobsMini.Location = new System.Drawing.Point(0, 34);
+            this.lstPendingJobsMini.MultiSelect = false;
+            this.lstPendingJobsMini.Name = "lstPendingJobsMini";
+            this.lstPendingJobsMini.NormalForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lstPendingJobsMini.OwnerDraw = true;
+            this.lstPendingJobsMini.PillBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(215)))), ((int)(((byte)(215)))));
+            this.lstPendingJobsMini.PillForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(185)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.lstPendingJobsMini.SeparatorColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(237)))), ((int)(((byte)(244)))));
+            this.lstPendingJobsMini.Size = new System.Drawing.Size(610, 201);
+            this.lstPendingJobsMini.TabIndex = 1;
+            this.lstPendingJobsMini.UseCompatibleStateImageBehavior = false;
+            this.lstPendingJobsMini.View = System.Windows.Forms.View.Details;
             // 
             // pnlEmptyState
             // 
@@ -533,6 +735,92 @@ namespace smart_attendance_middleware
             this.panel2.TabIndex = 41;
             this.panel2.Paint += new System.Windows.Forms.PaintEventHandler(this.panel2_Paint);
             // 
+            // rectangularLoader1
+            // 
+            this.rectangularLoader1.ActiveText = "";
+            this.rectangularLoader1.BackColor = System.Drawing.Color.Transparent;
+            this.rectangularLoader1.BarHeight = 6;
+            this.rectangularLoader1.CornerRadius = 10;
+            this.rectangularLoader1.EndColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(107)))), ((int)(((byte)(255)))));
+            this.rectangularLoader1.IdleForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(130)))), ((int)(((byte)(180)))));
+            this.rectangularLoader1.IdleText = "? Idle — waiting for activity";
+            this.rectangularLoader1.LoaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
+            this.rectangularLoader1.Location = new System.Drawing.Point(341, 545);
+            this.rectangularLoader1.MiddleColor = System.Drawing.Color.FromArgb(((int)(((byte)(122)))), ((int)(((byte)(68)))), ((int)(((byte)(242)))));
+            this.rectangularLoader1.Name = "rectangularLoader1";
+            this.rectangularLoader1.Size = new System.Drawing.Size(618, 55);
+            this.rectangularLoader1.StartColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(91)))), ((int)(((byte)(190)))));
+            this.rectangularLoader1.SweepWidth = 0.35F;
+            this.rectangularLoader1.TabIndex = 28;
+            this.rectangularLoader1.Text = "rectangularLoader1";
+            this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            // 
+            // _statMembersSynced
+            // 
+            this._statMembersSynced.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this._statMembersSynced.Location = new System.Drawing.Point(345, 17);
+            this._statMembersSynced.Name = "_statMembersSynced";
+            this._statMembersSynced.Size = new System.Drawing.Size(205, 90);
+            this._statMembersSynced.TabIndex = 50;
+            this._statMembersSynced.Title = "Members synced";
+            this._statMembersSynced.Value = "0";
+            this._statMembersSynced.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(28)))), ((int)(((byte)(189)))), ((int)(((byte)(110)))));
+            // 
+            // _statActive
+            // 
+            this._statActive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this._statActive.Location = new System.Drawing.Point(558, 17);
+            this._statActive.Name = "_statActive";
+            this._statActive.Size = new System.Drawing.Size(205, 90);
+            this._statActive.TabIndex = 51;
+            this._statActive.Title = "Active";
+            this._statActive.Value = "0";
+            this._statActive.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            // 
+            // _statStaff
+            // 
+            this._statStaff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this._statStaff.Location = new System.Drawing.Point(771, 17);
+            this._statStaff.Name = "_statStaff";
+            this._statStaff.Size = new System.Drawing.Size(188, 90);
+            this._statStaff.TabIndex = 52;
+            this._statStaff.Title = "Staff";
+            this._statStaff.Value = "0";
+            this._statStaff.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            // 
+            // _statPendingJobs
+            // 
+            this._statPendingJobs.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this._statPendingJobs.Location = new System.Drawing.Point(345, 114);
+            this._statPendingJobs.Name = "_statPendingJobs";
+            this._statPendingJobs.Size = new System.Drawing.Size(205, 90);
+            this._statPendingJobs.TabIndex = 53;
+            this._statPendingJobs.Title = "Pending jobs";
+            this._statPendingJobs.Value = "0";
+            this._statPendingJobs.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
+            // 
+            // _statExpiring
+            // 
+            this._statExpiring.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this._statExpiring.Location = new System.Drawing.Point(558, 115);
+            this._statExpiring.Name = "_statExpiring";
+            this._statExpiring.Size = new System.Drawing.Size(205, 90);
+            this._statExpiring.TabIndex = 54;
+            this._statExpiring.Title = "Expiring this week";
+            this._statExpiring.Value = "0";
+            this._statExpiring.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
+            // 
+            // _statMissingFp
+            // 
+            this._statMissingFp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this._statMissingFp.Location = new System.Drawing.Point(771, 115);
+            this._statMissingFp.Name = "_statMissingFp";
+            this._statMissingFp.Size = new System.Drawing.Size(188, 90);
+            this._statMissingFp.TabIndex = 55;
+            this._statMissingFp.Title = "Missing fingerprints";
+            this._statMissingFp.Value = "0";
+            this._statMissingFp.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(53)))), ((int)(((byte)(69)))));
+            // 
             // pnlStatusBar
             // 
             this.pnlStatusBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(241)))), ((int)(((byte)(246)))));
@@ -568,6 +856,14 @@ namespace smart_attendance_middleware
             this.lblDevConnHdr.Size = new System.Drawing.Size(82, 15);
             this.lblDevConnHdr.TabIndex = 0;
             this.lblDevConnHdr.Text = "Device Tunnel";
+            // 
+            // _pillsPanel
+            // 
+            this._pillsPanel.BackColor = System.Drawing.Color.Transparent;
+            this._pillsPanel.Location = new System.Drawing.Point(97, 6);
+            this._pillsPanel.Name = "_pillsPanel";
+            this._pillsPanel.Size = new System.Drawing.Size(160, 16);
+            this._pillsPanel.TabIndex = 1;
             // 
             // lblDevStatus
             // 
@@ -717,323 +1013,6 @@ namespace smart_attendance_middleware
             this.lblStatusRole.Text = "Role: –";
             this.lblStatusRole.Click += new System.EventHandler(this.lblStatusRole_Click);
             // 
-            // lstPendingJobsMini
-            // 
-            this.lstPendingJobsMini.BoldForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            this.lstPendingJobsMini.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lstPendingJobsMini.Font = new System.Drawing.Font("Segoe UI", 13F);
-            this.lstPendingJobsMini.FullRowSelect = true;
-            this.lstPendingJobsMini.HeaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(249)))), ((int)(((byte)(252)))));
-            this.lstPendingJobsMini.HeaderForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
-            this.lstPendingJobsMini.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
-            this.lstPendingJobsMini.HideSelection = false;
-            this.lstPendingJobsMini.Location = new System.Drawing.Point(0, 34);
-            this.lstPendingJobsMini.MultiSelect = false;
-            this.lstPendingJobsMini.Name = "lstPendingJobsMini";
-            this.lstPendingJobsMini.NormalForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.lstPendingJobsMini.OwnerDraw = true;
-            this.lstPendingJobsMini.PillBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(215)))), ((int)(((byte)(215)))));
-            this.lstPendingJobsMini.PillForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(185)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
-            this.lstPendingJobsMini.SeparatorColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(237)))), ((int)(((byte)(244)))));
-            this.lstPendingJobsMini.Size = new System.Drawing.Size(610, 201);
-            this.lstPendingJobsMini.TabIndex = 1;
-            this.lstPendingJobsMini.UseCompatibleStateImageBehavior = false;
-            this.lstPendingJobsMini.View = System.Windows.Forms.View.Details;
-            // 
-            // rectangularLoader1
-            // 
-            this.rectangularLoader1.ActiveText = "";
-            this.rectangularLoader1.BackColor = System.Drawing.Color.Transparent;
-            this.rectangularLoader1.BarHeight = 6;
-            this.rectangularLoader1.CornerRadius = 10;
-            this.rectangularLoader1.EndColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(107)))), ((int)(((byte)(255)))));
-            this.rectangularLoader1.IdleForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(130)))), ((int)(((byte)(180)))));
-            this.rectangularLoader1.IdleText = "? Idle — waiting for activity";
-            this.rectangularLoader1.LoaderBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
-            this.rectangularLoader1.Location = new System.Drawing.Point(341, 545);
-            this.rectangularLoader1.MiddleColor = System.Drawing.Color.FromArgb(((int)(((byte)(122)))), ((int)(((byte)(68)))), ((int)(((byte)(242)))));
-            this.rectangularLoader1.Name = "rectangularLoader1";
-            this.rectangularLoader1.Size = new System.Drawing.Size(618, 55);
-            this.rectangularLoader1.StartColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(91)))), ((int)(((byte)(190)))));
-            this.rectangularLoader1.SweepWidth = 0.35F;
-            this.rectangularLoader1.TabIndex = 28;
-            this.rectangularLoader1.Text = "rectangularLoader1";
-            this.rectangularLoader1.TrackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            // 
-            // toastNotificationControl2
-            // 
-            this.toastNotificationControl2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(32)))), ((int)(((byte)(64)))));
-            this.toastNotificationControl2.Location = new System.Drawing.Point(20, 515);
-            this.toastNotificationControl2.MinimumSize = new System.Drawing.Size(200, 60);
-            this.toastNotificationControl2.Name = "toastNotificationControl2";
-            this.toastNotificationControl2.Size = new System.Drawing.Size(270, 73);
-            this.toastNotificationControl2.TabIndex = 17;
-            // 
-            // btn_retry
-            // 
-            this.btn_retry.BackColor = System.Drawing.Color.Transparent;
-            this.btn_retry.BorderColor = System.Drawing.Color.Transparent;
-            this.btn_retry.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_retry.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.btn_retry.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.btn_retry.ForeColor = System.Drawing.Color.White;
-            this.btn_retry.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(35)))));
-            this.btn_retry.Location = new System.Drawing.Point(17, 96);
-            this.btn_retry.Name = "btn_retry";
-            this.btn_retry.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
-            this.btn_retry.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
-            this.btn_retry.Radius = 10;
-            this.btn_retry.Size = new System.Drawing.Size(271, 40);
-            this.btn_retry.TabIndex = 13;
-            this.btn_retry.Text = "Retry Failed Job";
-            this.btn_retry.Click += new System.EventHandler(this.cuiButton5_Click);
-            // 
-            // btn_fingerprint_qa
-            // 
-            this.btn_fingerprint_qa.BackColor = System.Drawing.Color.Transparent;
-            this.btn_fingerprint_qa.BorderColor = System.Drawing.Color.Transparent;
-            this.btn_fingerprint_qa.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_fingerprint_qa.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.btn_fingerprint_qa.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.btn_fingerprint_qa.ForeColor = System.Drawing.Color.White;
-            this.btn_fingerprint_qa.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
-            this.btn_fingerprint_qa.Location = new System.Drawing.Point(17, 372);
-            this.btn_fingerprint_qa.Name = "btn_fingerprint_qa";
-            this.btn_fingerprint_qa.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
-            this.btn_fingerprint_qa.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
-            this.btn_fingerprint_qa.Radius = 10;
-            this.btn_fingerprint_qa.Size = new System.Drawing.Size(271, 40);
-            this.btn_fingerprint_qa.TabIndex = 31;
-            this.btn_fingerprint_qa.Text = "Fingerprint Management";
-            this.btn_fingerprint_qa.Click += new System.EventHandler(this.btn_fingerprint_qa_Click);
-            // 
-            // btn_backup_qa
-            // 
-            this.btn_backup_qa.BackColor = System.Drawing.Color.Transparent;
-            this.btn_backup_qa.BorderColor = System.Drawing.Color.Transparent;
-            this.btn_backup_qa.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_backup_qa.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.btn_backup_qa.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.btn_backup_qa.ForeColor = System.Drawing.Color.White;
-            this.btn_backup_qa.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(130)))), ((int)(((byte)(58)))));
-            this.btn_backup_qa.Location = new System.Drawing.Point(17, 419);
-            this.btn_backup_qa.Name = "btn_backup_qa";
-            this.btn_backup_qa.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(163)))), ((int)(((byte)(74)))));
-            this.btn_backup_qa.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(10)))), ((int)(((byte)(100)))), ((int)(((byte)(44)))));
-            this.btn_backup_qa.Radius = 10;
-            this.btn_backup_qa.Size = new System.Drawing.Size(271, 40);
-            this.btn_backup_qa.TabIndex = 32;
-            this.btn_backup_qa.Text = "Membership Management";
-            this.btn_backup_qa.Click += new System.EventHandler(this.btn_backup_qa_Click);
-            // 
-            // btn_device_mgr_qa
-            // 
-            this.btn_device_mgr_qa.BackColor = System.Drawing.Color.Transparent;
-            this.btn_device_mgr_qa.BorderColor = System.Drawing.Color.Transparent;
-            this.btn_device_mgr_qa.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_device_mgr_qa.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.btn_device_mgr_qa.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.btn_device_mgr_qa.ForeColor = System.Drawing.Color.White;
-            this.btn_device_mgr_qa.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(109)))), ((int)(((byte)(40)))), ((int)(((byte)(217)))));
-            this.btn_device_mgr_qa.Location = new System.Drawing.Point(19, 467);
-            this.btn_device_mgr_qa.Name = "btn_device_mgr_qa";
-            this.btn_device_mgr_qa.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(139)))), ((int)(((byte)(92)))), ((int)(((byte)(246)))));
-            this.btn_device_mgr_qa.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(88)))), ((int)(((byte)(28)))), ((int)(((byte)(190)))));
-            this.btn_device_mgr_qa.Radius = 10;
-            this.btn_device_mgr_qa.Size = new System.Drawing.Size(271, 40);
-            this.btn_device_mgr_qa.TabIndex = 33;
-            this.btn_device_mgr_qa.Text = "Device Manager";
-            this.btn_device_mgr_qa.Click += new System.EventHandler(this.btn_device_mgr_qa_Click);
-            // 
-            // btn_sync
-            // 
-            this.btn_sync.BackColor = System.Drawing.Color.Transparent;
-            this.btn_sync.BorderColor = System.Drawing.Color.Transparent;
-            this.btn_sync.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_sync.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.btn_sync.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold);
-            this.btn_sync.ForeColor = System.Drawing.Color.White;
-            this.btn_sync.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(23)))), ((int)(((byte)(163)))), ((int)(((byte)(150)))));
-            this.btn_sync.Location = new System.Drawing.Point(17, 50);
-            this.btn_sync.Name = "btn_sync";
-            this.btn_sync.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(23)))), ((int)(((byte)(163)))), ((int)(((byte)(74)))));
-            this.btn_sync.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
-            this.btn_sync.Radius = 10;
-            this.btn_sync.Size = new System.Drawing.Size(271, 40);
-            this.btn_sync.TabIndex = 12;
-            this.btn_sync.Text = "Sync Now";
-            this.btn_sync.Click += new System.EventHandler(this.cuiButton4_Click);
-            // 
-            // btn_adddevice
-            // 
-            this.btn_adddevice.BackColor = System.Drawing.Color.Transparent;
-            this.btn_adddevice.BorderColor = System.Drawing.Color.Transparent;
-            this.btn_adddevice.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_adddevice.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.btn_adddevice.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btn_adddevice.ForeColor = System.Drawing.Color.White;
-            this.btn_adddevice.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(3)))), ((int)(((byte)(70)))), ((int)(((byte)(214)))));
-            this.btn_adddevice.Location = new System.Drawing.Point(13, 526);
-            this.btn_adddevice.Name = "btn_adddevice";
-            this.btn_adddevice.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
-            this.btn_adddevice.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(234)))));
-            this.btn_adddevice.Radius = 10;
-            this.btn_adddevice.Size = new System.Drawing.Size(271, 40);
-            this.btn_adddevice.TabIndex = 11;
-            this.btn_adddevice.Text = "+ Add New Devices";
-            this.btn_adddevice.Click += new System.EventHandler(this.btn_adddevice_Click);
-            // 
-            // dataPairPanel1
-            // 
-            this.dataPairPanel1.AlternateColors = true;
-            this.dataPairPanel1.AutoScroll = true;
-            this.dataPairPanel1.AutoScrollMinSize = new System.Drawing.Size(180, 15);
-            this.dataPairPanel1.BackColor = System.Drawing.Color.Transparent;
-            this.dataPairPanel1.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(220)))), ((int)(((byte)(220)))));
-            this.dataPairPanel1.ChildPanelBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.dataPairPanel1.ChildPanelHeight = 40;
-            this.dataPairPanel1.LabelColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
-            this.dataPairPanel1.LabelWidth = 120;
-            this.dataPairPanel1.Location = new System.Drawing.Point(3, 55);
-            this.dataPairPanel1.Name = "dataPairPanel1";
-            this.dataPairPanel1.Size = new System.Drawing.Size(298, 459);
-            this.dataPairPanel1.TabIndex = 50;
-            this.dataPairPanel1.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(102)))), ((int)(((byte)(204)))));
-            // 
-            // _statMembersSynced
-            // 
-            this._statMembersSynced.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
-            this._statMembersSynced.Location = new System.Drawing.Point(345, 17);
-            this._statMembersSynced.Name = "_statMembersSynced";
-            this._statMembersSynced.Size = new System.Drawing.Size(205, 90);
-            this._statMembersSynced.TabIndex = 50;
-            this._statMembersSynced.Title = "Members synced";
-            this._statMembersSynced.Value = "0";
-            this._statMembersSynced.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(28)))), ((int)(((byte)(189)))), ((int)(((byte)(110)))));
-            // 
-            // _statActive
-            // 
-            this._statActive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
-            this._statActive.Location = new System.Drawing.Point(558, 17);
-            this._statActive.Name = "_statActive";
-            this._statActive.Size = new System.Drawing.Size(205, 90);
-            this._statActive.TabIndex = 51;
-            this._statActive.Title = "Active";
-            this._statActive.Value = "0";
-            this._statActive.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            // 
-            // _statStaff
-            // 
-            this._statStaff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
-            this._statStaff.Location = new System.Drawing.Point(771, 17);
-            this._statStaff.Name = "_statStaff";
-            this._statStaff.Size = new System.Drawing.Size(188, 90);
-            this._statStaff.TabIndex = 52;
-            this._statStaff.Title = "Staff";
-            this._statStaff.Value = "0";
-            this._statStaff.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            // 
-            // _statPendingJobs
-            // 
-            this._statPendingJobs.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
-            this._statPendingJobs.Location = new System.Drawing.Point(345, 114);
-            this._statPendingJobs.Name = "_statPendingJobs";
-            this._statPendingJobs.Size = new System.Drawing.Size(205, 90);
-            this._statPendingJobs.TabIndex = 53;
-            this._statPendingJobs.Title = "Pending jobs";
-            this._statPendingJobs.Value = "0";
-            this._statPendingJobs.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
-            // 
-            // _statExpiring
-            // 
-            this._statExpiring.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
-            this._statExpiring.Location = new System.Drawing.Point(558, 115);
-            this._statExpiring.Name = "_statExpiring";
-            this._statExpiring.Size = new System.Drawing.Size(205, 90);
-            this._statExpiring.TabIndex = 54;
-            this._statExpiring.Title = "Expiring this week";
-            this._statExpiring.Value = "0";
-            this._statExpiring.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(158)))), ((int)(((byte)(11)))));
-            // 
-            // _statMissingFp
-            // 
-            this._statMissingFp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
-            this._statMissingFp.Location = new System.Drawing.Point(771, 115);
-            this._statMissingFp.Name = "_statMissingFp";
-            this._statMissingFp.Size = new System.Drawing.Size(188, 90);
-            this._statMissingFp.TabIndex = 55;
-            this._statMissingFp.Title = "Missing fingerprints";
-            this._statMissingFp.Value = "0";
-            this._statMissingFp.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(53)))), ((int)(((byte)(69)))));
-            // 
-            // btn_controls_test
-            // 
-            this.btn_controls_test.BackColor = System.Drawing.Color.Transparent;
-            this.btn_controls_test.BorderColor = System.Drawing.Color.Transparent;
-            this.btn_controls_test.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_controls_test.DialogResult = System.Windows.Forms.DialogResult.None;
-            this.btn_controls_test.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
-            this.btn_controls_test.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            this.btn_controls_test.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(55)))), ((int)(((byte)(65)))), ((int)(((byte)(125)))));
-            this.btn_controls_test.Location = new System.Drawing.Point(459, 33);
-            this.btn_controls_test.Name = "btn_controls_test";
-            this.btn_controls_test.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(44)))), ((int)(((byte)(52)))), ((int)(((byte)(110)))));
-            this.btn_controls_test.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(55)))), ((int)(((byte)(65)))), ((int)(((byte)(130)))));
-            this.btn_controls_test.Radius = 10;
-            this.btn_controls_test.Size = new System.Drawing.Size(100, 28);
-            this.btn_controls_test.TabIndex = 34;
-            this.btn_controls_test.Text = "Controls Test";
-            this.btn_controls_test.Click += new System.EventHandler(this.btn_controls_test_Click);
-            // 
-            // _hdrLastSyncCard
-            // 
-            this._hdrLastSyncCard.BackColor = System.Drawing.Color.Transparent;
-            this._hdrLastSyncCard.BottomText = "Open web app";
-            this._hdrLastSyncCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
-            this._hdrLastSyncCard.Cursor = System.Windows.Forms.Cursors.Hand;
-            this._hdrLastSyncCard.IsConnected = false;
-            this._hdrLastSyncCard.Location = new System.Drawing.Point(1151, 13);
-            this._hdrLastSyncCard.Name = "_hdrLastSyncCard";
-            this._hdrLastSyncCard.ShowDot = false;
-            this._hdrLastSyncCard.Size = new System.Drawing.Size(130, 52);
-            this._hdrLastSyncCard.TabIndex = 45;
-            this._hdrLastSyncCard.TopLabel = "";
-            this._hdrLastSyncCard.Click += new System.EventHandler(this._hdrLastSyncCard_Click);
-            // 
-            // _hdrCloudCard
-            // 
-            this._hdrCloudCard.BackColor = System.Drawing.Color.Transparent;
-            this._hdrCloudCard.BottomText = "Connecting";
-            this._hdrCloudCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
-            this._hdrCloudCard.IsConnected = false;
-            this._hdrCloudCard.Location = new System.Drawing.Point(991, 13);
-            this._hdrCloudCard.Name = "_hdrCloudCard";
-            this._hdrCloudCard.ShowDot = true;
-            this._hdrCloudCard.Size = new System.Drawing.Size(154, 52);
-            this._hdrCloudCard.TabIndex = 46;
-            this._hdrCloudCard.TopLabel = "Fitness Marvel Cloud";
-            // 
-            // _hdrInternetCard
-            // 
-            this._hdrInternetCard.BackColor = System.Drawing.Color.Transparent;
-            this._hdrInternetCard.BottomText = "Connecting";
-            this._hdrInternetCard.CardColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(26)))), ((int)(((byte)(65)))));
-            this._hdrInternetCard.IsConnected = false;
-            this._hdrInternetCard.Location = new System.Drawing.Point(855, 13);
-            this._hdrInternetCard.Name = "_hdrInternetCard";
-            this._hdrInternetCard.ShowDot = true;
-            this._hdrInternetCard.Size = new System.Drawing.Size(130, 52);
-            this._hdrInternetCard.TabIndex = 47;
-            this._hdrInternetCard.TopLabel = "Internet";
-            // 
-            // _pillsPanel
-            // 
-            this._pillsPanel.BackColor = System.Drawing.Color.Transparent;
-            this._pillsPanel.Location = new System.Drawing.Point(97, 6);
-            this._pillsPanel.Name = "_pillsPanel";
-            this._pillsPanel.Size = new System.Drawing.Size(160, 16);
-            this._pillsPanel.TabIndex = 1;
-            // 
             // Dashboard
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1138,7 +1117,6 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.RoundedButton btn_fingerprint_qa;
         private smart_attendance_middleware.Controls.RoundedButton btn_backup_qa;
         private smart_attendance_middleware.Controls.RoundedButton btn_device_mgr_qa;
-        private smart_attendance_middleware.Controls.RoundedButton btn_controls_test;
         private smart_attendance_middleware.Controls.RoundedButton btn_sync;
         private System.Windows.Forms.Label label5;
         private smart_attendance_middleware.Controls.StatCard _statMembersSynced;

@@ -60,6 +60,8 @@ namespace smart_attendance_middleware
         public string LastName { get; set; }
         public string Gender { get; set; }
         public string Phone { get; set; }
+        public string Email { get; set; }
+        public string Whatsapp { get; set; }
         public string SubscriptionJson { get; set; }
         public Dictionary<int, bool> SyncStatus { get; set; } = new Dictionary<int, bool>();
         public string Picture { get; set; }
@@ -751,6 +753,10 @@ END
 
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.OfflineMembers') AND name = 'DeviceCleanupStatus')
     ALTER TABLE dbo.OfflineMembers ADD DeviceCleanupStatus NVARCHAR(500);
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.OfflineMembers') AND name = 'Email')
+    ALTER TABLE dbo.OfflineMembers ADD Email NVARCHAR(255) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.OfflineMembers') AND name = 'Whatsapp')
+    ALTER TABLE dbo.OfflineMembers ADD Whatsapp NVARCHAR(50) NULL;
 
 -- Migration: Add error logging columns
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Log') AND name = 'AttemptCount')
@@ -1887,7 +1893,9 @@ VALUES (@id, @firstName, @lastName, @personalInfo, @remoteUpdatedAt, @createdAt,
             JObject subscription,
             string picture = null,
             string rfid = null,
-            bool fingerprint = false)
+            bool fingerprint = false,
+            string email = null,
+            string whatsapp = null)
         {
             string clientId = Guid.NewGuid().ToString();
             string name = $"{firstName} {lastName}".Trim();
@@ -1916,8 +1924,8 @@ VALUES (@id, @firstName, @lastName, @personalInfo, @remoteUpdatedAt, @createdAt,
                         }
 
                         using (var cmd = new SqlCommand(@"
-INSERT INTO OfflineMembers (ClientId, Name, FirstName, LastName, Gender, Phone, Subscription, SyncStatus, Picture, RFID, Fingerprint, EnrollmentID, ServerSync, CreatedAt, UpdatedAt)
-VALUES (@clientId, @name, @firstName, @lastName, @gender, @phone, @subscription, @syncStatus, @picture, @rfid, @fingerprint, @enrollmentId, @serverSync, @createdAt, @updatedAt);", connection, transaction))
+INSERT INTO OfflineMembers (ClientId, Name, FirstName, LastName, Gender, Phone, Email, Whatsapp, Subscription, SyncStatus, Picture, RFID, Fingerprint, EnrollmentID, ServerSync, CreatedAt, UpdatedAt)
+VALUES (@clientId, @name, @firstName, @lastName, @gender, @phone, @email, @whatsapp, @subscription, @syncStatus, @picture, @rfid, @fingerprint, @enrollmentId, @serverSync, @createdAt, @updatedAt);", connection, transaction))
                         {
                             cmd.Parameters.AddWithValue("@clientId", clientId);
                             cmd.Parameters.AddWithValue("@name", name);
@@ -1925,6 +1933,8 @@ VALUES (@clientId, @name, @firstName, @lastName, @gender, @phone, @subscription,
                             cmd.Parameters.AddWithValue("@lastName", (object)lastName ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@gender", (object)gender ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@phone", (object)phone ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@email", string.IsNullOrWhiteSpace(email) ? (object)DBNull.Value : email.Trim());
+                            cmd.Parameters.AddWithValue("@whatsapp", string.IsNullOrWhiteSpace(whatsapp) ? (object)DBNull.Value : whatsapp.Trim());
                             cmd.Parameters.AddWithValue("@subscription", (object)subscriptionJson ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@syncStatus", syncStatusJson);
                             cmd.Parameters.AddWithValue("@picture", string.IsNullOrEmpty(picture) ? (object)DBNull.Value : picture);
@@ -4791,13 +4801,13 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
             {
                 connection.Open();
                 using (var command = new SqlCommand(
-                    "SELECT ClientId, Name, FirstName, LastName, Gender, Phone, Subscription, Picture, RFID, Fingerprint, EnrollmentID, ServerSync, CreatedAt, DeviceCleanupStatus " +
+                    "SELECT ClientId, Name, FirstName, LastName, Gender, Phone, Email, Whatsapp, Subscription, Picture, RFID, Fingerprint, EnrollmentID, ServerSync, CreatedAt, DeviceCleanupStatus " +
                     "FROM OfflineMembers ORDER BY CreatedAt DESC", connection))
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        string cleanupJson = reader.IsDBNull(13) ? null : reader.GetString(13);
+                        string cleanupJson = reader.IsDBNull(15) ? null : reader.GetString(15);
                         Dictionary<int, bool> cleanupStatus;
                         try
                         {
@@ -4818,13 +4828,15 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(m.Status, '')))) = 'active'
                             LastName = reader.IsDBNull(3) ? null : reader.GetString(3),
                             Gender = reader.IsDBNull(4) ? null : reader.GetString(4),
                             Phone = reader.IsDBNull(5) ? null : reader.GetString(5),
-                            SubscriptionJson = reader.IsDBNull(6) ? null : reader.GetString(6),
-                            Picture = reader.IsDBNull(7) ? null : reader.GetString(7),
-                            RFID = reader.IsDBNull(8) ? null : reader.GetString(8),
-                            Fingerprint = !reader.IsDBNull(9) && reader.GetBoolean(9),
-                            EnrollmentID = reader.IsDBNull(10) ? 0 : reader.GetInt32(10),
-                            ServerSync = !reader.IsDBNull(11) && reader.GetBoolean(11),
-                            CreatedAt = reader.IsDBNull(12) ? null : Convert.ToString(reader.GetValue(12)),
+                            Email = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            Whatsapp = reader.IsDBNull(7) ? null : reader.GetString(7),
+                            SubscriptionJson = reader.IsDBNull(8) ? null : reader.GetString(8),
+                            Picture = reader.IsDBNull(9) ? null : reader.GetString(9),
+                            RFID = reader.IsDBNull(10) ? null : reader.GetString(10),
+                            Fingerprint = !reader.IsDBNull(11) && reader.GetBoolean(11),
+                            EnrollmentID = reader.IsDBNull(12) ? 0 : reader.GetInt32(12),
+                            ServerSync = !reader.IsDBNull(13) && reader.GetBoolean(13),
+                            CreatedAt = reader.IsDBNull(14) ? null : Convert.ToString(reader.GetValue(14)),
                             DeviceCleanupStatus = cleanupStatus
                         });
                     }

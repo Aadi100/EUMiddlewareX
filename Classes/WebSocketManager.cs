@@ -58,8 +58,8 @@ namespace smart_attendance_middleware
     {
         // Pusher/Soketi defaults
         
-        //private const string DefaultHost = "eu.ws.fitnessmarvel.com";
-        private const string DefaultHost = "ws-stg.fitnessmarvel.com";
+        private const string DefaultHost = "eu.ws.fitnessmarvel.com";
+        //private const string DefaultHost = "ws-stg.fitnessmarvel.com";
         private const int DefaultTlsPort = 443;
         private const int DefaultWsPort = 6001;
         private const string DefaultAppKey = "ab28e935c0c63b8fabb4";

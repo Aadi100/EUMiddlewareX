@@ -42,6 +42,11 @@
             this.txtPhone = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.lblRfidLabel = new System.Windows.Forms.Label();
             this.txtRfid = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblEmailLabel = new System.Windows.Forms.Label();
+            this.txtEmail = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblWhatsappLabel = new System.Windows.Forms.Label();
+            this.txtWhatsapp = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.btnSameAsPhone = new smart_attendance_middleware.Controls.RoundedButton();
             this.pnlSubCard = new System.Windows.Forms.Panel();
             this.lblSubTitle = new System.Windows.Forms.Label();
             this.lblPackageLabel = new System.Windows.Forms.Label();
@@ -226,9 +231,14 @@
             this.pnlInfoCard.Controls.Add(this.txtPhone);
             this.pnlInfoCard.Controls.Add(this.lblRfidLabel);
             this.pnlInfoCard.Controls.Add(this.txtRfid);
+            this.pnlInfoCard.Controls.Add(this.lblEmailLabel);
+            this.pnlInfoCard.Controls.Add(this.txtEmail);
+            this.pnlInfoCard.Controls.Add(this.lblWhatsappLabel);
+            this.pnlInfoCard.Controls.Add(this.txtWhatsapp);
+            this.pnlInfoCard.Controls.Add(this.btnSameAsPhone);
             this.pnlInfoCard.Location = new System.Drawing.Point(234, 92);
             this.pnlInfoCard.Name = "pnlInfoCard";
-            this.pnlInfoCard.Size = new System.Drawing.Size(706, 212);
+            this.pnlInfoCard.Size = new System.Drawing.Size(706, 302);
             this.pnlInfoCard.TabIndex = 2;
             this.pnlInfoCard.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlInfoCard_Paint);
             // 
@@ -289,7 +299,7 @@
             this.lblLastNameLabel.AutoSize = true;
             this.lblLastNameLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblLastNameLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.lblLastNameLabel.Location = new System.Drawing.Point(246, 46);
+            this.lblLastNameLabel.Location = new System.Drawing.Point(249, 46);
             this.lblLastNameLabel.Name = "lblLastNameLabel";
             this.lblLastNameLabel.Size = new System.Drawing.Size(61, 15);
             this.lblLastNameLabel.TabIndex = 4;
@@ -300,7 +310,7 @@
             this.lblLastNameStar.AutoSize = true;
             this.lblLastNameStar.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblLastNameStar.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
-            this.lblLastNameStar.Location = new System.Drawing.Point(313, 46);
+            this.lblLastNameStar.Location = new System.Drawing.Point(317, 46);
             this.lblLastNameStar.Name = "lblLastNameStar";
             this.lblLastNameStar.Size = new System.Drawing.Size(12, 15);
             this.lblLastNameStar.TabIndex = 5;
@@ -313,7 +323,7 @@
             this.txtLastName.BackColor = System.Drawing.Color.Transparent;
             this.txtLastName.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
             this.txtLastName.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
-            this.txtLastName.Location = new System.Drawing.Point(482, 64);
+            this.txtLastName.Location = new System.Drawing.Point(249, 64);
             this.txtLastName.MaxLength = 32767;
             this.txtLastName.Name = "txtLastName";
             this.txtLastName.PasswordChar = '\0';
@@ -387,7 +397,7 @@
             this.lblRfidLabel.AutoSize = true;
             this.lblRfidLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblRfidLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.lblRfidLabel.Location = new System.Drawing.Point(479, 46);
+            this.lblRfidLabel.Location = new System.Drawing.Point(482, 46);
             this.lblRfidLabel.Name = "lblRfidLabel";
             this.lblRfidLabel.Size = new System.Drawing.Size(57, 15);
             this.lblRfidLabel.TabIndex = 11;
@@ -400,7 +410,7 @@
             this.txtRfid.BackColor = System.Drawing.Color.Transparent;
             this.txtRfid.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
             this.txtRfid.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
-            this.txtRfid.Location = new System.Drawing.Point(249, 64);
+            this.txtRfid.Location = new System.Drawing.Point(482, 64);
             this.txtRfid.MaxLength = 32767;
             this.txtRfid.Name = "txtRfid";
             this.txtRfid.PasswordChar = '\0';
@@ -411,9 +421,88 @@
             this.txtRfid.TabIndex = 12;
             this.txtRfid.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
             this.txtRfid.UseSystemPasswordChar = false;
-            // 
+            //
+            // lblEmailLabel
+            //
+            this.lblEmailLabel.AutoSize = true;
+            this.lblEmailLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblEmailLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblEmailLabel.Location = new System.Drawing.Point(16, 216);
+            this.lblEmailLabel.Name = "lblEmailLabel";
+            this.lblEmailLabel.Size = new System.Drawing.Size(35, 15);
+            this.lblEmailLabel.TabIndex = 13;
+            this.lblEmailLabel.Text = "Email";
+            //
+            // txtEmail
+            //
+            this.txtEmail.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txtEmail.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txtEmail.BackColor = System.Drawing.Color.Transparent;
+            this.txtEmail.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txtEmail.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txtEmail.Location = new System.Drawing.Point(16, 236);
+            this.txtEmail.MaxLength = 32767;
+            this.txtEmail.Name = "txtEmail";
+            this.txtEmail.PasswordChar = '\0';
+            this.txtEmail.Placeholder = "";
+            this.txtEmail.Radius = 10;
+            this.txtEmail.ReadOnly = false;
+            this.txtEmail.Size = new System.Drawing.Size(329, 42);
+            this.txtEmail.TabIndex = 14;
+            this.txtEmail.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txtEmail.UseSystemPasswordChar = false;
+            //
+            // lblWhatsappLabel
+            //
+            this.lblWhatsappLabel.AutoSize = true;
+            this.lblWhatsappLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblWhatsappLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblWhatsappLabel.Location = new System.Drawing.Point(361, 216);
+            this.lblWhatsappLabel.Name = "lblWhatsappLabel";
+            this.lblWhatsappLabel.Size = new System.Drawing.Size(57, 15);
+            this.lblWhatsappLabel.TabIndex = 15;
+            this.lblWhatsappLabel.Text = "WhatsApp";
+            //
+            // txtWhatsapp
+            //
+            this.txtWhatsapp.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txtWhatsapp.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txtWhatsapp.BackColor = System.Drawing.Color.Transparent;
+            this.txtWhatsapp.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txtWhatsapp.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txtWhatsapp.Location = new System.Drawing.Point(361, 236);
+            this.txtWhatsapp.MaxLength = 32767;
+            this.txtWhatsapp.Name = "txtWhatsapp";
+            this.txtWhatsapp.PasswordChar = '\0';
+            this.txtWhatsapp.Placeholder = "";
+            this.txtWhatsapp.Radius = 10;
+            this.txtWhatsapp.ReadOnly = false;
+            this.txtWhatsapp.Size = new System.Drawing.Size(208, 42);
+            this.txtWhatsapp.TabIndex = 16;
+            this.txtWhatsapp.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txtWhatsapp.UseSystemPasswordChar = false;
+            //
+            // btnSameAsPhone
+            //
+            this.btnSameAsPhone.BackColor = System.Drawing.Color.Transparent;
+            this.btnSameAsPhone.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.btnSameAsPhone.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSameAsPhone.DialogResult = System.Windows.Forms.DialogResult.None;
+            this.btnSameAsPhone.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Regular);
+            this.btnSameAsPhone.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.btnSameAsPhone.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
+            this.btnSameAsPhone.Location = new System.Drawing.Point(575, 236);
+            this.btnSameAsPhone.Name = "btnSameAsPhone";
+            this.btnSameAsPhone.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
+            this.btnSameAsPhone.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
+            this.btnSameAsPhone.Radius = 10;
+            this.btnSameAsPhone.Size = new System.Drawing.Size(115, 42);
+            this.btnSameAsPhone.TabIndex = 17;
+            this.btnSameAsPhone.Text = "Same as phone";
+            this.btnSameAsPhone.Click += new System.EventHandler(this.BtnSameAsPhone_Click);
+            //
             // pnlSubCard
-            // 
+            //
             this.pnlSubCard.BackColor = System.Drawing.Color.White;
             this.pnlSubCard.Controls.Add(this.lblSubTitle);
             this.pnlSubCard.Controls.Add(this.lblPackageLabel);
@@ -428,7 +517,7 @@
             this.pnlSubCard.Controls.Add(this.dtpPaymentCollectedAt);
             this.pnlSubCard.Controls.Add(this.lblPaymentMethodLabel);
             this.pnlSubCard.Controls.Add(this.cmbPaymentMethod);
-            this.pnlSubCard.Location = new System.Drawing.Point(234, 313);
+            this.pnlSubCard.Location = new System.Drawing.Point(234, 403);
             this.pnlSubCard.Name = "pnlSubCard";
             this.pnlSubCard.Size = new System.Drawing.Size(706, 198);
             this.pnlSubCard.TabIndex = 3;
@@ -599,7 +688,7 @@
             this.pnlSummary.Controls.Add(this.lblMembershipRunsTitle);
             this.pnlSummary.Controls.Add(this.lblMembershipRuns);
             this.pnlSummary.Controls.Add(this.lblSyncsWhenOnline);
-            this.pnlSummary.Location = new System.Drawing.Point(234, 524);
+            this.pnlSummary.Location = new System.Drawing.Point(234, 614);
             this.pnlSummary.Name = "pnlSummary";
             this.pnlSummary.Size = new System.Drawing.Size(706, 62);
             this.pnlSummary.TabIndex = 4;
@@ -675,7 +764,7 @@
             // pnlFooterSep
             // 
             this.pnlFooterSep.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(238)))));
-            this.pnlFooterSep.Location = new System.Drawing.Point(0, 606);
+            this.pnlFooterSep.Location = new System.Drawing.Point(0, 696);
             this.pnlFooterSep.Name = "pnlFooterSep";
             this.pnlFooterSep.Size = new System.Drawing.Size(960, 1);
             this.pnlFooterSep.TabIndex = 6;
@@ -689,7 +778,7 @@
             this.btnCancel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnCancel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
             this.btnCancel.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
-            this.btnCancel.Location = new System.Drawing.Point(700, 616);
+            this.btnCancel.Location = new System.Drawing.Point(700, 706);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
             this.btnCancel.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
@@ -708,7 +797,7 @@
             this.btnSave.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
             this.btnSave.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
-            this.btnSave.Location = new System.Drawing.Point(820, 616);
+            this.btnSave.Location = new System.Drawing.Point(820, 706);
             this.btnSave.Name = "btnSave";
             this.btnSave.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
             this.btnSave.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
@@ -723,7 +812,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
-            this.ClientSize = new System.Drawing.Size(960, 668);
+            this.ClientSize = new System.Drawing.Size(960, 758);
             this.Controls.Add(this.pnlHeader);
             this.Controls.Add(this.pnlPhoto);
             this.Controls.Add(this.pnlInfoCard);
@@ -781,6 +870,11 @@
         private smart_attendance_middleware.Controls.RoundedTextBox  txtPhone;
         private System.Windows.Forms.Label      lblRfidLabel;
         private smart_attendance_middleware.Controls.RoundedTextBox  txtRfid;
+        private System.Windows.Forms.Label      lblEmailLabel;
+        private smart_attendance_middleware.Controls.RoundedTextBox  txtEmail;
+        private System.Windows.Forms.Label      lblWhatsappLabel;
+        private smart_attendance_middleware.Controls.RoundedTextBox  txtWhatsapp;
+        private smart_attendance_middleware.Controls.RoundedButton   btnSameAsPhone;
 
         private System.Windows.Forms.Panel      pnlSubCard;
         private System.Windows.Forms.Label      lblSubTitle;
