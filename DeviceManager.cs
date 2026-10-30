@@ -323,6 +323,7 @@ namespace smart_attendance_middleware
         //Abdul Hadi Code
         public void LoadLocalUserData()
         {
+            if (InvokeRequired) { Invoke((Action)LoadLocalUserData); return; }
             if (_loadingUserData) return;
             _loadingUserData = true;
             try { LoadLocalUserDataCore(); } finally { _loadingUserData = false; }
