@@ -43,9 +43,7 @@ namespace smart_attendance_middleware
 
             this.Text = $"{(_isMember ? "Member" : "Staff")} Device Status Detail";
 
-            int deviceCount = _data?.Count ?? 1;
-            int estimatedHeight = 80 + (deviceCount * 310) + 70;
-            this.Height = Math.Min(Math.Max(estimatedHeight, 550), 900);
+            // Height is set after cards are built — see bottom of BuildUi
 
             // ── Fill designer-declared header labels ─────────────────────────────
             lblEntityName.Text = entityName;
@@ -292,6 +290,17 @@ namespace smart_attendance_middleware
                         enableVal == 1 ? Color.FromArgb(16, 124, 16) : Color.FromArgb(232, 17, 35));
                 }
             }
+
+            // Shrink/grow form to fit actual card content
+            this.SuspendLayout();
+            int contentH = 0;
+            foreach (Control c in mainPanel.Controls)
+                contentH += c.Height + c.Margin.Vertical;
+            contentH += mainPanel.Padding.Vertical;
+            int ideal = pnlHeader.Height + contentH + pnlFooter.Height
+                        + (this.Height - this.ClientSize.Height); // non-client (title bar)
+            this.Height = Math.Min(Math.Max(ideal, 300), Screen.FromControl(this).WorkingArea.Height - 80);
+            this.ResumeLayout(true);
         }
 
         private void AddRow(TableLayoutPanel panel, string label, string value, int row, Color? valueColor = null)

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using smart_attendance_middleware.Classes;
 
 namespace smart_attendance_middleware
 {
@@ -46,6 +47,21 @@ namespace smart_attendance_middleware
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
+            // Ensure SQL Server is running before touching the database
+            SqlServerWatchdog.StatusChanged += msg => LogHelper.Log($"[SqlServer] {msg}");
+            SqlServerWatchdog.RestartFailed += msg =>
+                ModernMessageBox.Show(null, "SQL Server Error", msg, MsgType.Error);
+
+            bool sqlOk = SqlServerWatchdog.EnsureRunningOnStartup();
+            if (!sqlOk)
+            {
+                ModernMessageBox.Show(null, "SQL Server Warning",
+                    "Could not detect or start the SQL Server service. The application may not function correctly.",
+                    MsgType.Warning);
+            }
+
+            SqlServerWatchdog.StartMonitor();
+
             // Check if admin exists, if not show UserSetup, else show Login
             DatabaseHelper dbHelper = new DatabaseHelper();
             dbHelper.InitializeDatabase();
@@ -68,6 +84,7 @@ namespace smart_attendance_middleware
         private static void OnApplicationExit(object sender, EventArgs e)
         {
             DisableDebugMode();
+            SqlServerWatchdog.StopMonitor();
             ServiceManager.StopLogSyncService();
             _singleInstanceMutex?.ReleaseMutex();
             _singleInstanceMutex?.Dispose();

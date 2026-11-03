@@ -64,10 +64,11 @@ namespace smart_attendance_middleware
         private Processor _processor;
         private DeviceFunctions _deviceFunctions = new DeviceFunctions();
         private CacheManager _cacheManager;
-        private System.Windows.Forms.Timer countdownTimer;
-        private int countdownSeconds;
         private string originalButtonText;
         private Panel _syncOverlay;
+        private int _syncStageIndex;
+        private string _syncStageLabel = string.Empty;
+        private const int SyncTotalStages = 9;
         private System.Windows.Forms.Timer attendancePanelTimer;
         private CancellationTokenSource _deviceMonitorCts;
         private DateTime _lastPanelRefresh = DateTime.MinValue;
@@ -84,6 +85,7 @@ namespace smart_attendance_middleware
         private BackupService _backupService;
         private bool _attendanceInitialSyncHandled = false;
         private FacePopupForm _facePopup;
+        private FacePopupForm _disabledPopup;
 
         // Header status cards (declared in Designer.cs)
         private DateTime? _lastSyncTime = null;
@@ -227,6 +229,30 @@ namespace smart_attendance_middleware
                 {
                     dash._facePopup.UpdateData(memberId, enrollmentId, action, time, 1.3);
                     dash._facePopup.ShowPopup();
+                }
+            }));
+        }
+
+        public static void GlobalShowDisabledPopup(int enrollmentId, string name, DateTime time, string base64Image = null)
+        {
+            var dash = Application.OpenForms.OfType<Dashboard>().FirstOrDefault();
+            if (dash == null || dash.IsDisposed) return;
+
+            dash.BeginInvoke(new Action(() =>
+            {
+                if (dash._disabledPopup == null || dash._disabledPopup.IsDisposed)
+                {
+                    dash._disabledPopup = new FacePopupForm(0, enrollmentId, "ACCESS DENIED", time, 5, true);
+                    dash._disabledPopup.SetWarningMode(name, base64Image);
+                    dash._disabledPopup.Show(dash);
+                    dash._disabledPopup.TopMost = true;
+                    dash._disabledPopup.BringToFront();
+                }
+                else
+                {
+                    dash._disabledPopup.UpdateData(0, enrollmentId, "ACCESS DENIED", time, 5);
+                    dash._disabledPopup.SetWarningMode(name, base64Image);
+                    dash._disabledPopup.ShowPopup();
                 }
             }));
         }
@@ -889,6 +915,9 @@ namespace smart_attendance_middleware
                     if (string.IsNullOrEmpty(item.IpAddress)) return;
                     await CommonUtils.HandleDoorOpenRequestAsync(item.IpAddress, item.Port, item.MachineNo, item.Password, _dbHelper);
                 };
+                string openDoorSetting = _dbHelper.GetSetting("OpenDoorEnabled");
+                bool openDoorEnabled = string.IsNullOrWhiteSpace(openDoorSetting) || openDoorSetting.Equals("true", StringComparison.OrdinalIgnoreCase);
+                dataPairPanel1.ShowOpenDoor = openDoorEnabled;
 
                 // Success feedback
                 UpdateLoaderMessage("All systems operational. Launching Dashboard...");
@@ -1235,13 +1264,6 @@ namespace smart_attendance_middleware
                 // Stop cache manager auto-refresh
                 _cacheManager?.StopAutoRefresh();
 
-                // Stop and dispose countdown timer
-                if (countdownTimer != null)
-                {
-                    countdownTimer.Stop();
-                    countdownTimer.Dispose();
-                    countdownTimer = null;
-                }
 
                 LogHelper.Log("Application is closing. Performing cleanup...");
 
@@ -1318,17 +1340,18 @@ namespace smart_attendance_middleware
         
         private async void cuiButton4_Click(object sender, EventArgs e)
         {
-            // Store original button text and start countdown
             originalButtonText = btn_sync.Text?.ToString() ?? "Connect";
-            StartButtonCountdown();
+            StartSyncProgress();
 
             try
             {
-                // Step 0: Temporarily stop subscription checking to prevent interference
+                // Step 1: Pause health checker
+                SetSyncStage(1, "Pausing health checker…");
                 LogHelper.Log("⏸️ Pausing Connection Status Checker");
                 ConnectionStatusChecker.Instance.Stop();
 
-                // Step 1: Check for existing devices
+                // Step 2: Check for existing devices
+                SetSyncStage(2, "Checking devices…");
                 var existingDevices = _dbHelper.LoadDevices();
                 if (existingDevices == null || existingDevices.Count == 0)
                 {
@@ -1337,7 +1360,8 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                // Step 2: Get API key
+                // Step 3: Get API key
+                SetSyncStage(3, "Verifying API key…");
                 string apiKey = _dbHelper.GetSetting("APIKey");
                 if (string.IsNullOrWhiteSpace(apiKey))
                 {
@@ -1346,7 +1370,8 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                // Step 3: Check if already connected by sending ping
+                // Step 4: Check if already connected by sending ping
+                SetSyncStage(4, "Checking connection…");
                 bool isAlreadyConnected = false;
                 try
                 {
@@ -1399,7 +1424,8 @@ namespace smart_attendance_middleware
                 {
                     LogHelper.Log("🔌 Establishing new WebSocket connection...");
 
-                    // Step 4: Connect and Subscribe
+                    // Step 5: Connect and Subscribe
+                    SetSyncStage(5, "Connecting to cloud…");
                     LogHelper.Log("🔄 Connecting to WebSocket...");
                     LogHelper.Log("📡 Subscribing to channel...");
                     bool isSubscribed = await _wsManager.ConnectAndSubscribeAsync(preferTls: true, handshakeTimeoutMs: 5000, fallbackToCleartext: true);
@@ -1419,15 +1445,20 @@ namespace smart_attendance_middleware
                 LogHelper.Log("📡 Connection verified. Requesting all members from cloud via HTTP...");
 
                 // Step 6: Request all members via HttpHandler
+                SetSyncStage(6, "Fetching members…");
                 await _httpHandler.FetchAllMembers(CancellationToken.None);
 
                 LogHelper.Log("✅ Member synchronization request completed via HTTP");
 
                 // Step 7: Execute complete user processing workflow
+                SetSyncStage(7, "Processing devices…");
                 await _deviceFunctions.ProcessUserWorkflowAsync();
 
                 // Step 8: Refresh sync status after processing
+                SetSyncStage(8, "Refreshing sync status…");
                 await RefreshDeviceSyncStatusAsync();
+
+                SetSyncStage(9, "Done ✓");
             }
             catch (Exception ex)
             {
@@ -1442,14 +1473,14 @@ namespace smart_attendance_middleware
                 ConnectionStatusChecker.Instance.Start();
 
                 LogHelper.Log("🔚 Connect operation completed");
+                EndSyncProgress();
             }
         }
-        // Add these methods to handle the countdown timer
-        private void StartButtonCountdown()
+        private void StartSyncProgress()
         {
-            countdownSeconds = 60;
+            _syncStageIndex = 0;
+            _syncStageLabel = "Starting…";
             btn_sync.Enabled = false;
-            btn_sync.Text = originalButtonText; // keep underlying text unchanged
 
             if (_syncOverlay != null)
             {
@@ -1457,14 +1488,19 @@ namespace smart_attendance_middleware
                 _syncOverlay.BringToFront();
                 _syncOverlay.Invalidate();
             }
+        }
 
-            if (countdownTimer == null)
-            {
-                countdownTimer = new System.Windows.Forms.Timer();
-                countdownTimer.Interval = 1000;
-                countdownTimer.Tick += CountdownTimer_Tick;
-            }
-            countdownTimer.Start();
+        private void SetSyncStage(int stage, string label)
+        {
+            _syncStageIndex = stage;
+            _syncStageLabel = label;
+            _syncOverlay?.Invalidate();
+        }
+
+        private void EndSyncProgress()
+        {
+            if (_syncOverlay != null) _syncOverlay.Visible = false;
+            btn_sync.Enabled = true;
         }
 
         private void SyncOverlay_Paint(object sender, PaintEventArgs e)
@@ -1483,7 +1519,7 @@ namespace smart_attendance_middleware
                 g.FillPath(br, path);
 
             // Progress bar (white, semi-transparent) at bottom 5px
-            float progress = countdownSeconds > 0 ? (60f - countdownSeconds) / 60f : 1f;
+            float progress = SyncTotalStages > 0 ? (float)_syncStageIndex / SyncTotalStages : 0f;
             int   barH     = 5;
             int   barW     = (int)(rc.Width * progress);
             var   barRc    = new Rectangle(0, rc.Height - barH, barW, barH);
@@ -1500,7 +1536,7 @@ namespace smart_attendance_middleware
             g.ResetClip();
 
             // Text
-            string txt = $"Sync again in {countdownSeconds} s";
+            string txt = string.IsNullOrEmpty(_syncStageLabel) ? "Syncing…" : _syncStageLabel;
             using (var f = new Font("Segoe UI", 9.5f, FontStyle.Bold))
             using (var br = new System.Drawing.SolidBrush(Color.White))
             {
@@ -1518,21 +1554,6 @@ namespace smart_attendance_middleware
             path.AddArc(r.X, r.Bottom - rad * 2, rad * 2, rad * 2, 90, 90);
             path.CloseFigure();
             return path;
-        }
-
-        private void CountdownTimer_Tick(object sender, EventArgs e)
-        {
-            countdownSeconds--;
-
-            _syncOverlay?.Invalidate();
-
-            if (countdownSeconds <= 0)
-            {
-                countdownTimer.Stop();
-                btn_sync.Enabled = true;
-                if (_syncOverlay != null) _syncOverlay.Visible = false;
-                btn_sync.Text = originalButtonText;
-            }
         }
 
         /// <summary>

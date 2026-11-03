@@ -56,6 +56,8 @@ namespace smart_attendance_middleware.Controls
 
         public event Func<DataPairItem, System.Threading.Tasks.Task> OpenDoorRequested;
 
+        public bool ShowOpenDoor { get; set; } = true;
+
         public DataPairPanel()
         {
             _dataPairs = new List<DataPairItem>();
@@ -425,7 +427,7 @@ namespace smart_attendance_middleware.Controls
             int btnW    = 95;
             int rightLeft = card.Width - btnW - lp;
 
-            if (isOnline)
+            if (isOnline && ShowOpenDoor)
             {
                 // Rounded outlined "Open door" button
                 Button openBtn = new Button

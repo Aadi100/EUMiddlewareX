@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using smart_attendance_middleware.Classes;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -22,9 +23,9 @@ namespace smart_attendance_middleware
         private readonly DatabaseHelper _dbHelper;
         private readonly Processor _processor;
 
-        private const string BaseUrl = "https://eu.ws.fitnessmarvel.com";
+        private static readonly string BaseUrl =
+            ConfigurationManager.AppSettings["ApiBaseUrl"];
 
-        //private const string BaseUrl = "https://ws-stg.fitnessmarvel.com";
         private const string GetMembersEndpoint = "/api/sync/members-staff";
         private const string UploadAttendanceEndpoint = "/api/attendance/upload";
         private const string GetCatalogEndpoint = "/api/sync/catalog";

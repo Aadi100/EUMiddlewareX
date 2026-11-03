@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -58,11 +59,12 @@ namespace smart_attendance_middleware
     {
         // Pusher/Soketi defaults
         
-        private const string DefaultHost = "eu.ws.fitnessmarvel.com";
-        //private const string DefaultHost = "ws-stg.fitnessmarvel.com";
+        private static readonly string DefaultHost =
+            ConfigurationManager.AppSettings["WsHost"];
         private const int DefaultTlsPort = 443;
         private const int DefaultWsPort = 6001;
-        private const string DefaultAppKey = "ab28e935c0c63b8fabb4";
+        private static readonly string DefaultAppKey =
+            ConfigurationManager.AppSettings["PusherAppKey"];
         private const string PusherProtocolVersion = "7";
         private const string PusherClientName = "csharp";
         private const string PusherClientVersion = "1.0.0";

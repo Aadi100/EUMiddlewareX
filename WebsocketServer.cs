@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Configuration;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -593,11 +594,12 @@ namespace smart_attendance_middleware
                                 string name = rec["name"]?.ToString();
                                 string timeStr = rec["time"]?.ToString();
                                 string image = rec["image"]?.ToString();
+                                int eventCode = rec["event"]?.Value<int>() ?? 0;
                                 DateTime.TryParse(timeStr, out DateTime eventTime);
 
                                 string imageLabel = string.IsNullOrEmpty(image) ? "none" : "present";
                                 LogToUI($"[ATTENDANCE] DevID: {devId} | IP: {devIp} | EnrollID: {enroll} | Name: {name} | Time: {timeStr} | Image: {imageLabel}", LogType.Attendance);
-                                ForwardAttendanceData(devId, devIp, enroll, eventTime, name, image);
+                                ForwardAttendanceData(devId, devIp, enroll, eventTime, name, image, eventCode);
                             }
                         }
 
@@ -1284,7 +1286,8 @@ namespace smart_attendance_middleware
         }
 
         private static readonly HttpClient _imageProcessClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-        private const string ImageProcessUrl = "http://10.20.69.81:5000/process";
+        private static readonly string ImageProcessUrl =
+            ConfigurationManager.AppSettings["ImageProcessUrl"];
 
         // Independent path: any enroll number with an image gets forwarded to the image-processing API.
         // Fire-and-forget so it never blocks or affects the staff/member attendance flow below.
@@ -1317,7 +1320,7 @@ namespace smart_attendance_middleware
             });
         }
 
-        private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time, string name = null, string image = null)
+        private void ForwardAttendanceData(int devId, string ip, int enroll, DateTime time, string name = null, string image = null, int eventCode = 0)
         {
             // Normalize IP (strip port if present)
             string ipOnly = ip ?? string.Empty;
@@ -1325,6 +1328,15 @@ namespace smart_attendance_middleware
             if (colon >= 0) ipOnly = ipOnly.Substring(0, colon);
 
             //ForwardImageForProcessing(devId, enroll, image);
+
+            // Event 104 = person disabled/expired — log it and show warning popup, skip normal processing
+            if (eventCode == 104)
+            {
+                LogToUI($"[DISABLED] EnrollID: {enroll} | Name: {name} | Skipping attendance — access denied (event 104)");
+                try { _dbHelper.InsertDisabledAccessLog(enroll, name, devId, ipOnly, time, 104, image); } catch { }
+                Dashboard.GlobalShowDisabledPopup(enroll, name, time, image);
+                return;
+            }
 
             try
             {

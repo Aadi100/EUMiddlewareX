@@ -67,6 +67,10 @@ namespace smart_attendance_middleware
             this.panel6 = new System.Windows.Forms.Panel();
             this.date_manualdoor = new System.Windows.Forms.DateTimePicker();
             this.tab_pendingjobs = new System.Windows.Forms.TabPage();
+            this.tab_disabledLogs = new System.Windows.Forms.TabPage();
+            this.dgv_disabledLogs = new System.Windows.Forms.DataGridView();
+            this.rtb_disabledLogsSearch = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lbl_disabledLogsCount = new System.Windows.Forms.Label();
             this.lbl_pendingjobs_info = new System.Windows.Forms.Label();
             this.tab_staffpendingjobs = new System.Windows.Forms.TabPage();
             this.lbl_staffpendingjobs_info = new System.Windows.Forms.Label();
@@ -189,6 +193,8 @@ namespace smart_attendance_middleware
             this.tab_manualdoor.SuspendLayout();
             this.panel6.SuspendLayout();
             this.tab_pendingjobs.SuspendLayout();
+            this.tab_disabledLogs.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgv_disabledLogs)).BeginInit();
             this.tab_staffpendingjobs.SuspendLayout();
             this.pnl_setup.SuspendLayout();
             this.card_api.SuspendLayout();
@@ -537,6 +543,7 @@ namespace smart_attendance_middleware
             this.tab_attendence.Controls.Add(this.tab_memberAttendence);
             this.tab_attendence.Controls.Add(this.tab_manualdoor);
             this.tab_attendence.Controls.Add(this.tab_pendingjobs);
+            this.tab_attendence.Controls.Add(this.tab_disabledLogs);
             this.tab_attendence.Location = new System.Drawing.Point(8, 168);
             this.tab_attendence.Name = "tab_attendence";
             this.tab_attendence.SelectedIndex = 0;
@@ -2115,6 +2122,10 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.RoundedButton rb_filter_manualdoor;
         private smart_attendance_middleware.Controls.CardListView clv_manualDoor;
         private TabPage tab_pendingjobs;
+        private TabPage tab_disabledLogs;
+        private System.Windows.Forms.DataGridView dgv_disabledLogs;
+        private smart_attendance_middleware.Controls.RoundedTextBox rtb_disabledLogsSearch;
+        private System.Windows.Forms.Label lbl_disabledLogsCount;
         private Label lbl_pendingjobs_info;
         private smart_attendance_middleware.Controls.CardListView clv_pendingJobs;
         private smart_attendance_middleware.Controls.RoundedComboBox cmbPendingDevice;

@@ -52,6 +52,19 @@ namespace smart_attendance_middleware
         public string Name => $"{FirstName} {LastName}".Trim();
     }
 
+    public class DisabledAccessLog
+    {
+        public int Id { get; set; }
+        public int EnrollId { get; set; }
+        public string Name { get; set; }
+        public int? DeviceId { get; set; }
+        public string DeviceIP { get; set; }
+        public DateTime EventTime { get; set; }
+        public int EventCode { get; set; }
+        public string Image { get; set; }
+        public DateTime LoggedAt { get; set; }
+    }
+
     public class OfflineMember
     {
         public string ClientId { get; set; }
@@ -568,6 +581,22 @@ BEGIN
     );
 END";
 
+                var createDisabledAccessLogsSql = @"
+IF OBJECT_ID('dbo.DisabledAccessLogs','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DisabledAccessLogs (
+        Id         INT IDENTITY(1,1) PRIMARY KEY,
+        EnrollId   INT NOT NULL,
+        Name       NVARCHAR(255),
+        DeviceId   INT,
+        DeviceIP   NVARCHAR(50),
+        EventTime  DATETIME2 NOT NULL,
+        EventCode  INT NOT NULL DEFAULT 104,
+        Image      NVARCHAR(MAX) NULL,
+        LoggedAt   DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+    );
+END";
+
                 var createPendingJobsSql = @"
 IF OBJECT_ID('dbo.PendingJobs','U') IS NULL
 BEGIN
@@ -798,6 +827,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Offlin
                 createStaffGLogSql,
                 createStaffAttendanceLogSql,
                 createGateAccessedSql,
+                createDisabledAccessLogsSql,
                 createPendingJobsSql,
                 createIndexesSql
             };
@@ -7058,6 +7088,76 @@ SELECT SCOPE_IDENTITY();", connection))
                         throw;
                     }
                 }
+            }
+        }
+
+        public List<DisabledAccessLog> GetDisabledAccessLogs(int maxRows = 500)
+        {
+            var list = new List<DisabledAccessLog>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand($@"
+SELECT TOP (@max) Id, EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt
+FROM DisabledAccessLogs
+ORDER BY LoggedAt DESC", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@max", maxRows);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                list.Add(new DisabledAccessLog
+                                {
+                                    Id        = reader.GetInt32(0),
+                                    EnrollId  = reader.GetInt32(1),
+                                    Name      = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    DeviceId  = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
+                                    DeviceIP  = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    EventTime = reader.GetDateTime(5),
+                                    EventCode = reader.GetInt32(6),
+                                    Image     = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                    LoggedAt  = reader.GetDateTime(8)
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetDisabledAccessLogs][ERROR] {ex.Message}");
+            }
+            return list;
+        }
+
+        public void InsertDisabledAccessLog(int enrollId, string name, int deviceId, string deviceIp, DateTime eventTime, int eventCode = 104, string image = null)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(@"
+INSERT INTO DisabledAccessLogs (EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt)
+VALUES (@EnrollId, @Name, @DeviceId, @DeviceIP, @EventTime, @EventCode, @Image, GETUTCDATE())", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@EnrollId", enrollId);
+                        cmd.Parameters.AddWithValue("@Name", (object)name ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@DeviceId", deviceId > 0 ? (object)deviceId : DBNull.Value);
+                        cmd.Parameters.AddWithValue("@DeviceIP", (object)deviceIp ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@EventTime", eventTime);
+                        cmd.Parameters.AddWithValue("@EventCode", eventCode);
+                        cmd.Parameters.AddWithValue("@Image", (object)image ?? DBNull.Value);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[DisabledAccessLog][ERROR] {ex.Message}");
             }
         }
 

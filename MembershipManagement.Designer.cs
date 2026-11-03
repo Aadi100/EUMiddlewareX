@@ -135,6 +135,7 @@ namespace smart_attendance_middleware
             this.pnlContentHost.Size = new System.Drawing.Size(980, 558);
             this.pnlContentHost.TabIndex = 2;
             // 
+            // 
             // pnlAllMembersContent
             // 
             this.pnlAllMembersContent.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));

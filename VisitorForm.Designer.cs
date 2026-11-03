@@ -198,7 +198,7 @@ namespace smart_attendance_middleware
             this.pnlVisitorTog.Controls.Add(this.chkVisitor);
             this.pnlVisitorTog.Controls.Add(this.lbl_chkVisitor);
             this.pnlVisitorTog.Controls.Add(this.lblVisitorHint);
-            this.pnlVisitorTog.Location = new System.Drawing.Point(20, 68);
+            this.pnlVisitorTog.Location = new System.Drawing.Point(20, 84);
             this.pnlVisitorTog.Name = "pnlVisitorTog";
             this.pnlVisitorTog.Size = new System.Drawing.Size(360, 24);
             this.pnlVisitorTog.TabIndex = 2;
@@ -243,9 +243,9 @@ namespace smart_attendance_middleware
             this.pnlVisitorFlds.Controls.Add(this.txtVisitorName);
             this.pnlVisitorFlds.Controls.Add(this.lblVisPhoneLbl);
             this.pnlVisitorFlds.Controls.Add(this.txtVisitorPhone);
-            this.pnlVisitorFlds.Location = new System.Drawing.Point(20, 100);
+            this.pnlVisitorFlds.Location = new System.Drawing.Point(20, 116);
             this.pnlVisitorFlds.Name = "pnlVisitorFlds";
-            this.pnlVisitorFlds.Size = new System.Drawing.Size(360, 96);
+            this.pnlVisitorFlds.Size = new System.Drawing.Size(360, 128);
             this.pnlVisitorFlds.TabIndex = 3;
             this.pnlVisitorFlds.Visible = false;
             // 
@@ -278,19 +278,19 @@ namespace smart_attendance_middleware
             this.lblVisPhoneLbl.AutoSize = true;
             this.lblVisPhoneLbl.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblVisPhoneLbl.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.lblVisPhoneLbl.Location = new System.Drawing.Point(0, 50);
+            this.lblVisPhoneLbl.Location = new System.Drawing.Point(0, 66);
             this.lblVisPhoneLbl.Name = "lblVisPhoneLbl";
             this.lblVisPhoneLbl.Size = new System.Drawing.Size(91, 15);
             this.lblVisPhoneLbl.TabIndex = 2;
             this.lblVisPhoneLbl.Text = "VISITOR PHONE";
-            // 
+            //
             // txtVisitorPhone
-            // 
+            //
             this.txtVisitorPhone.BackColor = System.Drawing.Color.Transparent;
             this.txtVisitorPhone.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
             this.txtVisitorPhone.Enabled = false;
             this.txtVisitorPhone.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
-            this.txtVisitorPhone.Location = new System.Drawing.Point(0, 66);
+            this.txtVisitorPhone.Location = new System.Drawing.Point(0, 82);
             this.txtVisitorPhone.Name = "txtVisitorPhone";
             this.txtVisitorPhone.Placeholder = "";
             this.txtVisitorPhone.Radius = 10;
@@ -302,7 +302,7 @@ namespace smart_attendance_middleware
             this.lblTrainerLbl.AutoSize = true;
             this.lblTrainerLbl.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblTrainerLbl.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.lblTrainerLbl.Location = new System.Drawing.Point(20, 104);
+            this.lblTrainerLbl.Location = new System.Drawing.Point(20, 120);
             this.lblTrainerLbl.Name = "lblTrainerLbl";
             this.lblTrainerLbl.Size = new System.Drawing.Size(112, 15);
             this.lblTrainerLbl.TabIndex = 4;
@@ -314,7 +314,7 @@ namespace smart_attendance_middleware
             this.cmbTrainer.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
             this.cmbTrainer.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
             this.cmbTrainer.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            this.cmbTrainer.Location = new System.Drawing.Point(20, 120);
+            this.cmbTrainer.Location = new System.Drawing.Point(20, 136);
             this.cmbTrainer.Name = "cmbTrainer";
             this.cmbTrainer.Radius = 10;
             this.cmbTrainer.Size = new System.Drawing.Size(360, 42);
@@ -325,7 +325,7 @@ namespace smart_attendance_middleware
             this.lblReasonLbl.AutoSize = true;
             this.lblReasonLbl.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblReasonLbl.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.lblReasonLbl.Location = new System.Drawing.Point(20, 160);
+            this.lblReasonLbl.Location = new System.Drawing.Point(20, 190);
             this.lblReasonLbl.Name = "lblReasonLbl";
             this.lblReasonLbl.Size = new System.Drawing.Size(110, 15);
             this.lblReasonLbl.TabIndex = 5;
@@ -336,7 +336,7 @@ namespace smart_attendance_middleware
             this.txtReason.BackColor = System.Drawing.Color.Transparent;
             this.txtReason.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
             this.txtReason.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
-            this.txtReason.Location = new System.Drawing.Point(20, 176);
+            this.txtReason.Location = new System.Drawing.Point(20, 206);
             this.txtReason.Name = "txtReason";
             this.txtReason.Placeholder = "";
             this.txtReason.Radius = 10;
@@ -423,7 +423,7 @@ namespace smart_attendance_middleware
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
-            this.ClientSize = new System.Drawing.Size(400, 480);
+            this.ClientSize = new System.Drawing.Size(400, 460);
             this.Controls.Add(this.pnlBody);
             this.Controls.Add(this.pnlInfo);
             this.Controls.Add(this.pnlHeader);

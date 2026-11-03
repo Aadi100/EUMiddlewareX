@@ -147,6 +147,9 @@ namespace smart_attendance_middleware
 
         private const string RequireGateEntryFormSettingKey = "RequireGateEntryForm";
         private const string RequireGatePasswordSettingKey  = "RequireGatePassword";
+        private const string OpenDoorEnabledSettingKey      = "OpenDoorEnabled";
+
+        private Controls.ToggleSwitch chk_openDoorEnabled;
 
         private void ApplyCardRoundedRegions()
         {
@@ -204,6 +207,56 @@ namespace smart_attendance_middleware
                 chk_requireGatePassword.Checked = string.IsNullOrWhiteSpace(passwordSetting) || passwordSetting.Equals("true", StringComparison.OrdinalIgnoreCase);
             }
             catch { chk_requireGateEntryForm.Checked = true; chk_requireGatePassword.Checked = true; }
+
+            // Add "Enable Open Door button" toggle — developer mode only
+            bool isDeveloper = string.Equals(AppSession.UserRole, "developer", StringComparison.OrdinalIgnoreCase);
+            if (chk_openDoorEnabled == null && isDeveloper)
+            {
+                var lblODLabel = new Label
+                {
+                    Text      = "Enable Open Door button",
+                    Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(17, 24, 39),
+                    BackColor = Color.White,
+                    AutoSize  = true,
+                    Location  = new Point(68, 162)
+                };
+                var lblODDesc = new Label
+                {
+                    Text      = "Show the Open Door button on each device card.",
+                    Font      = new Font("Segoe UI", 7.5f),
+                    ForeColor = Color.FromArgb(107, 114, 128),
+                    BackColor = Color.White,
+                    AutoSize  = true,
+                    Location  = new Point(68, 181)
+                };
+                chk_openDoorEnabled = new Controls.ToggleSwitch
+                {
+                    Location = new Point(16, 165),
+                    Size     = new Size(44, 24),
+                    Cursor   = Cursors.Hand,
+                    OnColor  = Color.FromArgb(59, 130, 246),
+                    OffColor = Color.FromArgb(200, 204, 216)
+                };
+
+                card_gate.Controls.Add(lblODLabel);
+                card_gate.Controls.Add(lblODDesc);
+                card_gate.Controls.Add(chk_openDoorEnabled);
+
+                // Shift save button down and grow card to fit
+                rb_btn_gate_save.Location = new Point(rb_btn_gate_save.Left, 236);
+                card_gate.Height = 286;
+                ApplyCardRoundedRegions();
+            }
+
+            string odSettingVal = _dbHelper.GetSetting(OpenDoorEnabledSettingKey);
+            bool openDoorEnabled = string.IsNullOrWhiteSpace(odSettingVal) || odSettingVal.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+            if (chk_openDoorEnabled != null)
+                chk_openDoorEnabled.Checked = openDoorEnabled;
+
+            // Developer always sees card_gate; admin/user only see it when Open Door is enabled
+            card_gate.Visible = openDoorEnabled || isDeveloper;
         }
 
         // rtb_* fields now declared in Designer.cs
@@ -464,8 +517,101 @@ namespace smart_attendance_middleware
             }
         }
 
-        private void tab_attendence_SelectedIndexChanged(object sender, EventArgs e) { }
+        private void tab_attendence_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (tab_attendence.SelectedTab == tab_disabledLogs)
+            {
+                InitDisabledLogsGrid();
+                LoadDisabledLogs();
+            }
+        }
         private void tab_staff_SelectedIndexChanged(object sender, EventArgs e) { }
+
+        // ── Disabled Access Logs ────────────────────────────────────────────
+        private bool _disabledLogsGridInit = false;
+        private List<DisabledAccessLog> _disabledLogsCache = new List<DisabledAccessLog>();
+
+        private void InitDisabledLogsGrid()
+        {
+            if (_disabledLogsGridInit) return;
+            _disabledLogsGridInit = true;
+
+            dgv_disabledLogs.Columns.Clear();
+            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlId",        HeaderText = "#",           Width = 55,  MinimumWidth = 45 });
+            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlName",      HeaderText = "Name",        Width = 190, MinimumWidth = 120 });
+            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlEnroll",    HeaderText = "Enroll ID",   Width = 90,  MinimumWidth = 70 });
+            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlDevice",    HeaderText = "Device IP",   Width = 130, MinimumWidth = 90 });
+            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlEventTime", HeaderText = "Event Time",  Width = 155, MinimumWidth = 110 });
+            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlLogged",    HeaderText = "Logged At",   Width = 155, MinimumWidth = 110 });
+            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlImage",     HeaderText = "Has Image",   Width = 80,  MinimumWidth = 60 });
+            dgv_disabledLogs.Columns["colDlImage"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+
+            var hdr = dgv_disabledLogs.ColumnHeadersDefaultCellStyle;
+            hdr.BackColor = Color.FromArgb(26, 32, 64);
+            hdr.ForeColor = Color.FromArgb(150, 165, 215);
+            hdr.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            hdr.Padding = new Padding(8, 0, 0, 0);
+            hdr.SelectionBackColor = Color.FromArgb(26, 32, 64);
+            dgv_disabledLogs.ColumnHeadersHeight = 34;
+
+            var cell = dgv_disabledLogs.DefaultCellStyle;
+            cell.BackColor = Color.White;
+            cell.ForeColor = Color.FromArgb(30, 38, 90);
+            cell.Font = new Font("Segoe UI", 9f);
+            cell.Padding = new Padding(8, 0, 0, 0);
+            cell.SelectionBackColor = Color.FromArgb(254, 226, 226);
+            cell.SelectionForeColor = Color.FromArgb(30, 38, 90);
+            dgv_disabledLogs.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(255, 248, 248);
+            dgv_disabledLogs.GridColor = Color.FromArgb(230, 232, 240);
+        }
+
+        private void rtb_disabledLogsSearch_TextChanged(object sender, EventArgs e)
+        {
+            string term = rtb_disabledLogsSearch.Text.Trim();
+            var filtered = string.IsNullOrEmpty(term)
+                ? _disabledLogsCache.ToList()
+                : _disabledLogsCache.Where(l =>
+                    (l.Name ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    l.EnrollId.ToString().IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (l.DeviceIP ?? "").IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                  ).ToList();
+            RenderDisabledLogs(filtered);
+        }
+
+        private void LoadDisabledLogs()
+        {
+            try
+            {
+                _disabledLogsCache = _dbHelper.GetDisabledAccessLogs() ?? new List<DisabledAccessLog>();
+                RenderDisabledLogs(_disabledLogsCache);
+            }
+            catch (Exception ex) { LogHelper.Log($"[DeviceManager] Disabled logs load error: {ex.Message}"); }
+        }
+
+        private void RenderDisabledLogs(List<DisabledAccessLog> logs)
+        {
+            lbl_disabledLogsCount.Text = $"{logs.Count} entries";
+            dgv_disabledLogs.SuspendLayout();
+            dgv_disabledLogs.Rows.Clear();
+            foreach (var l in logs)
+            {
+                int rowIdx = dgv_disabledLogs.Rows.Add(
+                    l.Id,
+                    string.IsNullOrWhiteSpace(l.Name) ? "—" : l.Name,
+                    l.EnrollId,
+                    string.IsNullOrWhiteSpace(l.DeviceIP) ? "—" : l.DeviceIP,
+                    l.EventTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    l.LoggedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    string.IsNullOrWhiteSpace(l.Image) ? "No" : "Yes");
+
+                var row = dgv_disabledLogs.Rows[rowIdx];
+                row.Cells["colDlName"].Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+                row.Cells["colDlName"].Style.ForeColor = Color.FromArgb(185, 28, 28);
+                row.Cells["colDlImage"].Style.ForeColor = string.IsNullOrWhiteSpace(l.Image)
+                    ? Color.FromArgb(156, 163, 175) : Color.FromArgb(22, 163, 74);
+            }
+            dgv_disabledLogs.ResumeLayout();
+        }
 
         // ── Filter event handlers ───────────────────────────────────────────
         private void chkDeviceIsStaff_CheckedChanged(object sender, EventArgs e) { SetupDeviceList(); }
@@ -498,7 +644,8 @@ namespace smart_attendance_middleware
             {
                 _dbHelper.SaveSetting(RequireGateEntryFormSettingKey, chk_requireGateEntryForm.Checked ? "true" : "false");
                 _dbHelper.SaveSetting(RequireGatePasswordSettingKey,  chk_requireGatePassword.Checked  ? "true" : "false");
-                LogHelper.Log($"[Setup][Gate] Saved: EntryForm={chk_requireGateEntryForm.Checked}, Password={chk_requireGatePassword.Checked}");
+                _dbHelper.SaveSetting(OpenDoorEnabledSettingKey,      chk_openDoorEnabled?.Checked == true ? "true" : "false");
+                LogHelper.Log($"[Setup][Gate] Saved: EntryForm={chk_requireGateEntryForm.Checked}, Password={chk_requireGatePassword.Checked}, OpenDoor={chk_openDoorEnabled?.Checked}");
                 ModernMessageBox.Show(this, "Success", "Gate access settings saved.", MsgType.Success);
             }
             catch (Exception ex)

@@ -251,6 +251,45 @@ namespace smart_attendance_middleware
         // Designer event (kept for safety)
         private void FacePopupForm_Load(object sender, EventArgs e) { }
 
+        public void SetWarningMode(string memberName, string base64Image = null)
+        {
+            if (this.InvokeRequired) { this.BeginInvoke(new Action(() => SetWarningMode(memberName, base64Image))); return; }
+
+            // Red accent stripe
+            panelAccent.BackColor = Color.FromArgb(200, 30, 30);
+
+            // Red border overlay on panel
+            panelContainer.Paint -= PanelContainer_Paint;
+            panelContainer.Paint += (s, e) =>
+            {
+                Rectangle r = panelContainer.ClientRectangle;
+                using (var lg = new LinearGradientBrush(r, Color.FromArgb(80, 10, 10), Color.FromArgb(40, 5, 5), 90f))
+                    e.Graphics.FillRectangle(lg, r);
+                using (var pen = new Pen(Color.FromArgb(200, 30, 30), 2))
+                    e.Graphics.DrawRectangle(pen, 1, 1, r.Width - 2, r.Height - 2);
+            };
+            panelContainer.Invalidate();
+
+            // Update label to show warning + name
+            if (LabelInfo != null)
+                LabelInfo.Text = $"⚠ DISABLED / EXPIRED\r\n{memberName ?? $"Enroll: {_enrollmentId}"}\r\nTime: {_eventTime:HH:mm:ss}";
+
+            // Use live device image if provided; increment _imageRequestId to cancel
+            // any in-flight LoadImage() so it doesn't overwrite this result later
+            if (!string.IsNullOrEmpty(base64Image))
+            {
+                try
+                {
+                    ++_imageRequestId;
+                    byte[] bytes = Convert.FromBase64String(base64Image);
+                    using (var ms = new MemoryStream(bytes))
+                    using (var loaded = Image.FromStream(ms))
+                        SetPictureImage(new Bitmap(loaded));
+                }
+                catch { }
+            }
+        }
+
         public void ForceClose()
         {
             Close();

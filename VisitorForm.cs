@@ -13,14 +13,19 @@ namespace smart_attendance_middleware
         private DatabaseHelper _dbHelper;
         private string _loggedInUser;
 
-        // Y positions — member mode: member fields visible (52px tall), toggle at y=68
-        // visitor mode: member fields hidden, toggle shifts up to y=16 (saves 52px)
-        private const int MemberTogY_Member  = 68;
+        // Y positions inside pnlBody
+        // member mode:  member name (y=34, h=42, bottom=76) → toggle at y=84
+        // visitor mode: member fields hidden, toggle at y=16
+        private const int MemberTogY_Member  = 84;
         private const int MemberTogY_Visitor = 16;
-        private const int TrainerY_Member    = 104;
-        private const int TrainerY_Visitor   = 152;  // 16(tog) + 24(tog h) + 8 + 96(visitor panel) + 8
-        private const int ReasonY_Member     = 160;
-        private const int ReasonY_Visitor    = 208;
+        private const int TrainerY_Member    = 120;  // 84+24+12
+        private const int TrainerY_Visitor   = 192;  // 16+24+8+128+16
+        private const int ReasonY_Member     = 190;  // 120+16+42+12
+        private const int ReasonY_Visitor    = 262;  // 192+16+42+12
+
+        // Form ClientHeight per mode  (header 72 + info 36 + footer 52 = 160 fixed)
+        private const int FormH_Member  = 460;  // 160 + body ~300
+        private const int FormH_Visitor = 560;  // 160 + body ~400
 
         public VisitorForm(string deviceIP, DatabaseHelper dbHelper, string loggedInUser)
         {
@@ -153,6 +158,8 @@ namespace smart_attendance_middleware
             cmbTrainer.Location    = new Point(20, trainerY + 16);
             lblReasonLbl.Location  = new Point(20, reasonY);
             txtReason.Location     = new Point(20, reasonY + 16);
+
+            this.ClientSize = new Size(this.ClientSize.Width, isVisitor ? FormH_Visitor : FormH_Member);
         }
     }
 }
