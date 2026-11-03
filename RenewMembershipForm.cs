@@ -198,7 +198,9 @@ namespace smart_attendance_middleware
         {
             try
             {
-                var packages = _dbHelper.GetPackages(activeOnly: true);
+                var packages = AppSession.AllPackages.Count > 0
+                    ? AppSession.AllPackages.Where(p => p.Active).ToList()
+                    : _dbHelper.GetPackages(activeOnly: true);
                 cmbPackage.DisplayMember = "Title";
                 cmbPackage.ValueMember   = "PackageId";
                 cmbPackage.DataSource    = packages;

@@ -113,23 +113,17 @@ namespace smart_attendance_middleware
         /// <summary>
         /// Gets attendance logs created after a specific timestamp (with 24-hour rolling window)
         /// </summary>
-        public List<dynamic> GetAttendanceLogsAfter(DateTime lastSync)
+        public List<AttendanceLog> GetAttendanceLogsAfter(DateTime lastSync)
         {
-            var logs = new List<dynamic>();
+            var logs = new List<AttendanceLog>();
 
-            // Only get logs from last 24 hours to keep cache manageable
             var cutoffTime = DateTime.Now.AddHours(-24);
             var effectiveLastSync = lastSync > cutoffTime ? lastSync : cutoffTime;
 
             string query = @"
-                SELECT TOP 1000 
-                    LogID,
-                    MemberID,
-                    AttendanceId,
-                    CheckInTime,
-                    CheckOutTime,
-                    CreatedAt,
-                    UpdatedAt
+                SELECT TOP 1000
+                    LogID, MemberID, AttendanceId,
+                    CheckInTime, CheckOutTime, CreatedAt, UpdatedAt
                 FROM AttendanceLogs
                 WHERE CreatedAt > @LastSync
                 ORDER BY CheckInTime DESC";
@@ -146,15 +140,15 @@ namespace smart_attendance_middleware
                     {
                         while (reader.Read())
                         {
-                            logs.Add(new
+                            logs.Add(new AttendanceLog
                             {
-                                LogID = reader.GetInt32(0),
-                                MemberID = reader.GetInt32(1),
+                                LogID        = reader.GetInt32(0),
+                                MemberID     = reader.GetInt32(1),
                                 AttendanceId = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                CheckInTime = reader.IsDBNull(3) ? null : reader.GetDateTime(3).ToString("yyyy-MM-dd HH:mm:ss"),
+                                CheckInTime  = reader.IsDBNull(3) ? null : reader.GetDateTime(3).ToString("yyyy-MM-dd HH:mm:ss"),
                                 CheckOutTime = reader.IsDBNull(4) ? null : reader.GetDateTime(4).ToString("yyyy-MM-dd HH:mm:ss"),
-                                CreatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5).ToString("yyyy-MM-dd HH:mm:ss"),
-                                UpdatedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss")
+                                CreatedAt    = reader.IsDBNull(5) ? null : reader.GetDateTime(5).ToString("yyyy-MM-dd HH:mm:ss"),
+                                UpdatedAt    = reader.IsDBNull(6) ? null : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss")
                             });
                         }
                     }
@@ -171,23 +165,18 @@ namespace smart_attendance_middleware
         /// <summary>
         /// Gets staff attendance logs created after a specific timestamp (with 24-hour rolling window)
         /// </summary>
-        public List<dynamic> GetStaffAttendanceLogsAfter(DateTime lastSync)
+        public List<StaffAttendanceLog> GetStaffAttendanceLogsAfter(DateTime lastSync)
         {
-            var logs = new List<dynamic>();
+            var logs = new List<StaffAttendanceLog>();
 
             var cutoffTime = DateTime.Now.AddHours(-24);
             var effectiveLastSync = lastSync > cutoffTime ? lastSync : cutoffTime;
 
             string query = @"
-                SELECT TOP 1000 
-                    sal.LogID,
-                    sal.EnrollmentID,
-                    s.StaffID AS AttendeeID,
-                    COALESCE(s.Name, '') AS Name,
-                    sal.AttendanceId,
-                    sal.SyncStatus,
-                    sal.CheckInTime,
-                    sal.CheckOutTime
+                SELECT TOP 1000
+                    sal.LogID, sal.EnrollmentID, s.StaffID AS AttendeeID,
+                    COALESCE(s.Name, '') AS Name, sal.AttendanceId, sal.SyncStatus,
+                    sal.CheckInTime, sal.CheckOutTime
                 FROM StaffAttendanceLog sal
                 LEFT JOIN Staff s ON s.EnrollmentID = sal.EnrollmentID
                 WHERE sal.CreatedAt > @LastSync
@@ -205,15 +194,15 @@ namespace smart_attendance_middleware
                     {
                         while (reader.Read())
                         {
-                            logs.Add(new
+                            logs.Add(new StaffAttendanceLog
                             {
-                                LogID = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+                                LogID        = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
                                 EnrollmentID = reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
-                                AttendeeID = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                                Name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                                AttendeeID   = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                                Name         = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
                                 AttendanceId = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                                SyncStatus = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
-                                CheckInTime = reader.IsDBNull(6) ? string.Empty : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss"),
+                                SyncStatus   = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                                CheckInTime  = reader.IsDBNull(6) ? string.Empty : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss"),
                                 CheckOutTime = reader.IsDBNull(7) ? string.Empty : reader.GetDateTime(7).ToString("yyyy-MM-dd HH:mm:ss")
                             });
                         }
@@ -226,6 +215,40 @@ namespace smart_attendance_middleware
             }
 
             return logs;
+        }
+
+        public HashSet<int> GetAllMemberIds()
+        {
+            var ids = new HashSet<int>();
+            try
+            {
+                using (var conn = new SqlConnection(connectionString))
+                using (var cmd = new SqlCommand("SELECT MemberID FROM Members", conn))
+                {
+                    conn.Open();
+                    using (var reader = cmd.ExecuteReader())
+                        while (reader.Read()) ids.Add(reader.GetInt32(0));
+                }
+            }
+            catch (Exception ex) { LogHelper.Log($"[DB] GetAllMemberIds error: {ex.Message}"); }
+            return ids;
+        }
+
+        public HashSet<string> GetAllStaffIds()
+        {
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                using (var conn = new SqlConnection(connectionString))
+                using (var cmd = new SqlCommand("SELECT StaffID FROM Staff", conn))
+                {
+                    conn.Open();
+                    using (var reader = cmd.ExecuteReader())
+                        while (reader.Read()) if (!reader.IsDBNull(0)) ids.Add(reader.GetString(0));
+                }
+            }
+            catch (Exception ex) { LogHelper.Log($"[DB] GetAllStaffIds error: {ex.Message}"); }
+            return ids;
         }
 
         /// <summary>

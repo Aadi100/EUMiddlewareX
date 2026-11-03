@@ -36,10 +36,13 @@ namespace smart_attendance_middleware
         public static List<Member> AllMembers { get; set; } = new List<Member>();
         public static List<Staff> AllStaff { get; set; } = new List<Staff>();
 
-        public static List<dynamic> AllAttendanceLogs { get; set; } = new List<dynamic>();
-        public static List<dynamic> AllStaffAttendanceLogs { get; set; } = new List<dynamic>();
+        public static List<AttendanceLog> AllAttendanceLogs { get; set; } = new List<AttendanceLog>();
+        public static List<StaffAttendanceLog> AllStaffAttendanceLogs { get; set; } = new List<StaffAttendanceLog>();
         public static List<GateAccessed> AllGateLogs { get; set; } = new List<GateAccessed>();
+        public static List<DisabledAccessLog> AllDisabledLogs { get; set; } = new List<DisabledAccessLog>();
         public static List<LocalUser> AllUsers { get; set; } = new List<LocalUser>();
+        public static List<OfflineMember> AllOfflineMembers { get; set; } = new List<OfflineMember>();
+        public static List<Package> AllPackages { get; set; } = new List<Package>();
 
         // Last check-in details
         public static LastAttendanceDetails LastCheckIn { get; set; }
@@ -82,7 +85,10 @@ namespace smart_attendance_middleware
             AllAttendanceLogs.Clear();
             AllStaffAttendanceLogs.Clear();
             AllGateLogs.Clear();
+            AllDisabledLogs.Clear();
             AllUsers.Clear();
+            AllOfflineMembers.Clear();
+            AllPackages.Clear();
             LastCheckIn = null;
             LastCheckOut = null;
             PendingJobs.Clear();

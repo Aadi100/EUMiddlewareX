@@ -1333,7 +1333,22 @@ namespace smart_attendance_middleware
             if (eventCode == 104)
             {
                 LogToUI($"[DISABLED] EnrollID: {enroll} | Name: {name} | Skipping attendance — access denied (event 104)");
-                try { _dbHelper.InsertDisabledAccessLog(enroll, name, devId, ipOnly, time, 104, image); } catch { }
+                try
+                {
+                    _dbHelper.InsertDisabledAccessLog(enroll, name, devId, ipOnly, time, 104, image);
+                    Dashboard.GlobalAddDisabledLogToCache(new DisabledAccessLog
+                    {
+                        EnrollId  = enroll,
+                        Name      = name,
+                        DeviceId  = devId,
+                        DeviceIP  = ipOnly,
+                        EventTime = time,
+                        EventCode = 104,
+                        Image     = image,
+                        LoggedAt  = DateTime.Now
+                    });
+                }
+                catch { }
                 Dashboard.GlobalShowDisabledPopup(enroll, name, time, image);
                 return;
             }

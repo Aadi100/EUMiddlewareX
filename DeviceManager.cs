@@ -520,50 +520,12 @@ namespace smart_attendance_middleware
         private void tab_attendence_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (tab_attendence.SelectedTab == tab_disabledLogs)
-            {
-                InitDisabledLogsGrid();
                 LoadDisabledLogs();
-            }
         }
         private void tab_staff_SelectedIndexChanged(object sender, EventArgs e) { }
 
         // ── Disabled Access Logs ────────────────────────────────────────────
-        private bool _disabledLogsGridInit = false;
         private List<DisabledAccessLog> _disabledLogsCache = new List<DisabledAccessLog>();
-
-        private void InitDisabledLogsGrid()
-        {
-            if (_disabledLogsGridInit) return;
-            _disabledLogsGridInit = true;
-
-            dgv_disabledLogs.Columns.Clear();
-            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlId",        HeaderText = "#",           Width = 55,  MinimumWidth = 45 });
-            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlName",      HeaderText = "Name",        Width = 190, MinimumWidth = 120 });
-            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlEnroll",    HeaderText = "Enroll ID",   Width = 90,  MinimumWidth = 70 });
-            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlDevice",    HeaderText = "Device IP",   Width = 130, MinimumWidth = 90 });
-            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlEventTime", HeaderText = "Event Time",  Width = 155, MinimumWidth = 110 });
-            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlLogged",    HeaderText = "Logged At",   Width = 155, MinimumWidth = 110 });
-            dgv_disabledLogs.Columns.Add(new DataGridViewTextBoxColumn { Name = "colDlImage",     HeaderText = "Has Image",   Width = 80,  MinimumWidth = 60 });
-            dgv_disabledLogs.Columns["colDlImage"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-
-            var hdr = dgv_disabledLogs.ColumnHeadersDefaultCellStyle;
-            hdr.BackColor = Color.FromArgb(26, 32, 64);
-            hdr.ForeColor = Color.FromArgb(150, 165, 215);
-            hdr.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-            hdr.Padding = new Padding(8, 0, 0, 0);
-            hdr.SelectionBackColor = Color.FromArgb(26, 32, 64);
-            dgv_disabledLogs.ColumnHeadersHeight = 34;
-
-            var cell = dgv_disabledLogs.DefaultCellStyle;
-            cell.BackColor = Color.White;
-            cell.ForeColor = Color.FromArgb(30, 38, 90);
-            cell.Font = new Font("Segoe UI", 9f);
-            cell.Padding = new Padding(8, 0, 0, 0);
-            cell.SelectionBackColor = Color.FromArgb(254, 226, 226);
-            cell.SelectionForeColor = Color.FromArgb(30, 38, 90);
-            dgv_disabledLogs.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(255, 248, 248);
-            dgv_disabledLogs.GridColor = Color.FromArgb(230, 232, 240);
-        }
 
         private void rtb_disabledLogsSearch_TextChanged(object sender, EventArgs e)
         {
@@ -582,35 +544,135 @@ namespace smart_attendance_middleware
         {
             try
             {
-                _disabledLogsCache = _dbHelper.GetDisabledAccessLogs() ?? new List<DisabledAccessLog>();
+                _disabledLogsCache = AppSession.AllDisabledLogs ?? new List<DisabledAccessLog>();
                 RenderDisabledLogs(_disabledLogsCache);
+                InitializeDisabledLogsSuggestions();
             }
             catch (Exception ex) { LogHelper.Log($"[DeviceManager] Disabled logs load error: {ex.Message}"); }
+        }
+
+        private void InitializeDisabledLogsSuggestions()
+        {
+            try
+            {
+                rtb_disabledLogsSearch.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+                rtb_disabledLogsSearch.AutoCompleteSource = AutoCompleteSource.CustomSource;
+                var names = new AutoCompleteStringCollection();
+                foreach (var l in _disabledLogsCache)
+                    if (!string.IsNullOrWhiteSpace(l.Name)) names.Add(l.Name);
+                rtb_disabledLogsSearch.AutoCompleteCustomSource = names;
+            }
+            catch (Exception ex) { LogHelper.Log($"[DeviceManager] Disabled logs autocomplete error: {ex.Message}"); }
         }
 
         private void RenderDisabledLogs(List<DisabledAccessLog> logs)
         {
             lbl_disabledLogsCount.Text = $"{logs.Count} entries";
-            dgv_disabledLogs.SuspendLayout();
-            dgv_disabledLogs.Rows.Clear();
-            foreach (var l in logs)
-            {
-                int rowIdx = dgv_disabledLogs.Rows.Add(
-                    l.Id,
-                    string.IsNullOrWhiteSpace(l.Name) ? "—" : l.Name,
-                    l.EnrollId,
-                    string.IsNullOrWhiteSpace(l.DeviceIP) ? "—" : l.DeviceIP,
-                    l.EventTime.ToString("yyyy-MM-dd HH:mm:ss"),
-                    l.LoggedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-                    string.IsNullOrWhiteSpace(l.Image) ? "No" : "Yes");
 
-                var row = dgv_disabledLogs.Rows[rowIdx];
-                row.Cells["colDlName"].Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-                row.Cells["colDlName"].Style.ForeColor = Color.FromArgb(185, 28, 28);
-                row.Cells["colDlImage"].Style.ForeColor = string.IsNullOrWhiteSpace(l.Image)
-                    ? Color.FromArgb(156, 163, 175) : Color.FromArgb(22, 163, 74);
+            clv_disabledLogs.SetColumns(
+                new[] { "NAME", "DEVICE IP", "EVENT TIME", "ACTION" },
+                new[] { 50, 290, 430, 700 });
+
+            var navy  = Color.FromArgb(30, 38, 90);
+            var muted = Color.FromArgb(130, 138, 165);
+            var red   = Color.FromArgb(185, 28, 28);
+            var accent = Color.FromArgb(59, 130, 246);
+
+            clv_disabledLogs.SetRowFactory(logs.Count, idx =>
+            {
+                var l = logs[idx];
+                var captured = l;
+                string initial = !string.IsNullOrWhiteSpace(l.Name) ? l.Name.Substring(0, 1).ToUpperInvariant() : "?";
+
+                return new CLV.CardBuilder()
+                    .Avatar(initial, red, 8, 8, 36)
+                    .Text(string.IsNullOrWhiteSpace(l.Name) ? "—" : l.Name,        50, 6,  235, 18, CLV.F9Bold, red)
+                    .Text($"Enroll: {l.EnrollId}",                                  50, 26, 235, 14, CLV.F8,     muted)
+                    .Text(string.IsNullOrWhiteSpace(l.DeviceIP) ? "—" : l.DeviceIP, 290, 17, 135, 18, CLV.F9, muted)
+                    .Text(l.EventTime.ToString("yyyy-MM-dd HH:mm:ss"),              430, 17, 260, 18, CLV.F9,     navy)
+                    .Button("View", accent, Color.White, 700, 14, 60, 26, () => ShowDisabledLogDetail(captured))
+                    .Build(780, 52);
+            });
+        }
+
+        private void ShowDisabledLogDetail(DisabledAccessLog log)
+        {
+            var dlg = new Form
+            {
+                Text = "Disabled Access — Detail",
+                Size = new Size(420, 520),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false, MinimizeBox = false,
+                BackColor = Color.FromArgb(245, 246, 250)
+            };
+            try { dlg.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
+
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 58, BackColor = Color.FromArgb(26, 32, 64) };
+            pnlTop.Controls.Add(new Label
+            {
+                Text = "⚠ Disabled / Expired Access",
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                ForeColor = Color.White,
+                AutoSize = true,
+                Location = new Point(16, 10)
+            });
+            pnlTop.Controls.Add(new Label
+            {
+                Text = $"Log ID #{log.Id} · Event Code {log.EventCode}",
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = Color.FromArgb(150, 165, 215),
+                AutoSize = true,
+                Location = new Point(16, 36)
+            });
+            dlg.Controls.Add(pnlTop);
+
+            // Picture box
+            var pnlImg = new Panel { Width = 120, Height = 120, Location = new Point(16, 74), BackColor = Color.FromArgb(30, 38, 90) };
+            dlg.Controls.Add(pnlImg);
+            var pb = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom };
+            pnlImg.Controls.Add(pb);
+            if (!string.IsNullOrWhiteSpace(log.Image))
+            {
+                try
+                {
+                    byte[] bytes = Convert.FromBase64String(log.Image);
+                    using (var ms = new System.IO.MemoryStream(bytes))
+                        pb.Image = new Bitmap(Image.FromStream(ms));
+                }
+                catch { pb.Image = null; }
             }
-            dgv_disabledLogs.ResumeLayout();
+
+            // Details
+            Action<string, string, int> addRow = (label, value, y) =>
+            {
+                dlg.Controls.Add(new Label { Text = label, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = Color.FromArgb(130, 138, 165), Location = new Point(150, y), Size = new Size(100, 18), AutoSize = false });
+                dlg.Controls.Add(new Label { Text = value, Font = new Font("Segoe UI", 9f), ForeColor = Color.FromArgb(30, 38, 90), Location = new Point(150, y + 18), Size = new Size(240, 18), AutoSize = false });
+            };
+
+            addRow("Name",       string.IsNullOrWhiteSpace(log.Name) ? "—" : log.Name,                      74);
+            addRow("Enroll ID",  log.EnrollId.ToString(),                                                    116);
+            addRow("Device IP",  string.IsNullOrWhiteSpace(log.DeviceIP) ? "—" : log.DeviceIP,              158);
+            addRow("Event Time", log.EventTime.ToString("yyyy-MM-dd HH:mm:ss"),                              200);
+            addRow("Logged At",  log.LoggedAt.ToString("yyyy-MM-dd HH:mm:ss"),                               242);
+
+            // Below image: device id
+            dlg.Controls.Add(new Label { Text = "Device ID", Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = Color.FromArgb(130, 138, 165), Location = new Point(16, 200), Size = new Size(120, 18), AutoSize = false });
+            dlg.Controls.Add(new Label { Text = log.DeviceId?.ToString() ?? "—", Font = new Font("Segoe UI", 9f), ForeColor = Color.FromArgb(30, 38, 90), Location = new Point(16, 218), Size = new Size(120, 18), AutoSize = false });
+
+            var btnClose = new Button
+            {
+                Text = "Close", DialogResult = DialogResult.OK,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.FromArgb(59, 130, 246), ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat, Size = new Size(100, 34),
+                Location = new Point(150, 430)
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            dlg.Controls.Add(btnClose);
+            dlg.AcceptButton = btnClose;
+
+            dlg.ShowDialog(this);
         }
 
         // ── Filter event handlers ───────────────────────────────────────────
@@ -677,38 +739,18 @@ namespace smart_attendance_middleware
             try
             {
                 // Refresh relevant UI components based on what was updated
-                if (e.UpdateType == CacheUpdateType.FullRefresh)
+                if (e.Contains(CacheUpdateType.FullRefresh))
                 {
-                    // Refresh all lists
                     RefreshAllLists();
                     LogHelper.Log("[DeviceManager] Full cache refresh - UI updated");
                 }
-                else if (e.UpdateTypes != null && e.UpdateTypes.Count > 0)
+                else
                 {
-                    if (e.UpdateTypes.Contains(CacheUpdateType.Members))
-                    {
-                        RefreshMembersList();
-                    }
-
-                    if (e.UpdateTypes.Contains(CacheUpdateType.Staff))
-                    {
-                        RefreshStaffList();
-                    }
-
-                    if (e.UpdateTypes.Contains(CacheUpdateType.Users))
-                    {
-                        RefreshUsersList();
-                    }
-
-                    if (e.UpdateTypes.Contains(CacheUpdateType.PendingBiometricSync))
-                    {
-                        RefreshMemberPendingJobsList();
-                    }
-
-                    if (e.UpdateTypes.Contains(CacheUpdateType.StaffPendingBiometricSync))
-                    {
-                        RefreshStaffPendingJobsList();
-                    }
+                    if (e.Contains(CacheUpdateType.Members))   RefreshMembersList();
+                    if (e.Contains(CacheUpdateType.Staff))     RefreshStaffList();
+                    if (e.Contains(CacheUpdateType.Users))     RefreshUsersList();
+                    if (e.Contains(CacheUpdateType.PendingBiometricSync))      RefreshMemberPendingJobsList();
+                    if (e.Contains(CacheUpdateType.StaffPendingBiometricSync)) RefreshStaffPendingJobsList();
                 }
             }
             catch (Exception ex)
@@ -2099,7 +2141,7 @@ namespace smart_attendance_middleware
             string memberNameFilter = rtb_membername.Text.Trim();
             DateTime? selectedDate = date_member.Checked ? date_member.Value.Date : (DateTime?)null;
 
-            var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<dynamic>();
+            var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<AttendanceLog>();
             var members        = AppSession.AllMembers ?? new List<Member>();
 
             var filteredLogs = attendanceLogs.Where(log =>
@@ -2147,12 +2189,12 @@ namespace smart_attendance_middleware
 
         private void LoadMemberAttendanceLogs()
         {
-            var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<dynamic>();
+            var attendanceLogs = AppSession.AllAttendanceLogs ?? new List<AttendanceLog>();
             var members        = AppSession.AllMembers ?? new List<Member>();
             RenderMemberAttendanceLogs(attendanceLogs, members);
         }
 
-        private void RenderMemberAttendanceLogs(IList<dynamic> logs, List<Member> members)
+        private void RenderMemberAttendanceLogs(IList<AttendanceLog> logs, List<Member> members)
         {
             var navy   = Color.FromArgb(30, 38, 90);
             var muted  = Color.FromArgb(130, 138, 165);
@@ -2166,8 +2208,8 @@ namespace smart_attendance_middleware
                 var mem = members.FirstOrDefault(m => m.MemberID == log.MemberID);
                 string name    = mem?.Name ?? "-";
                 string initial = !string.IsNullOrWhiteSpace(name) && name != "-" ? name.Substring(0, 1).ToUpperInvariant() : "?";
-                string ciRaw   = log.CheckInTime  as string ?? "";
-                string coRaw   = log.CheckOutTime as string ?? "";
+                string ciRaw   = log.CheckInTime  ?? "";
+                string coRaw   = log.CheckOutTime ?? "";
                 string ciFmt   = FormatAttendanceTime(ciRaw);
                 string coFmt   = FormatAttendanceTime(coRaw);
                 bool stillInside = string.IsNullOrWhiteSpace(coRaw);
@@ -2860,21 +2902,20 @@ namespace smart_attendance_middleware
                 bool filterByDate = date_staffattendence.Checked;
                 DateTime selectedDate = date_staffattendence.Value.Date;
 
-                var logs = AppSession.AllStaffAttendanceLogs ?? new List<dynamic>();
+                var logs = AppSession.AllStaffAttendanceLogs ?? new List<StaffAttendanceLog>();
 
                 var filtered = logs.Where(log =>
                 {
                     if (!string.IsNullOrEmpty(nameFilter))
                     {
-                        string logName = SafeToString(log, "Name");
-                        if (string.IsNullOrEmpty(logName) || logName.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                        if (string.IsNullOrEmpty(log.Name) || log.Name.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) < 0)
                             return false;
                     }
 
                     if (filterByDate)
                     {
-                        DateTime? inTime  = ParseDateTime(SafeToString(log, "CheckInTime"));
-                        DateTime? outTime = ParseDateTime(SafeToString(log, "CheckOutTime"));
+                        DateTime? inTime  = ParseDateTime(log.CheckInTime);
+                        DateTime? outTime = ParseDateTime(log.CheckOutTime);
                         if ((!inTime.HasValue || inTime.Value.Date != selectedDate) &&
                             (!outTime.HasValue || outTime.Value.Date != selectedDate))
                             return false;
@@ -2891,15 +2932,13 @@ namespace smart_attendance_middleware
 
                 clv_staffAttendance.SetRowFactory(filtered.Count, idx =>
                 {
-                    var log         = filtered[idx];
-                    string logId    = SafeToString(log, "LogID");
-                    string enrollId = SafeToString(log, "EnrollmentID");
-                    if (string.IsNullOrEmpty(enrollId)) enrollId = SafeToString(log, "EnrollmentId");
-                    string attendeeId = SafeToString(log, "AttendeeID");
-                    if (string.IsNullOrEmpty(attendeeId)) attendeeId = SafeToString(log, "StaffID");
-                    string name     = SafeToString(log, "Name");
-                    string checkIn  = SafeToString(log, "CheckInTime");
-                    string checkOut = SafeToString(log, "CheckOutTime");
+                    var log       = filtered[idx];
+                    string logId      = log.LogID.ToString();
+                    string enrollId   = log.EnrollmentID.ToString();
+                    string attendeeId = log.AttendeeID;
+                    string name       = log.Name;
+                    string checkIn    = log.CheckInTime;
+                    string checkOut   = log.CheckOutTime;
 
                     string initial   = !string.IsNullOrWhiteSpace(name) ? name.Substring(0, 1).ToUpperInvariant() : "?";
                     string ciFmt     = FormatAttendanceTime(checkIn);

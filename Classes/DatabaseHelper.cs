@@ -52,6 +52,29 @@ namespace smart_attendance_middleware
         public string Name => $"{FirstName} {LastName}".Trim();
     }
 
+    public class AttendanceLog
+    {
+        public int LogID { get; set; }
+        public int MemberID { get; set; }
+        public string AttendanceId { get; set; }
+        public string CheckInTime { get; set; }
+        public string CheckOutTime { get; set; }
+        public string CreatedAt { get; set; }
+        public string UpdatedAt { get; set; }
+    }
+
+    public class StaffAttendanceLog
+    {
+        public int LogID { get; set; }
+        public int EnrollmentID { get; set; }
+        public string AttendeeID { get; set; }
+        public string Name { get; set; }
+        public string AttendanceId { get; set; }
+        public string SyncStatus { get; set; }
+        public string CheckInTime { get; set; }
+        public string CheckOutTime { get; set; }
+    }
+
     public class DisabledAccessLog
     {
         public int Id { get; set; }
@@ -3649,9 +3672,9 @@ VALUES (@clientId, @deviceId, @enrollmentId, @biometricData, @syncStatus, @creat
         }
 
         // Get all attendance logs
-        public List<dynamic> GetAllAttendanceLogs()
+        public List<AttendanceLog> GetAllAttendanceLogs()
         {
-            var logs = new List<dynamic>();
+            var logs = new List<AttendanceLog>();
             try
             {
                 using (var connection = new SqlConnection(connectionString))
@@ -3659,28 +3682,23 @@ VALUES (@clientId, @deviceId, @enrollmentId, @biometricData, @syncStatus, @creat
                     connection.Open();
                     using (var command = new SqlCommand(@"
                     SELECT TOP 10000
-                        LogID,
-                        MemberID,
-                        AttendanceId,
-                        CheckInTime,
-                        CheckOutTime,
-                        CreatedAt,
-                        UpdatedAt
+                        LogID, MemberID, AttendanceId,
+                        CheckInTime, CheckOutTime, CreatedAt, UpdatedAt
                     FROM AttendanceLogs
                     ORDER BY CheckInTime ASC", connection))
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            logs.Add(new
+                            logs.Add(new AttendanceLog
                             {
-                                LogID = reader.GetInt32(0),
-                                MemberID = reader.GetInt32(1),
+                                LogID        = reader.GetInt32(0),
+                                MemberID     = reader.GetInt32(1),
                                 AttendanceId = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                CheckInTime = reader.IsDBNull(3) ? null : reader.GetDateTime(3).ToString("yyyy-MM-dd HH:mm:ss"),
+                                CheckInTime  = reader.IsDBNull(3) ? null : reader.GetDateTime(3).ToString("yyyy-MM-dd HH:mm:ss"),
                                 CheckOutTime = reader.IsDBNull(4) ? null : reader.GetDateTime(4).ToString("yyyy-MM-dd HH:mm:ss"),
-                                CreatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5).ToString("yyyy-MM-dd HH:mm:ss"),
-                                UpdatedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss")
+                                CreatedAt    = reader.IsDBNull(5) ? null : reader.GetDateTime(5).ToString("yyyy-MM-dd HH:mm:ss"),
+                                UpdatedAt    = reader.IsDBNull(6) ? null : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss")
                             });
                         }
                     }
@@ -7133,6 +7151,49 @@ ORDER BY LoggedAt DESC", connection))
             return list;
         }
 
+        public List<DisabledAccessLog> GetDisabledAccessLogsAfter(DateTime after)
+        {
+            var list = new List<DisabledAccessLog>();
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(@"
+SELECT Id, EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt
+FROM DisabledAccessLogs
+WHERE LoggedAt > @after
+ORDER BY LoggedAt DESC", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@after", after);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                list.Add(new DisabledAccessLog
+                                {
+                                    Id        = reader.GetInt32(0),
+                                    EnrollId  = reader.GetInt32(1),
+                                    Name      = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    DeviceId  = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
+                                    DeviceIP  = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    EventTime = reader.GetDateTime(5),
+                                    EventCode = reader.GetInt32(6),
+                                    Image     = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                    LoggedAt  = reader.GetDateTime(8)
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetDisabledAccessLogsAfter][ERROR] {ex.Message}");
+            }
+            return list;
+        }
+
         public void InsertDisabledAccessLog(int enrollId, string name, int deviceId, string deviceIp, DateTime eventTime, int eventCode = 104, string image = null)
         {
             try
@@ -9670,9 +9731,9 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
             }
         }
 
-        public List<dynamic> GetAllStaffAttendanceLogs()
+        public List<StaffAttendanceLog> GetAllStaffAttendanceLogs()
         {
-            var results = new List<dynamic>();
+            var results = new List<StaffAttendanceLog>();
             try
             {
                 using (var connection = new SqlConnection(connectionString))
@@ -9680,36 +9741,28 @@ WHERE LOWER(LTRIM(RTRIM(ISNULL(s.Status, '')))) = 'active'
                     connection.Open();
                     string sql = @"
         SELECT TOP 10000
-            sal.LogID                        AS LogID,
-            sal.EnrollmentID                 AS EnrollmentID,
-            s.StaffID                        AS AttendeeID,
-            COALESCE(s.Name, '')             AS Name,
-            sal.AttendanceId                 AS AttendanceId,
-            sal.SyncStatus                   AS SyncStatus,
-            sal.CheckInTime                  AS CheckInTime,
-            sal.CheckOutTime                 AS CheckOutTime
+            sal.LogID, sal.EnrollmentID, s.StaffID AS AttendeeID,
+            COALESCE(s.Name, '') AS Name, sal.AttendanceId, sal.SyncStatus,
+            sal.CheckInTime, sal.CheckOutTime
         FROM StaffAttendanceLog sal
-        LEFT JOIN Staff s 
-          ON s.EnrollmentID = sal.EnrollmentID
-        ORDER BY 
-            COALESCE(sal.CheckInTime, sal.CheckOutTime) DESC,
-            sal.LogID DESC;";
+        LEFT JOIN Staff s ON s.EnrollmentID = sal.EnrollmentID
+        ORDER BY COALESCE(sal.CheckInTime, sal.CheckOutTime) DESC, sal.LogID DESC;";
 
                     using (var cmd = new SqlCommand(sql, connection))
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            results.Add(new
+                            results.Add(new StaffAttendanceLog
                             {
-                                LogID = reader.IsDBNull(reader.GetOrdinal("LogID")) ? 0 : reader.GetInt32(reader.GetOrdinal("LogID")),
-                                EnrollmentID = reader.IsDBNull(reader.GetOrdinal("EnrollmentID")) ? 0 : reader.GetInt32(reader.GetOrdinal("EnrollmentID")),
-                                AttendeeID = reader.IsDBNull(reader.GetOrdinal("AttendeeID")) ? string.Empty : reader.GetString(reader.GetOrdinal("AttendeeID")),
-                                Name = reader.IsDBNull(reader.GetOrdinal("Name")) ? string.Empty : reader.GetString(reader.GetOrdinal("Name")),
-                                AttendanceId = reader.IsDBNull(reader.GetOrdinal("AttendanceId")) ? string.Empty : reader.GetString(reader.GetOrdinal("AttendanceId")),
-                                SyncStatus = reader.IsDBNull(reader.GetOrdinal("SyncStatus")) ? string.Empty : reader.GetString(reader.GetOrdinal("SyncStatus")),
-                                CheckInTime = reader.IsDBNull(reader.GetOrdinal("CheckInTime")) ? string.Empty : reader.GetDateTime(reader.GetOrdinal("CheckInTime")).ToString("yyyy-MM-dd HH:mm:ss"),
-                                CheckOutTime = reader.IsDBNull(reader.GetOrdinal("CheckOutTime")) ? string.Empty : reader.GetDateTime(reader.GetOrdinal("CheckOutTime")).ToString("yyyy-MM-dd HH:mm:ss")
+                                LogID        = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+                                EnrollmentID = reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
+                                AttendeeID   = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                                Name         = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                                AttendanceId = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                                SyncStatus   = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                                CheckInTime  = reader.IsDBNull(6) ? string.Empty : reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss"),
+                                CheckOutTime = reader.IsDBNull(7) ? string.Empty : reader.GetDateTime(7).ToString("yyyy-MM-dd HH:mm:ss")
                             });
                         }
                     }

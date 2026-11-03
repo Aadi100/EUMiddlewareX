@@ -636,32 +636,16 @@ public class StaffAttendanceLogSyncService : IDisposable
                                     {
                                         try
                                         {
-                                            string sid = null;
-                                            try { sid = Convert.ToString(lr.StaffID); } catch { try { sid = Convert.ToString(lr.StaffId); } catch { sid = null; } }
+                                            string sid = lr.AttendeeID;
 
                                             if (string.IsNullOrEmpty(sid) || !sid.Equals(resolvedStaffId, StringComparison.OrdinalIgnoreCase))
                                                 continue;
 
                                             DateTime? co = null;
-                                            try
-                                            {
-                                                co = lr.CheckOutTime as DateTime?;
-                                            }
-                                            catch
-                                            {
-                                                try
-                                                {
-                                                    var coStr = Convert.ToString(lr.CheckOutTime);
-                                                    if (DateTime.TryParse(coStr, out DateTime tmpCo))
-                                                        co = tmpCo;
-                                                    else
-                                                        co = null;
-                                                }
-                                                catch
-                                                {
-                                                    co = null;
-                                                }
-                                            }
+                                            if (!string.IsNullOrEmpty(lr.CheckOutTime))
+                                                DateTime.TryParse(lr.CheckOutTime, out DateTime tmpCo);
+                                            if (!string.IsNullOrEmpty(lr.CheckOutTime) && DateTime.TryParse(lr.CheckOutTime, out DateTime parsedCo))
+                                                co = parsedCo;
 
                                             if (!co.HasValue)
                                                 openSessionExists = true;

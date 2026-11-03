@@ -257,6 +257,12 @@ namespace smart_attendance_middleware
             }));
         }
 
+        public static void GlobalAddDisabledLogToCache(DisabledAccessLog log)
+        {
+            var dash = Application.OpenForms.OfType<Dashboard>().FirstOrDefault();
+            dash?._cacheManager?.AddDisabledLogImmediate(log);
+        }
+
         private void ShowLoader(string message = null)
         {
             if (_loaderPopup == null || _loaderPopup.IsDisposed)
@@ -1058,25 +1064,18 @@ namespace smart_attendance_middleware
             try
             {
                 // Refresh relevant UI components based on what was updated
-                if (e.UpdateType == CacheUpdateType.FullRefresh)
+                if (e.Contains(CacheUpdateType.FullRefresh))
                 {
                     await UpdateAttendancePanelsAsync();
                     LogHelper.Log("[Dashboard] Full cache refresh - UI updated");
                 }
-                else if (e.UpdateTypes != null && e.UpdateTypes.Count > 0)
+                else
                 {
-                    if (e.UpdateTypes.Contains(CacheUpdateType.AttendanceLogs) || 
-                        e.UpdateTypes.Contains(CacheUpdateType.StaffAttendanceLogs))
-                    {
+                    if (e.Contains(CacheUpdateType.AttendanceLogs) || e.Contains(CacheUpdateType.StaffAttendanceLogs))
                         await UpdateAttendancePanelsAsync();
-                    }
 
-                    if (e.UpdateTypes.Contains(CacheUpdateType.Members) || 
-                        e.UpdateTypes.Contains(CacheUpdateType.Staff))
-                    {
-                        // Update any member/staff displays if needed
-                        LogHelper.Log($"[Dashboard] Cache updated: {string.Join(", ", e.UpdateTypes)}");
-                    }
+                    if (e.Contains(CacheUpdateType.Members) || e.Contains(CacheUpdateType.Staff))
+                        LogHelper.Log($"[Dashboard] Members/staff cache updated");
                 }
             }
             catch (Exception ex)

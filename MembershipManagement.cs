@@ -95,8 +95,12 @@ namespace smart_attendance_middleware
         {
             try
             {
-                _offlineMembersCache = _dbHelper.GetOfflineMembers() ?? new List<OfflineMember>();
-                var packagesById = _dbHelper.GetPackages(activeOnly: false).ToDictionary(p => p.PackageId, p => p.Title);
+                _offlineMembersCache = AppSession.AllOfflineMembers.Count > 0
+                    ? AppSession.AllOfflineMembers.ToList()
+                    : _dbHelper.GetOfflineMembers() ?? new List<OfflineMember>();
+                var packagesById = (AppSession.AllPackages.Count > 0
+                    ? AppSession.AllPackages
+                    : _dbHelper.GetPackages(activeOnly: false)).ToDictionary(p => p.PackageId, p => p.Title);
 
                 string prevSel = cmbOfflinePackage.SelectedItem?.ToString() ?? "All Packages";
                 cmbOfflinePackage.Items.Clear();
@@ -129,7 +133,9 @@ namespace smart_attendance_middleware
 
         private void FilterOfflineMembersList()
         {
-            var packagesById = _dbHelper.GetPackages(activeOnly: false).ToDictionary(p => p.PackageId, p => p.Title);
+            var packagesById = (AppSession.AllPackages.Count > 0
+                ? AppSession.AllPackages
+                : _dbHelper.GetPackages(activeOnly: false)).ToDictionary(p => p.PackageId, p => p.Title);
             string term = txt_offlineMemberSearch.Text.Trim();
 
             var filtered = string.IsNullOrEmpty(term)

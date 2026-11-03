@@ -68,7 +68,7 @@ namespace smart_attendance_middleware
             this.date_manualdoor = new System.Windows.Forms.DateTimePicker();
             this.tab_pendingjobs = new System.Windows.Forms.TabPage();
             this.tab_disabledLogs = new System.Windows.Forms.TabPage();
-            this.dgv_disabledLogs = new System.Windows.Forms.DataGridView();
+            this.clv_disabledLogs = new smart_attendance_middleware.Controls.CardListView();
             this.rtb_disabledLogsSearch = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.lbl_disabledLogsCount = new System.Windows.Forms.Label();
             this.lbl_pendingjobs_info = new System.Windows.Forms.Label();
@@ -194,7 +194,7 @@ namespace smart_attendance_middleware
             this.panel6.SuspendLayout();
             this.tab_pendingjobs.SuspendLayout();
             this.tab_disabledLogs.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.dgv_disabledLogs)).BeginInit();
+
             this.tab_staffpendingjobs.SuspendLayout();
             this.pnl_setup.SuspendLayout();
             this.card_api.SuspendLayout();
@@ -653,6 +653,48 @@ namespace smart_attendance_middleware
             this.tab_pendingjobs.Text = "Pending Jobs";
             this.tab_pendingjobs.UseVisualStyleBackColor = true;
             // 
+            // tab_disabledLogs
+            // 
+            this.tab_disabledLogs.Controls.Add(this.clv_disabledLogs);
+            this.tab_disabledLogs.Controls.Add(this.rtb_disabledLogsSearch);
+            this.tab_disabledLogs.Controls.Add(this.lbl_disabledLogsCount);
+            this.tab_disabledLogs.Location = new System.Drawing.Point(4, 22);
+            this.tab_disabledLogs.Name = "tab_disabledLogs";
+            this.tab_disabledLogs.Padding = new System.Windows.Forms.Padding(3);
+            this.tab_disabledLogs.Size = new System.Drawing.Size(857, 519);
+            this.tab_disabledLogs.TabIndex = 4;
+            this.tab_disabledLogs.Text = "Disabled Logs";
+            this.tab_disabledLogs.UseVisualStyleBackColor = true;
+            // 
+            // rtb_disabledLogsSearch
+            // 
+            this.rtb_disabledLogsSearch.Location = new System.Drawing.Point(6, 8);
+            this.rtb_disabledLogsSearch.Name = "rtb_disabledLogsSearch";
+            this.rtb_disabledLogsSearch.Size = new System.Drawing.Size(200, 30);
+            this.rtb_disabledLogsSearch.TabIndex = 1;
+            this.rtb_disabledLogsSearch.TextChanged += new System.EventHandler(this.rtb_disabledLogsSearch_TextChanged);
+            // 
+            // lbl_disabledLogsCount
+            // 
+            this.lbl_disabledLogsCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lbl_disabledLogsCount.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lbl_disabledLogsCount.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.lbl_disabledLogsCount.Location = new System.Drawing.Point(690, 12);
+            this.lbl_disabledLogsCount.Name = "lbl_disabledLogsCount";
+            this.lbl_disabledLogsCount.Size = new System.Drawing.Size(120, 20);
+            this.lbl_disabledLogsCount.TabIndex = 2;
+            this.lbl_disabledLogsCount.Text = "0 entries";
+            this.lbl_disabledLogsCount.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // clv_disabledLogs
+            // 
+            this.clv_disabledLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
+            this.clv_disabledLogs.Location = new System.Drawing.Point(6, 44);
+            this.clv_disabledLogs.Name = "clv_disabledLogs";
+            this.clv_disabledLogs.Size = new System.Drawing.Size(845, 469);
+            this.clv_disabledLogs.TabIndex = 0;
+
+                        // 
             // lbl_pendingjobs_info
             // 
             this.lbl_pendingjobs_info.AutoSize = true;
@@ -2123,7 +2165,7 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.CardListView clv_manualDoor;
         private TabPage tab_pendingjobs;
         private TabPage tab_disabledLogs;
-        private System.Windows.Forms.DataGridView dgv_disabledLogs;
+        private smart_attendance_middleware.Controls.CardListView clv_disabledLogs;
         private smart_attendance_middleware.Controls.RoundedTextBox rtb_disabledLogsSearch;
         private System.Windows.Forms.Label lbl_disabledLogsCount;
         private Label lbl_pendingjobs_info;

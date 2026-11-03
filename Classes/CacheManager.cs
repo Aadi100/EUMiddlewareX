@@ -21,6 +21,7 @@ namespace smart_attendance_middleware.Classes
         private DateTime _lastGateLogsSync = DateTime.MinValue;
         private DateTime _lastUsersSync = DateTime.MinValue;
         private DateTime _lastPendingJobsSync = DateTime.MinValue;
+        private DateTime _lastDisabledLogsSync = DateTime.MinValue;
 
         private Timer _refreshTimer;
         private readonly int _refreshIntervalSeconds;
@@ -60,15 +61,21 @@ namespace smart_attendance_middleware.Classes
                         AppSession.AllStaff = _dbHelper.GetStaffs() ?? new List<Staff>();
                         _lastStaffSync = now;
 
-                        AppSession.AllAttendanceLogs = _dbHelper.GetAllAttendanceLogs() ?? new List<dynamic>();
+                        AppSession.AllAttendanceLogs = _dbHelper.GetAllAttendanceLogs() ?? new List<AttendanceLog>();
                         if (AppSession.AllAttendanceLogs.Count > 10000)
                             AppSession.AllAttendanceLogs = AppSession.AllAttendanceLogs.Take(10000).ToList();
                         _lastAttendanceLogsSync = now;
 
-                        AppSession.AllStaffAttendanceLogs = _dbHelper.GetAllStaffAttendanceLogs() ?? new List<dynamic>();
+                        AppSession.AllStaffAttendanceLogs = _dbHelper.GetAllStaffAttendanceLogs() ?? new List<StaffAttendanceLog>();
                         if (AppSession.AllStaffAttendanceLogs.Count > 10000)
                             AppSession.AllStaffAttendanceLogs = AppSession.AllStaffAttendanceLogs.Take(10000).ToList();
                         _lastStaffAttendanceLogsSync = now;
+
+                        // Devices — load once at startup
+                        if (AppSession.DeviceList.Count == 0)
+                            AppSession.DeviceList = _dbHelper.LoadDevices() ?? new List<Device>();
+                        if (AppSession.StaffDeviceList.Count == 0)
+                            AppSession.StaffDeviceList = _dbHelper.LoadStaffDevices() ?? new List<Device>();
 
                         AppSession.AllGateLogs = _dbHelper.GetAllGateAccesseds() ?? new List<GateAccessed>();
                         if (AppSession.AllGateLogs.Count > 10000)
@@ -80,6 +87,13 @@ namespace smart_attendance_middleware.Classes
 
                         AppSession.PendingJobs = _dbHelper.GetAllPendingJobs() ?? new List<DeviceFunctions.PendingJob>();
                         _lastPendingJobsSync = now;
+
+                        AppSession.AllDisabledLogs = _dbHelper.GetDisabledAccessLogs(500) ?? new List<DisabledAccessLog>();
+                        _lastDisabledLogsSync = now;
+
+                        AppSession.AllOfflineMembers = _dbHelper.GetOfflineMembers() ?? new List<OfflineMember>();
+
+                        AppSession.AllPackages = _dbHelper.GetPackages() ?? new List<Package>();
                     }
                 });
 
@@ -180,6 +194,15 @@ namespace smart_attendance_middleware.Classes
                         }
                         _lastStaffSync = DateTime.Now;
 
+                        // Evict deleted members/staff from cache
+                        var liveIds = _dbHelper.GetAllMemberIds();
+                        int evicted = AppSession.AllMembers.RemoveAll(m => !liveIds.Contains(m.MemberID));
+                        if (evicted > 0) { updateTypes.Add(CacheUpdateType.Members); LogHelper.Log($"[CacheManager] Evicted {evicted} deleted members"); }
+
+                        var liveStaffIds = _dbHelper.GetAllStaffIds();
+                        int evictedStaff = AppSession.AllStaff.RemoveAll(s => !liveStaffIds.Contains(s.StaffID));
+                        if (evictedStaff > 0) { updateTypes.Add(CacheUpdateType.Staff); LogHelper.Log($"[CacheManager] Evicted {evictedStaff} deleted staff"); }
+
                         // Update Attendance Logs (incremental - last 24 hours rolling window)
                         var newAttendanceLogs = _dbHelper.GetAttendanceLogsAfter(_lastAttendanceLogsSync);
                         if (newAttendanceLogs != null && newAttendanceLogs.Count > 0)
@@ -229,6 +252,35 @@ namespace smart_attendance_middleware.Classes
                             LogHelper.Log($"[CacheManager] Updated {newPendingJobs.Count} pending jobs");
                         }
                         _lastPendingJobsSync = DateTime.Now;
+
+                        // Update DisabledAccessLogs (incremental)
+                        var newDisabledLogs = _dbHelper.GetDisabledAccessLogsAfter(_lastDisabledLogsSync);
+                        if (newDisabledLogs != null && newDisabledLogs.Count > 0)
+                        {
+                            foreach (var l in newDisabledLogs)
+                                AppSession.AllDisabledLogs.Insert(0, l);
+                            if (AppSession.AllDisabledLogs.Count > 5000)
+                                AppSession.AllDisabledLogs = AppSession.AllDisabledLogs.Take(5000).ToList();
+                            updateTypes.Add(CacheUpdateType.DisabledLogs);
+                            LogHelper.Log($"[CacheManager] Updated {newDisabledLogs.Count} disabled logs");
+                        }
+                        _lastDisabledLogsSync = DateTime.Now;
+
+                        // OfflineMembers — reload fully on each cycle (typically small, changes infrequently)
+                        var freshOfflineMembers = _dbHelper.GetOfflineMembers();
+                        if (freshOfflineMembers != null)
+                        {
+                            AppSession.AllOfflineMembers = freshOfflineMembers;
+                            updateTypes.Add(CacheUpdateType.OfflineMembers);
+                        }
+
+                        // Packages — reload fully on each cycle (rarely changes)
+                        var freshPackages = _dbHelper.GetPackages();
+                        if (freshPackages != null)
+                        {
+                            AppSession.AllPackages = freshPackages;
+                            updateTypes.Add(CacheUpdateType.Packages);
+                        }
                     }
                 });
 
@@ -318,35 +370,89 @@ namespace smart_attendance_middleware.Classes
         }
 
         /// <summary>
+        /// Reloads DeviceList and StaffDeviceList from DB immediately (call after add/remove device)
+        /// </summary>
+        public void RefreshDevicesImmediate()
+        {
+            lock (_lockObject)
+            {
+                AppSession.DeviceList      = _dbHelper.LoadDevices()      ?? new List<Device>();
+                AppSession.StaffDeviceList = _dbHelper.LoadStaffDevices() ?? new List<Device>();
+                LogHelper.Log($"[CacheManager] Devices refreshed: {AppSession.DeviceList.Count} member, {AppSession.StaffDeviceList.Count} staff");
+                OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.Devices });
+            }
+        }
+
+        /// <summary>
         /// Adds new attendance log to cache immediately
         /// </summary>
-        public void AddAttendanceLogImmediate(dynamic log, bool isStaff = false)
+        public void AddAttendanceLogImmediate(AttendanceLog log)
+        {
+            if (log == null) return;
+            lock (_lockObject)
+            {
+                AppSession.AllAttendanceLogs.Insert(0, log);
+                if (AppSession.AllAttendanceLogs.Count > 10000)
+                    AppSession.AllAttendanceLogs.RemoveAt(AppSession.AllAttendanceLogs.Count - 1);
+                LogHelper.Log("[CacheManager] Immediate member attendance log added");
+                OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.AttendanceLogs });
+            }
+        }
+
+        public void AddStaffAttendanceLogImmediate(StaffAttendanceLog log)
+        {
+            if (log == null) return;
+            lock (_lockObject)
+            {
+                AppSession.AllStaffAttendanceLogs.Insert(0, log);
+                if (AppSession.AllStaffAttendanceLogs.Count > 10000)
+                    AppSession.AllStaffAttendanceLogs.RemoveAt(AppSession.AllStaffAttendanceLogs.Count - 1);
+                LogHelper.Log("[CacheManager] Immediate staff attendance log added");
+                OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.StaffAttendanceLogs });
+            }
+        }
+
+        /// <summary>
+        /// Adds a new disabled access log to cache immediately (call when event 104 fires)
+        /// </summary>
+        public void AddDisabledLogImmediate(DisabledAccessLog log)
         {
             if (log == null) return;
 
             lock (_lockObject)
             {
-                if (isStaff)
-                {
-                    AppSession.AllStaffAttendanceLogs.Insert(0, log);
-                    // Keep only last 10000 logs in memory
-                    if (AppSession.AllStaffAttendanceLogs.Count > 10000)
-                    {
-                        AppSession.AllStaffAttendanceLogs.RemoveAt(AppSession.AllStaffAttendanceLogs.Count - 1);
-                    }
-                    OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.StaffAttendanceLogs });
-                }
-                else
-                {
-                    AppSession.AllAttendanceLogs.Insert(0, log);
-                    if (AppSession.AllAttendanceLogs.Count > 10000)
-                    {
-                        AppSession.AllAttendanceLogs.RemoveAt(AppSession.AllAttendanceLogs.Count - 1);
-                    }
-                    OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.AttendanceLogs });
-                }
+                AppSession.AllDisabledLogs.Insert(0, log);
+                if (AppSession.AllDisabledLogs.Count > 5000)
+                    AppSession.AllDisabledLogs.RemoveAt(AppSession.AllDisabledLogs.Count - 1);
 
-                LogHelper.Log($"[CacheManager] Immediate attendance log added: {(isStaff ? "Staff" : "Member")}");
+                LogHelper.Log($"[CacheManager] Immediate disabled log added: EnrollId={log.EnrollId}");
+                OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.DisabledLogs });
+            }
+        }
+
+        /// <summary>
+        /// Immediately replaces the offline members cache (call after insert/update in MembershipManagement)
+        /// </summary>
+        public void RefreshOfflineMembersImmediate()
+        {
+            lock (_lockObject)
+            {
+                AppSession.AllOfflineMembers = _dbHelper.GetOfflineMembers() ?? new List<OfflineMember>();
+                LogHelper.Log($"[CacheManager] Offline members refreshed: {AppSession.AllOfflineMembers.Count}");
+                OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.OfflineMembers });
+            }
+        }
+
+        /// <summary>
+        /// Immediately replaces the packages cache (call after a package is added/changed)
+        /// </summary>
+        public void RefreshPackagesImmediate()
+        {
+            lock (_lockObject)
+            {
+                AppSession.AllPackages = _dbHelper.GetPackages() ?? new List<Package>();
+                LogHelper.Log($"[CacheManager] Packages refreshed: {AppSession.AllPackages.Count}");
+                OnCacheUpdated(new CacheUpdateEventArgs { UpdateType = CacheUpdateType.Packages });
             }
         }
 
@@ -385,6 +491,7 @@ namespace smart_attendance_middleware.Classes
             _lastGateLogsSync = DateTime.MinValue;
             _lastUsersSync = DateTime.MinValue;
             _lastPendingJobsSync = DateTime.MinValue;
+            _lastDisabledLogsSync = DateTime.MinValue;
 
             await InitialLoadAsync();
         }
@@ -417,32 +524,22 @@ namespace smart_attendance_middleware.Classes
             }
         }
 
-        private void UpdateAttendanceLogsCache(List<dynamic> newLogs)
+        private void UpdateAttendanceLogsCache(List<AttendanceLog> newLogs)
         {
-            // For attendance logs, prepend new logs and maintain a rolling window
             foreach (var log in newLogs.OrderByDescending(l => l.CheckInTime))
-            {
                 AppSession.AllAttendanceLogs.Insert(0, log);
-            }
 
-            // Keep only recent logs (last 10000)
             if (AppSession.AllAttendanceLogs.Count > 10000)
-            {
                 AppSession.AllAttendanceLogs = AppSession.AllAttendanceLogs.Take(10000).ToList();
-            }
         }
 
-        private void UpdateStaffAttendanceLogsCache(List<dynamic> newLogs)
+        private void UpdateStaffAttendanceLogsCache(List<StaffAttendanceLog> newLogs)
         {
             foreach (var log in newLogs.OrderByDescending(l => l.CheckInTime))
-            {
                 AppSession.AllStaffAttendanceLogs.Insert(0, log);
-            }
 
             if (AppSession.AllStaffAttendanceLogs.Count > 10000)
-            {
                 AppSession.AllStaffAttendanceLogs = AppSession.AllStaffAttendanceLogs.Take(10000).ToList();
-            }
         }
 
         private void UpdateGateLogsCache(List<GateAccessed> newLogs)
@@ -505,13 +602,24 @@ namespace smart_attendance_middleware.Classes
         Users,
         PendingJobs,
         PendingBiometricSync,
-        StaffPendingBiometricSync
+        StaffPendingBiometricSync,
+        DisabledLogs,
+        OfflineMembers,
+        Packages,
+        Devices
     }
 
     public class CacheUpdateEventArgs : EventArgs
     {
         public CacheUpdateType UpdateType { get; set; }
         public List<CacheUpdateType> UpdateTypes { get; set; } = new List<CacheUpdateType>();
+
+        /// <summary>
+        /// Checks both UpdateType (single-update path) and UpdateTypes (batch path)
+        /// so callers don't need to remember which field was set.
+        /// </summary>
+        public bool Contains(CacheUpdateType type)
+            => UpdateType == type || (UpdateTypes != null && UpdateTypes.Contains(type));
     }
 
     #endregion

@@ -146,7 +146,9 @@ namespace smart_attendance_middleware
         {
             try
             {
-                _allPackages = _dbHelper.GetPackages(activeOnly: true);
+                _allPackages = AppSession.AllPackages.Count > 0
+                    ? AppSession.AllPackages.Where(p => p.Active).ToList()
+                    : _dbHelper.GetPackages(activeOnly: true);
 
                 // Collect all unique periodicity keys across all packages
                 var periodicities = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);

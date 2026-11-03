@@ -427,7 +427,11 @@ namespace smart_attendance_middleware.Controls
             int btnW    = 95;
             int rightLeft = card.Width - btnW - lp;
 
-            if (isOnline && ShowOpenDoor)
+            if (isOnline && !ShowOpenDoor)
+            {
+                // Gate access disabled — device is online but show nothing here
+            }
+            else if (isOnline && ShowOpenDoor)
             {
                 // Rounded outlined "Open door" button
                 Button openBtn = new Button
@@ -481,7 +485,7 @@ namespace smart_attendance_middleware.Controls
                 };
                 card.Controls.Add(openBtn);
             }
-            else if (isRetrying)
+            else if (isRetrying && ShowOpenDoor)
             {
                 // Amber "Retrying..." rounded badge
                 int badgeTop = (cardH / 2) - 28;
