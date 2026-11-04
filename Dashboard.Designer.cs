@@ -100,6 +100,7 @@ namespace smart_attendance_middleware
             this.lblStatusRole = new System.Windows.Forms.Label();
             this.lblSep6 = new System.Windows.Forms.Label();
             this.lblStatusVersion = new System.Windows.Forms.Label();
+            this.button1 = new System.Windows.Forms.Button();
             this.panel4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbLogo)).BeginInit();
             this.cuiPanel1.SuspendLayout();
@@ -133,6 +134,7 @@ namespace smart_attendance_middleware
             // panel4
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
+            this.panel4.Controls.Add(this.button1);
             this.panel4.Controls.Add(this.label8);
             this.panel4.Controls.Add(this._hdrLastSyncCard);
             this.panel4.Controls.Add(this._hdrCloudCard);
@@ -142,7 +144,6 @@ namespace smart_attendance_middleware
             this.panel4.Size = new System.Drawing.Size(1295, 78);
             this.panel4.TabIndex = 45;
             this.panel4.Paint += new System.Windows.Forms.PaintEventHandler(this.panel4_Paint);
-            //
             // 
             // _hdrLastSyncCard
             // 
@@ -241,6 +242,7 @@ namespace smart_attendance_middleware
             this.dataPairPanel1.LabelWidth = 120;
             this.dataPairPanel1.Location = new System.Drawing.Point(3, 55);
             this.dataPairPanel1.Name = "dataPairPanel1";
+            this.dataPairPanel1.ShowOpenDoor = true;
             this.dataPairPanel1.Size = new System.Drawing.Size(298, 459);
             this.dataPairPanel1.TabIndex = 50;
             this.dataPairPanel1.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(102)))), ((int)(((byte)(204)))));
@@ -1003,9 +1005,9 @@ namespace smart_attendance_middleware
             this.lblStatusRole.TabIndex = 12;
             this.lblStatusRole.Text = "Role: –";
             this.lblStatusRole.Click += new System.EventHandler(this.lblStatusRole_Click);
-            //
+            // 
             // lblSep6
-            //
+            // 
             this.lblSep6.AutoSize = true;
             this.lblSep6.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.lblSep6.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
@@ -1014,17 +1016,26 @@ namespace smart_attendance_middleware
             this.lblSep6.Size = new System.Drawing.Size(10, 13);
             this.lblSep6.TabIndex = 13;
             this.lblSep6.Text = "|";
-            //
+            // 
             // lblStatusVersion
-            //
+            // 
             this.lblStatusVersion.AutoSize = true;
             this.lblStatusVersion.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatusVersion.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
             this.lblStatusVersion.Location = new System.Drawing.Point(1223, 7);
             this.lblStatusVersion.Name = "lblStatusVersion";
-            this.lblStatusVersion.Size = new System.Drawing.Size(55, 15);
+            this.lblStatusVersion.Size = new System.Drawing.Size(37, 15);
             this.lblStatusVersion.TabIndex = 14;
             this.lblStatusVersion.Text = "v3.2.0";
+            // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(528, 35);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 48;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
             // 
             // Dashboard
             // 
@@ -1147,6 +1158,7 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrInternetCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrCloudCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrLastSyncCard;
+        private System.Windows.Forms.Button button1;
     }
 }
 
