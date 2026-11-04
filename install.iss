@@ -4,7 +4,7 @@
 #define BuildOutput Exec("cmd.exe", "/C msbuild ""D:\EUSmartAttendanceMiddlewareX\smart-attendance-middleware.csproj"" /t:Rebuild /p:Configuration=Debug;Platform=x86 /v:minimal", "", 1, 1)
 
 #define MyAppName "FitnessMarvel"
-#define MyAppVersion "3.2.1"
+#define MyAppVersion "3.2.2"
 #define MyAppExeName "FitnessMarvel.exe"
 
 ; Set to Debug and x86 based on your Visual Studio settings
@@ -18,7 +18,7 @@ AppVersion={#MyAppVersion}
 DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=Output
-OutputBaseFilename=FitnessMarvel_v3.2.1
+OutputBaseFilename=FitnessMarvel_v3.2.2
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
