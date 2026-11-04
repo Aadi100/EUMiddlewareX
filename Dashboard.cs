@@ -456,6 +456,11 @@ namespace smart_attendance_middleware
             x = lblSep5.Right + gap;
 
             lblStatusRole.Left = x;
+            x = lblStatusRole.Right + gap;
+            lblSep6.Left = x;
+            x = lblSep6.Right + gap;
+
+            lblStatusVersion.Left = x;
         }
 
         private void RefreshMemberOverview()
@@ -610,6 +615,9 @@ namespace smart_attendance_middleware
 
         private async void Dashboard_Load(object sender, EventArgs e)
         {
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            lblStatusVersion.Text = $"v{v.Major}.{v.Minor}.{v.Build}";
+
             PositionHeaderCards(); // panel4.Width is now correct
 
             ApplyAlertBarRegion();

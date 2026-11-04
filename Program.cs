@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using AutoUpdaterDotNET;
 using smart_attendance_middleware.Classes;
 
 namespace smart_attendance_middleware
@@ -13,6 +14,8 @@ namespace smart_attendance_middleware
     {
         private static readonly object _logLock = new object();
         private static Mutex _singleInstanceMutex;
+
+        private const string UpdateXmlUrl = "http://152.42.130.34/middleware-updater/update.xml";
 
         [STAThread]
         static void Main()
@@ -47,6 +50,12 @@ namespace smart_attendance_middleware
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
+            // Check for updates on startup (non-blocking)
+            AutoUpdater.ShowSkipButton = false;
+            AutoUpdater.ShowRemindLaterButton = true;
+            AutoUpdater.RunUpdateAsAdmin = true;
+            AutoUpdater.Start(UpdateXmlUrl);
+
             // Ensure SQL Server is running before touching the database
             SqlServerWatchdog.StatusChanged += msg => LogHelper.Log($"[SqlServer] {msg}");
             SqlServerWatchdog.RestartFailed += msg =>
@@ -65,6 +74,7 @@ namespace smart_attendance_middleware
             // Check if admin exists, if not show UserSetup, else show Login
             DatabaseHelper dbHelper = new DatabaseHelper();
             dbHelper.InitializeDatabase();
+            dbHelper.SaveSetting("AppVersion", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
 
             if (dbHelper.AdminUserExists())
             {

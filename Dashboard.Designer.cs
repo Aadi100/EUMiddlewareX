@@ -31,7 +31,6 @@ namespace smart_attendance_middleware
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Dashboard));
             this.label8 = new System.Windows.Forms.Label();
             this.panel4 = new System.Windows.Forms.Panel();
-            this.lbl_version = new System.Windows.Forms.Label();
             this._hdrLastSyncCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
             this._hdrCloudCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
             this._hdrInternetCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
@@ -99,6 +98,8 @@ namespace smart_attendance_middleware
             this.lblStatusUser = new System.Windows.Forms.Label();
             this.lblSep5 = new System.Windows.Forms.Label();
             this.lblStatusRole = new System.Windows.Forms.Label();
+            this.lblSep6 = new System.Windows.Forms.Label();
+            this.lblStatusVersion = new System.Windows.Forms.Label();
             this.panel4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbLogo)).BeginInit();
             this.cuiPanel1.SuspendLayout();
@@ -133,7 +134,6 @@ namespace smart_attendance_middleware
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
             this.panel4.Controls.Add(this.label8);
-            this.panel4.Controls.Add(this.lbl_version);
             this.panel4.Controls.Add(this._hdrLastSyncCard);
             this.panel4.Controls.Add(this._hdrCloudCard);
             this.panel4.Controls.Add(this._hdrInternetCard);
@@ -142,18 +142,7 @@ namespace smart_attendance_middleware
             this.panel4.Size = new System.Drawing.Size(1295, 78);
             this.panel4.TabIndex = 45;
             this.panel4.Paint += new System.Windows.Forms.PaintEventHandler(this.panel4_Paint);
-            // 
-            // lbl_version
-            // 
-            this.lbl_version.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            this.lbl_version.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
-            this.lbl_version.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(165)))), ((int)(((byte)(215)))));
-            this.lbl_version.Location = new System.Drawing.Point(375, 39);
-            this.lbl_version.Name = "lbl_version";
-            this.lbl_version.Size = new System.Drawing.Size(45, 22);
-            this.lbl_version.TabIndex = 44;
-            this.lbl_version.Text = "3.2.0";
-            this.lbl_version.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
             // 
             // _hdrLastSyncCard
             // 
@@ -839,6 +828,8 @@ namespace smart_attendance_middleware
             this.pnlStatusBar.Controls.Add(this.lblStatusUser);
             this.pnlStatusBar.Controls.Add(this.lblSep5);
             this.pnlStatusBar.Controls.Add(this.lblStatusRole);
+            this.pnlStatusBar.Controls.Add(this.lblSep6);
+            this.pnlStatusBar.Controls.Add(this.lblStatusVersion);
             this.pnlStatusBar.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.pnlStatusBar.Location = new System.Drawing.Point(0, 690);
             this.pnlStatusBar.Name = "pnlStatusBar";
@@ -1012,6 +1003,28 @@ namespace smart_attendance_middleware
             this.lblStatusRole.TabIndex = 12;
             this.lblStatusRole.Text = "Role: –";
             this.lblStatusRole.Click += new System.EventHandler(this.lblStatusRole_Click);
+            //
+            // lblSep6
+            //
+            this.lblSep6.AutoSize = true;
+            this.lblSep6.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSep6.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
+            this.lblSep6.Location = new System.Drawing.Point(1210, 7);
+            this.lblSep6.Name = "lblSep6";
+            this.lblSep6.Size = new System.Drawing.Size(10, 13);
+            this.lblSep6.TabIndex = 13;
+            this.lblSep6.Text = "|";
+            //
+            // lblStatusVersion
+            //
+            this.lblStatusVersion.AutoSize = true;
+            this.lblStatusVersion.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStatusVersion.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
+            this.lblStatusVersion.Location = new System.Drawing.Point(1223, 7);
+            this.lblStatusVersion.Name = "lblStatusVersion";
+            this.lblStatusVersion.Size = new System.Drawing.Size(55, 15);
+            this.lblStatusVersion.TabIndex = 14;
+            this.lblStatusVersion.Text = "v3.2.0";
             // 
             // Dashboard
             // 
@@ -1083,6 +1096,8 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Label lblStatusUser;
         private System.Windows.Forms.PictureBox pbLogo;
         private System.Windows.Forms.Label lblSep5;
+        private System.Windows.Forms.Label lblSep6;
+        private System.Windows.Forms.Label lblStatusVersion;
         private System.Windows.Forms.Label lblStatusRole;
         private System.Windows.Forms.PictureBox pictureBox1;
         private System.Windows.Forms.Panel pnlAlertBar;
@@ -1129,7 +1144,6 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.RoundedButton btn_adddevice;
         private Controls.DataPairPanel dataPairPanel1;
         private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.Label lbl_version;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrInternetCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrCloudCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrLastSyncCard;
