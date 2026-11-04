@@ -100,6 +100,7 @@ namespace smart_attendance_middleware
             this.lblStatusRole = new System.Windows.Forms.Label();
             this.lblSep6 = new System.Windows.Forms.Label();
             this.lblStatusVersion = new System.Windows.Forms.Label();
+            this.button1 = new System.Windows.Forms.Button();
             this.panel4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbLogo)).BeginInit();
             this.cuiPanel1.SuspendLayout();
@@ -133,6 +134,7 @@ namespace smart_attendance_middleware
             // panel4
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
+            this.panel4.Controls.Add(this.button1);
             this.panel4.Controls.Add(this.label8);
             this.panel4.Controls.Add(this._hdrLastSyncCard);
             this.panel4.Controls.Add(this._hdrCloudCard);
@@ -1026,6 +1028,15 @@ namespace smart_attendance_middleware
             this.lblStatusVersion.TabIndex = 14;
             this.lblStatusVersion.Text = "v3.2.0";
             // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(433, 40);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 48;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            // 
             // Dashboard
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1147,6 +1158,7 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrInternetCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrCloudCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrLastSyncCard;
+        private System.Windows.Forms.Button button1;
     }
 }
 
