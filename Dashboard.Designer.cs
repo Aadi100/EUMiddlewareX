@@ -100,7 +100,6 @@ namespace smart_attendance_middleware
             this.lblStatusRole = new System.Windows.Forms.Label();
             this.lblSep6 = new System.Windows.Forms.Label();
             this.lblStatusVersion = new System.Windows.Forms.Label();
-            this.button1 = new System.Windows.Forms.Button();
             this.panel4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbLogo)).BeginInit();
             this.cuiPanel1.SuspendLayout();
@@ -134,7 +133,6 @@ namespace smart_attendance_middleware
             // panel4
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
-            this.panel4.Controls.Add(this.button1);
             this.panel4.Controls.Add(this.label8);
             this.panel4.Controls.Add(this._hdrLastSyncCard);
             this.panel4.Controls.Add(this._hdrCloudCard);
@@ -896,7 +894,7 @@ namespace smart_attendance_middleware
             this.lblSep1.AutoSize = true;
             this.lblSep1.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.lblSep1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
-            this.lblSep1.Location = new System.Drawing.Point(681, 7);
+            this.lblSep1.Location = new System.Drawing.Point(619, 7);
             this.lblSep1.Name = "lblSep1";
             this.lblSep1.Size = new System.Drawing.Size(10, 13);
             this.lblSep1.TabIndex = 3;
@@ -907,7 +905,7 @@ namespace smart_attendance_middleware
             this.lblStatusAppMem.AutoSize = true;
             this.lblStatusAppMem.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatusAppMem.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
-            this.lblStatusAppMem.Location = new System.Drawing.Point(694, 7);
+            this.lblStatusAppMem.Location = new System.Drawing.Point(632, 7);
             this.lblStatusAppMem.Name = "lblStatusAppMem";
             this.lblStatusAppMem.Size = new System.Drawing.Size(85, 15);
             this.lblStatusAppMem.TabIndex = 4;
@@ -918,7 +916,7 @@ namespace smart_attendance_middleware
             this.lblSep2.AutoSize = true;
             this.lblSep2.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.lblSep2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
-            this.lblSep2.Location = new System.Drawing.Point(791, 7);
+            this.lblSep2.Location = new System.Drawing.Point(729, 7);
             this.lblSep2.Name = "lblSep2";
             this.lblSep2.Size = new System.Drawing.Size(10, 13);
             this.lblSep2.TabIndex = 5;
@@ -929,7 +927,7 @@ namespace smart_attendance_middleware
             this.lblStatusSqlMem.AutoSize = true;
             this.lblStatusSqlMem.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatusSqlMem.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
-            this.lblStatusSqlMem.Location = new System.Drawing.Point(804, 7);
+            this.lblStatusSqlMem.Location = new System.Drawing.Point(742, 7);
             this.lblStatusSqlMem.Name = "lblStatusSqlMem";
             this.lblStatusSqlMem.Size = new System.Drawing.Size(71, 15);
             this.lblStatusSqlMem.TabIndex = 6;
@@ -940,7 +938,7 @@ namespace smart_attendance_middleware
             this.lblSep3.AutoSize = true;
             this.lblSep3.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.lblSep3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
-            this.lblSep3.Location = new System.Drawing.Point(891, 7);
+            this.lblSep3.Location = new System.Drawing.Point(829, 7);
             this.lblSep3.Name = "lblSep3";
             this.lblSep3.Size = new System.Drawing.Size(10, 13);
             this.lblSep3.TabIndex = 7;
@@ -951,7 +949,7 @@ namespace smart_attendance_middleware
             this.lblStatusUptime.AutoSize = true;
             this.lblStatusUptime.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatusUptime.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
-            this.lblStatusUptime.Location = new System.Drawing.Point(904, 7);
+            this.lblStatusUptime.Location = new System.Drawing.Point(842, 7);
             this.lblStatusUptime.Name = "lblStatusUptime";
             this.lblStatusUptime.Size = new System.Drawing.Size(54, 15);
             this.lblStatusUptime.TabIndex = 8;
@@ -963,7 +961,7 @@ namespace smart_attendance_middleware
             this.lblSep4.AutoSize = true;
             this.lblSep4.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.lblSep4.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
-            this.lblSep4.Location = new System.Drawing.Point(1028, 7);
+            this.lblSep4.Location = new System.Drawing.Point(966, 7);
             this.lblSep4.Name = "lblSep4";
             this.lblSep4.Size = new System.Drawing.Size(10, 13);
             this.lblSep4.TabIndex = 9;
@@ -975,7 +973,7 @@ namespace smart_attendance_middleware
             this.lblStatusUser.AutoSize = true;
             this.lblStatusUser.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatusUser.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
-            this.lblStatusUser.Location = new System.Drawing.Point(1041, 7);
+            this.lblStatusUser.Location = new System.Drawing.Point(979, 7);
             this.lblStatusUser.Name = "lblStatusUser";
             this.lblStatusUser.Size = new System.Drawing.Size(68, 15);
             this.lblStatusUser.TabIndex = 10;
@@ -987,7 +985,7 @@ namespace smart_attendance_middleware
             this.lblSep5.AutoSize = true;
             this.lblSep5.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.lblSep5.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
-            this.lblSep5.Location = new System.Drawing.Point(1145, 7);
+            this.lblSep5.Location = new System.Drawing.Point(1081, 7);
             this.lblSep5.Name = "lblSep5";
             this.lblSep5.Size = new System.Drawing.Size(10, 13);
             this.lblSep5.TabIndex = 11;
@@ -999,7 +997,7 @@ namespace smart_attendance_middleware
             this.lblStatusRole.AutoSize = true;
             this.lblStatusRole.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatusRole.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
-            this.lblStatusRole.Location = new System.Drawing.Point(1158, 7);
+            this.lblStatusRole.Location = new System.Drawing.Point(1094, 7);
             this.lblStatusRole.Name = "lblStatusRole";
             this.lblStatusRole.Size = new System.Drawing.Size(42, 15);
             this.lblStatusRole.TabIndex = 12;
@@ -1011,7 +1009,7 @@ namespace smart_attendance_middleware
             this.lblSep6.AutoSize = true;
             this.lblSep6.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.lblSep6.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(190)))), ((int)(((byte)(190)))), ((int)(((byte)(205)))));
-            this.lblSep6.Location = new System.Drawing.Point(1210, 7);
+            this.lblSep6.Location = new System.Drawing.Point(1146, 7);
             this.lblSep6.Name = "lblSep6";
             this.lblSep6.Size = new System.Drawing.Size(10, 13);
             this.lblSep6.TabIndex = 13;
@@ -1022,20 +1020,11 @@ namespace smart_attendance_middleware
             this.lblStatusVersion.AutoSize = true;
             this.lblStatusVersion.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatusVersion.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(68)))), ((int)(((byte)(92)))));
-            this.lblStatusVersion.Location = new System.Drawing.Point(1223, 7);
+            this.lblStatusVersion.Location = new System.Drawing.Point(1161, 7);
             this.lblStatusVersion.Name = "lblStatusVersion";
             this.lblStatusVersion.Size = new System.Drawing.Size(37, 15);
             this.lblStatusVersion.TabIndex = 14;
             this.lblStatusVersion.Text = "v3.2.0";
-            // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(528, 35);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 48;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
             // 
             // Dashboard
             // 
@@ -1158,7 +1147,6 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrInternetCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrCloudCard;
         private smart_attendance_middleware.Controls.HeaderStatusCard _hdrLastSyncCard;
-        private System.Windows.Forms.Button button1;
     }
 }
 
