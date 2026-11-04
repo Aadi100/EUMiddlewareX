@@ -82,6 +82,7 @@ namespace smart_attendance_middleware
             this.lblSep6 = new System.Windows.Forms.Label();
             this.lblStatusVersion = new System.Windows.Forms.Label();
             this.button2 = new System.Windows.Forms.Button();
+            this.button3 = new System.Windows.Forms.Button();
             this.lstPendingJobsMini = new smart_attendance_middleware.Controls.ModernListView();
             this.rectangularLoader1 = new smart_attendance_middleware.Controls.RectangularLoader();
             this.toastNotificationControl2 = new smart_attendance_middleware.UI.ToastNotificationControl();
@@ -102,7 +103,7 @@ namespace smart_attendance_middleware
             this._hdrCloudCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
             this._hdrInternetCard = new smart_attendance_middleware.Controls.HeaderStatusCard();
             this._pillsPanel = new smart_attendance_middleware.Controls.PillsPanel();
-            this.button3 = new System.Windows.Forms.Button();
+            this.button4 = new System.Windows.Forms.Button();
             this.panel4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbLogo)).BeginInit();
             this.cuiPanel1.SuspendLayout();
@@ -136,6 +137,7 @@ namespace smart_attendance_middleware
             // panel4
             // 
             this.panel4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(8)))), ((int)(((byte)(8)))), ((int)(((byte)(46)))));
+            this.panel4.Controls.Add(this.button4);
             this.panel4.Controls.Add(this.button3);
             this.panel4.Controls.Add(this.button2);
             this.panel4.Controls.Add(this.button1);
@@ -751,6 +753,15 @@ namespace smart_attendance_middleware
             this.button2.Text = "button2";
             this.button2.UseVisualStyleBackColor = true;
             // 
+            // button3
+            // 
+            this.button3.Location = new System.Drawing.Point(610, 28);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(75, 23);
+            this.button3.TabIndex = 50;
+            this.button3.Text = "button3";
+            this.button3.UseVisualStyleBackColor = true;
+            // 
             // lstPendingJobsMini
             // 
             this.lstPendingJobsMini.BoldForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
@@ -1050,14 +1061,14 @@ namespace smart_attendance_middleware
             this._pillsPanel.Size = new System.Drawing.Size(160, 16);
             this._pillsPanel.TabIndex = 1;
             // 
-            // button3
+            // button4
             // 
-            this.button3.Location = new System.Drawing.Point(610, 28);
-            this.button3.Name = "button3";
-            this.button3.Size = new System.Drawing.Size(75, 23);
-            this.button3.TabIndex = 50;
-            this.button3.Text = "button3";
-            this.button3.UseVisualStyleBackColor = true;
+            this.button4.Location = new System.Drawing.Point(618, 40);
+            this.button4.Name = "button4";
+            this.button4.Size = new System.Drawing.Size(75, 19);
+            this.button4.TabIndex = 51;
+            this.button4.Text = "button4";
+            this.button4.UseVisualStyleBackColor = true;
             // 
             // Dashboard
             // 
@@ -1183,6 +1194,7 @@ namespace smart_attendance_middleware
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Button button2;
         private System.Windows.Forms.Button button3;
+        private System.Windows.Forms.Button button4;
     }
 }
 
