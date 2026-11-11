@@ -86,6 +86,10 @@ namespace smart_attendance_middleware
         public int EventCode { get; set; }
         public string Image { get; set; }
         public DateTime LoggedAt { get; set; }
+        public string LogType { get; set; } // "expired" or "stranger"
+        public string DeviceInfo { get; set; }
+        public bool SyncStatus { get; set; }
+        public string ClientId { get; set; }
     }
 
     public class OfflineMember
@@ -616,9 +620,20 @@ BEGIN
         EventTime  DATETIME2 NOT NULL,
         EventCode  INT NOT NULL DEFAULT 104,
         Image      NVARCHAR(MAX) NULL,
-        LoggedAt   DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+        LoggedAt   DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+        LogType    NVARCHAR(20) NOT NULL DEFAULT 'disabled'
     );
-END";
+END
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.DisabledAccessLogs') AND name = 'LogType')
+BEGIN
+    ALTER TABLE dbo.DisabledAccessLogs ADD LogType NVARCHAR(20) NOT NULL DEFAULT 'disabled';
+END
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.DisabledAccessLogs') AND name = 'DeviceInfo')
+    ALTER TABLE dbo.DisabledAccessLogs ADD DeviceInfo NVARCHAR(200) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.DisabledAccessLogs') AND name = 'SyncStatus')
+    ALTER TABLE dbo.DisabledAccessLogs ADD SyncStatus BIT NOT NULL DEFAULT 0;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.DisabledAccessLogs') AND name = 'ClientId')
+    ALTER TABLE dbo.DisabledAccessLogs ADD ClientId NVARCHAR(100) NULL;";
 
                 var createPendingJobsSql = @"
 IF OBJECT_ID('dbo.PendingJobs','U') IS NULL
@@ -1424,6 +1439,27 @@ WHEN NOT MATCHED THEN
             {
                 Console.WriteLine($"Error getting setting: {ex.Message}");
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Resets AttemptCount to 0 on all rows in Log, StaffLog, and OfflineMemberLog
+        /// that have a non-zero AttemptCount.
+        /// </summary>
+        public void ResetAllAttemptCounts()
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                foreach (var table in new[] { "Log", "StaffLog", "OfflineMemberLog" })
+                {
+                    using (var cmd = new SqlCommand(
+                        $"UPDATE dbo.[{table}] SET AttemptCount = 0 WHERE ISNULL(AttemptCount, 0) > 0;",
+                        connection))
+                    {
+                        cmd.ExecuteNonQuery();
+                    }
+                }
             }
         }
 
@@ -7109,6 +7145,154 @@ SELECT SCOPE_IDENTITY();", connection))
             }
         }
 
+        public void SetMemberStatus(int memberId, string status)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        "UPDATE dbo.Members SET Status = @status WHERE MemberID = @id",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@status", status);
+                        cmd.Parameters.AddWithValue("@id", memberId);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[SetMemberStatus][ERROR] {ex.Message}");
+                throw;
+            }
+        }
+
+        public Member GetMemberById(int memberId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        "SELECT MemberID, Name, Status, ClientId FROM dbo.Members WHERE MemberID = @id",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@id", memberId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                return new Member
+                                {
+                                    MemberID = reader.GetInt32(0),
+                                    Name     = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                    Status   = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    ClientId = reader.IsDBNull(3) ? null : reader.GetString(3)
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetMemberById][ERROR] {ex.Message}");
+            }
+            return null;
+        }
+
+        public string GetMemberClientIdByEnrollmentId(int enrollmentId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        "SELECT TOP 1 ClientId FROM dbo.Members WHERE EnrollmentID = @eid AND ClientId IS NOT NULL",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@eid", enrollmentId);
+                        var val = cmd.ExecuteScalar();
+                        return val == null || val == DBNull.Value ? null : val.ToString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetMemberClientIdByEnrollmentId][ERROR] {ex.Message}");
+                return null;
+            }
+        }
+
+        public DisabledAccessLog GetOldestUnsyncedGateAttempt()
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(@"
+SELECT TOP 1 Id, EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt, LogType, DeviceInfo, SyncStatus, ClientId
+FROM dbo.DisabledAccessLogs
+WHERE SyncStatus = 0
+ORDER BY LoggedAt ASC", connection))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            return new DisabledAccessLog
+                            {
+                                Id         = reader.GetInt32(0),
+                                EnrollId   = reader.GetInt32(1),
+                                Name       = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                DeviceId   = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
+                                DeviceIP   = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                EventTime  = reader.GetDateTime(5),
+                                EventCode  = reader.GetInt32(6),
+                                Image      = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                LoggedAt   = reader.GetDateTime(8),
+                                LogType    = reader.IsDBNull(9) ? "expired" : reader.GetString(9),
+                                DeviceInfo = reader.IsDBNull(10) ? null : reader.GetString(10),
+                                SyncStatus = false,
+                                ClientId   = reader.IsDBNull(12) ? null : reader.GetString(12)
+                            };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[GetOldestUnsyncedGateAttempt][ERROR] {ex.Message}");
+            }
+            return null;
+        }
+
+        public void MarkGateAttemptSynced(int id)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    using (var cmd = new SqlCommand(
+                        "UPDATE dbo.DisabledAccessLogs SET SyncStatus = 1 WHERE Id = @id",
+                        connection))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[MarkGateAttemptSynced][ERROR] {ex.Message}");
+            }
+        }
+
         public List<DisabledAccessLog> GetDisabledAccessLogs(int maxRows = 500)
         {
             var list = new List<DisabledAccessLog>();
@@ -7118,7 +7302,7 @@ SELECT SCOPE_IDENTITY();", connection))
                 {
                     connection.Open();
                     using (var cmd = new SqlCommand($@"
-SELECT TOP (@max) Id, EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt
+SELECT TOP (@max) Id, EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt, LogType, DeviceInfo, SyncStatus, ClientId
 FROM DisabledAccessLogs
 ORDER BY LoggedAt DESC", connection))
                     {
@@ -7129,15 +7313,19 @@ ORDER BY LoggedAt DESC", connection))
                             {
                                 list.Add(new DisabledAccessLog
                                 {
-                                    Id        = reader.GetInt32(0),
-                                    EnrollId  = reader.GetInt32(1),
-                                    Name      = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                    DeviceId  = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
-                                    DeviceIP  = reader.IsDBNull(4) ? null : reader.GetString(4),
-                                    EventTime = reader.GetDateTime(5),
-                                    EventCode = reader.GetInt32(6),
-                                    Image     = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                    LoggedAt  = reader.GetDateTime(8)
+                                    Id         = reader.GetInt32(0),
+                                    EnrollId   = reader.GetInt32(1),
+                                    Name       = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    DeviceId   = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
+                                    DeviceIP   = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    EventTime  = reader.GetDateTime(5),
+                                    EventCode  = reader.GetInt32(6),
+                                    Image      = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                    LoggedAt   = reader.GetDateTime(8),
+                                    LogType    = reader.IsDBNull(9) ? "expired" : reader.GetString(9),
+                                    DeviceInfo = reader.IsDBNull(10) ? null : reader.GetString(10),
+                                    SyncStatus = !reader.IsDBNull(11) && reader.GetBoolean(11),
+                                    ClientId   = reader.IsDBNull(12) ? null : reader.GetString(12)
                                 });
                             }
                         }
@@ -7160,7 +7348,7 @@ ORDER BY LoggedAt DESC", connection))
                 {
                     connection.Open();
                     using (var cmd = new SqlCommand(@"
-SELECT Id, EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt
+SELECT Id, EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt, LogType, DeviceInfo, SyncStatus, ClientId
 FROM DisabledAccessLogs
 WHERE LoggedAt > @after
 ORDER BY LoggedAt DESC", connection))
@@ -7172,15 +7360,19 @@ ORDER BY LoggedAt DESC", connection))
                             {
                                 list.Add(new DisabledAccessLog
                                 {
-                                    Id        = reader.GetInt32(0),
-                                    EnrollId  = reader.GetInt32(1),
-                                    Name      = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                    DeviceId  = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
-                                    DeviceIP  = reader.IsDBNull(4) ? null : reader.GetString(4),
-                                    EventTime = reader.GetDateTime(5),
-                                    EventCode = reader.GetInt32(6),
-                                    Image     = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                    LoggedAt  = reader.GetDateTime(8)
+                                    Id         = reader.GetInt32(0),
+                                    EnrollId   = reader.GetInt32(1),
+                                    Name       = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    DeviceId   = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
+                                    DeviceIP   = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                    EventTime  = reader.GetDateTime(5),
+                                    EventCode  = reader.GetInt32(6),
+                                    Image      = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                    LoggedAt   = reader.GetDateTime(8),
+                                    LogType    = reader.IsDBNull(9) ? "expired" : reader.GetString(9),
+                                    DeviceInfo = reader.IsDBNull(10) ? null : reader.GetString(10),
+                                    SyncStatus = !reader.IsDBNull(11) && reader.GetBoolean(11),
+                                    ClientId   = reader.IsDBNull(12) ? null : reader.GetString(12)
                                 });
                             }
                         }
@@ -7194,7 +7386,7 @@ ORDER BY LoggedAt DESC", connection))
             return list;
         }
 
-        public void InsertDisabledAccessLog(int enrollId, string name, int deviceId, string deviceIp, DateTime eventTime, int eventCode = 104, string image = null)
+        public void InsertDisabledAccessLog(int enrollId, string name, int deviceId, string deviceIp, DateTime eventTime, int eventCode = 104, string image = null, string logType = "expired", string deviceInfo = null, string clientId = null)
         {
             try
             {
@@ -7202,8 +7394,8 @@ ORDER BY LoggedAt DESC", connection))
                 {
                     connection.Open();
                     using (var cmd = new SqlCommand(@"
-INSERT INTO DisabledAccessLogs (EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt)
-VALUES (@EnrollId, @Name, @DeviceId, @DeviceIP, @EventTime, @EventCode, @Image, GETUTCDATE())", connection))
+INSERT INTO DisabledAccessLogs (EnrollId, Name, DeviceId, DeviceIP, EventTime, EventCode, Image, LoggedAt, LogType, DeviceInfo, SyncStatus, ClientId)
+VALUES (@EnrollId, @Name, @DeviceId, @DeviceIP, @EventTime, @EventCode, @Image, GETUTCDATE(), @LogType, @DeviceInfo, 0, @ClientId)", connection))
                     {
                         cmd.Parameters.AddWithValue("@EnrollId", enrollId);
                         cmd.Parameters.AddWithValue("@Name", (object)name ?? DBNull.Value);
@@ -7212,6 +7404,9 @@ VALUES (@EnrollId, @Name, @DeviceId, @DeviceIP, @EventTime, @EventCode, @Image, 
                         cmd.Parameters.AddWithValue("@EventTime", eventTime);
                         cmd.Parameters.AddWithValue("@EventCode", eventCode);
                         cmd.Parameters.AddWithValue("@Image", (object)image ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@LogType", logType);
+                        cmd.Parameters.AddWithValue("@DeviceInfo", (object)deviceInfo ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@ClientId", (object)clientId ?? DBNull.Value);
                         cmd.ExecuteNonQuery();
                     }
                 }

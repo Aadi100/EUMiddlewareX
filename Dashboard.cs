@@ -131,6 +131,16 @@ namespace smart_attendance_middleware
                                 (debugSetting == "1" || debugSetting.Equals("true", StringComparison.OrdinalIgnoreCase));
             AppSession.IsDebugMode = isDebugEnabled;
 
+            // Load access-log save preferences (default on if not set)
+            string saveDisabledVal = _dbHelper.GetSetting("SaveDisabledLogs");
+            string saveUnknownVal  = _dbHelper.GetSetting("SaveUnknownLogs");
+            AppSession.SaveDisabledLogs = string.IsNullOrWhiteSpace(saveDisabledVal) || saveDisabledVal.Equals("true", StringComparison.OrdinalIgnoreCase);
+            AppSession.SaveUnknownLogs  = string.IsNullOrWhiteSpace(saveUnknownVal)  || saveUnknownVal.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+            string maxRetryVal = _dbHelper.GetSetting("MaxRetryAttempts");
+            if (int.TryParse(maxRetryVal, out int maxRetry) && maxRetry > 0)
+                AppSession.MaxRetryAttempts = maxRetry;
+
             if (isDebugEnabled)
             {
                 var logForm = new smart_attendance_middleware.UI.LogForm();
@@ -252,6 +262,30 @@ namespace smart_attendance_middleware
                 {
                     dash._disabledPopup.UpdateData(0, enrollmentId, "ACCESS DENIED", time, 5);
                     dash._disabledPopup.SetWarningMode(name, base64Image);
+                    dash._disabledPopup.ShowPopup();
+                }
+            }));
+        }
+
+        public static void GlobalShowUnknownPopup(DateTime time, string base64Image = null)
+        {
+            var dash = Application.OpenForms.OfType<Dashboard>().FirstOrDefault();
+            if (dash == null || dash.IsDisposed) return;
+
+            dash.BeginInvoke(new Action(() =>
+            {
+                if (dash._disabledPopup == null || dash._disabledPopup.IsDisposed)
+                {
+                    dash._disabledPopup = new FacePopupForm(0, 0, "UNKNOWN PERSON", time, 5, true);
+                    dash._disabledPopup.SetUnknownMode(base64Image);
+                    dash._disabledPopup.Show(dash);
+                    dash._disabledPopup.TopMost = true;
+                    dash._disabledPopup.BringToFront();
+                }
+                else
+                {
+                    dash._disabledPopup.UpdateData(0, 0, "UNKNOWN PERSON", time, 5);
+                    dash._disabledPopup.SetUnknownMode(base64Image);
                     dash._disabledPopup.ShowPopup();
                 }
             }));
@@ -1584,7 +1618,7 @@ namespace smart_attendance_middleware
                         var logEntry = _dbHelper.GetLatestLogForMember(member.EnrollmentID.Value);
                         if (logEntry == null) continue;
                         int attempts = (int?)logEntry.AttemptCount ?? 0;
-                        if (attempts > 0 && attempts < 5)
+                        if (attempts > 0 && attempts < AppSession.MaxRetryAttempts)
                         {
                             // At least one member is retryable — button should be enabled
                             anyRetryable = true;
@@ -1604,7 +1638,7 @@ namespace smart_attendance_middleware
                         var logEntry = _dbHelper.GetLatestStaffLogForEnrollment(staff.EnrollmentID.Value);
                         if (logEntry == null) continue;
                         int attempts = (int?)logEntry.AttemptCount ?? 0;
-                        if (attempts > 0 && attempts < 5)
+                        if (attempts > 0 && attempts < AppSession.MaxRetryAttempts)
                         {
                             anyRetryable = true;
                             break;
@@ -1614,19 +1648,19 @@ namespace smart_attendance_middleware
 
                 if (anyRetryable) return false;
 
-                // Only return true (block button) if we found nobody retryable but someone IS at 5+
+                // Only return true (block button) if we found nobody retryable but someone IS at max+
                 var membersHigh = members?.Any(m =>
                 {
                     if (m == null || !m.EnrollmentID.HasValue || m.EnrollmentID.Value <= 0) return false;
                     var log = _dbHelper.GetLatestLogForMember(m.EnrollmentID.Value);
-                    return log != null && (int?)log.AttemptCount >= 5;
+                    return log != null && (int?)log.AttemptCount >= AppSession.MaxRetryAttempts;
                 }) ?? false;
 
                 var staffsHigh = staffs?.Any(s =>
                 {
                     if (s == null || !s.EnrollmentID.HasValue || s.EnrollmentID.Value <= 0) return false;
                     var log = _dbHelper.GetLatestStaffLogForEnrollment(s.EnrollmentID.Value);
-                    return log != null && (int?)log.AttemptCount >= 5;
+                    return log != null && (int?)log.AttemptCount >= AppSession.MaxRetryAttempts;
                 }) ?? false;
 
                 return membersHigh || staffsHigh;

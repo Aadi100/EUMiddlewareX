@@ -85,13 +85,15 @@ namespace smart_attendance_middleware
             this.Shown += DeviceManager_Shown;
 
             LoadSetupPanelData();
+
+            if (string.Equals(AppSession.UserRole, "developer", StringComparison.OrdinalIgnoreCase))
+                BuildDeveloperSection();
         }
 
         private void cmbPendingDevice_SelectedIndexChanged(object sender, EventArgs e) => RefreshMemberPendingJobsList();
         private void cmbPendingFor_SelectedIndexChanged(object sender, EventArgs e) => RefreshMemberPendingJobsList();
         private void cmbStaffPendingDevice_SelectedIndexChanged(object sender, EventArgs e) => RefreshStaffPendingJobsList();
         private void cmbStaffPendingFor_SelectedIndexChanged(object sender, EventArgs e) => RefreshStaffPendingJobsList();
-        private void cmbDoorVisitor_SelectedIndexChanged(object sender, EventArgs e) => LoadFilteredManualDoorLogs();
         private void cmbStaffStatus_SelectedIndexChanged(object sender, EventArgs e) => LoadStaffsIntoListView(rtb_staff?.Text?.Trim());
         private void cmbStaffSync_SelectedIndexChanged(object sender, EventArgs e) => LoadStaffsIntoListView(rtb_staff?.Text?.Trim());
         private void chkStaffFailure_CheckedChanged(object sender, EventArgs e) => LoadStaffsIntoListView(rtb_staff?.Text?.Trim());
@@ -208,55 +210,677 @@ namespace smart_attendance_middleware
             }
             catch { chk_requireGateEntryForm.Checked = true; chk_requireGatePassword.Checked = true; }
 
-            // Add "Enable Open Door button" toggle — developer mode only
-            bool isDeveloper = string.Equals(AppSession.UserRole, "developer", StringComparison.OrdinalIgnoreCase);
-            if (chk_openDoorEnabled == null && isDeveloper)
-            {
-                var lblODLabel = new Label
-                {
-                    Text      = "Enable Open Door button",
-                    Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(17, 24, 39),
-                    BackColor = Color.White,
-                    AutoSize  = true,
-                    Location  = new Point(68, 162)
-                };
-                var lblODDesc = new Label
-                {
-                    Text      = "Show the Open Door button on each device card.",
-                    Font      = new Font("Segoe UI", 7.5f),
-                    ForeColor = Color.FromArgb(107, 114, 128),
-                    BackColor = Color.White,
-                    AutoSize  = true,
-                    Location  = new Point(68, 181)
-                };
-                chk_openDoorEnabled = new Controls.ToggleSwitch
-                {
-                    Location = new Point(16, 165),
-                    Size     = new Size(44, 24),
-                    Cursor   = Cursors.Hand,
-                    OnColor  = Color.FromArgb(59, 130, 246),
-                    OffColor = Color.FromArgb(200, 204, 216)
-                };
-
-                card_gate.Controls.Add(lblODLabel);
-                card_gate.Controls.Add(lblODDesc);
-                card_gate.Controls.Add(chk_openDoorEnabled);
-
-                // Shift save button down and grow card to fit
-                rb_btn_gate_save.Location = new Point(rb_btn_gate_save.Left, 236);
-                card_gate.Height = 286;
-                ApplyCardRoundedRegions();
-            }
-
             string odSettingVal = _dbHelper.GetSetting(OpenDoorEnabledSettingKey);
             bool openDoorEnabled = string.IsNullOrWhiteSpace(odSettingVal) || odSettingVal.Equals("true", StringComparison.OrdinalIgnoreCase);
 
-            if (chk_openDoorEnabled != null)
-                chk_openDoorEnabled.Checked = openDoorEnabled;
+            card_gate.Visible = openDoorEnabled;
 
-            // Developer always sees card_gate; admin/user only see it when Open Door is enabled
-            card_gate.Visible = openDoorEnabled || isDeveloper;
+            BuildRetryJobsSection();
+
+            // Sync spinbox with current session value each time Setup panel opens
+            if (_numMaxAttempts != null)
+                _numMaxAttempts.Value = Math.Max(_numMaxAttempts.Minimum,
+                    Math.Min(_numMaxAttempts.Maximum, AppSession.MaxRetryAttempts));
+
+            RefreshDisabledLogsTabVisibility();
+        }
+
+        private NumericUpDown _numMaxAttempts;
+        private bool _retryJobsSectionBuilt;
+
+        private void BuildRetryJobsSection()
+        {
+            if (_retryJobsSectionBuilt) return;
+            _retryJobsSectionBuilt = true;
+
+            pnl_setup.AutoScroll = true;
+
+            int sepY = 240; // below original card_maint content
+            int innerW = 257; // matches separator width used by existing items
+
+            // ── Separator ──
+            card_maint.Controls.Add(new Panel
+            {
+                Location  = new Point(16, sepY),
+                Size      = new Size(innerW, 1),
+                BackColor = Color.FromArgb(229, 231, 235)
+            });
+
+            // ── Section header ──
+            card_maint.Controls.Add(new Label
+            {
+                Text      = "RETRY JOBS",
+                Font      = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(130, 138, 165),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(16, sepY + 8)
+            });
+
+            // ── Max attempts ──
+            card_maint.Controls.Add(new Label
+            {
+                Text      = "Max retry attempts",
+                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(16, sepY + 26)
+            });
+            card_maint.Controls.Add(new Label
+            {
+                Text      = "Jobs with count ≥ this value are skipped.",
+                Font      = new Font("Segoe UI", 7.5f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(16, sepY + 44)
+            });
+
+            // Input row — spinbox fills left, Save sits at right edge (matching full content width)
+            int saveW   = 65;
+            int gap     = 8;
+            int spinW   = innerW - saveW - gap; // 184
+            int rowY    = sepY + 64;
+
+            _numMaxAttempts = new NumericUpDown
+            {
+                Minimum  = 1,
+                Maximum  = 100,
+                Value    = AppSession.MaxRetryAttempts,
+                Font     = new Font("Segoe UI", 9f),
+                Location = new Point(16, rowY),
+                Size     = new Size(spinW, 26)
+            };
+            card_maint.Controls.Add(_numMaxAttempts);
+
+            var btnSaveMax = new Controls.RoundedButton
+            {
+                Text         = "Save",
+                Font         = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor    = Color.White,
+                NormalColor  = Color.FromArgb(59, 130, 246),
+                HoverColor   = Color.FromArgb(37, 99, 235),
+                PressedColor = Color.FromArgb(29, 78, 216),
+                BorderColor  = Color.Transparent,
+                Radius       = 8,
+                Size         = new Size(saveW, 26),
+                Location     = new Point(16 + spinW + gap, rowY),
+                Cursor       = Cursors.Hand
+            };
+            btnSaveMax.Click += (s, e) =>
+            {
+                int val = (int)_numMaxAttempts.Value;
+                AppSession.MaxRetryAttempts = val;
+                _dbHelper.SaveSetting("MaxRetryAttempts", val.ToString());
+                ModernMessageBox.Show(this, "Saved", $"Max retry attempts set to {val}.", MsgType.Success);
+            };
+            card_maint.Controls.Add(btnSaveMax);
+
+            // ── Separator 2 ──
+            card_maint.Controls.Add(new Panel
+            {
+                Location  = new Point(16, rowY + 34),
+                Size      = new Size(innerW, 1),
+                BackColor = Color.FromArgb(229, 231, 235)
+            });
+
+            // ── Reset attempts ──
+            card_maint.Controls.Add(new Label
+            {
+                Text      = "Reset attempt counts",
+                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(16, rowY + 44)
+            });
+            card_maint.Controls.Add(new Label
+            {
+                Text      = "Set all job attempt counts back to 0.",
+                Font      = new Font("Segoe UI", 7.5f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(16, rowY + 62)
+            });
+
+            var btnReset = new Controls.RoundedButton
+            {
+                Text         = "Reset All Attempts",
+                Font         = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor    = Color.White,
+                NormalColor  = Color.FromArgb(239, 68, 68),
+                HoverColor   = Color.FromArgb(220, 38, 38),
+                PressedColor = Color.FromArgb(185, 28, 28),
+                BorderColor  = Color.Transparent,
+                Radius       = 8,
+                Size         = new Size(innerW, 28),  // full content width
+                Location     = new Point(16, rowY + 82),
+                Cursor       = Cursors.Hand
+            };
+            btnReset.Click += (s, e) =>
+            {
+                try
+                {
+                    _dbHelper.ResetAllAttemptCounts();
+                    ModernMessageBox.Show(this, "Done", "All retry attempt counts have been reset to 0.", MsgType.Success);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log("[Setup][ResetAttempts][ERROR] " + ex.Message);
+                    ModernMessageBox.Show(this, "Error", "Failed to reset attempt counts.", MsgType.Error);
+                }
+            };
+            card_maint.Controls.Add(btnReset);
+
+            int newMaintHeight = rowY + 82 + 28 + 14;
+            card_maint.Height = newMaintHeight;
+            ApplyRoundedRegionToCard(card_maint);
+
+            card_gate.Location = new Point(card_gate.Left, card_maint.Bottom + 12);
+            pnl_setup.AutoScrollMinSize = new Size(0, card_gate.Bottom + 20);
+        }
+
+        private Controls.ToggleSwitch _toggleSaveDisabled;
+        private Controls.ToggleSwitch _toggleSaveUnknown;
+        private Label _btnDeveloper;
+        private Panel _pnlDeveloper;
+        private Controls.RoundedTextBox _txtDevMember;
+        private Member _selectedDevMember;
+        private Controls.RoundedButton _btnDevEnable;
+        private Controls.RoundedButton _btnDevDisable;
+        private List<Member> _devMemberList;
+
+
+        private void RefreshDisabledLogsTabVisibility()
+        {
+            bool show = AppSession.SaveDisabledLogs || AppSession.SaveUnknownLogs;
+            if (tab_attendence.TabPages.Contains(tab_disabledLogs) && !show)
+                tab_attendence.TabPages.Remove(tab_disabledLogs);
+            else if (!tab_attendence.TabPages.Contains(tab_disabledLogs) && show)
+                tab_attendence.TabPages.Add(tab_disabledLogs);
+        }
+
+        private void BuildDeveloperSection()
+        {
+            if (_pnlDeveloper != null) return;
+
+            // ── Top nav button — compress existing 5 nav buttons from 176px to 146px
+            //    freeing 150px at the end for the developer tab.
+            int narrowW = 146;
+            Label[] existingNav = { nav_device, nav_user, nav_staff, nav_member, nav_setup };
+            for (int i = 0; i < existingNav.Length; i++)
+            {
+                existingNav[i].Width    = narrowW;
+                existingNav[i].Location = new Point(i * narrowW, 0);
+            }
+            int devNavX = existingNav.Length * narrowW;         // 5 × 146 = 730
+            int devNavW = pnl_topnav.Width - devNavX;           // 881 − 730 = 151
+
+            _btnDeveloper = new Label
+            {
+                Text      = "⚙ Developer",
+                Font      = new Font("Microsoft Sans Serif", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(250, 204, 21),
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Size      = new Size(devNavW, 46),
+                Location  = new Point(devNavX, 0),
+                Cursor    = Cursors.Hand
+            };
+            _btnDeveloper.Click      += (s, e) => ShowDeveloperPanel();
+            _btnDeveloper.MouseEnter += NavBtn_MouseEnter;
+            _btnDeveloper.MouseLeave += NavBtn_MouseLeave;
+            pnl_topnav.Controls.Add(_btnDeveloper);
+
+            // ── Developer panel ──
+            _pnlDeveloper = new Panel
+            {
+                BackColor = Color.FromArgb(243, 244, 246),
+                Size      = new Size(881, 724),
+                Location  = new Point(5000, 0),
+                Visible   = false
+            };
+            this.Controls.Add(_pnlDeveloper);
+            // Keep header and topnav above the dynamically added panel
+            pnl_welcome_header.BringToFront();
+            pnl_topnav.BringToFront();
+
+            // ── Card: Gate Settings ──
+            var cardGateDev = new Panel
+            {
+                BackColor = Color.White,
+                Location  = new Point(20, 168),
+                Size      = new Size(289, 150)
+            };
+            cardGateDev.Paint += card_Paint;
+            _pnlDeveloper.Controls.Add(cardGateDev);
+
+            cardGateDev.Controls.Add(new Label
+            {
+                Text      = "Gate Settings",
+                Font      = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                AutoSize  = true,
+                Location  = new Point(16, 14)
+            });
+            cardGateDev.Controls.Add(new Label
+            {
+                Text      = "Developer gate controls",
+                Font      = new Font("Segoe UI", 8f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                AutoSize  = true,
+                Location  = new Point(16, 36)
+            });
+
+            chk_openDoorEnabled = new Controls.ToggleSwitch
+            {
+                Location = new Point(16, 72),
+                Size     = new Size(44, 24),
+                Cursor   = Cursors.Hand,
+                OnColor  = Color.FromArgb(59, 130, 246),
+                OffColor = Color.FromArgb(200, 204, 216)
+            };
+            cardGateDev.Controls.Add(chk_openDoorEnabled);
+            cardGateDev.Controls.Add(new Label
+            {
+                Text      = "Enable Open Door button",
+                Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(68, 70)
+            });
+            cardGateDev.Controls.Add(new Label
+            {
+                Text      = "Show the Open Door button on each device card.",
+                Font      = new Font("Segoe UI", 7.5f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(68, 88)
+            });
+
+            var btnSaveGate = new Controls.RoundedButton
+            {
+                Text         = "Save",
+                Font         = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor    = Color.White,
+                NormalColor  = Color.FromArgb(59, 130, 246),
+                HoverColor   = Color.FromArgb(37, 99, 235),
+                PressedColor = Color.FromArgb(29, 78, 216),
+                BorderColor  = Color.Transparent,
+                Radius       = 8,
+                Size         = new Size(80, 30),
+                Location     = new Point(16, 108),
+                Cursor       = Cursors.Hand
+            };
+            btnSaveGate.Click += (s, e) =>
+            {
+                try
+                {
+                    _dbHelper.SaveSetting(OpenDoorEnabledSettingKey, chk_openDoorEnabled.Checked ? "true" : "false");
+                    // Refresh Setup panel card_gate visibility
+                    bool od = chk_openDoorEnabled.Checked;
+                    card_gate.Visible = od;
+                    ModernMessageBox.Show(this, "Saved", "Gate settings saved.", MsgType.Success);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log("[Dev][Gate][ERROR] " + ex.Message);
+                    ModernMessageBox.Show(this, "Error", "Failed to save gate settings.", MsgType.Error);
+                }
+            };
+            cardGateDev.Controls.Add(btnSaveGate);
+
+            // Apply rounded region
+            ApplyRoundedRegionToCard(cardGateDev);
+
+            // ── Card: Access Logs ──
+            var cardLogsDev = new Panel
+            {
+                BackColor = Color.White,
+                Location  = new Point(320, 168),
+                Size      = new Size(289, 206)
+            };
+            cardLogsDev.Paint += card_Paint;
+            _pnlDeveloper.Controls.Add(cardLogsDev);
+
+            cardLogsDev.Controls.Add(new Label
+            {
+                Text      = "Access Logs",
+                Font      = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                AutoSize  = true,
+                Location  = new Point(16, 14)
+            });
+            cardLogsDev.Controls.Add(new Label
+            {
+                Text      = "Control what scan events are logged",
+                Font      = new Font("Segoe UI", 8f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                AutoSize  = true,
+                Location  = new Point(16, 36)
+            });
+
+            _toggleSaveDisabled = new Controls.ToggleSwitch
+            {
+                Location = new Point(16, 68),
+                Size     = new Size(44, 24),
+                Cursor   = Cursors.Hand,
+                OnColor  = Color.FromArgb(59, 130, 246),
+                OffColor = Color.FromArgb(200, 204, 216)
+            };
+            cardLogsDev.Controls.Add(_toggleSaveDisabled);
+            cardLogsDev.Controls.Add(new Label
+            {
+                Text      = "Save disabled / expired scans",
+                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(68, 65)
+            });
+            cardLogsDev.Controls.Add(new Label
+            {
+                Text      = "Log event 104 (access denied) records.",
+                Font      = new Font("Segoe UI", 7.5f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(68, 83)
+            });
+
+            _toggleSaveUnknown = new Controls.ToggleSwitch
+            {
+                Location = new Point(16, 112),
+                Size     = new Size(44, 24),
+                Cursor   = Cursors.Hand,
+                OnColor  = Color.FromArgb(59, 130, 246),
+                OffColor = Color.FromArgb(200, 204, 216)
+            };
+            cardLogsDev.Controls.Add(_toggleSaveUnknown);
+            cardLogsDev.Controls.Add(new Label
+            {
+                Text      = "Save unknown person scans",
+                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(68, 109)
+            });
+            cardLogsDev.Controls.Add(new Label
+            {
+                Text      = "Log enrollid 99999999 (unrecognised face).",
+                Font      = new Font("Segoe UI", 7.5f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(68, 127)
+            });
+
+            var btnSaveLogs = new Controls.RoundedButton
+            {
+                Text         = "Save",
+                Font         = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor    = Color.White,
+                NormalColor  = Color.FromArgb(59, 130, 246),
+                HoverColor   = Color.FromArgb(37, 99, 235),
+                PressedColor = Color.FromArgb(29, 78, 216),
+                BorderColor  = Color.Transparent,
+                Radius       = 8,
+                Size         = new Size(80, 30),
+                Location     = new Point(16, 162),
+                Cursor       = Cursors.Hand
+            };
+            btnSaveLogs.Click += (s, e) =>
+            {
+                AppSession.SaveDisabledLogs = _toggleSaveDisabled.Checked;
+                AppSession.SaveUnknownLogs  = _toggleSaveUnknown.Checked;
+                _dbHelper.SaveSetting("SaveDisabledLogs", _toggleSaveDisabled.Checked ? "true" : "false");
+                _dbHelper.SaveSetting("SaveUnknownLogs",  _toggleSaveUnknown.Checked  ? "true" : "false");
+                RefreshDisabledLogsTabVisibility();
+                ModernMessageBox.Show(this, "Saved", "Access log settings saved.", MsgType.Success);
+            };
+            cardLogsDev.Controls.Add(btnSaveLogs);
+
+            ApplyRoundedRegionToCard(cardLogsDev);
+
+            // ── Card: Members ──
+            var cardMembers = new Panel
+            {
+                BackColor = Color.White,
+                Location  = new Point(20, 386),
+                Size      = new Size(589, 170),
+                // Let controls overflow so the floating listbox is visible
+                AutoScroll  = false
+            };
+            cardMembers.Paint += card_Paint;
+            _pnlDeveloper.Controls.Add(cardMembers);
+
+            cardMembers.Controls.Add(new Label
+            {
+                Text      = "Members",
+                Font      = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                AutoSize  = true,
+                Location  = new Point(16, 14)
+            });
+            cardMembers.Controls.Add(new Label
+            {
+                Text      = "Search a member and enable or disable their account.",
+                Font      = new Font("Segoe UI", 8f),
+                ForeColor = Color.FromArgb(107, 114, 128),
+                AutoSize  = true,
+                Location  = new Point(16, 36)
+            });
+
+            // Search dropdown
+            cardMembers.Controls.Add(new Label
+            {
+                Text      = "Search member",
+                Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(17, 24, 39),
+                BackColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(16, 64)
+            });
+
+            _txtDevMember = new Controls.RoundedTextBox
+            {
+                BackColor        = Color.Transparent,
+                BorderColor      = Color.FromArgb(209, 213, 219),
+                FocusBorderColor = Color.FromArgb(59, 130, 246),
+                Placeholder      = "Type to search...",
+                Radius           = 8,
+                Font             = new Font("Segoe UI", 9f),
+                Location         = new Point(16, 84),
+                Size             = new Size(360, 36),
+                AutoCompleteMode   = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.CustomSource
+            };
+            _txtDevMember.TextChanged += DevMemberSearch_TextChanged;
+            cardMembers.Controls.Add(_txtDevMember);
+
+            // Enable button — always clickable
+            _btnDevEnable = new Controls.RoundedButton
+            {
+                Text         = "Enable",
+                Font         = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor    = Color.White,
+                NormalColor  = Color.FromArgb(5, 150, 105),
+                HoverColor   = Color.FromArgb(4, 120, 87),
+                PressedColor = Color.FromArgb(3, 100, 75),
+                BorderColor  = Color.Transparent,
+                Radius       = 8,
+                Size         = new Size(90, 36),
+                Location     = new Point(386, 84),
+                Cursor       = Cursors.Hand
+            };
+            _btnDevEnable.Click += (s, e) => ApplyDevMemberStatus("active");
+            cardMembers.Controls.Add(_btnDevEnable);
+
+            // Disable button — always clickable
+            _btnDevDisable = new Controls.RoundedButton
+            {
+                Text         = "Disable",
+                Font         = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor    = Color.White,
+                NormalColor  = Color.FromArgb(239, 68, 68),
+                HoverColor   = Color.FromArgb(220, 38, 38),
+                PressedColor = Color.FromArgb(185, 28, 28),
+                BorderColor  = Color.Transparent,
+                Radius       = 8,
+                Size         = new Size(90, 36),
+                Location     = new Point(484, 84),
+                Cursor       = Cursors.Hand
+            };
+            _btnDevDisable.Click += (s, e) => ApplyDevMemberStatus("disabled");
+            cardMembers.Controls.Add(_btnDevDisable);
+
+            ApplyRoundedRegionToCard(cardMembers);
+
+            // Load initial values
+            LoadDeveloperPanelData();
+        }
+
+        private void LoadDevMemberList()
+        {
+            try
+            {
+                _devMemberList     = _dbHelper.GetMembers() ?? new List<Member>();
+                _selectedDevMember = null;
+                if (_txtDevMember == null) return;
+                _txtDevMember.Text = "";
+                var col = new AutoCompleteStringCollection();
+                foreach (var m in _devMemberList)
+                    if (!string.IsNullOrWhiteSpace(m.Name)) col.Add(m.Name);
+                _txtDevMember.AutoCompleteCustomSource = col;
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log("[DevPanel][LoadDevMemberList] " + ex.Message);
+            }
+        }
+
+        private void DevMemberSearch_TextChanged(object sender, EventArgs e)
+        {
+            if (_devMemberList == null) return;
+            string text = _txtDevMember.Text?.Trim() ?? "";
+            _selectedDevMember = _devMemberList.FirstOrDefault(m =>
+                string.Equals(m.Name, text, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private Member GetSelectedDevMember()
+        {
+            // Re-resolve on demand in case user typed a full name without selecting from list
+            if (_selectedDevMember == null && _devMemberList != null && _txtDevMember != null)
+            {
+                string text = _txtDevMember.Text?.Trim() ?? "";
+                _selectedDevMember = _devMemberList.FirstOrDefault(m =>
+                    string.Equals(m.Name, text, StringComparison.OrdinalIgnoreCase));
+            }
+            return _selectedDevMember;
+        }
+
+        private async void ApplyDevMemberStatus(string newStatus)
+        {
+            var m = GetSelectedDevMember();
+            if (m == null)
+            {
+                ModernMessageBox.Show(this, "No member", "Select a member first.", MsgType.Warning);
+                return;
+            }
+            if (!m.EnrollmentID.HasValue)
+            {
+                ModernMessageBox.Show(this, "No Enrollment", $"{m.Name} has no enrollment ID — cannot send device command.", MsgType.Warning);
+                return;
+            }
+
+            // Gather all devices (normal + staff)
+            var allDevices = new List<Device>();
+            if (AppSession.DeviceList != null) allDevices.AddRange(AppSession.DeviceList);
+            if (AppSession.StaffDeviceList != null) allDevices.AddRange(AppSession.StaffDeviceList);
+
+            if (allDevices.Count == 0)
+            {
+                ModernMessageBox.Show(this, "No Devices", "No devices are connected.", MsgType.Info);
+                return;
+            }
+
+            // Show device selection dialog (same one used in Enroll flow)
+            string action = newStatus == "active" ? "Enable" : "Disable";
+            List<Device> selected = ShowDeviceSelectionDialog(allDevices, $"Select Devices to {action} — {m.Name}");
+            if (selected == null || selected.Count == 0) return;
+
+            int enflag = newStatus == "active" ? 1 : 0;
+
+            try
+            {
+                int sent = 0, failed = 0;
+                foreach (var device in selected)
+                {
+                    string sn = device.DeviceSerial ?? CommonUtils.GetDeviceSnByIp(device.DeviceIP);
+                    if (string.IsNullOrEmpty(sn)) { failed++; continue; }
+
+                    bool ok = await WebsocketServer.ExecuteServiceCommand(
+                        sn, "enableuser",
+                        Newtonsoft.Json.JsonConvert.SerializeObject(new { enrollid = m.EnrollmentID.Value, name = m.Name, enflag = enflag }));
+
+                    if (ok) sent++; else failed++;
+                }
+
+                ModernMessageBox.Show(this, "Done",
+                    $"Command sent to {sent} device(s){(failed > 0 ? $", {failed} failed" : "")}.",
+                    MsgType.Success);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(this, "Error", $"Failed: {ex.Message}", MsgType.Error);
+            }
+        }
+
+        private static void ApplyRoundedRegionToCard(Panel card)
+        {
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            int r = 10, d = r * 2;
+            path.AddArc(0, 0, d, d, 180, 90);
+            path.AddArc(card.Width - d, 0, d, d, 270, 90);
+            path.AddArc(card.Width - d, card.Height - d, d, d, 0, 90);
+            path.AddArc(0, card.Height - d, d, d, 90, 90);
+            path.CloseFigure();
+            card.Region = new Region(path);
+        }
+
+        private void LoadDeveloperPanelData()
+        {
+            string odSettingVal = _dbHelper.GetSetting(OpenDoorEnabledSettingKey);
+            bool openDoorEnabled = string.IsNullOrWhiteSpace(odSettingVal) || odSettingVal.Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (chk_openDoorEnabled != null) chk_openDoorEnabled.Checked = openDoorEnabled;
+
+            string disabledVal = _dbHelper.GetSetting("SaveDisabledLogs");
+            string unknownVal  = _dbHelper.GetSetting("SaveUnknownLogs");
+            AppSession.SaveDisabledLogs = string.IsNullOrWhiteSpace(disabledVal) || disabledVal.Equals("true", StringComparison.OrdinalIgnoreCase);
+            AppSession.SaveUnknownLogs  = string.IsNullOrWhiteSpace(unknownVal)  || unknownVal.Equals("true",  StringComparison.OrdinalIgnoreCase);
+            if (_toggleSaveDisabled != null) _toggleSaveDisabled.Checked = AppSession.SaveDisabledLogs;
+            if (_toggleSaveUnknown  != null) _toggleSaveUnknown.Checked  = AppSession.SaveUnknownLogs;
+        }
+
+        private void ShowDeveloperPanel()
+        {
+            if (_pnlDeveloper == null) return;
+            HideAllPanels();
+            SetHeader("Developer Settings", "Advanced controls visible only in developer mode.");
+            pnl_topnav.Visible = true;
+            pnl_topnav.BringToFront();
+            pnl_welcome_header.BringToFront();
+            SetActiveButton(null);
+            SetActiveNavButton(_btnDeveloper);
+            LoadDeveloperPanelData();
+            LoadDevMemberList();
+            _pnlDeveloper.Location = new Point(0, 0);
+            _pnlDeveloper.Visible  = true;
         }
 
         // rtb_* fields now declared in Designer.cs
@@ -466,6 +1090,7 @@ namespace smart_attendance_middleware
 
                 SetupDeviceList(); // creates columns and sample rows
                 LoadSetupPanelData();
+                ApplyRoleVisibility();
 
                 // Show welcome screen — no panel selected on open
                 HideAllPanels();
@@ -570,36 +1195,48 @@ namespace smart_attendance_middleware
             lbl_disabledLogsCount.Text = $"{logs.Count} entries";
 
             clv_disabledLogs.SetColumns(
-                new[] { "NAME", "DEVICE IP", "EVENT TIME", "ACTION" },
-                new[] { 50, 290, 430, 700 });
+                new[] { "NAME", "DEVICE", "TYPE", "EVENT TIME", "SYNC", "ACTION" },
+                new[] { 50, 290, 420, 505, 660, 730 });
 
-            var navy  = Color.FromArgb(30, 38, 90);
-            var muted = Color.FromArgb(130, 138, 165);
-            var red   = Color.FromArgb(185, 28, 28);
+            var navy   = Color.FromArgb(30, 38, 90);
+            var muted  = Color.FromArgb(130, 138, 165);
+            var red    = Color.FromArgb(185, 28, 28);
             var accent = Color.FromArgb(59, 130, 246);
+            var green  = Color.FromArgb(5, 150, 105);
+            var orange = Color.FromArgb(217, 119, 6);
 
             clv_disabledLogs.SetRowFactory(logs.Count, idx =>
             {
                 var l = logs[idx];
                 var captured = l;
-                string initial = !string.IsNullOrWhiteSpace(l.Name) ? l.Name.Substring(0, 1).ToUpperInvariant() : "?";
+                string initial     = !string.IsNullOrWhiteSpace(l.Name) ? l.Name.Substring(0, 1).ToUpperInvariant() : "?";
+                string deviceLabel = !string.IsNullOrWhiteSpace(l.DeviceInfo) ? l.DeviceInfo
+                                   : !string.IsNullOrWhiteSpace(l.DeviceIP)   ? l.DeviceIP : "—";
+                string typeLabel   = string.Equals(l.LogType, "stranger", StringComparison.OrdinalIgnoreCase) ? "Stranger" : "Expired";
+                var    typeColor   = string.Equals(l.LogType, "stranger", StringComparison.OrdinalIgnoreCase) ? orange : red;
+                string syncLabel   = l.SyncStatus ? "Synced" : "Pending";
+                var    syncColor   = l.SyncStatus ? green : muted;
 
                 return new CLV.CardBuilder()
                     .Avatar(initial, red, 8, 8, 36)
-                    .Text(string.IsNullOrWhiteSpace(l.Name) ? "—" : l.Name,        50, 6,  235, 18, CLV.F9Bold, red)
-                    .Text($"Enroll: {l.EnrollId}",                                  50, 26, 235, 14, CLV.F8,     muted)
-                    .Text(string.IsNullOrWhiteSpace(l.DeviceIP) ? "—" : l.DeviceIP, 290, 17, 135, 18, CLV.F9, muted)
-                    .Text(l.EventTime.ToString("yyyy-MM-dd HH:mm:ss"),              430, 17, 260, 18, CLV.F9,     navy)
-                    .Button("View", accent, Color.White, 700, 14, 60, 26, () => ShowDisabledLogDetail(captured))
-                    .Build(780, 52);
+                    .Text(string.IsNullOrWhiteSpace(l.Name) ? "—" : l.Name, 50, 6,  235, 18, CLV.F9Bold, red)
+                    .Text($"Enroll: {l.EnrollId}",                           50, 26, 235, 14, CLV.F8,     muted)
+                    .Text(deviceLabel,                                        290, 17, 125, 18, CLV.F9,    muted)
+                    .Text(typeLabel,                                          420, 17,  80, 18, CLV.F9,    typeColor)
+                    .Text(l.EventTime.ToString("yyyy-MM-dd HH:mm:ss"),        505, 17, 150, 18, CLV.F9,    navy)
+                    .Text(syncLabel,                                           660, 17,  65, 18, CLV.F9,    syncColor)
+                    .Button("View", accent, Color.White, 730, 14, 55, 26, () => ShowDisabledLogDetail(captured))
+                    .Build(800, 52);
             });
         }
 
         private void ShowDisabledLogDetail(DisabledAccessLog log)
         {
+            bool isUnknown = string.Equals(log.LogType, "stranger", StringComparison.OrdinalIgnoreCase);
+
             var dlg = new Form
             {
-                Text = "Disabled Access — Detail",
+                Text = isUnknown ? "Unknown Person — Detail" : "Disabled Access — Detail",
                 Size = new Size(420, 520),
                 StartPosition = FormStartPosition.CenterParent,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
@@ -611,7 +1248,7 @@ namespace smart_attendance_middleware
             var pnlTop = new Panel { Dock = DockStyle.Top, Height = 58, BackColor = Color.FromArgb(26, 32, 64) };
             pnlTop.Controls.Add(new Label
             {
-                Text = "⚠ Disabled / Expired Access",
+                Text = isUnknown ? "⚠ Unknown Person" : "⚠ Disabled / Expired Access",
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),
                 ForeColor = Color.White,
                 AutoSize = true,
@@ -619,7 +1256,7 @@ namespace smart_attendance_middleware
             });
             pnlTop.Controls.Add(new Label
             {
-                Text = $"Log ID #{log.Id} · Event Code {log.EventCode}",
+                Text = isUnknown ? $"Log ID #{log.Id} · Face not recognised" : $"Log ID #{log.Id} · Event Code {log.EventCode}",
                 Font = new Font("Segoe UI", 8.5f),
                 ForeColor = Color.FromArgb(150, 165, 215),
                 AutoSize = true,
@@ -650,7 +1287,7 @@ namespace smart_attendance_middleware
                 dlg.Controls.Add(new Label { Text = value, Font = new Font("Segoe UI", 9f), ForeColor = Color.FromArgb(30, 38, 90), Location = new Point(150, y + 18), Size = new Size(240, 18), AutoSize = false });
             };
 
-            addRow("Name",       string.IsNullOrWhiteSpace(log.Name) ? "—" : log.Name,                      74);
+            addRow("Name",       isUnknown ? "Unknown" : (string.IsNullOrWhiteSpace(log.Name) ? "—" : log.Name), 74);
             addRow("Enroll ID",  log.EnrollId.ToString(),                                                    116);
             addRow("Device IP",  string.IsNullOrWhiteSpace(log.DeviceIP) ? "—" : log.DeviceIP,              158);
             addRow("Event Time", log.EventTime.ToString("yyyy-MM-dd HH:mm:ss"),                              200);
@@ -678,7 +1315,6 @@ namespace smart_attendance_middleware
         // ── Filter event handlers ───────────────────────────────────────────
         private void chkDeviceIsStaff_CheckedChanged(object sender, EventArgs e) { SetupDeviceList(); }
         private void cmbUserRole_SelectedIndexChanged(object sender, EventArgs e) { LoadLocalUserData(); }
-        private void cmbMemberSync_SelectedIndexChanged(object sender, EventArgs e) { LoadMembersIntoListView(rtb_memb_name?.Text?.Trim()); }
         private void chkMemberFailure_CheckedChanged(object sender, EventArgs e) { LoadMembersIntoListView(rtb_memb_name?.Text?.Trim()); }
 
         // ── Setup save handlers ─────────────────────────────────────────────
@@ -706,8 +1342,7 @@ namespace smart_attendance_middleware
             {
                 _dbHelper.SaveSetting(RequireGateEntryFormSettingKey, chk_requireGateEntryForm.Checked ? "true" : "false");
                 _dbHelper.SaveSetting(RequireGatePasswordSettingKey,  chk_requireGatePassword.Checked  ? "true" : "false");
-                _dbHelper.SaveSetting(OpenDoorEnabledSettingKey,      chk_openDoorEnabled?.Checked == true ? "true" : "false");
-                LogHelper.Log($"[Setup][Gate] Saved: EntryForm={chk_requireGateEntryForm.Checked}, Password={chk_requireGatePassword.Checked}, OpenDoor={chk_openDoorEnabled?.Checked}");
+                LogHelper.Log($"[Setup][Gate] Saved: EntryForm={chk_requireGateEntryForm.Checked}, Password={chk_requireGatePassword.Checked}");
                 ModernMessageBox.Show(this, "Success", "Gate access settings saved.", MsgType.Success);
             }
             catch (Exception ex)
@@ -827,6 +1462,7 @@ namespace smart_attendance_middleware
             pnl_setup.Visible           = false;
             pnl_welcome.Visible         = false;
             pnl_topnav.Visible          = false;
+            if (_pnlDeveloper != null) _pnlDeveloper.Visible = false;
         }
 
         private void SetActiveButton(Label active)
@@ -886,9 +1522,24 @@ namespace smart_attendance_middleware
         }
 
         //////////////////////////////////SIDE BUTTONS///////////////////////////////
+        private bool IsAdminOrDeveloper() =>
+            string.Equals(AppSession.UserRole, "admin",     StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(AppSession.UserRole, "developer", StringComparison.OrdinalIgnoreCase);
+
+        private void ApplyRoleVisibility()
+        {
+            bool adminOrDev = IsAdminOrDeveloper();
+            // Tiles are always visible — clicking blocked ones shows Access Denied
+            // top-nav buttons hidden for user role (they can't navigate there anyway)
+            nav_device.Visible = adminOrDev;
+            nav_user.Visible   = adminOrDev;
+            nav_staff.Visible  = adminOrDev;
+            nav_setup.Visible  = adminOrDev;
+        }
+
         private void btn_device_management_Click(object sender, EventArgs e)
         {
-            if (AppSession.UserRole == "user")
+            if (!IsAdminOrDeveloper())
             {
                 ModernMessageBox.Show(this, "Access Denied", "Access denied. Only admin or developer can open Device Management.", MsgType.Warning);
                 return;
@@ -910,6 +1561,11 @@ namespace smart_attendance_middleware
 
         private void btn_userManagement_Click(object sender, EventArgs e)
         {
+            if (!IsAdminOrDeveloper())
+            {
+                ModernMessageBox.Show(this, "Access Denied", "Access denied. Only admin or developer can open User Management.", MsgType.Warning);
+                return;
+            }
             if (pnl_UserManagement.Visible && pnl_UserManagement.Location == Point.Empty) return;
             HideAllPanels();
             SetHeader("User Management", "Manage system users and their permissions.");
@@ -925,6 +1581,11 @@ namespace smart_attendance_middleware
 
         private async void btn_attendance_Click(object sender, EventArgs e)
         {
+            if (!IsAdminOrDeveloper())
+            {
+                ModernMessageBox.Show(this, "Access Denied", "Access denied. Only admin or developer can open Staff Management.", MsgType.Warning);
+                return;
+            }
             if (pnl_staffsManagment.Visible && pnl_staffsManagment.Location == Point.Empty) return;
             HideAllPanels();
             SetHeader("Staff Management", "View and manage staff attendance.");
@@ -952,6 +1613,7 @@ namespace smart_attendance_middleware
             SetActiveNavButton(nav_member);
             pnl_attendence.Location = new Point(0, 0);
             pnl_attendence.Visible  = true;
+            RefreshDisabledLogsTabVisibility();
             Dashboard.GlobalStartLoader("Loading Member Attendance...");
             await Task.Run(() => { }); // yield so loader renders before data load
             LoadMemberAttendanceLogs();
@@ -961,7 +1623,7 @@ namespace smart_attendance_middleware
 
         private void btn_setupmanage_Click(object sender, EventArgs e)
         {
-            if (AppSession.UserRole == "user")
+            if (!IsAdminOrDeveloper())
             {
                 ModernMessageBox.Show(this, "Access Denied", "Access denied. Only admin or developer can open Setup Management.", MsgType.Warning);
                 return;
@@ -990,7 +1652,10 @@ namespace smart_attendance_middleware
 
         private void SetActiveNavButton(Label active)
         {
-            foreach (var btn in new[] { nav_device, nav_user, nav_staff, nav_member, nav_setup })
+            var allNavBtns = new System.Collections.Generic.List<Label>
+                { nav_device, nav_user, nav_staff, nav_member, nav_setup };
+            if (_btnDeveloper != null) allNavBtns.Add(_btnDeveloper);
+            foreach (var btn in allNavBtns)
             {
                 if (btn == null) continue;
                 btn.BackColor = Color.Transparent;
@@ -1223,7 +1888,7 @@ namespace smart_attendance_middleware
             _selectedDevice = null;
             AddNewDevice adddevice = new AddNewDevice();
             adddevice.ShowDialog();
-            SetupDeviceList(); // Refresh the device list after adding a new device
+            SetupDeviceList();
         }
 
         private async void btn_remove_device_Click(object sender, EventArgs e)
@@ -1818,28 +2483,6 @@ namespace smart_attendance_middleware
                         (m.Status ?? "").Equals(statusFilter, StringComparison.OrdinalIgnoreCase)).ToList();
                 }
 
-                if (cmbMemberSync != null && cmbMemberSync.SelectedIndex > 0)
-                {
-                    string syncFilter = cmbMemberSync.SelectedItem.ToString();
-                    displayItems = displayItems.Where(item =>
-                    {
-                        string syncText = item.SubItems.Count > 5 ? item.SubItems[5].Text : "";
-                        if (syncFilter == "Not Synced") return syncText.StartsWith("0/");
-                        if (syncFilter == "Fully Synced")
-                        {
-                            if (!syncText.Contains("/")) return false;
-                            var parts = syncText.Split('/');
-                            return parts.Length == 2 && parts[0].Trim() == parts[1].Split(' ')[0].Trim();
-                        }
-                        if (syncFilter == "Partially Synced")
-                        {
-                            if (!syncText.Contains("/")) return false;
-                            var parts = syncText.Split('/');
-                            return parts.Length == 2 && parts[0].Trim() != "0" && parts[0].Trim() != parts[1].Split(' ')[0].Trim();
-                        }
-                        return true;
-                    }).ToList();
-                }
 
                 if (chkMemberFailure != null && chkMemberFailure.Checked)
                     displayItems = displayItems.Where(item =>
@@ -2252,7 +2895,7 @@ namespace smart_attendance_middleware
 
         private void date_manualdoor_ValueChanged(object sender, EventArgs e)
         {
-
+            LoadFilteredManualDoorLogs();
         }
 
         private void btn_filter_manualdoor_Click(object sender, EventArgs e)
@@ -2262,24 +2905,10 @@ namespace smart_attendance_middleware
 
         private void LoadFilteredManualDoorLogs()
         {
-            if (cmbDoorVisitor.Items.Count == 0)
-            {
-                cmbDoorVisitor.Items.AddRange(new object[] { "All", "Members Only", "Visitors Only" });
-                cmbDoorVisitor.SelectedIndex = 0;
-            }
-
             DateTime selectedDate  = date_manualdoor.Value.Date;
             var gateAccessLogs     = AppSession.AllGateLogs ?? new List<GateAccessed>();
             var members            = AppSession.AllMembers ?? new List<Member>();
-
             var filteredLogs = gateAccessLogs.Where(log => log.AccessedTime.Date == selectedDate).ToList();
-
-            string visitorSel = cmbDoorVisitor?.SelectedItem?.ToString() ?? "All";
-            if (visitorSel == "Members Only")
-                filteredLogs = filteredLogs.Where(log => !log.IsVisitor).ToList();
-            else if (visitorSel == "Visitors Only")
-                filteredLogs = filteredLogs.Where(log => log.IsVisitor).ToList();
-
             RenderManualDoorLogs(filteredLogs, members);
         }
 

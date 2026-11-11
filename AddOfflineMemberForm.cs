@@ -29,9 +29,16 @@ namespace smart_attendance_middleware
             _dbHelper = new DatabaseHelper();
             _dbHelper.InitializeDatabase();
             cmbGender.Items.AddRange(new object[] { "male", "female", "other" });
-            cmbPaymentMethod.Items.AddRange(new object[] { "cash", "card", "bank_transfer", "online" });
+            cmbPaymentMethod.Items.AddRange(new object[] { "cash", "pos_card", "ibft", "e-wallet" });
             cmbPaymentMethod.SelectedIndex = 0;
-            LoadPackages();
+            cmbPkgDiscountType.Items.AddRange(new object[] { "fixed", "percentage" });
+            cmbRegDiscountType.Items.AddRange(new object[] { "fixed", "percentage" });
+            chkWaiveRegFee.CheckedChanged += ChkWaiveRegFee_CheckedChanged;
+            cmbPkgDiscountType.SelectedIndexChanged += DiscountField_Changed;
+            cmbRegDiscountType.SelectedIndexChanged += DiscountField_Changed;
+            txtPkgDiscountValue.TextChanged += DiscountField_Changed;
+            txtRegDiscountValue.TextChanged += DiscountField_Changed;
+            this.Shown += (s, e) => LoadPackagesAsync();
         }
 
         // ── Paint handlers ───────────────────────────────────────────────────
@@ -86,10 +93,8 @@ namespace smart_attendance_middleware
             FilterPackagesByPeriodicity();
         }
 
-        private void dtpStartDate_ValueChanged(object sender, EventArgs e)
-        {
-            UpdateSummary();
-        }
+        private void dtpStartDate_ValueChanged(object sender, EventArgs e) => UpdateSummary();
+        private void DiscountField_Changed(object sender, EventArgs e) => UpdateSummary();
 
         private void UpdateSummary()
         {
@@ -101,22 +106,51 @@ namespace smart_attendance_middleware
                 if (pkg == null || string.IsNullOrWhiteSpace(periodicity))
                 {
                     lblAmountDue.Text      = "—";
+                    lblRegFee.Text         = "—";
                     lblMembershipRuns.Text = "—";
                     return;
                 }
 
-                string amountText = "—";
+                decimal basePrice = 0;
                 if (!string.IsNullOrWhiteSpace(pkg.PricingTierJson))
                 {
                     try
                     {
                         var tiers = JObject.Parse(pkg.PricingTierJson);
                         if (tiers[periodicity] != null)
-                            amountText = "Rs " + string.Format("{0:N0}", (double)tiers[periodicity]);
+                            basePrice = tiers[periodicity].ToObject<decimal>();
                     }
                     catch { }
                 }
-                lblAmountDue.Text = amountText;
+
+                // Apply package discount
+                decimal pkgDiscounted = basePrice;
+                string pkgDiscType = cmbPkgDiscountType.SelectedItem?.ToString();
+                if (!string.IsNullOrWhiteSpace(pkgDiscType) && decimal.TryParse(txtPkgDiscountValue.Text.Trim(), out decimal pkgDiscVal) && pkgDiscVal > 0)
+                {
+                    pkgDiscounted = pkgDiscType == "percentage"
+                        ? basePrice - (basePrice * pkgDiscVal / 100)
+                        : basePrice - pkgDiscVal;
+                    if (pkgDiscounted < 0) pkgDiscounted = 0;
+                }
+                lblAmountDue.Text = basePrice > 0 ? "Rs " + string.Format("{0:N0}", pkgDiscounted) : "—";
+
+                // Apply registration discount
+                decimal regFeeGross = pkg.RegistrationFee ?? 0;
+                decimal regFeeNet   = regFeeGross;
+                string regDiscType = cmbRegDiscountType.SelectedItem?.ToString();
+                if (!string.IsNullOrWhiteSpace(regDiscType) && decimal.TryParse(txtRegDiscountValue.Text.Trim(), out decimal regDiscVal) && regDiscVal > 0)
+                {
+                    regFeeNet = regDiscType == "percentage"
+                        ? regFeeGross - (regFeeGross * regDiscVal / 100)
+                        : regFeeGross - regDiscVal;
+                    if (regFeeNet < 0) regFeeNet = 0;
+                }
+                lblRegFee.Text = regFeeGross > 0
+                    ? (regFeeNet < regFeeGross
+                        ? "Rs " + string.Format("{0:N0}", regFeeNet) + " (was Rs " + string.Format("{0:N0}", regFeeGross) + ")"
+                        : "Rs " + string.Format("{0:N0}", regFeeNet))
+                    : "—";
 
                 DateTime start = dtpStartDate.Value.Date;
                 DateTime end   = ComputeEndDate(start, periodicity);
@@ -142,65 +176,104 @@ namespace smart_attendance_middleware
 
         private System.Collections.Generic.List<Package> _allPackages;
 
-        private void LoadPackages()
+        private async void LoadPackagesAsync()
         {
+            pnlLoading.BringToFront();
+            pnlLoading.Visible = true;
+            btnSave.Enabled   = false;
+            btnCancel.Enabled = false;
             try
             {
-                _allPackages = AppSession.AllPackages.Count > 0
-                    ? AppSession.AllPackages.Where(p => p.Active).ToList()
-                    : _dbHelper.GetPackages(activeOnly: true);
-
-                // Collect all unique periodicity keys across all packages
-                var periodicities = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var pkg in _allPackages)
-                {
-                    if (string.IsNullOrWhiteSpace(pkg.PricingTierJson)) continue;
-                    try
-                    {
-                        var tiers = JObject.Parse(pkg.PricingTierJson);
-                        foreach (var prop in tiers.Properties())
-                            periodicities.Add(prop.Name);
-                    }
-                    catch { }
-                }
-
-                cmbPeriodicity.Items.Clear();
-                foreach (var p in periodicities)
-                    cmbPeriodicity.Items.Add(p);
-
-                if (cmbPeriodicity.Items.Count > 0)
-                    cmbPeriodicity.SelectedIndex = 0;  // triggers FilterPackagesByPeriodicity
-                else if (_allPackages.Count == 0)
-                    lblStatus.Text = "No packages found locally — wait for the catalog sync to complete.";
+                // Fetch data on background thread, then populate UI on UI thread
+                _allPackages = await System.Threading.Tasks.Task.Run(() => LoadPackages());
+                PopulatePackageControls();
             }
             catch (Exception ex)
             {
                 LogHelper.Log($"[AddOfflineMemberForm] Failed to load packages: {ex.Message}");
                 lblStatus.Text = "Failed to load packages: " + ex.Message;
             }
+            finally
+            {
+                pnlLoading.Visible = false;
+                btnSave.Enabled   = true;
+                btnCancel.Enabled = true;
+            }
         }
 
-        private void FilterPackagesByPeriodicity()
+        private void PopulatePackageControls()
         {
-            string selected = cmbPeriodicity.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(selected) || _allPackages == null) { UpdateSummary(); return; }
-
-            var matching = _allPackages.FindAll(pkg =>
+            var periodicities = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pkg in _allPackages)
             {
-                if (string.IsNullOrWhiteSpace(pkg.PricingTierJson)) return false;
-                try { return JObject.Parse(pkg.PricingTierJson)[selected] != null; }
-                catch { return false; }
-            });
+                if (string.IsNullOrWhiteSpace(pkg.PricingTierJson)) continue;
+                try
+                {
+                    var tiers = JObject.Parse(pkg.PricingTierJson);
+                    foreach (var prop in tiers.Properties())
+                        periodicities.Add(prop.Name);
+                }
+                catch { }
+            }
 
+            cmbPeriodicity.Items.Clear();
+            foreach (var p in periodicities)
+                cmbPeriodicity.Items.Add(p);
+
+            // Don't set DataSource yet — selecting first periodicity will filter and set it
             cmbPackage.DisplayMember = "Title";
             cmbPackage.ValueMember   = "PackageId";
-            cmbPackage.DataSource    = matching;
 
-            if (matching.Count == 0)
-                lblStatus.Text = $"No packages offer '{selected}'.";
-            else
-                lblStatus.Text = "";
+            if (_allPackages.Count == 0)
+            {
+                lblStatus.Text = "No packages found locally — wait for the catalog sync to complete.";
+                return;
+            }
 
+            if (cmbPeriodicity.Items.Count > 0)
+            {
+                cmbPeriodicity.SelectedIndex = 0;
+                FilterPackagesByPeriodicity(); // call directly — don't rely on event firing
+            }
+        }
+
+        // DB fetch only — no UI access; called from background thread
+        private System.Collections.Generic.List<Package> LoadPackages()
+        {
+            return AppSession.AllPackages.Count > 0
+                ? AppSession.AllPackages.Where(p => p.Active).ToList()
+                : _dbHelper.GetPackages(activeOnly: true);
+        }
+
+        private bool _updatingFilters = false;
+
+        // Periodicity changed → filter packages to only those supporting it
+        private void FilterPackagesByPeriodicity()
+        {
+            if (_allPackages == null) return;
+            string periodicity = cmbPeriodicity.SelectedItem?.ToString();
+            if (string.IsNullOrEmpty(periodicity)) { UpdateSummary(); return; }
+
+            _updatingFilters = true;
+            try
+            {
+                var matching = _allPackages.FindAll(pkg =>
+                {
+                    if (string.IsNullOrWhiteSpace(pkg.PricingTierJson)) return false;
+                    try { return JObject.Parse(pkg.PricingTierJson)[periodicity] != null; }
+                    catch { return false; }
+                });
+
+                cmbPackage.DisplayMember = "Title";
+                cmbPackage.ValueMember   = "PackageId";
+                cmbPackage.DataSource    = matching;
+
+                lblStatus.Text = matching.Count == 0 ? $"No packages offer '{periodicity}'." : "";
+            }
+            finally
+            {
+                _updatingFilters = false;
+            }
             UpdateSummary();
         }
 
@@ -352,6 +425,32 @@ namespace smart_attendance_middleware
             }
         }
 
+        private void ChkWaiveRegFee_CheckedChanged(object sender, EventArgs e)
+        {
+            if (chkWaiveRegFee.Checked)
+            {
+                // Lock registration discount at 100% — package discount stays usable
+                cmbRegDiscountType.SelectedItem = "percentage";
+                txtRegDiscountValue.Text = "100";
+                cmbRegDiscountType.Enabled = false;
+                txtRegDiscountValue.Enabled = false;
+                // Suppress the blue selection highlight on the disabled combo
+                cmbRegDiscountType.BackColor = System.Drawing.Color.FromArgb(240, 242, 248);
+            }
+            else
+            {
+                cmbRegDiscountType.Enabled = true;
+                txtRegDiscountValue.Enabled = true;
+                cmbRegDiscountType.BackColor = System.Drawing.Color.Transparent;
+                if (txtRegDiscountValue.Text == "100" && cmbRegDiscountType.SelectedItem?.ToString() == "percentage")
+                {
+                    cmbRegDiscountType.SelectedIndex = -1;
+                    txtRegDiscountValue.Text = string.Empty;
+                }
+            }
+            UpdateSummary();
+        }
+
         private void BtnSameAsPhone_Click(object sender, EventArgs e)
         {
             txtWhatsapp.Text = txtPhone.Text;
@@ -402,6 +501,34 @@ namespace smart_attendance_middleware
                     ["payment_collected_at"] = dtpPaymentCollectedAt.Value.ToString("yyyy-MM-dd"),
                     ["payment_method"]       = cmbPaymentMethod.SelectedItem?.ToString() ?? "cash"
                 };
+
+                // Package discount
+                string pkgDiscType = cmbPkgDiscountType.SelectedItem?.ToString();
+                string pkgDiscRaw  = txtPkgDiscountValue.Text.Trim();
+                if (!string.IsNullOrWhiteSpace(pkgDiscType) && decimal.TryParse(pkgDiscRaw, out decimal pkgDiscVal) && pkgDiscVal > 0)
+                {
+                    subscription["package_discount"] = new JObject
+                    {
+                        ["type"]  = pkgDiscType,
+                        ["value"] = pkgDiscVal
+                    };
+                }
+
+                // Registration discount
+                string regDiscType = cmbRegDiscountType.SelectedItem?.ToString();
+                string regDiscRaw  = txtRegDiscountValue.Text.Trim();
+                if (!string.IsNullOrWhiteSpace(regDiscType) && decimal.TryParse(regDiscRaw, out decimal regDiscVal) && regDiscVal > 0)
+                {
+                    subscription["registration_discount"] = new JObject
+                    {
+                        ["type"]  = regDiscType,
+                        ["value"] = regDiscVal
+                    };
+                }
+
+                // Waive registration fee
+                if (chkWaiveRegFee.Checked)
+                    subscription["waive_registration_fee"] = true;
 
                 var created = _dbHelper.InsertOfflineMember(
                     firstName, lastName,

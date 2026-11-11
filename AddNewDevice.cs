@@ -273,6 +273,13 @@ namespace smart_attendance_middleware
                     return;
                 }
 
+                string serial = txt_Serial.Text.Trim();
+                if (string.IsNullOrWhiteSpace(serial))
+                {
+                    ModernMessageBox.Show(this, "Validation Error", "Please enter the device serial number.", MsgType.Warning);
+                    return;
+                }
+
                 // Ping the device with retries
                 bool isReachable = await PingDeviceWithRetries(ip, maxAttempts: 5, delayBetweenAttempts: 2000);
                 if (!isReachable)
@@ -282,17 +289,8 @@ namespace smart_attendance_middleware
                     return;
                 }
 
-                lbl_saving_status.Text = "Connecting to device and retrieving serial number...";
-                lbl_saving_status.Refresh();
-
-                string serial = await DeviceService.GetSerial(ip, port, machineNo, password);
-
-                lbl_saving_status.Text = "Device found and serial retrieved.";
-                txt_Serial.Text = serial;
-                txt_Serial.Refresh();
-
                 if (!ModernMessageBox.ShowConfirm(this, "Confirm Device Addition",
-                    $"Device connected successfully.\n\nSerial Number: {serial}\nIP Address: {ip}\n\nWould you like to save this device?",
+                    $"Serial Number: {serial}\nIP Address: {ip}\n\nWould you like to save this device?",
                     "Yes, Save", "No", MsgType.Info))
                 {
                     ModernMessageBox.Show(this, "Device Not Added", "You've cancelled the device addition.\n\nNo changes have been made.", MsgType.Info);

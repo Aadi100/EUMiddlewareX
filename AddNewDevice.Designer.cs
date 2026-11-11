@@ -1,4 +1,4 @@
-﻿namespace smart_attendance_middleware
+namespace smart_attendance_middleware
 {
     partial class AddNewDevice
     {
@@ -238,9 +238,9 @@
             this.txt_Serial.MaxLength = 32767;
             this.txt_Serial.Name = "txt_Serial";
             this.txt_Serial.PasswordChar = '\0';
-            this.txt_Serial.Placeholder = "Auto-filled after connection";
+            this.txt_Serial.Placeholder = "Enter serial number";
             this.txt_Serial.Radius = 10;
-            this.txt_Serial.ReadOnly = true;
+            this.txt_Serial.ReadOnly = false;
             this.txt_Serial.Size = new System.Drawing.Size(218, 36);
             this.txt_Serial.TabIndex = 7;
             this.txt_Serial.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;

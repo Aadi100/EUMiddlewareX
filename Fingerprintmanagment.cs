@@ -82,11 +82,7 @@ namespace smart_attendance_middleware
             {
                 // Create and show the Fingerprint form
                 Fingerprint fingerprintForm = new Fingerprint();
-
-                // Pass the enrollment ID using the public property
                 fingerprintForm.EnrollmentID = enrollmentId;
-
-                // Optional: Set form position relative to parent
                 fingerprintForm.StartPosition = FormStartPosition.CenterParent;
 
                 // Show the form (use ShowDialog() for modal)

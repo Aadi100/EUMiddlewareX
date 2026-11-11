@@ -1,6 +1,7 @@
 ﻿using Eagle._Components.Public;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using smart_attendance_middleware.Classes;
 using System;
 using System.Configuration;
 using System.Collections.Concurrent;
@@ -1333,23 +1334,67 @@ namespace smart_attendance_middleware
             if (eventCode == 104)
             {
                 LogToUI($"[DISABLED] EnrollID: {enroll} | Name: {name} | Skipping attendance — access denied (event 104)");
-                try
+                if (AppSession.SaveDisabledLogs)
                 {
-                    _dbHelper.InsertDisabledAccessLog(enroll, name, devId, ipOnly, time, 104, image);
-                    Dashboard.GlobalAddDisabledLogToCache(new DisabledAccessLog
+                    try
                     {
-                        EnrollId  = enroll,
-                        Name      = name,
-                        DeviceId  = devId,
-                        DeviceIP  = ipOnly,
-                        EventTime = time,
-                        EventCode = 104,
-                        Image     = image,
-                        LoggedAt  = DateTime.Now
-                    });
+                        string devInfo   = CommonUtils.GetDeviceSnByIp(ipOnly) ?? ipOnly;
+                        string clientId  = _dbHelper.GetMemberClientIdByEnrollmentId(enroll) ?? Guid.NewGuid().ToString();
+                        _dbHelper.InsertDisabledAccessLog(enroll, name, devId, ipOnly, time, 104, image, "expired", devInfo, clientId);
+                        Dashboard.GlobalAddDisabledLogToCache(new DisabledAccessLog
+                        {
+                            EnrollId   = enroll,
+                            Name       = name,
+                            DeviceId   = devId,
+                            DeviceIP   = ipOnly,
+                            EventTime  = time,
+                            EventCode  = 104,
+                            Image      = image,
+                            LoggedAt   = DateTime.Now,
+                            LogType    = "expired",
+                            DeviceInfo = devInfo,
+                            SyncStatus = false,
+                            ClientId   = clientId
+                        });
+                        _ = ServiceManager.PeriodicMaintenanceService?.TriggerGateAttemptSyncAsync();
+                    }
+                    catch { }
                 }
-                catch { }
                 Dashboard.GlobalShowDisabledPopup(enroll, name, time, image);
+                return;
+            }
+
+            // Unknown face (enrollid 99999999) — device couldn't match the scan to any enrolled person
+            if (enroll == 99999999)
+            {
+                LogToUI($"[UNKNOWN] Skipping attendance — face not recognised");
+                if (AppSession.SaveUnknownLogs)
+                {
+                    try
+                    {
+                        string devInfo  = CommonUtils.GetDeviceSnByIp(ipOnly) ?? ipOnly;
+                        string clientId = Guid.NewGuid().ToString();
+                        _dbHelper.InsertDisabledAccessLog(enroll, null, devId, ipOnly, time, 99999999, image, "stranger", devInfo, clientId);
+                        Dashboard.GlobalAddDisabledLogToCache(new DisabledAccessLog
+                        {
+                            EnrollId   = enroll,
+                            Name       = null,
+                            DeviceId   = devId,
+                            DeviceIP   = ipOnly,
+                            EventTime  = time,
+                            EventCode  = 99999999,
+                            Image      = image,
+                            LoggedAt   = DateTime.Now,
+                            LogType    = "stranger",
+                            DeviceInfo = devInfo,
+                            SyncStatus = false,
+                            ClientId   = clientId
+                        });
+                        _ = ServiceManager.PeriodicMaintenanceService?.TriggerGateAttemptSyncAsync();
+                    }
+                    catch { }
+                }
+                Dashboard.GlobalShowUnknownPopup(time, image);
                 return;
             }
 
@@ -1358,12 +1403,6 @@ namespace smart_attendance_middleware
                 // Look up device category from in-memory session
                 bool exists = AppSession.DeviceCategoryMap.TryGetValue(ipOnly, out var category);
                 bool isStaffDevice = exists && string.Equals(category.type, "staff", StringComparison.OrdinalIgnoreCase);
-
-                //// Unknown visitor (99999999) or staff enrollment ID — only from member devices
-                //if (!isStaffDevice && (enroll == 99999999 || AppSession.StaffEnrollmentIds.Contains(enroll.ToString())))
-                //{
-                //    _attendanceFunctions.HandleUnknownOrStaffScan(enroll, name, image, ip, time);
-                //}
 
                 if (isStaffDevice)
                 {

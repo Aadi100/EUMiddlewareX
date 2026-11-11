@@ -1,4 +1,6 @@
 using System;
+using System.Data.SqlClient;
+using System.Diagnostics;
 using System.ServiceProcess;
 using System.Threading;
 using System.Threading.Tasks;
@@ -189,6 +191,150 @@ namespace smart_attendance_middleware.Classes
             }
 
             return false;
+        }
+
+        // ── Blocking install ───────────────────────────────────────────────
+
+        /// <summary>
+        /// Finds the latest SQL Server Express package via winget and installs it synchronously.
+        /// Blocks until install completes. Returns true if install succeeded.
+        /// </summary>
+        public static bool InstallSqlServerBlocking()
+        {
+            try
+            {
+                LogHelper.Log("[SqlServerWatchdog] Searching winget for latest SQL Server Express package...");
+
+                // Step 1: find latest package ID
+                string packageId = null;
+                var searchPsi = new ProcessStartInfo
+                {
+                    FileName               = "powershell.exe",
+                    Arguments              = "-NoProfile -ExecutionPolicy Bypass -Command \"(winget search 'SQL Server Express' --source winget --accept-source-agreements 2>&1 | Select-String 'Microsoft\\.SQLServer\\.\\d+\\.Express' | Select-Object -First 1).Matches[0].Value\"",
+                    UseShellExecute        = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError  = true,
+                    CreateNoWindow         = true
+                };
+                using (var p = Process.Start(searchPsi))
+                {
+                    packageId = p.StandardOutput.ReadToEnd()?.Trim();
+                    p.WaitForExit();
+                }
+
+                if (string.IsNullOrWhiteSpace(packageId))
+                {
+                    LogHelper.Log("[SqlServerWatchdog] Could not find SQL Server Express package in winget.");
+                    return false;
+                }
+
+                LogHelper.Log($"[SqlServerWatchdog] Installing {packageId}...");
+
+                // Step 2: install
+                var installPsi = new ProcessStartInfo
+                {
+                    FileName               = "winget",
+                    Arguments              = $"install --id {packageId} --silent --accept-package-agreements --accept-source-agreements",
+                    UseShellExecute        = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError  = true,
+                    CreateNoWindow         = true
+                };
+                using (var p = Process.Start(installPsi))
+                {
+                    string output = p.StandardOutput.ReadToEnd();
+                    p.WaitForExit();
+                    if (!string.IsNullOrWhiteSpace(output))
+                        LogHelper.Log($"[SqlServerWatchdog] Install output: {output.Trim()}");
+
+                    bool ok = p.ExitCode == 0;
+                    LogHelper.Log(ok
+                        ? $"[SqlServerWatchdog] {packageId} installed successfully."
+                        : $"[SqlServerWatchdog] Install exited with code {p.ExitCode}.");
+                    return ok;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"[SqlServerWatchdog] InstallSqlServerBlocking error: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ── Version check + auto-upgrade ──────────────────────────────────
+
+        /// <summary>
+        /// Queries @@VERSION from SQL Server and runs winget upgrade in the background
+        /// if a newer version is available. Fire-and-forget — never blocks startup.
+        /// </summary>
+        public static void CheckAndUpgradeInBackground(string connectionString)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    // 1. Read installed version
+                    string versionText = null;
+                    using (var conn = new SqlConnection(connectionString))
+                    {
+                        await conn.OpenAsync().ConfigureAwait(false);
+                        using (var cmd = new SqlCommand("SELECT @@VERSION", conn))
+                            versionText = (await cmd.ExecuteScalarAsync().ConfigureAwait(false))?.ToString();
+                    }
+                    if (versionText != null)
+                        LogHelper.Log($"[SqlServerWatchdog] Installed version: {versionText.Split(Environment.NewLine.ToCharArray()[0])[0].Trim()}");
+
+                    // 2. Find latest SQL Server Express package ID via winget search, then upgrade
+                    LogHelper.Log("[SqlServerWatchdog] Searching for latest SQL Server Express package via winget...");
+                    string packageId = null;
+                    var searchPsi = new ProcessStartInfo
+                    {
+                        FileName               = "powershell.exe",
+                        Arguments              = "-NoProfile -ExecutionPolicy Bypass -Command \"(winget search 'SQL Server Express' --source winget --accept-source-agreements 2>&1 | Select-String 'Microsoft\\.SQLServer\\.\\d+\\.Express' | Select-Object -First 1).Matches[0].Value\"",
+                        UseShellExecute        = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError  = true,
+                        CreateNoWindow         = true
+                    };
+                    using (var searchProc = Process.Start(searchPsi))
+                    {
+                        packageId = (await searchProc.StandardOutput.ReadToEndAsync().ConfigureAwait(false))?.Trim();
+                        await Task.Run(() => searchProc.WaitForExit()).ConfigureAwait(false);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(packageId))
+                    {
+                        LogHelper.Log("[SqlServerWatchdog] Could not determine SQL Server Express package ID from winget — skipping upgrade.");
+                    }
+                    else
+                    {
+                        LogHelper.Log($"[SqlServerWatchdog] Found package: {packageId}. Running upgrade...");
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName               = "winget",
+                            Arguments              = $"upgrade --id {packageId} --silent --accept-package-agreements --accept-source-agreements",
+                            UseShellExecute        = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError  = true,
+                            CreateNoWindow         = true
+                        };
+                        using (var proc = Process.Start(psi))
+                        {
+                            string stdout = await proc.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
+                            await Task.Run(() => proc.WaitForExit()).ConfigureAwait(false);
+                            if (!string.IsNullOrWhiteSpace(stdout))
+                                LogHelper.Log($"[SqlServerWatchdog] winget upgrade: {stdout.Trim()}");
+                            LogHelper.Log(proc.ExitCode == 0
+                                ? "[SqlServerWatchdog] SQL Server Express is up to date."
+                                : $"[SqlServerWatchdog] winget upgrade exited with code {proc.ExitCode}.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Log($"[SqlServerWatchdog] Version check/upgrade error: {ex.Message}");
+                }
+            });
         }
 
         private static string ResolveServiceName()

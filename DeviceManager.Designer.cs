@@ -64,8 +64,8 @@ namespace smart_attendance_middleware
             this.panel5 = new System.Windows.Forms.Panel();
             this.date_member = new System.Windows.Forms.DateTimePicker();
             this.tab_manualdoor = new System.Windows.Forms.TabPage();
-            this.panel6 = new System.Windows.Forms.Panel();
             this.date_manualdoor = new System.Windows.Forms.DateTimePicker();
+            this.panel6 = new System.Windows.Forms.Panel();
             this.tab_pendingjobs = new System.Windows.Forms.TabPage();
             this.tab_disabledLogs = new System.Windows.Forms.TabPage();
             this.clv_disabledLogs = new smart_attendance_middleware.Controls.CardListView();
@@ -142,14 +142,12 @@ namespace smart_attendance_middleware
             this.rb_btn_gate_save = new smart_attendance_middleware.Controls.RoundedButton();
             this.rtb_memb_name = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.rb_flt_members = new smart_attendance_middleware.Controls.RoundedButton();
-            this.cmbMemberSync = new smart_attendance_middleware.Controls.RoundedComboBox();
             this.chkMemberFailure = new smart_attendance_middleware.Controls.ToggleSwitch();
             this.clv_members = new smart_attendance_middleware.Controls.CardListView();
             this.rtb_membername = new smart_attendance_middleware.Controls.RoundedTextBox();
             this.rb_filter_member = new smart_attendance_middleware.Controls.RoundedButton();
             this.clv_memberAttendance = new smart_attendance_middleware.Controls.CardListView();
             this.rb_filter_manualdoor = new smart_attendance_middleware.Controls.RoundedButton();
-            this.cmbDoorVisitor = new smart_attendance_middleware.Controls.RoundedComboBox();
             this.clv_manualDoor = new smart_attendance_middleware.Controls.CardListView();
             this.clv_pendingJobs = new smart_attendance_middleware.Controls.CardListView();
             this.cmbPendingDevice = new smart_attendance_middleware.Controls.RoundedComboBox();
@@ -555,7 +553,6 @@ namespace smart_attendance_middleware
             // 
             this.tab_members.Controls.Add(this.rtb_memb_name);
             this.tab_members.Controls.Add(this.rb_flt_members);
-            this.tab_members.Controls.Add(this.cmbMemberSync);
             this.tab_members.Controls.Add(this.chkMemberFailure);
             this.tab_members.Controls.Add(this.lbl_hasFailureOnly);
             this.tab_members.Controls.Add(this.clv_members);
@@ -623,7 +620,6 @@ namespace smart_attendance_middleware
             // 
             this.panel6.Controls.Add(this.date_manualdoor);
             this.panel6.Controls.Add(this.rb_filter_manualdoor);
-            this.panel6.Controls.Add(this.cmbDoorVisitor);
             this.panel6.Controls.Add(this.clv_manualDoor);
             this.panel6.Location = new System.Drawing.Point(3, 0);
             this.panel6.Name = "panel6";
@@ -663,7 +659,7 @@ namespace smart_attendance_middleware
             this.tab_disabledLogs.Padding = new System.Windows.Forms.Padding(3);
             this.tab_disabledLogs.Size = new System.Drawing.Size(857, 519);
             this.tab_disabledLogs.TabIndex = 4;
-            this.tab_disabledLogs.Text = "Disabled Logs";
+            this.tab_disabledLogs.Text = "Anti Cheat";
             this.tab_disabledLogs.UseVisualStyleBackColor = true;
             // 
             // rtb_disabledLogsSearch
@@ -1610,18 +1606,6 @@ namespace smart_attendance_middleware
             this.rb_flt_members.TabIndex = 91;
             this.rb_flt_members.Text = "Filter";
             // 
-            // cmbMemberSync
-            // 
-            this.cmbMemberSync.BackColor = System.Drawing.Color.White;
-            this.cmbMemberSync.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
-            this.cmbMemberSync.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
-            this.cmbMemberSync.Location = new System.Drawing.Point(4, 8);
-            this.cmbMemberSync.Name = "cmbMemberSync";
-            this.cmbMemberSync.Radius = 8;
-            this.cmbMemberSync.Size = new System.Drawing.Size(130, 24);
-            this.cmbMemberSync.TabIndex = 95;
-            this.cmbMemberSync.SelectedIndexChanged += new System.EventHandler(this.cmbMemberSync_SelectedIndexChanged);
-            // 
             // chkMemberFailure
             // 
             this.chkMemberFailure.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -1699,18 +1683,6 @@ namespace smart_attendance_middleware
             this.rb_filter_manualdoor.TabIndex = 85;
             this.rb_filter_manualdoor.Text = "Filter";
             this.rb_filter_manualdoor.Click += new System.EventHandler(this.btn_filter_manualdoor_Click);
-            // 
-            // cmbDoorVisitor
-            // 
-            this.cmbDoorVisitor.BackColor = System.Drawing.Color.Transparent;
-            this.cmbDoorVisitor.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
-            this.cmbDoorVisitor.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
-            this.cmbDoorVisitor.Location = new System.Drawing.Point(6, 11);
-            this.cmbDoorVisitor.Name = "cmbDoorVisitor";
-            this.cmbDoorVisitor.Radius = 10;
-            this.cmbDoorVisitor.Size = new System.Drawing.Size(130, 22);
-            this.cmbDoorVisitor.TabIndex = 87;
-            this.cmbDoorVisitor.SelectedIndexChanged += new System.EventHandler(this.cmbDoorVisitor_SelectedIndexChanged);
             // 
             // clv_manualDoor
             // 
@@ -2158,9 +2130,9 @@ namespace smart_attendance_middleware
         private Panel pnl_attendence;
         private TabControl tab_attendence;
         private TabPage tab_memberAttendence;
+        private System.Windows.Forms.DateTimePicker date_manualdoor;
         private TabPage tab_manualdoor;
         private Panel panel6;
-        private DateTimePicker date_manualdoor;
         private smart_attendance_middleware.Controls.RoundedButton rb_filter_manualdoor;
         private smart_attendance_middleware.Controls.CardListView clv_manualDoor;
         private TabPage tab_pendingjobs;
@@ -2177,7 +2149,6 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.CardListView clv_staffPendingJobs;
         private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffPendingDevice;
         private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffPendingFor;
-        private smart_attendance_middleware.Controls.RoundedComboBox cmbDoorVisitor;
         private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffStatus;
         private smart_attendance_middleware.Controls.RoundedComboBox cmbStaffSync;
         private smart_attendance_middleware.Controls.ToggleSwitch chkStaffFailure;
@@ -2264,7 +2235,6 @@ namespace smart_attendance_middleware
         private smart_attendance_middleware.Controls.ToggleSwitch chkDeviceIsStaff;
         private System.Windows.Forms.Label lbl_staffDevicesOnly;
         private smart_attendance_middleware.Controls.RoundedComboBox cmbUserRole;
-        private smart_attendance_middleware.Controls.RoundedComboBox cmbMemberSync;
         private smart_attendance_middleware.Controls.ToggleSwitch chkMemberFailure;
         private System.Windows.Forms.Label lbl_hasFailureOnly;
         private smart_attendance_middleware.Controls.RoundedComboBox rcmb_retention;
@@ -2292,6 +2262,10 @@ namespace smart_attendance_middleware
         private Panel pnl_deviceManager;
     }
 }
+
+
+
+
 
 
 

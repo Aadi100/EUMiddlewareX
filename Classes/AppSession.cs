@@ -13,6 +13,9 @@ namespace smart_attendance_middleware
         public static int LoggedInUserID { get; set; }
         public static DateTime LoginTime { get; set; }
         public static bool IsDebugMode { get; set; }
+        public static bool SaveDisabledLogs    { get; set; } = true;
+        public static bool SaveUnknownLogs     { get; set; } = true;
+        public static int  MaxRetryAttempts    { get; set; } = 5;
 
         public static List<Device> DeviceList { get; set; } = new List<Device>();
         public static List<Device> StaffDeviceList { get; set; } = new List<Device>();

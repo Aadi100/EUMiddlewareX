@@ -293,12 +293,12 @@ namespace smart_attendance_middleware.Classes
 
                         if (member == null || device == null) continue;
 
-                        // Skip if attempt count is >= 5
+                        // Skip if attempt count is >= MaxRetryAttempts
                         if (entry.EnrollmentID <= 0) continue;
                         var logEntry = _dbHelper.GetLatestLogForMember(entry.EnrollmentID);
-                        if (logEntry != null && (int?)logEntry.AttemptCount >= 5)
+                        if (logEntry != null && (int?)logEntry.AttemptCount >= AppSession.MaxRetryAttempts)
                         {
-                            LogHelper.Log($"Skipping {member.Name} - attempt count is {logEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
+                            LogHelper.Log($"Skipping {member.Name} - attempt count is {logEntry.AttemptCount} (>= {AppSession.MaxRetryAttempts}). Will retry when count drops below {AppSession.MaxRetryAttempts}.");
                             processed++;
                             continue;
                         }
@@ -411,11 +411,11 @@ namespace smart_attendance_middleware.Classes
 
                         string staffName = staff.Name ?? sEntry.StaffID;
 
-                        // Skip if attempt count is >= 5
+                        // Skip if attempt count is >= MaxRetryAttempts
                         var staffLogEntry = _dbHelper.GetLatestStaffLogForEnrollment(sEntry.EnrollmentID ?? 0);
-                        if (staffLogEntry != null && (int?)staffLogEntry.AttemptCount >= 5)
+                        if (staffLogEntry != null && (int?)staffLogEntry.AttemptCount >= AppSession.MaxRetryAttempts)
                         {
-                            LogHelper.Log($"[Staff] Skipping {staffName} - attempt count is {staffLogEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
+                            LogHelper.Log($"[Staff] Skipping {staffName} - attempt count is {staffLogEntry.AttemptCount} (>= {AppSession.MaxRetryAttempts}). Will retry when count drops below {AppSession.MaxRetryAttempts}.");
                             staffProcessed++;
                             continue;
                         }
@@ -556,11 +556,11 @@ namespace smart_attendance_middleware.Classes
                             continue;
                         }
 
-                        // Skip if attempt count is >= 5
+                        // Skip if attempt count is >= MaxRetryAttempts
                         var offlineLogEntry = _dbHelper.GetLatestOfflineLogForMember(entry.ClientId);
-                        if (offlineLogEntry != null && (int?)offlineLogEntry.AttemptCount >= 5)
+                        if (offlineLogEntry != null && (int?)offlineLogEntry.AttemptCount >= AppSession.MaxRetryAttempts)
                         {
-                            LogHelper.Log($"[Offline] Skipping {offlineMember.Name} - attempt count is {offlineLogEntry.AttemptCount} (>= 5). Will retry when count drops below 5.");
+                            LogHelper.Log($"[Offline] Skipping {offlineMember.Name} - attempt count is {offlineLogEntry.AttemptCount} (>= {AppSession.MaxRetryAttempts}). Will retry when count drops below {AppSession.MaxRetryAttempts}.");
                             processed++;
                             continue;
                         }

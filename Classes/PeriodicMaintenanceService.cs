@@ -47,6 +47,7 @@ namespace smart_attendance_middleware.Classes
         private Timer _disableInactiveUsersTimer;
         private Timer _fetchDeviceSyncStatusTimer;
         private Timer _forceCheckOutTimer;
+        private Timer _gateAttemptSyncTimer;
 
         // Reentrancy guards (0 = idle, 1 = running) — stop each timer from starting an
         // overlapping run of the same operation if the previous run is still going
@@ -58,6 +59,7 @@ namespace smart_attendance_middleware.Classes
         private int _disableInactiveUsersRunning = 0;
         private int _fetchDeviceSyncStatusRunning = 0;
         private int _forceCheckOutRunning = 0;
+        private int _gateAttemptSyncRunning = 0;
 
         private readonly Dashboard _dashboard;
         private readonly DatabaseHelper _dbHelper;
@@ -107,7 +109,7 @@ namespace smart_attendance_middleware.Classes
 
             lock (_lockObject)
             {
-                if (_updateTimer != null || _logClearTimer != null || _pendingJobsTimer != null || _unsyncedLogsTimer != null || _disableInactiveUsersTimer != null || _fetchDeviceSyncStatusTimer != null || _forceCheckOutTimer != null)
+                if (_updateTimer != null || _logClearTimer != null || _pendingJobsTimer != null || _unsyncedLogsTimer != null || _disableInactiveUsersTimer != null || _fetchDeviceSyncStatusTimer != null || _forceCheckOutTimer != null || _gateAttemptSyncTimer != null)
                 {
                     LogHelper.Log("⚠️ PeriodicMaintenanceService already started");
                     return;
@@ -215,6 +217,23 @@ namespace smart_attendance_middleware.Classes
                     period: _fetchDeviceSyncStatusInterval
                 );
 
+                // Start gate attempt sync timer: first run after 10-minute delay, then every 10 minutes
+                _gateAttemptSyncTimer = new Timer(
+                    callback: async _ =>
+                    {
+                        if (Interlocked.CompareExchange(ref _gateAttemptSyncRunning, 1, 0) != 0)
+                        {
+                            LogHelper.Log("⏭️ Skipped GateAttemptSync tick — previous run still in progress.");
+                            return;
+                        }
+                        try { await ExecuteSyncGateAttemptsAsync(); }
+                        finally { Interlocked.Exchange(ref _gateAttemptSyncRunning, 0); }
+                    },
+                    state: null,
+                    dueTime: _initialDelay,
+                    period: _unsyncedInterval // 10 minutes
+                );
+
                 // Start force check-out timer with initial delay, then every 3 hours
                 _forceCheckOutTimer = new Timer(
                     callback: async _ =>
@@ -290,6 +309,13 @@ namespace smart_attendance_middleware.Classes
                     _forceCheckOutTimer.Change(Timeout.Infinite, 0);
                     _forceCheckOutTimer.Dispose();
                     _forceCheckOutTimer = null;
+                }
+
+                if (_gateAttemptSyncTimer != null)
+                {
+                    _gateAttemptSyncTimer.Change(Timeout.Infinite, 0);
+                    _gateAttemptSyncTimer.Dispose();
+                    _gateAttemptSyncTimer = null;
                 }
 
                 // Cancel and dispose of the unsynced sync cancellation token and dispose sync service
@@ -884,6 +910,120 @@ namespace smart_attendance_middleware.Classes
             catch (Exception ex)
             {
                 LogHelper.Log($"❌ Error executing Force Check-Out: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sends the oldest unsynced gate-attempt record (expired or stranger) to the server,
+        /// one record per run. Marks it synced on HTTP 200.
+        /// </summary>
+        public async Task TriggerGateAttemptSyncAsync()
+        {
+            if (Interlocked.CompareExchange(ref _gateAttemptSyncRunning, 1, 0) != 0) return;
+            try { await ExecuteSyncGateAttemptsAsync(); }
+            finally { Interlocked.Exchange(ref _gateAttemptSyncRunning, 0); }
+        }
+
+        private async Task ExecuteSyncGateAttemptsAsync()
+        {
+            try
+            {
+                LogHelper.Log("🔄 GateAttemptSync: checking for unsynced records...");
+
+                var record = _dbHelper.GetOldestUnsyncedGateAttempt();
+                if (record == null)
+                {
+                    LogHelper.Log("✅ GateAttemptSync: nothing to sync.");
+                    return;
+                }
+
+                string apiKey = _dbHelper.GetSetting("GWTToken");
+                string baseUrl = System.Configuration.ConfigurationManager.AppSettings["ApiBaseUrl"];
+                if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    LogHelper.Log("⚠️ GateAttemptSync: missing API key or base URL, skipping.");
+                    return;
+                }
+
+                string gmtSetting = _dbHelper.GetSetting("GMT");
+
+                // Resolve device display name from AppSession by DeviceId
+                string deviceName = null;
+                if (record.DeviceId.HasValue)
+                {
+                    var d = AppSession.DeviceList?.Find(x => x.DeviceId == record.DeviceId.Value);
+                    if (d != null)
+                        deviceName = d.Location ?? d.Department;
+                }
+                if (string.IsNullOrWhiteSpace(deviceName))
+                    deviceName = record.DeviceInfo ?? record.DeviceIP ?? string.Empty;
+
+                var payload = new
+                {
+                    records = new[]
+                    {
+                        new
+                        {
+                            client_id   = record.ClientId,
+                            reason      = record.LogType, // "expired" or "stranger"
+                            recorded_at = CommonUtils.ConvertToUtc0(record.EventTime, gmtSetting),
+                            device      = deviceName,
+                            member_id   = record.LogType == "expired" ? (object)record.EnrollId : null,
+                            member_name = string.IsNullOrWhiteSpace(record.Name) ? null : record.Name,
+                            picture     = string.IsNullOrWhiteSpace(record.Image) ? null :
+                                          (record.Image.StartsWith("data:") ? record.Image : "data:image/jpeg;base64," + record.Image)
+                        }
+                    }
+                };
+
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(payload, Newtonsoft.Json.Formatting.None,
+                    new Newtonsoft.Json.JsonSerializerSettings { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore });
+
+                LogHelper.Log($"[Dev] GateAttemptSync → POST {baseUrl}/api/sync/gate-attempts | Body: {json}");
+
+                using (var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+                {
+                    client.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+                    var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                    var response = await client.PostAsync(baseUrl + "/api/sync/gate-attempts", content).ConfigureAwait(false);
+
+                    string responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    LogHelper.Log($"[Dev] GateAttemptSync ← {(int)response.StatusCode} | Response: {responseBody}");
+
+                    if ((int)response.StatusCode == 200)
+                    {
+                        // Check if the record itself has an error in the response body
+                        bool hasRecordError = false;
+                        try
+                        {
+                            var jObj = Newtonsoft.Json.Linq.JObject.Parse(responseBody);
+                            var records = jObj["records"] as Newtonsoft.Json.Linq.JArray;
+                            if (records != null && records.Count > 0 && records[0]["error"] != null)
+                                hasRecordError = true;
+                        }
+                        catch { }
+
+                        if (hasRecordError)
+                        {
+                            LogHelper.Log($"⚠️ GateAttemptSync: record {record.Id} rejected by server (see response above). Sync status NOT updated.");
+                        }
+                        else
+                        {
+                            _dbHelper.MarkGateAttemptSynced(record.Id);
+                            LogHelper.Log($"✅ GateAttemptSync: record {record.Id} synced (reason={record.LogType}).");
+                        }
+                    }
+                    else
+                    {
+                        LogHelper.Log($"⚠️ GateAttemptSync: server returned {(int)response.StatusCode} for record {record.Id}.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Log($"❌ GateAttemptSync error: {ex.Message}");
             }
         }
 

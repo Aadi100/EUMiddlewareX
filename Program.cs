@@ -54,6 +54,13 @@ namespace smart_attendance_middleware
             AutoUpdater.ShowSkipButton = false;
             AutoUpdater.ShowRemindLaterButton = true;
             AutoUpdater.RunUpdateAsAdmin = true;
+            AutoUpdater.CheckForUpdateEvent += (args) =>
+            {
+                if (args.Error != null || !args.IsUpdateAvailable) return;
+                // Hide any open form (Login/UserSetup) so only the update dialog is visible
+                foreach (Form f in Application.OpenForms)
+                    f.Invoke(new Action(() => f.Hide()));
+            };
             AutoUpdater.Start(UpdateXmlUrl);
 
             // Ensure SQL Server is running before touching the database
@@ -64,12 +71,38 @@ namespace smart_attendance_middleware
             bool sqlOk = SqlServerWatchdog.EnsureRunningOnStartup();
             if (!sqlOk)
             {
-                ModernMessageBox.Show(null, "SQL Server Warning",
-                    "Could not detect or start the SQL Server service. The application may not function correctly.",
-                    MsgType.Warning);
+                // SQL Server not found — block startup and install it
+                Dashboard.GlobalStartLoader("SQL Server not found. Installing latest SQL Server Express...");
+                bool installed = SqlServerWatchdog.InstallSqlServerBlocking();
+                Dashboard.GlobalStopLoader();
+
+                if (!installed)
+                {
+                    ModernMessageBox.Show(null, "SQL Server Required",
+                        "SQL Server Express could not be installed. The application cannot start without it.",
+                        MsgType.Error);
+                    Application.Exit();
+                    return;
+                }
+
+                // Retry after install
+                sqlOk = SqlServerWatchdog.EnsureRunningOnStartup();
+                if (!sqlOk)
+                {
+                    ModernMessageBox.Show(null, "SQL Server Required",
+                        "SQL Server was installed but could not be started. Please restart the application.",
+                        MsgType.Error);
+                    Application.Exit();
+                    return;
+                }
             }
 
             SqlServerWatchdog.StartMonitor();
+
+            // Fire-and-forget: log current version and upgrade SQL Server if a newer release is available
+            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["SmartAttendance"]?.ConnectionString;
+            if (!string.IsNullOrWhiteSpace(connStr))
+                SqlServerWatchdog.CheckAndUpgradeInBackground(connStr);
 
             // Check if admin exists, if not show UserSetup, else show Login
             DatabaseHelper dbHelper = new DatabaseHelper();

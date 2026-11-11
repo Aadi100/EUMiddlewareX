@@ -61,9 +61,21 @@
             this.dtpPaymentCollectedAt = new System.Windows.Forms.DateTimePicker();
             this.lblPaymentMethodLabel = new System.Windows.Forms.Label();
             this.cmbPaymentMethod = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.pnlLoading = new System.Windows.Forms.Panel();
+            this.lblLoading = new System.Windows.Forms.Label();
+            this.lblDiscountSection = new System.Windows.Forms.Label();
+            this.lblPkgDiscountLabel = new System.Windows.Forms.Label();
+            this.cmbPkgDiscountType = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.txtPkgDiscountValue = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.lblRegDiscountLabel = new System.Windows.Forms.Label();
+            this.cmbRegDiscountType = new smart_attendance_middleware.Controls.RoundedComboBox();
+            this.txtRegDiscountValue = new smart_attendance_middleware.Controls.RoundedTextBox();
+            this.chkWaiveRegFee = new System.Windows.Forms.CheckBox();
             this.pnlSummary = new System.Windows.Forms.Panel();
             this.lblAmountDueTitle = new System.Windows.Forms.Label();
             this.lblAmountDue = new System.Windows.Forms.Label();
+            this.lblRegFeeTitle = new System.Windows.Forms.Label();
+            this.lblRegFee = new System.Windows.Forms.Label();
             this.lblMembershipRunsTitle = new System.Windows.Forms.Label();
             this.lblMembershipRuns = new System.Windows.Forms.Label();
             this.lblSyncsWhenOnline = new System.Windows.Forms.Label();
@@ -517,9 +529,17 @@
             this.pnlSubCard.Controls.Add(this.dtpPaymentCollectedAt);
             this.pnlSubCard.Controls.Add(this.lblPaymentMethodLabel);
             this.pnlSubCard.Controls.Add(this.cmbPaymentMethod);
+            this.pnlSubCard.Controls.Add(this.lblDiscountSection);
+            this.pnlSubCard.Controls.Add(this.lblPkgDiscountLabel);
+            this.pnlSubCard.Controls.Add(this.cmbPkgDiscountType);
+            this.pnlSubCard.Controls.Add(this.txtPkgDiscountValue);
+            this.pnlSubCard.Controls.Add(this.lblRegDiscountLabel);
+            this.pnlSubCard.Controls.Add(this.cmbRegDiscountType);
+            this.pnlSubCard.Controls.Add(this.txtRegDiscountValue);
+            this.pnlSubCard.Controls.Add(this.chkWaiveRegFee);
             this.pnlSubCard.Location = new System.Drawing.Point(234, 403);
             this.pnlSubCard.Name = "pnlSubCard";
-            this.pnlSubCard.Size = new System.Drawing.Size(706, 198);
+            this.pnlSubCard.Size = new System.Drawing.Size(706, 300);
             this.pnlSubCard.TabIndex = 3;
             this.pnlSubCard.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlSubCard_Paint);
             // 
@@ -679,16 +699,132 @@
             this.cmbPaymentMethod.Size = new System.Drawing.Size(208, 42);
             this.cmbPaymentMethod.TabIndex = 12;
             this.cmbPaymentMethod.ValueMember = "";
-            // 
+            //
+            // lblDiscountSection
+            //
+            this.lblDiscountSection.AutoSize = true;
+            this.lblDiscountSection.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.lblDiscountSection.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.lblDiscountSection.Location = new System.Drawing.Point(16, 200);
+            this.lblDiscountSection.Name = "lblDiscountSection";
+            this.lblDiscountSection.Size = new System.Drawing.Size(140, 13);
+            this.lblDiscountSection.TabIndex = 13;
+            this.lblDiscountSection.Text = "DISCOUNTS (OPTIONAL)";
+            //
+            // lblPkgDiscountLabel
+            //
+            this.lblPkgDiscountLabel.AutoSize = true;
+            this.lblPkgDiscountLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblPkgDiscountLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblPkgDiscountLabel.Location = new System.Drawing.Point(16, 220);
+            this.lblPkgDiscountLabel.Name = "lblPkgDiscountLabel";
+            this.lblPkgDiscountLabel.Size = new System.Drawing.Size(100, 15);
+            this.lblPkgDiscountLabel.TabIndex = 14;
+            this.lblPkgDiscountLabel.Text = "Package discount";
+            //
+            // cmbPkgDiscountType
+            //
+            this.cmbPkgDiscountType.BackColor = System.Drawing.Color.Transparent;
+            this.cmbPkgDiscountType.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbPkgDiscountType.DataSource = null;
+            this.cmbPkgDiscountType.DisplayMember = "";
+            this.cmbPkgDiscountType.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbPkgDiscountType.Location = new System.Drawing.Point(16, 240);
+            this.cmbPkgDiscountType.Name = "cmbPkgDiscountType";
+            this.cmbPkgDiscountType.Radius = 10;
+            this.cmbPkgDiscountType.SelectedIndex = -1;
+            this.cmbPkgDiscountType.SelectedItem = null;
+            this.cmbPkgDiscountType.Size = new System.Drawing.Size(120, 36);
+            this.cmbPkgDiscountType.TabIndex = 15;
+            this.cmbPkgDiscountType.ValueMember = "";
+            //
+            // txtPkgDiscountValue
+            //
+            this.txtPkgDiscountValue.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txtPkgDiscountValue.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txtPkgDiscountValue.BackColor = System.Drawing.Color.Transparent;
+            this.txtPkgDiscountValue.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txtPkgDiscountValue.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txtPkgDiscountValue.Location = new System.Drawing.Point(143, 240);
+            this.txtPkgDiscountValue.MaxLength = 32767;
+            this.txtPkgDiscountValue.Name = "txtPkgDiscountValue";
+            this.txtPkgDiscountValue.PasswordChar = '\0';
+            this.txtPkgDiscountValue.Placeholder = "Amount";
+            this.txtPkgDiscountValue.Radius = 10;
+            this.txtPkgDiscountValue.ReadOnly = false;
+            this.txtPkgDiscountValue.Size = new System.Drawing.Size(100, 36);
+            this.txtPkgDiscountValue.TabIndex = 16;
+            this.txtPkgDiscountValue.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txtPkgDiscountValue.UseSystemPasswordChar = false;
+            //
+            // lblRegDiscountLabel
+            //
+            this.lblRegDiscountLabel.AutoSize = true;
+            this.lblRegDiscountLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblRegDiscountLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.lblRegDiscountLabel.Location = new System.Drawing.Point(249, 220);
+            this.lblRegDiscountLabel.Name = "lblRegDiscountLabel";
+            this.lblRegDiscountLabel.Size = new System.Drawing.Size(130, 15);
+            this.lblRegDiscountLabel.TabIndex = 17;
+            this.lblRegDiscountLabel.Text = "Registration discount";
+            //
+            // cmbRegDiscountType
+            //
+            this.cmbRegDiscountType.BackColor = System.Drawing.Color.Transparent;
+            this.cmbRegDiscountType.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.cmbRegDiscountType.DataSource = null;
+            this.cmbRegDiscountType.DisplayMember = "";
+            this.cmbRegDiscountType.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.cmbRegDiscountType.Location = new System.Drawing.Point(249, 240);
+            this.cmbRegDiscountType.Name = "cmbRegDiscountType";
+            this.cmbRegDiscountType.Radius = 10;
+            this.cmbRegDiscountType.SelectedIndex = -1;
+            this.cmbRegDiscountType.SelectedItem = null;
+            this.cmbRegDiscountType.Size = new System.Drawing.Size(120, 36);
+            this.cmbRegDiscountType.TabIndex = 18;
+            this.cmbRegDiscountType.ValueMember = "";
+            //
+            // txtRegDiscountValue
+            //
+            this.txtRegDiscountValue.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.None;
+            this.txtRegDiscountValue.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.None;
+            this.txtRegDiscountValue.BackColor = System.Drawing.Color.Transparent;
+            this.txtRegDiscountValue.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(209)))), ((int)(((byte)(213)))), ((int)(((byte)(219)))));
+            this.txtRegDiscountValue.FocusBorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
+            this.txtRegDiscountValue.Location = new System.Drawing.Point(376, 240);
+            this.txtRegDiscountValue.MaxLength = 32767;
+            this.txtRegDiscountValue.Name = "txtRegDiscountValue";
+            this.txtRegDiscountValue.PasswordChar = '\0';
+            this.txtRegDiscountValue.Placeholder = "Amount";
+            this.txtRegDiscountValue.Radius = 10;
+            this.txtRegDiscountValue.ReadOnly = false;
+            this.txtRegDiscountValue.Size = new System.Drawing.Size(100, 36);
+            this.txtRegDiscountValue.TabIndex = 19;
+            this.txtRegDiscountValue.TextAlign = System.Windows.Forms.HorizontalAlignment.Left;
+            this.txtRegDiscountValue.UseSystemPasswordChar = false;
+            //
+            // chkWaiveRegFee
+            //
+            this.chkWaiveRegFee.AutoSize = true;
+            this.chkWaiveRegFee.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.chkWaiveRegFee.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
+            this.chkWaiveRegFee.Location = new System.Drawing.Point(482, 248);
+            this.chkWaiveRegFee.Name = "chkWaiveRegFee";
+            this.chkWaiveRegFee.Size = new System.Drawing.Size(165, 19);
+            this.chkWaiveRegFee.TabIndex = 20;
+            this.chkWaiveRegFee.Text = "Waive registration fee";
+            //
             // pnlSummary
-            // 
+            //
             this.pnlSummary.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
             this.pnlSummary.Controls.Add(this.lblAmountDueTitle);
             this.pnlSummary.Controls.Add(this.lblAmountDue);
+            this.pnlSummary.Controls.Add(this.lblRegFeeTitle);
+            this.pnlSummary.Controls.Add(this.lblRegFee);
             this.pnlSummary.Controls.Add(this.lblMembershipRunsTitle);
             this.pnlSummary.Controls.Add(this.lblMembershipRuns);
             this.pnlSummary.Controls.Add(this.lblSyncsWhenOnline);
-            this.pnlSummary.Location = new System.Drawing.Point(234, 614);
+            this.pnlSummary.Location = new System.Drawing.Point(234, 748);
             this.pnlSummary.Name = "pnlSummary";
             this.pnlSummary.Size = new System.Drawing.Size(706, 62);
             this.pnlSummary.TabIndex = 4;
@@ -715,26 +851,49 @@
             this.lblAmountDue.Size = new System.Drawing.Size(24, 20);
             this.lblAmountDue.TabIndex = 1;
             this.lblAmountDue.Text = "—";
-            // 
+            //
+            // lblRegFeeTitle
+            //
+            this.lblRegFeeTitle.AutoSize = true;
+            this.lblRegFeeTitle.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblRegFeeTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
+            this.lblRegFeeTitle.Location = new System.Drawing.Point(160, 8);
+            this.lblRegFeeTitle.Name = "lblRegFeeTitle";
+            this.lblRegFeeTitle.Size = new System.Drawing.Size(90, 15);
+            this.lblRegFeeTitle.TabIndex = 5;
+            this.lblRegFeeTitle.Text = "Reg. fee";
+            //
+            // lblRegFee
+            //
+            this.lblRegFee.AutoSize = true;
+            this.lblRegFee.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblRegFee.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
+            this.lblRegFee.Location = new System.Drawing.Point(160, 26);
+            this.lblRegFee.Name = "lblRegFee";
+            this.lblRegFee.Size = new System.Drawing.Size(24, 20);
+            this.lblRegFee.TabIndex = 6;
+            this.lblRegFee.Text = "—";
+            //
             // lblMembershipRunsTitle
-            // 
+            //
             this.lblMembershipRunsTitle.AutoSize = true;
             this.lblMembershipRunsTitle.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblMembershipRunsTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(138)))), ((int)(((byte)(165)))));
-            this.lblMembershipRunsTitle.Location = new System.Drawing.Point(200, 8);
+            this.lblMembershipRunsTitle.Location = new System.Drawing.Point(316, 8);
             this.lblMembershipRunsTitle.Name = "lblMembershipRunsTitle";
             this.lblMembershipRunsTitle.Size = new System.Drawing.Size(100, 15);
             this.lblMembershipRunsTitle.TabIndex = 2;
             this.lblMembershipRunsTitle.Text = "Membership runs";
-            // 
+            //
             // lblMembershipRuns
-            // 
-            this.lblMembershipRuns.AutoSize = true;
+            //
+            this.lblMembershipRuns.AutoSize = false;
+            this.lblMembershipRuns.AutoEllipsis = true;
             this.lblMembershipRuns.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
             this.lblMembershipRuns.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
-            this.lblMembershipRuns.Location = new System.Drawing.Point(200, 26);
+            this.lblMembershipRuns.Location = new System.Drawing.Point(316, 26);
             this.lblMembershipRuns.Name = "lblMembershipRuns";
-            this.lblMembershipRuns.Size = new System.Drawing.Size(24, 20);
+            this.lblMembershipRuns.Size = new System.Drawing.Size(220, 20);
             this.lblMembershipRuns.TabIndex = 3;
             this.lblMembershipRuns.Text = "—";
             // 
@@ -744,7 +903,7 @@
             this.lblSyncsWhenOnline.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(237)))), ((int)(((byte)(213)))));
             this.lblSyncsWhenOnline.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblSyncsWhenOnline.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(100)))), ((int)(((byte)(0)))));
-            this.lblSyncsWhenOnline.Location = new System.Drawing.Point(534, 20);
+            this.lblSyncsWhenOnline.Location = new System.Drawing.Point(548, 18);
             this.lblSyncsWhenOnline.Name = "lblSyncsWhenOnline";
             this.lblSyncsWhenOnline.Padding = new System.Windows.Forms.Padding(8, 3, 8, 3);
             this.lblSyncsWhenOnline.Size = new System.Drawing.Size(131, 21);
@@ -755,16 +914,16 @@
             // 
             this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.lblStatus.ForeColor = System.Drawing.Color.Firebrick;
-            this.lblStatus.Location = new System.Drawing.Point(20, 580);
+            this.lblStatus.Location = new System.Drawing.Point(20, 710);
             this.lblStatus.Name = "lblStatus";
-            this.lblStatus.Size = new System.Drawing.Size(920, 20);
+            this.lblStatus.Size = new System.Drawing.Size(920, 34);
             this.lblStatus.TabIndex = 5;
-            this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblStatus.TextAlign = System.Drawing.ContentAlignment.TopLeft;
             // 
             // pnlFooterSep
             // 
             this.pnlFooterSep.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(238)))));
-            this.pnlFooterSep.Location = new System.Drawing.Point(0, 696);
+            this.pnlFooterSep.Location = new System.Drawing.Point(0, 830);
             this.pnlFooterSep.Name = "pnlFooterSep";
             this.pnlFooterSep.Size = new System.Drawing.Size(960, 1);
             this.pnlFooterSep.TabIndex = 6;
@@ -778,7 +937,7 @@
             this.btnCancel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnCancel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(38)))), ((int)(((byte)(90)))));
             this.btnCancel.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(224)))), ((int)(((byte)(235)))));
-            this.btnCancel.Location = new System.Drawing.Point(700, 706);
+            this.btnCancel.Location = new System.Drawing.Point(700, 840);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(248)))));
             this.btnCancel.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
@@ -797,7 +956,7 @@
             this.btnSave.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
             this.btnSave.HoverColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(99)))), ((int)(((byte)(235)))));
-            this.btnSave.Location = new System.Drawing.Point(820, 706);
+            this.btnSave.Location = new System.Drawing.Point(820, 840);
             this.btnSave.Name = "btnSave";
             this.btnSave.NormalColor = System.Drawing.Color.FromArgb(((int)(((byte)(59)))), ((int)(((byte)(130)))), ((int)(((byte)(246)))));
             this.btnSave.PressedColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(78)))), ((int)(((byte)(216)))));
@@ -809,10 +968,31 @@
             // 
             // AddOfflineMemberForm
             // 
+            //
+            // pnlLoading
+            //
+            this.pnlLoading.Controls.Add(this.lblLoading);
+            this.pnlLoading.BackColor = System.Drawing.Color.FromArgb(200, 245, 246, 250);
+            this.pnlLoading.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlLoading.Name = "pnlLoading";
+            this.pnlLoading.TabIndex = 99;
+            this.pnlLoading.Visible = false;
+            //
+            // lblLoading
+            //
+            this.lblLoading.AutoSize = false;
+            this.lblLoading.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblLoading.Font = new System.Drawing.Font("Segoe UI", 13F, System.Drawing.FontStyle.Bold);
+            this.lblLoading.ForeColor = System.Drawing.Color.FromArgb(30, 38, 90);
+            this.lblLoading.Name = "lblLoading";
+            this.lblLoading.Text = "Loading packages...";
+            this.lblLoading.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(250)))));
-            this.ClientSize = new System.Drawing.Size(960, 758);
+            this.ClientSize = new System.Drawing.Size(960, 894);
+            this.Controls.Add(this.pnlLoading);
             this.Controls.Add(this.pnlHeader);
             this.Controls.Add(this.pnlPhoto);
             this.Controls.Add(this.pnlInfoCard);
@@ -891,9 +1071,22 @@
         private System.Windows.Forms.Label      lblPaymentMethodLabel;
         private smart_attendance_middleware.Controls.RoundedComboBox cmbPaymentMethod;
 
+        private System.Windows.Forms.Panel      pnlLoading;
+        private System.Windows.Forms.Label      lblLoading;
+        private System.Windows.Forms.Label      lblDiscountSection;
+        private System.Windows.Forms.Label      lblPkgDiscountLabel;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbPkgDiscountType;
+        private smart_attendance_middleware.Controls.RoundedTextBox  txtPkgDiscountValue;
+        private System.Windows.Forms.Label      lblRegDiscountLabel;
+        private smart_attendance_middleware.Controls.RoundedComboBox cmbRegDiscountType;
+        private smart_attendance_middleware.Controls.RoundedTextBox  txtRegDiscountValue;
+        private System.Windows.Forms.CheckBox   chkWaiveRegFee;
+
         private System.Windows.Forms.Panel      pnlSummary;
         private System.Windows.Forms.Label      lblAmountDueTitle;
         private System.Windows.Forms.Label      lblAmountDue;
+        private System.Windows.Forms.Label      lblRegFeeTitle;
+        private System.Windows.Forms.Label      lblRegFee;
         private System.Windows.Forms.Label      lblMembershipRunsTitle;
         private System.Windows.Forms.Label      lblMembershipRuns;
         private System.Windows.Forms.Label      lblSyncsWhenOnline;

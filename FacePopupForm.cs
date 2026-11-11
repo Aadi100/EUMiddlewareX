@@ -290,6 +290,41 @@ namespace smart_attendance_middleware
             }
         }
 
+        public void SetUnknownMode(string base64Image = null)
+        {
+            if (this.InvokeRequired) { this.BeginInvoke(new Action(() => SetUnknownMode(base64Image))); return; }
+
+            // Orange accent stripe for unknown
+            panelAccent.BackColor = Color.FromArgb(210, 120, 0);
+
+            panelContainer.Paint -= PanelContainer_Paint;
+            panelContainer.Paint += (s, e) =>
+            {
+                Rectangle r = panelContainer.ClientRectangle;
+                using (var lg = new LinearGradientBrush(r, Color.FromArgb(80, 45, 5), Color.FromArgb(40, 25, 5), 90f))
+                    e.Graphics.FillRectangle(lg, r);
+                using (var pen = new Pen(Color.FromArgb(210, 120, 0), 2))
+                    e.Graphics.DrawRectangle(pen, 1, 1, r.Width - 2, r.Height - 2);
+            };
+            panelContainer.Invalidate();
+
+            if (LabelInfo != null)
+                LabelInfo.Text = $"⚠ UNKNOWN PERSON\r\nFace not recognised\r\nTime: {_eventTime:HH:mm:ss}";
+
+            if (!string.IsNullOrEmpty(base64Image))
+            {
+                try
+                {
+                    ++_imageRequestId;
+                    byte[] bytes = Convert.FromBase64String(base64Image);
+                    using (var ms = new MemoryStream(bytes))
+                    using (var loaded = Image.FromStream(ms))
+                        SetPictureImage(new Bitmap(loaded));
+                }
+                catch { }
+            }
+        }
+
         public void ForceClose()
         {
             Close();
